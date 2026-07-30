@@ -27,9 +27,9 @@ small set of sibling crates inside this workspace:
 
 ```bash
 cargo check --workspace
-cargo nextest run --workspace
+cargo test --workspace
 cargo check --manifest-path crates/batchalign-pyo3/Cargo.toml    # PyO3 crate (separate)
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 ```
 
 ## CLI Command Dispatch (Single Source of Truth)

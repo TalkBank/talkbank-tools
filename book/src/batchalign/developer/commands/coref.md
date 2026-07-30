@@ -84,9 +84,9 @@ resolved language before dispatching; non-English files pass through with no
 
 ```bash
 make test
-cargo nextest run -p batchalign -E 'test(coref::)'
+cargo test -p batchalign coref::
 # Requires Stanza coref model
-cargo nextest run --profile ml -E 'test(coref::golden)'
+cargo test -p batchalign --features ml-golden --test ml_golden coref::golden
 ```
 
 ---

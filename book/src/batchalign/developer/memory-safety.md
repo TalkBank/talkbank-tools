@@ -217,13 +217,13 @@ two unrelated heuristics.
 ### Layer 5: Machine-wide ML test lock
 
 The live ML fixture now acquires a machine-wide test lock before preparing warm
-workers. This prevents concurrent `cargo test`, IDE, or nextest runs from each
+workers. This prevents concurrent `cargo test` or IDE runs from each
 building their own model pool on the same machine.
 
 This lock complements, rather than replaces:
 
 - `RUST_TEST_THREADS=1`,
-- the nextest ML test group,
+- the ML golden suite,
 - the single-binary `ml_golden` layout.
 
 ### Layer 6: SIGKILL Follow-Through in Drop
@@ -262,13 +262,13 @@ macro_rules! require_python {
 
 The Makefile's `test` target runs Rust lib tests (pure Rust, no
 Python). Integration tests that spawn workers are opt-in via
-`cargo nextest run` filters against specific test binaries; ML
+`cargo test` filters against specific test binaries; ML
 model tests are gated behind their own per-host opt-in flags and
 must only be run on a Fleet/Large-tier host with ≥ 256 GB RAM:
 
 ```bash
 make test                                            # Pure Rust, no Python
-cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
+cargo test -p batchalign --test worker_integration -- --test-threads=1
 # ML golden tests: Fleet/Large-tier hosts only, see docs/runbooks/batchalign3-testing.md
 ```
 
@@ -300,7 +300,7 @@ make test
 # Worker integration tests (test-echo mode, no ML models): safe with
 # the memory guard; spawn real Python workers in test-echo mode
 # without model loading
-cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
+cargo test -p batchalign --test worker_integration -- --test-threads=1
 
 # NEVER run ML golden tests on a 64 GB machine; they will OOM.
 ```
@@ -310,8 +310,8 @@ cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
 ```bash
 # Pure Rust + worker integration + ML golden tests
 make test
-cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
-cargo nextest run -p batchalign --test ml_golden -- --test-threads=1
+cargo test -p batchalign --test worker_integration -- --test-threads=1
+cargo test -p batchalign --test ml_golden -- --test-threads=1
 ```
 
 ### Running a specific integration test
@@ -333,8 +333,8 @@ cargo test -p batchalign --tests
 # NEVER: same problem, workspace-wide
 cargo test --workspace
 
-# NEVER: nextest runs binaries in parallel by default
-cargo nextest run -p batchalign
+# NEVER: the test harness runs binaries in parallel by default
+cargo test -p batchalign
 ```
 
 ## Implementation Files

@@ -212,7 +212,7 @@ the wild was not written by Batchalign.
 
 ```bash
 make test
-cargo nextest run -p batchalign -E 'test(translate::)'
+cargo test -p batchalign translate::
 ```
 
 ---

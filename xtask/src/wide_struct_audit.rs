@@ -7,12 +7,12 @@
 //! Run it with `cargo run -q -p xtask -- lint-wide-structs`. It is wired into
 //! `make ci-local` and `make batchalign-ci-rust`, so CI fails on drift.
 //!
-//! The line here used to name a `cargo nextest run -p talkbank-tools --test
-//! wide_struct_audit` proxy as a second entrypoint. All three parts of that
-//! were stale: nextest is banned and uninstalled in this workspace, the
-//! `talkbank-tools` package no longer exists (the workspace is virtual), and no
-//! `wide_struct_audit` test target has ever existed here. Only CI keeps this
-//! honest, which is why it now runs there.
+//! The line here used to name a second entrypoint: a nextest-invoked proxy
+//! test in a `talkbank-tools` package. All three parts of that were stale:
+//! nextest is banned and uninstalled in this workspace, that package no longer
+//! exists (the workspace is virtual), and no `wide_struct_audit` test target
+//! has ever existed here. Only CI keeps this honest, which is why it now runs
+//! there.
 
 use std::path::Path;
 

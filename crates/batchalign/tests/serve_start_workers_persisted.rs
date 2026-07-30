@@ -21,7 +21,7 @@
 //! in `runner::util` for the same invariant pinned at the planner
 //! level.
 //!
-//! Run: `cargo nextest run -p batchalign --test serve_start_workers_persisted`
+//! Run: `cargo test -p batchalign --test serve_start_workers_persisted`
 //! (skips gracefully if Python with batchalign deps is unavailable).
 // Integration tests are exempt from the crate's deny-level panic lints,
 // matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern

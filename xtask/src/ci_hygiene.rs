@@ -67,6 +67,21 @@ struct BannedPattern {
 }
 
 const BANNED_PATTERNS: &[BannedPattern] = &[
+    // The INVOCATION forms, not the bare word. Prose that explains why the
+    // runner is banned has to stay legal, or every future mention needs an
+    // allowlist entry and the pressure is always to weaken the check rather
+    // than to add one. `cargo nextest run` and `cargo nextest list` are
+    // instructions; "nextest is banned here" is documentation.
+    BannedPattern {
+        pattern: "cargo nextest run",
+        reason: "nextest is banned and uninstalled here; this command can only \
+                 fail with `no such command`. Use `cargo test`",
+    },
+    BannedPattern {
+        pattern: "cargo nextest list",
+        reason: "nextest is banned and uninstalled here; use \
+                 `cargo test ... -- --list`",
+    },
     BannedPattern {
         pattern: "batchalign-next",
         reason: "retired command name",
@@ -140,14 +155,21 @@ const DOC_BANNED: &[BannedPattern] = &[
     },
 ];
 
+/// Pages whose CONTENT is operator-facing enough to warrant the stricter
+/// [`DOC_BANNED`] list on top of [`BANNED_PATTERNS`].
+///
+/// Repointed 2026-07-30. Four of these named pre-chatter-split locations
+/// (`book/src/user-guide/`, `book/src/developer/{building,testing}.md`) that
+/// have lived under `book/src/batchalign/` since 2026-05/06, so the stricter
+/// list was inert on exactly the pages it was written for.
 const DOC_ACTIVE_PREFIXES: &[&str] = &[
     "README.md",
     "examples/launchd.plist",
     "examples/server.yaml",
-    "book/src/introduction.md",
-    "book/src/user-guide/",
-    "book/src/developer/building.md",
-    "book/src/developer/testing.md",
+    "book/src/batchalign/introduction.md",
+    "book/src/batchalign/user-guide/",
+    "book/src/batchalign/developer/building.md",
+    "book/src/batchalign/developer/testing.md",
 ];
 
 fn allowlist() -> HashMap<&'static str, Vec<&'static str>> {
@@ -160,16 +182,15 @@ fn allowlist() -> HashMap<&'static str, Vec<&'static str>> {
             ],
         ),
         // Historical/architecture docs legitimately reference batchalign-next by name.
+        // The former `book/src/architecture/worker-architecture-assessment.md`
+        // entry was dropped on 2026-07-30: that page does not exist anywhere in
+        // the book, under this or any other path.
         (
-            "book/src/architecture/worker-architecture-assessment.md",
+            "book/src/batchalign/developer/worker-protocol-v2.md",
             vec!["batchalign-next"],
         ),
         (
-            "book/src/developer/worker-protocol-v2.md",
-            vec!["batchalign-next"],
-        ),
-        (
-            "book/src/migration/algorithms-and-language.md",
+            "book/src/batchalign/migration/algorithms-and-language.md",
             vec!["batchalign-next"],
         ),
         // Rust source comment documenting legacy behavior.
@@ -216,18 +237,22 @@ fn walkdir(dir: &Path) -> Vec<PathBuf> {
 }
 
 fn scan_files(root: &Path) -> Vec<PathBuf> {
+    // `book/src` wholesale, NOT an enumeration of its subdirectories.
+    //
+    // It used to list `book/src/{migration,architecture,reference,user-guide,
+    // developer}`, and after the chatter split moved the book under
+    // `book/src/batchalign/`, four of those five paths no longer existed. The
+    // scan silently covered almost none of the book, and this check runs in CI,
+    // so it was reporting OK on a corpus it was not reading. Found on
+    // 2026-07-30 when a newly added banned pattern failed its own positive
+    // control. Directory names move; the root does not.
     let active_paths: Vec<PathBuf> = [
         "README.md",
         ".github/workflows",
         "batchalign",
         "crates",
         "frontend/src",
-        "book/src/introduction.md",
-        "book/src/migration",
-        "book/src/architecture",
-        "book/src/reference",
-        "book/src/user-guide",
-        "book/src/developer",
+        "book/src",
     ]
     .iter()
     .map(|p| root.join(p))

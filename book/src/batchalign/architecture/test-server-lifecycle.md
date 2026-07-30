@@ -271,8 +271,8 @@ These remain as additional safety nets beyond the single-binary consolidation:
 
 | Layer | Where | What |
 |-------|-------|------|
-| nextest default-filter | `.config/nextest.toml` | ML binary excluded from `cargo nextest run` |
-| nextest ml test group | `.config/nextest.toml` | ML binary serialized (`max-threads=1`) when opted in |
+| `required-features` gate | `crates/batchalign/Cargo.toml` | ML binary excluded from a plain `cargo test`; opt in with `--features ml-golden --test ml_golden` |
+| `--test-threads=1` | the ML entry point (`make batchalign-test-ml-golden`) | ML binary serialized when opted in |
 | Claude Code guard hook | operator's `~/.claude/settings.json` deny list (workspace-level, not tracked in this repo) | Blocks test commands when worker processes detected |
 | Global worker cap | `WorkerPool` (`max_total_workers`) | Hard ceiling on total workers across all keys |
 | `WorkerPool::Drop` | `pool/mod.rs` | Kills idle workers when pool dropped without `shutdown()` |
@@ -285,12 +285,11 @@ becomes too large to link, or test isolation requires separate processes),
 the next step is a shared test daemon. This is preserved here as a future
 option, not a current plan.
 
-The idea: one long-lived server for the entire `cargo nextest run --profile
-ml` invocation, with test binaries connecting as HTTP clients. The server's
+The idea: one long-lived server for the entire ML-suite invocation, with test binaries connecting as HTTP clients. The server's
 autotuner and memory gate handle scheduling. Models load once and stay warm.
 
 **Implementation options (in order of simplicity):**
-1. **nextest setup script**: `[profile.ml.scripts.setup]` starts a daemon
+1. **A runner setup hook**: some harness starts a daemon
 2. **Test-managed daemon**: file-lock coordination in `common/mod.rs`
 3. **Always-on dev daemon**: assume a running server, skip if absent
 

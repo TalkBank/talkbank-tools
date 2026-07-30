@@ -12,7 +12,7 @@
 //!
 //! Tests skip gracefully if models are unavailable.
 //!
-//! Run: `cargo nextest run -p batchalign --test ml_golden --profile ml`
+//! Run: `cargo test -p batchalign --features ml-golden --test ml_golden`
 
 mod gpu;
 mod helpers;

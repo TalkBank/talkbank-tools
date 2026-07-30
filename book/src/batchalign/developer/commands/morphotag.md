@@ -407,10 +407,10 @@ calls the injection path and propagates the validation outcomes.
 make test
 
 # Morphotag golden tests (real Stanza models, only on Fleet/Large-tier hosts with the models present)
-cargo nextest run --profile ml -E 'test(morphosyntax::)'
+cargo test -p batchalign --features ml-golden --test ml_golden morphosyntax::
 
 # Retokenization unit tests
-cargo nextest run -p batchalign -E 'test(retokenize::)'
+cargo test -p batchalign retokenize::
 ```
 
 ---

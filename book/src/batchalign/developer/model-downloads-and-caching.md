@@ -234,7 +234,7 @@ excluded from the default `pytest` run:
 
 ```bash
 uv run pytest -m golden                # Python golden tests
-cargo nextest run --profile ml         # Rust ML golden tests
+cargo test -p batchalign --features ml-golden --test ml_golden         # Rust ML golden tests
 ```
 
 Models download automatically on first run. Subsequent runs use the cache.
@@ -265,7 +265,7 @@ PyCantonese tests run in the default suite because PyCantonese is bundled
 |---|---|---|
 | `uv run pytest` (default) | PyCantonese: 0s (bundled) | < 1s |
 | `uv run pytest -m golden` | Stanza English: ~2 min, Stanza Chinese: ~2 min | < 30 s |
-| `cargo nextest run --profile ml` | Stanza + Whisper: ~5-10 min | < 2 min |
+| `cargo test -p batchalign --features ml-golden --test ml_golden` | Stanza + Whisper: ~5-10 min | < 2 min |
 
 ## Adding a new model load site
 

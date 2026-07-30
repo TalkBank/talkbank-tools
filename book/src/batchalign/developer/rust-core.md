@@ -154,14 +154,12 @@ cargo build -p batchalign
 ## Running Rust tests
 
 ```bash
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 ```
 
-For the parser integration suite, run from the workspace root:
-
-```bash
-cargo nextest run -p talkbank-parser-tests
-```
+The parser integration suite lives in the chatter repository now, not here:
+`talkbank-parser-tests` is consumed as a git dependency, so `-p` cannot
+select it from this workspace. Run it from a chatter checkout.
 
 ## GIL release strategy
 

@@ -261,10 +261,10 @@ Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:539-554`.
 make test
 
 # FA-specific tests with real models (only on Fleet/Large-tier hosts, ≥ 256 GB RAM)
-cargo nextest run --profile ml -E 'test(fa::)'
+cargo test -p batchalign --features ml-golden --test ml_golden fa::
 
 # Incremental processing tests
-cargo nextest run -p batchalign --test incremental
+cargo test -p batchalign --test incremental
 ```
 
 Key test locations:

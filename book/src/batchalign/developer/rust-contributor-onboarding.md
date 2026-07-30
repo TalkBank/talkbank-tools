@@ -35,8 +35,8 @@ The batchalign side of the workspace is split across three crates:
 make sync
 make build
 cargo check --workspace
-cargo nextest run --workspace
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --workspace
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 ```
 
 `make sync` is the normal setup path even for Cantonese/provider work.
@@ -72,9 +72,9 @@ Rebuild rule of thumb while iterating:
 ```bash
 cargo build -p batchalign
 make build-python
-cargo nextest run -p batchalign --test cli
-cargo nextest run -p batchalign --test e2e
-cargo nextest run -p batchalign --test integration
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test -p batchalign --test cli
+cargo test -p batchalign --test e2e
+cargo test -p batchalign --test integration
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 cargo run -q -p batchalign -- openapi --check --output openapi.json
 ```

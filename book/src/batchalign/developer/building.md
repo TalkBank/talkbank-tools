@@ -10,7 +10,6 @@ Development is supported on **Windows, macOS, and Linux**. The instructions belo
 - **[uv](https://docs.astral.sh/uv/)** -- Python package manager (all platforms). Used for all dependency management and running commands.
 - **Rust (stable)** via [rustup](https://rustup.rs/) (all platforms) -- needed for the Rust CLI and PyO3 extension.
 - **Node.js + npm** -- needed for `make build` and `make build-dashboard`, which rebuild the embedded dashboard bundled into the Rust binary.
-- **`cargo-nextest`** -- Required for Rust test runs. Install once with `cargo install cargo-nextest --locked`.
 - **[maturin](https://www.maturin.rs/)** -- Required only if you modify the Rust `batchalign_core` extension.
 - **Python 3.12** for development and current deployment targets. 3.14t/free-threaded work is paused again and is **not** an active install or deployment target. Revisit only when `developer/python-versioning.md` is updated for a newer interpreter line such as 3.15+.
 - **Platform note:** On macOS, `python` and `python3` may not exist outside a venv. Always use `uv run` to execute Python commands, which handles this automatically on all platforms.
@@ -189,7 +188,7 @@ that actually owns the algorithmic or orchestration semantics (`compare.rs`,
 Run the Rust test suite to verify your changes:
 
 ```bash
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 ```
 
 ## Type Checking

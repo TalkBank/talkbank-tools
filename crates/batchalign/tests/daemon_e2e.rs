@@ -3,7 +3,7 @@
 //! Verifies that `batchalign3 serve start` / `serve status` / `serve stop`
 //! work as subprocesses with process isolation.
 //!
-//! Run: `cargo nextest run -p batchalign --test daemon_e2e`
+//! Run: `cargo test -p batchalign --test daemon_e2e`
 // Integration tests are exempt from the crate's deny-level panic lints,
 // matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
 // (see docs/panic-audit/).

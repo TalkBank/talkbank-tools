@@ -149,7 +149,7 @@ Three levels are the standard:
   inputs without the real library. Fast, run on every `make test`.
 - **Integration test**: runs the full handler with the real
   upstream library loaded. Marked `@pytest.mark.golden` (Python) or
-  gated behind the `ml_golden` nextest profile (Rust). Asserts the
+  gated behind the `ml-golden` cargo feature (Rust). Asserts the
   rewrite fires and the output is clean.
 - **Standalone reproducer** from step 1, remains as the
   upgrade-time probe.

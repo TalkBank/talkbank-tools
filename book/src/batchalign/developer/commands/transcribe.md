@@ -183,7 +183,7 @@ dedicated speaker stage runs.
 make test
 
 # Transcribe golden tests (real ASR models, only on Fleet/Large-tier hosts)
-cargo nextest run --profile ml -E 'test(transcribe::)'
+cargo test -p batchalign --features ml-golden --test ml_golden transcribe::
 
 # Python ASR inference tests
 uv run pytest batchalign/tests/test_asr.py -m golden

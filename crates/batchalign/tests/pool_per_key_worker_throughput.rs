@@ -38,7 +38,7 @@
 //! Single-point invocation (set `STANZA_PER_KEY` from `1..=9`):
 //!
 //! ```text
-//! STANZA_PER_KEY=7 cargo nextest run -p batchalign \
+//! STANZA_PER_KEY=7 cargo test -p batchalign \
 //!     --test pool_per_key_worker_throughput -- --ignored
 //! ```
 //!

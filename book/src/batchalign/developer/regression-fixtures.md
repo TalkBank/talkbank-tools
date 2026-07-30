@@ -193,7 +193,7 @@ assertions operate on the parsed `ChatFile` directly and do not.
 7. **Run the test, confirm RED:**
 
    ```bash
-   cargo nextest run -p batchalign --profile ml \
+   cargo test -p batchalign --features ml-golden --test ml_golden \
          -E 'test(transcribe::regressions::transcribe_regression_001)'
    ```
 
@@ -207,20 +207,20 @@ assertions operate on the parsed `ChatFile` directly and do not.
 
 The regression-fixture tests live in the `ml_golden` test binary so they
 share its warmed worker pool with the other ML golden tests. They are
-gated behind the `ml` nextest profile and will not run on a normal
+gated behind the `ml-golden` cargo feature and will not run on a normal
 `cargo test` or `make test` invocation.
 
 ```bash
 # Run every align regression fixture
-cargo nextest run -p batchalign --profile ml \
+cargo test -p batchalign --features ml-golden --test ml_golden \
     -E 'test(align::regressions::)' --no-fail-fast
 
 # Run every transcribe regression fixture
-cargo nextest run -p batchalign --profile ml \
+cargo test -p batchalign --features ml-golden --test ml_golden \
     -E 'test(transcribe::regressions::)' --no-fail-fast
 
 # Run a single fixture
-cargo nextest run -p batchalign --profile ml \
+cargo test -p batchalign --features ml-golden --test ml_golden \
     -E 'test(transcribe::regressions::transcribe_regression_001)'
 ```
 

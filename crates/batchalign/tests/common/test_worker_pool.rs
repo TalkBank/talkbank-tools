@@ -1,6 +1,6 @@
 //! Per-test-binary, ConfigKey-keyed Python-worker fixture.
 //!
-//! Each `cargo nextest run` of the python-workers test-group fork/exec's
+//! Each `cargo test` run of the worker-spawning suites fork/exec's
 //! ~50 `uv run python -m batchalign.worker` processes. At default parallelism
 //! the spawn tail under contention exceeded `ready_timeout_s`, producing
 //! flaky failures. `.config/nextest.toml` currently caps the group at

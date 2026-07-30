@@ -11,7 +11,7 @@
 #   jobs=$(bash scripts/choose-test-concurrency.sh default)
 #   cargo test -p batchalign -- --test-threads "$jobs"
 #
-# The usage line named `cargo nextest run` until 2026-07-30. That runner is
+# The usage line named the nextest runner until 2026-07-30. That runner is
 # banned and uninstalled in this workspace, so following the instruction
 # produced "no such command"; the profile names below survive as memory-budget
 # labels, which is all this script ever computed.

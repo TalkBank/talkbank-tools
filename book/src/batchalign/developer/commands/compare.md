@@ -103,10 +103,10 @@ assembly.
 ```bash
 # Unit tests (no ML models)
 make test
-cargo nextest run -p batchalign -E 'test(compare::)'
+cargo test -p batchalign compare::
 
 # Golden tests (real Stanza for morphotag step, only on Fleet/Large-tier hosts)
-cargo nextest run --profile ml -E 'test(compare::golden)'
+cargo test -p batchalign --features ml-golden --test ml_golden compare::golden
 ```
 
 ---

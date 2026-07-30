@@ -82,7 +82,7 @@ structures:
 You can list or run that group with:
 
 ```bash
-cargo nextest run -p batchalign -E 'test(validate_generated_gra)'
+cargo test -p batchalign validate_generated_gra
 ```
 
 ## Scope

@@ -15,8 +15,10 @@
 //! sessions. This prevents the OOM crashes caused by independent binaries each
 //! spawning their own worker pools (multiple Whisper/Stanza model copies).
 //!
-//! Run: `cargo nextest run -p batchalign --profile ml` (the `ml` profile's
-//! `default-filter` selects this binary; bare `cargo nextest run` excludes it).
+//! Run: `cargo test -p batchalign --features ml-golden --test ml_golden`, or
+//! `make batchalign-test-ml-golden`. A plain `cargo test` cannot reach this
+//! binary at all: its target declares `required-features = ["ml-golden"]`, so
+//! the exclusion is a property of the code rather than of a runner config.
 //! Update golden snapshots: `cargo insta review`
 
 mod common;

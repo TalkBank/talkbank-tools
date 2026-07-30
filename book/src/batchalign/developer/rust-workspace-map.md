@@ -60,16 +60,16 @@ Top-level modules under `crates/batchalign/src/`:
 ```bash
 cargo build -p batchalign
 cargo check --workspace
-cargo nextest run --workspace
-cargo nextest run -p batchalign --test cli
-cargo nextest run -p batchalign --test integration
+cargo test --workspace
+cargo test -p batchalign --test cli
+cargo test -p batchalign --test integration
 cargo xtask affected-rust packages
 
 # Python extension build
 uv run maturin develop -m crates/batchalign-pyo3/Cargo.toml -F pyo3/extension-module
 # or, for a full wheel install into the dev env:
 #   make batchalign-build-wheel && make batchalign-python-prepare
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 ```
 
 ## Where to make changes

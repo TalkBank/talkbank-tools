@@ -118,10 +118,10 @@ on the server or on explicit request.
 
 ### Implementation
 
-- Use `cargo nextest` with the relevant test filter (no dedicated
-  `[profile.stress]` is defined in `.config/nextest.toml` today;
-  define one before landing the first stress test, or invoke
-  `cargo test -p batchalign --test <stress-test>` directly).
+- Invoke `cargo test -p batchalign --test <stress-test>` directly.
+  (This said "use `cargo nextest` with a `[profile.stress]`" until
+  2026-07-30; that runner is banned and uninstalled here, so the direct
+  form is now the only form.)
 - **Not part of default CI.** Triggered manually or as part of the release
   process.
 - **Run on the server only**: these tests consume significant memory and CPU.

@@ -113,7 +113,7 @@ After any dependency change to `crates/batchalign-pyo3/Cargo.toml`:
 
 ```bash
 cargo check --manifest-path crates/batchalign-pyo3/Cargo.toml
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 uv run maturin develop -m crates/batchalign-pyo3/Cargo.toml -F pyo3/extension-module
 uv run batchalign3 --help
 uv run pytest

@@ -370,7 +370,7 @@ Python tests:
 To run the Rust side locally:
 
 ```bash
-cargo nextest run -p batchalign retokenize::tests
+cargo test -p batchalign retokenize::tests
 ```
 
 The ML goldens require real Stanza models and only run on a
