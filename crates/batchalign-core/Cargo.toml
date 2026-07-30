@@ -1,0 +1,25 @@
+[package]
+name = "batchalign-core"
+version = "0.1.0"
+description = "Batchalign task runners, traits and typed model, with no runtime, I/O, SQL or Python"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# DELIBERATELY EMPTY, and the gate is what keeps it honest.
+#
+# This crate is defined by what it cannot reach. Before adding ANY dependency
+# here, run `cargo run -q -p xtask -- lint-core-purity`: an HTTP server or
+# client, SQL, the Python bridge or a second executor fails the build, because a
+# core that can open a socket is no longer testable without one.
+#
+# `tokio` may be declared here for `tokio::sync` alone (its channels and locks
+# are executor-agnostic and pull in no scheduler). Note that the FEATURE list
+# written here is not what gets compiled: Cargo unifies features across the
+# workspace, so core links whatever tokio `batchalign` asks for. The scheduler is
+# therefore kept out by the gate's SOURCE check, not by this manifest.
+[dependencies]
+
+[lints]
+workspace = true

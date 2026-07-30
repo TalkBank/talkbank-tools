@@ -75,6 +75,7 @@ fn main() {
 mod audit_docs;
 mod audit_prose_references;
 mod ci_hygiene;
+mod core_purity;
 mod dead_variant_audit;
 mod docs_sync;
 mod gen_runtime_toml;
@@ -103,6 +104,12 @@ fn run_main() -> Result<()> {
         }
         Some("lint-wide-structs") => wide_struct_audit::run(repo_root()),
         Some("lint-ci-hygiene") => ci_hygiene::run(repo_root()),
+        Some("lint-core-purity") => {
+            if args.next().is_some() {
+                return Err(usage_error());
+            }
+            core_purity::run(repo_root())
+        }
         Some("lint-docs-sync") => docs_sync::run(repo_root()),
         Some("lint-dead-variants") => {
             let rest: Vec<String> = args.collect();
@@ -131,7 +138,7 @@ fn run_main() -> Result<()> {
 }
 
 fn usage_error() -> DynError {
-    "usage: cargo run -q -p xtask -- {help|affected-rust {packages|check|clippy|test}|lint-wide-structs|lint-ci-hygiene|lint-docs-sync|lint-dead-variants ...|panic-audit [--json] [--crate <prefix>]|audit-docs <scan|flag-staleness|status|streak|vet> [args...]|audit-prose-references|gen-runtime-toml [--check]}".into()
+    "usage: cargo run -q -p xtask -- {help|affected-rust {packages|check|clippy|test}|lint-wide-structs|lint-ci-hygiene|lint-core-purity|lint-docs-sync|lint-dead-variants ...|panic-audit [--json] [--crate <prefix>]|audit-docs <scan|flag-staleness|status|streak|vet> [args...]|audit-prose-references|gen-runtime-toml [--check]}".into()
 }
 
 fn print_help() {
@@ -153,6 +160,12 @@ fn print_help() {
     println!("      Audit oversized structs against the repo's architecture rules.");
     println!("  lint-ci-hygiene");
     println!("      Verify merged Batchalign/CI retirement and version-consistency rules.");
+    println!("  lint-core-purity");
+    println!(
+        "      Fail if batchalign-core's normal dependency tree acquires an async runtime, \
+         an HTTP server or client, SQL or the Python bridge. `tokio` is checked by feature: \
+         `sync` is allowed, a scheduler is not."
+    );
     println!("  lint-docs-sync");
     println!("      Check docs that must stay synchronized with the command/runtime surface.");
     println!("  lint-dead-variants [args...]");

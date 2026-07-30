@@ -9,12 +9,17 @@
 #
 # Usage:
 #   jobs=$(bash scripts/choose-test-concurrency.sh default)
-#   cargo nextest run --profile interactive --test-threads $jobs
+#   cargo test -p batchalign -- --test-threads "$jobs"
+#
+# The usage line named `cargo nextest run` until 2026-07-30. That runner is
+# banned and uninstalled in this workspace, so following the instruction
+# produced "no such command"; the profile names below survive as memory-budget
+# labels, which is all this script ever computed.
 #
 # Output: a single integer on stdout; caller captures.
 #
-# Profiles (match batchalign3/.config/nextest.toml test-groups and
-# documented worker memory budgets):
+# Profiles (memory-budget labels, matching the documented worker budgets;
+# formerly also the names of nextest test-groups):
 #   default: pure Rust lib/unit tests, no ML models          ~1 GB
 #   ml: loads Stanza + friends into the test process   ~12 GB
 #   gpu: loads Whisper (FA / ASR)                        ~6 GB

@@ -1,9 +1,11 @@
 """Memory-budget parallelism for pytest xdist.
 
 Phase D of the test-cost revamp. Mirrors the constants in
-``scripts/choose-test-concurrency.sh`` (used for ad-hoc nextest
-invocations) so pytest and cargo-nextest share one mental model of
-"how many of these can I run at once."
+``scripts/choose-test-concurrency.sh`` (used for ad-hoc ``cargo test``
+invocations) so pytest and cargo share one mental model of "how many of
+these can I run at once." Both said "nextest" until 2026-07-30; that
+runner is banned and uninstalled here, and the constants never depended
+on it.
 
 The previous policy was a binary cliff: if system RAM was below 128
 GB, the OOM guard forced ``-n 0`` for any run containing golden
@@ -27,7 +29,7 @@ from typing import Final
 
 # Per-profile peak resident-set estimates. Keep in sync with
 # ``scripts/choose-test-concurrency.sh``; the shell script copy
-# serves the nextest path, this module serves the pytest path.
+# serves the cargo-test path, this module serves the pytest path.
 _PEAK_RSS_MB: Final[dict[str, int]] = {
     "default": 1024,
     "python": 1024,

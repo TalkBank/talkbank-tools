@@ -336,7 +336,6 @@ jobs:
         with:
           name: dashboard-dist
           path: frontend/dist/
-      - uses: taiki-e/install-action@nextest
       - uses: actions/download-artifact@v8
         with:
           name: wheel-3.13
@@ -403,7 +402,6 @@ jobs:
         with:
           shared-key: rust-workspace
       - uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: taiki-e/install-action@nextest
       - uses: actions/download-artifact@v8
         with:
           name: wheel-3.13
@@ -414,10 +412,16 @@ jobs:
           uv pip install --no-deps dist/*.whl
       - name: Python coverage
         run: uv run --no-sync pytest --cov=batchalign --cov-report=lcov:lcov-python.info batchalign --disable-pytest-warnings -k 'not test_whisper_fa_pipeline'
+      # `cargo llvm-cov` with no runner argument drives `cargo test`. It used to
+      # say `llvm-cov nextest`, which cannot work: nextest is banned and
+      # uninstalled in this workspace. The PyO3 step also pointed at
+      # `pyo3/Cargo.toml`, a path that has not existed since the crate moved
+      # under `crates/`, so `-p` is used instead of a path that can go stale.
+      # Both defects were invisible because this job is `workflow_dispatch`-only.
       - name: Rust PyO3 coverage
-        run: cargo llvm-cov nextest --manifest-path pyo3/Cargo.toml --lcov --output-path lcov-rust.info
+        run: cargo llvm-cov -p batchalign-pyo3 --lcov --output-path lcov-rust.info
       - name: Rust workspace coverage
-        run: cargo llvm-cov nextest --workspace --lcov --output-path lcov-rust-workspace.info
+        run: cargo llvm-cov --workspace --lcov --output-path lcov-rust-workspace.info
 
   dashboard-smoke:
     name: Dashboard Smoke

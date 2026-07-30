@@ -44,10 +44,16 @@ hooks-check:
 	  echo "warning: .git/hooks/pre-push is not installed, run 'make install-hooks'" >&2; \
 	fi
 
-# Run all tests
+# Run all tests.
+#
+# `cargo test`, never `cargo nextest`: nextest is banned and uninstalled in this
+# workspace (it execs every test binary up front merely to enumerate tests, which
+# saturates macOS's notarization-assessment path). This target and `smoke` below
+# still named it long after the removal, so `make test` could only fail with
+# "no such command".
 test:
 	@echo "==> Testing Rust workspace..."
-	cargo nextest run --workspace
+	cargo test --workspace
 	@echo "==> Testing doctests..."
 	cargo test --doc
 
@@ -56,13 +62,20 @@ test-affected:
 
 BATCHALIGN_PYTEST_ARGS ?= batchalign --disable-pytest-warnings -k "not test_whisper_fa_pipeline"
 
+# The crate list is explicit rather than `--workspace` so the CI job stays
+# scoped, which means a NEW workspace member is invisible here until it is added
+# by hand. `batchalign-fa-core` sat outside both this and the test gate below,
+# so its 7 library tests ran only when someone typed its name; added along with
+# the new `batchalign-core`.
 batchalign-check:
 	@echo "==> Checking imported Batchalign Rust crates..."
-	cargo check -p batchalign-types -p batchalign -p batchalign-transform -p batchalign-pyo3 --all-targets
+	cargo check -p batchalign-types -p batchalign-core -p batchalign-fa-core -p batchalign -p batchalign-transform -p batchalign-pyo3 --all-targets
 
 batchalign-test-rust:
 	@echo "==> Testing imported batchalign-types..."
 	cargo test -p batchalign-types --lib -q
+	@echo "==> Testing batchalign-fa-core (forced-alignment core)..."
+	cargo test -p batchalign-fa-core --lib -q
 	@echo "==> Testing batchalign-transform (ML over chatter's generic transform)..."
 	cargo test -p batchalign-transform --lib -q
 	@echo "==> Testing imported batchalign..."
@@ -180,7 +193,12 @@ batchalign-dashboard-e2e-real:
 	cd frontend/e2e && npm ci && npm run install:browsers
 	BATCHALIGN_REAL_SERVER_E2E=1 bash scripts/run_react_dashboard_smoke.sh
 
+# The purity gate runs FIRST: it is the cheapest gate here and the only one
+# stating a property no compiler can, namely that batchalign-core stays
+# reachable without a runtime, a disk, a server, a database or an interpreter.
 batchalign-ci-rust:
+	@echo "==> batchalign-core purity gate"
+	@cargo run -q -p xtask -- lint-core-purity
 	@$(MAKE) batchalign-check
 	@$(MAKE) batchalign-test-rust
 	@$(MAKE) batchalign-test-integration
@@ -252,7 +270,7 @@ smoke:
 	@echo "==> Compile check (workspace)..."
 	cargo check --workspace --all-targets
 	@echo "==> Testing $(CRATE)..."
-	cargo nextest run -p $(CRATE) --no-fail-fast
+	cargo test -p $(CRATE) --no-fail-fast
 
 # Fast local CI: fmt + dependency-aware compile checks + structural lints.
 ci-local:
@@ -262,6 +280,8 @@ ci-local:
 	cargo run -q -p xtask -- affected-rust check
 	@echo "==> wide struct audit"
 	cargo run -q -p xtask -- lint-wide-structs
+	@echo "==> batchalign-core purity gate"
+	cargo run -q -p xtask -- lint-core-purity
 	@echo "==> docs sync"
 	cargo run -q -p xtask -- lint-docs-sync
 	@echo "✓ ci-local passed"
@@ -276,6 +296,8 @@ ci-full:
 	cargo check --workspace --all-targets
 	@echo "==> runtime_constants.toml drift check"
 	@cargo run -p xtask --quiet -- gen-runtime-toml --check
+	@echo "==> batchalign-core purity gate"
+	@cargo run -q -p xtask -- lint-core-purity
 	@echo "==> imported Batchalign Rust/PyO3 gate"
 	@$(MAKE) batchalign-ci-rust
 	@echo "✓ ci-full passed"
