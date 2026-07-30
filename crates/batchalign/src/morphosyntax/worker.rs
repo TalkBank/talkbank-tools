@@ -228,22 +228,42 @@ async fn infer_batch_homogeneous(
     //      `pipeline/morphosyntax.rs`), so `ProgressTagger::install` gets
     //      `None` and no event is ever tagged or emitted.
     //   2. No drain loop aggregates tagged events into
-    //      `BatchInferProgress`. One existed in the batched-text dispatch
-    //      module, which has been retired; the recipe-owned `execution`
-    //      path consumes no `ProgressEventV2` at all. `register_group` /
-    //      `update_group` / `complete_group` have zero callers.
+    //      `BatchInferProgress`, and `RunnerEventSink` no longer has the
+    //      `set_batch_progress` method a drain loop published through.
+    //      `register_group` / `update_group` / `complete_group` have zero
+    //      callers.
     //   3. `Job::batch_progress` is therefore `None` at every construction
     //      site, so the CLI's per-language summary line and the
     //      dashboard's `BatchProgressPanel` never render, and the OpenAPI
     //      field is permanently null.
     //
-    // Restoring it means threading a progress channel from the recipe
-    // execution path down through `execution::worker_gateway` and
-    // `process_morphosyntax` to here, then aggregating and storing it.
-    // That is a feature-sized piece of work and it is display-only: no
-    // output data is affected. The parameter and the tagger are kept
-    // because they are the correct shape for the restored path, NOT
-    // because they currently do anything.
+    // IT USED TO WORK, and it has a date. At `15c88de2` (2026-04-28) the
+    // legacy batched-text dispatch created the channel, passed
+    // `Some(progress_tx.clone())` into this function, drained it in a
+    // spawned task keyed by `event.stage`, and published through
+    // `sink.set_batch_progress` every 2 seconds with a 120s stall
+    // republish. `e8235c13` (2026-05-03, "Bunch of stuff.", 2,052 files,
+    // -196,031 lines) removed all of it, eight days before the 2026-05-11
+    // stop. So this is a regression from a large restructure, not a feature
+    // that was never finished.
+    //
+    // The intended replacement exists in history and was never wired up:
+    // `crates/batchalign-app/src/execution/morphotag/progress.rs` at
+    // `15c88de2` is a 61-line `BatchProgressReporter` (owns the channel,
+    // spawns the drain, publishes on a 2s cadence and on a 120s stall,
+    // `finish()` awaits the drain). Nothing ever constructed it: the recipe
+    // path was mid-migration when the restructure landed, so the working
+    // producer left with the legacy path and its designed successor stayed
+    // dead on arrival.
+    //
+    // Restoring it is therefore recovery, not design: put
+    // `set_batch_progress` back on `RunnerEventSink` (plus its store-side
+    // write to `Job::batch_progress`), restore the reporter into
+    // `execution/morphotag/`, and thread its `sender()` down through
+    // `execution::worker_gateway` and `process_morphosyntax` to here so
+    // this parameter receives `Some`. Display-only: no output data is
+    // affected. The parameter and the tagger are kept because they are the
+    // correct shape for that path, NOT because they currently do anything.
     //
     // The compiler cannot warn about any of this: `BatchInferProgress` is
     // `pub` and re-exported through `types/api.rs`, so rustc treats it as
