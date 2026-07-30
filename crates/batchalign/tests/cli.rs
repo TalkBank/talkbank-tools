@@ -31,6 +31,34 @@ use common::test_server_fixture::acquire_test_server_session;
 // Version / help
 // ---------------------------------------------------------------------------
 
+/// Reserve an ephemeral port for a daemon that will bind it in ANOTHER process,
+/// returning the port and the listener holding it.
+///
+/// The kernel picks a free port, but the daemon cannot bind it while we still
+/// hold it, so the reservation must be released first. Everything between that
+/// release and the daemon's `bind()` is a window in which any outbound
+/// connection on the machine can take the port, because this is exactly the
+/// ephemeral range the kernel allocates from.
+///
+/// The five call sites used to drop the listener as a temporary on the line
+/// that read the port number, leaving the whole config write plus process spawn
+/// plus Python startup inside that window. It held in isolation and lost under
+/// full-suite load: on 2026-07-29
+/// `cli_transcribe_in_place_mp4_populates_injected_media_cache_live` failed a
+/// full run with "could not start local daemon", then passed alone in 138s.
+///
+/// Returning the listener lets each caller drop it immediately before the
+/// command that starts the daemon, which narrows the window from seconds to
+/// microseconds. It does NOT close it: handing a port NUMBER to another process
+/// is racy by construction. The race disappears only when the daemon binds port
+/// 0 itself and reports the port it got, which is a change to the daemon/CLI
+/// contract rather than to this harness.
+fn reserve_ephemeral_port() -> (u16, std::net::TcpListener) {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
+    let port = listener.local_addr().expect("local addr").port();
+    (port, listener)
+}
+
 #[test]
 fn version() {
     cmd()
@@ -591,15 +619,13 @@ fn cli_transcribe_explicit_server_falls_back_to_local_daemon() {
     std::fs::create_dir_all(&out_dir).expect("mkdir output");
     write_silent_wav(&in_dir.join("sample.wav"));
 
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("bind ephemeral port")
-        .local_addr()
-        .expect("local addr")
-        .port();
+    let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
         "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
     ));
 
+    // Release the port only now, immediately before the daemon binds it.
+    drop(port_reservation);
     let start_result = harness
         .cmd()
         .env("BATCHALIGN_PYTHON", &python_path)
@@ -688,16 +714,14 @@ fn cli_align_explicit_server_uses_remote_content_mode() {
     )
     .expect("write input");
 
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("bind ephemeral port")
-        .local_addr()
-        .expect("local addr")
-        .port();
+    let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
         "host: 127.0.0.1\nport: {port}\nauto_daemon: false\nwarmup_commands: []\nmedia_roots:\n  - {}\n",
         media_dir.display()
     ));
 
+    // Release the port only now, immediately before the daemon binds it.
+    drop(port_reservation);
     let start_result = harness
         .cmd()
         .env("BATCHALIGN_PYTHON", &python_path)
@@ -777,15 +801,13 @@ fn cli_transcribe_in_place_mp4_succeeds_via_local_daemon() {
     std::fs::create_dir_all(media_file.parent().expect("media parent")).expect("mkdir input");
     write_silent_mp4(&media_file);
 
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("bind ephemeral port")
-        .local_addr()
-        .expect("local addr")
-        .port();
+    let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
         "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
     ));
 
+    // Release the port only now, immediately before the daemon binds it.
+    drop(port_reservation);
     let start_result = harness
         .cmd()
         .env("BATCHALIGN_PYTHON", &python_path)
@@ -867,15 +889,13 @@ fn cli_transcribe_in_place_mp4_populates_injected_media_cache_live() {
     std::fs::create_dir_all(&cache_dir).expect("mkdir cache");
     transcode_audio_to_mp4(&source_audio, &media_file);
 
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("bind ephemeral port")
-        .local_addr()
-        .expect("local addr")
-        .port();
+    let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
         "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
     ));
 
+    // Release the port only now, immediately before the daemon binds it.
+    drop(port_reservation);
     let cli_result = harness
         .cmd()
         .env("BATCHALIGN_PYTHON", &python_path)
@@ -1005,15 +1025,13 @@ fn cli_compare_failed_auto_daemon_job_returns_server_exit_code() {
     std::fs::create_dir_all(&out_dir).expect("mkdir output");
     std::fs::write(in_dir.join("test.cha"), MINIMAL_CHAT).expect("write input");
 
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("bind ephemeral port")
-        .local_addr()
-        .expect("local addr")
-        .port();
+    let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
         "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
     ));
 
+    // Release the port only now, immediately before the daemon binds it.
+    drop(port_reservation);
     let cli_result = harness
         .cmd()
         .env("BATCHALIGN_PYTHON", &python_path)
