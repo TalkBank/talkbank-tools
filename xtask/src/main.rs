@@ -77,7 +77,6 @@ mod audit_prose_references;
 mod ci_hygiene;
 mod core_purity;
 mod dead_variant_audit;
-mod docs_sync;
 mod gen_runtime_toml;
 mod panic_audit;
 mod rust_scan;
@@ -113,10 +112,6 @@ fn run_main() -> Result<()> {
         Some("lint-core-purity") => {
             reject_trailing_args(&mut args)?;
             core_purity::run(repo_root())
-        }
-        Some("lint-docs-sync") => {
-            reject_trailing_args(&mut args)?;
-            docs_sync::run(repo_root())
         }
         Some("lint-dead-variants") => {
             let rest: Vec<String> = args.collect();
@@ -157,7 +152,7 @@ fn reject_trailing_args(args: &mut impl Iterator<Item = String>) -> Result<()> {
 }
 
 fn usage_error() -> DynError {
-    "usage: cargo run -q -p xtask -- {help|affected-rust {packages|check|clippy|test}|lint-wide-structs|lint-ci-hygiene|lint-core-purity|lint-docs-sync|lint-dead-variants ...|panic-audit [--json] [--crate <prefix>]|audit-docs <scan|flag-staleness|status|streak|vet> [args...]|audit-prose-references|gen-runtime-toml [--check]}".into()
+    "usage: cargo run -q -p xtask -- {help|affected-rust {packages|check|clippy|test}|lint-wide-structs|lint-ci-hygiene|lint-core-purity|lint-dead-variants ...|panic-audit [--json] [--crate <prefix>]|audit-docs <scan|flag-staleness|status|streak|vet> [args...]|audit-prose-references|gen-runtime-toml [--check]}".into()
 }
 
 fn print_help() {
@@ -185,8 +180,6 @@ fn print_help() {
          SQL, the Python bridge or a foreign executor, OR if its src/ reaches for the tokio \
          scheduler, the filesystem, a subprocess, a socket or the process environment."
     );
-    println!("  lint-docs-sync");
-    println!("      Check docs that must stay synchronized with the command/runtime surface.");
     println!("  lint-dead-variants [args...]");
     println!("      Audit enum variants that appear unused; accepts module/path filters.");
     println!("  panic-audit [--json] [--crate <prefix>]");

@@ -94,6 +94,22 @@ const BANNED_PATTERNS: &[BannedPattern] = &[
         pattern: "/opt/python/bin/python",
         reason: "hardcoded interpreter path",
     },
+    // Absorbed from the deleted `lint-docs-sync` on 2026-07-30. These three are
+    // public-repo hygiene: a private archive name and two maintainer-local home
+    // paths, none of which should appear in a repo the world can read. They
+    // apply to every doc here, not just the four paths that lint scanned.
+    BannedPattern {
+        pattern: "talkbank-private",
+        reason: "private archive path must not appear in a public repo",
+    },
+    BannedPattern {
+        pattern: "~/java-chatter",
+        reason: "maintainer-local historical path",
+    },
+    BannedPattern {
+        pattern: "~/OSX-CLAN",
+        reason: "maintainer-local historical path",
+    },
     BannedPattern {
         pattern: "batchalign.cli",
         reason: "retired Python CLI package path",

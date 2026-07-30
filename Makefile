@@ -294,8 +294,6 @@ ci-local:
 	@echo "==> affected compile check"
 	cargo run -q -p xtask -- affected-rust check
 	@$(MAKE) lint
-	@echo "==> docs sync"
-	cargo run -q -p xtask -- lint-docs-sync
 	@echo "✓ ci-local passed"
 
 # Full local CI: mirrors the stricter CI-style gate.
