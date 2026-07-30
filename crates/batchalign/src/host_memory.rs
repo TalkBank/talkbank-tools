@@ -25,22 +25,7 @@ use crate::worker::WorkerProfile;
 const DEFAULT_LOCK_POLL: Duration = Duration::from_secs(1);
 const DEFAULT_TEST_LOCK_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
-/// Host-wide memory pressure level derived from the current memory snapshot and
-/// reserved headroom.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum HostMemoryPressureLevel {
-    /// Plenty of free headroom remains after the configured reserve.
-    #[default]
-    Healthy,
-    /// Some headroom remains, but operators should expect reduced concurrency.
-    Guarded,
-    /// Very little headroom remains; only small new reservations should fit.
-    Constrained,
-    /// The configured reserve is exhausted or nearly exhausted.
-    Critical,
-}
+pub use crate::types::response::HostMemoryPressureLevel;
 
 /// Runtime-owned configuration for the machine-local memory ledger.
 #[derive(Debug, Clone, PartialEq, Eq)]

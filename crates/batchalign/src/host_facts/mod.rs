@@ -26,7 +26,6 @@ pub mod effective;
 pub mod gpu;
 pub mod os;
 pub mod recommendations;
-pub mod serde_helpers;
 pub mod test_helpers;
 pub mod validation;
 pub mod warnings;

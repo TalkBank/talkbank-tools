@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::serde_helpers::zero_as_none;
 use crate::api::{LanguageCode3, MemoryMb};
-use crate::host_facts::serde_helpers::zero_as_none;
 
 /// Minimal warmup preset: morphotag only.
 ///

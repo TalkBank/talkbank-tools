@@ -1,3 +1,9 @@
+//! Serde helpers for the `ServerConfig` deserialization boundary.
+//!
+//! Moved here from `host_facts/` on 2026-07-30. `host_facts` did not use any
+//! of it: every consumer was already in `types/config`, so the module only
+//! ever made `types` depend on an impure module.
+
 //! Serde helpers for the `Option<u32>` / `Option<i32>` / `Option<u64>`
 //! migration in Phase C of the host-facts architecture.
 //!

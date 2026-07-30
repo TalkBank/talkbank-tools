@@ -18,6 +18,8 @@ mod load;
 mod resolve;
 mod server;
 
+pub mod serde_helpers;
+
 #[cfg(test)]
 mod tests;
 

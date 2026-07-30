@@ -451,7 +451,7 @@ pub struct HealthResponse {
     /// Host-memory pressure classification derived from current OS memory plus
     /// active cross-process reservations.
     #[serde(default)]
-    pub host_memory_pressure: crate::host_memory::HostMemoryPressureLevel,
+    pub host_memory_pressure: HostMemoryPressureLevel,
     /// Total memory currently reserved by the host-memory coordinator.
     #[serde(default)]
     pub host_memory_reserved_mb: MemoryMb,
@@ -529,4 +529,26 @@ pub enum WarmupStatus {
     InProgress,
     /// All requested warmup spawns have finished (or none were requested).
     Complete,
+}
+
+/// Declared here rather than in `host_memory`, where it lived until
+/// 2026-07-30: it is a serde + `ToSchema` wire enum whose consumers are the
+/// health response and the health route, and while it lived there it was one of
+/// the references keeping `types` dependent on an impure module, and so keeping
+/// every module downstream of `types` out of the core crate.
+/// Host-wide memory pressure level derived from the current memory snapshot and
+/// reserved headroom.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum HostMemoryPressureLevel {
+    /// Plenty of free headroom remains after the configured reserve.
+    #[default]
+    Healthy,
+    /// Some headroom remains, but operators should expect reduced concurrency.
+    Guarded,
+    /// Very little headroom remains; only small new reservations should fit.
+    Constrained,
+    /// The configured reserve is exhausted or nearly exhausted.
+    Critical,
 }
