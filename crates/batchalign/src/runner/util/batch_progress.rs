@@ -422,13 +422,13 @@ mod tests {
         assert_eq!(sources.len(), 2);
         let a = sources
             .iter()
-            .find(|s| s.source_id == DisplayPath::from("a.cha"))
+            .find(|s| &*s.source_id == "a.cha")
             .expect("a.cha must be present");
         assert_eq!(a.completed, UtteranceCount(75));
         assert_eq!(a.total, UtteranceCount(200));
         let b = sources
             .iter()
-            .find(|s| s.source_id == DisplayPath::from("b.cha"))
+            .find(|s| &*s.source_id == "b.cha")
             .expect("b.cha must be present");
         assert_eq!(b.completed, UtteranceCount(10));
         assert_eq!(b.total, UtteranceCount(40));

@@ -96,7 +96,7 @@ pub use super::engines::*;
 // ---------------------------------------------------------------------------
 
 /// Options shared by all processing commands.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CommonOptions {
     /// Bypass the media analysis cache.
     #[serde(default)]
@@ -150,18 +150,6 @@ impl CommonOptions {
     /// the 2026-06-11 incident.
     pub fn engine_overrides_json(&self) -> String {
         self.engine_overrides.to_dispatch_json_string()
-    }
-}
-
-impl Default for CommonOptions {
-    fn default() -> Self {
-        Self {
-            override_media_cache: false,
-            engine_overrides: EngineOverrides::default(),
-            mwt: BTreeMap::new(),
-            debug_dir: None,
-            override_media_cache_tasks: Vec::new(),
-        }
     }
 }
 

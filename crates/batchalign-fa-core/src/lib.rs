@@ -147,7 +147,7 @@ pub fn dynamic_time_warping(matrix: &CostMatrix) -> Result<Vec<PathPoint>, FaDtw
 /// padding, matching `transformers`' `_median_filter` semantics for a
 /// 2-D row-major matrix (each row filtered independently).
 pub fn median_filter_rows(matrix: &mut CostMatrix, width: usize) -> Result<(), FaDtwError> {
-    if width % 2 == 0 {
+    if width.is_multiple_of(2) {
         return Err(FaDtwError::EvenFilterWidth(width));
     }
     if width <= 1 || matrix.cols == 1 {
@@ -155,7 +155,7 @@ pub fn median_filter_rows(matrix: &mut CostMatrix, width: usize) -> Result<(), F
     }
     // Reference behavior: if the axis is shorter than the filter width,
     // the effective width shrinks to the largest odd size that fits.
-    let width = width.min(if matrix.cols % 2 == 0 {
+    let width = width.min(if matrix.cols.is_multiple_of(2) {
         matrix.cols - 1
     } else {
         matrix.cols
