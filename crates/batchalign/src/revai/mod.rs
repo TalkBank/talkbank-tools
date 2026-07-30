@@ -20,9 +20,6 @@ mod utr;
 pub(crate) use asr::infer_revai_asr;
 pub(crate) use client::{Result, RevAiClient, TranscriptResult, extract_timed_words};
 pub(crate) use credentials::{RevAiApiKey, RevAiCredentialError, load_revai_api_key};
-pub(crate) use preflight::{
-    RevAiLanguageHint, RevAiPreflightPlan, preflight_submit_audio_paths, revai_known_broken,
-    try_revai_language_hint,
-};
+pub(crate) use preflight::{RevAiPreflightPlan, preflight_submit_audio_paths};
 pub(crate) use types::{SubmitOptions, Transcript};
 pub(crate) use utr::infer_revai_utr;

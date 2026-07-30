@@ -120,6 +120,7 @@ pub mod params;
 pub mod request;
 pub mod response;
 pub mod results;
+pub mod revai_language;
 pub mod runtime;
 pub mod scheduling;
 pub mod status;

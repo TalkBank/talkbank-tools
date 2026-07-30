@@ -17,7 +17,8 @@ use crate::api::{DurationSeconds, LanguageCode3, LanguageSpec, NumSpeakers};
 use crate::error::ServerError;
 use crate::transcribe::{AsrResponse, AsrToken};
 
-use super::{RevAiLanguageHint, load_revai_api_key};
+use super::load_revai_api_key;
+use crate::types::revai_language::RevAiLanguageHint;
 
 /// Run Rev.AI ASR directly from Rust and map the transcript into the shared
 /// `AsrResponse` domain used by the transcribe pipeline.

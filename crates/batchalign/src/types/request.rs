@@ -4,8 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::revai_language::{revai_known_broken, try_revai_language_hint};
 use crate::options::{AsrEngineName, CommandOptions, UtrEngine};
-use crate::revai::{revai_known_broken, try_revai_language_hint};
 
 use super::domain::{DisplayPath, LanguageCode3, LanguageSpec, NumSpeakers, ReleasedCommand};
 
