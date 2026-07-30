@@ -152,6 +152,20 @@ pub fn total_memory_mb() -> u64 {
     crate::host_memory::detect_total_memory_mb().0
 }
 
+/// Free permits on the process-global spawn semaphore, i.e. how many spawns
+/// could start right now.
+///
+/// Zero means some spawn already holds the only permit and every other spawn in
+/// this process is queued behind it until that worker reports ready. Exposed so
+/// a stalled test can say which of "waiting for the machine" and "waiting for a
+/// worker that will never register" it is looking at: a spawn that has not yet
+/// acquired this permit has created NO process, so the absence of a new pid is
+/// evidence of queuing, not of broken registration wiring. Diagnostic only;
+/// nothing schedules off it.
+pub fn available_spawn_permits() -> usize {
+    SPAWN_SEMAPHORE.available_permits()
+}
+
 /// Acquire a spawn permit, checking memory before allowing the spawn.
 ///
 /// This is the **only** path through which workers should be spawned.

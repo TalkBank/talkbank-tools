@@ -34,17 +34,34 @@ impl WorkerPool {
         );
 
         // Shut down shared GPU workers (stdio).
+        //
+        // A slot with no worker in it means a spawn for that key is in flight
+        // right now. Since `self.cancel.cancel()` above happens BEFORE this
+        // drain, that spawn's own completion path sees the cancelled token and
+        // retires the worker it produces (see `get_or_create_gpu_worker`), so
+        // dropping the empty slot here cannot orphan it. Waiting for it instead
+        // would make shutdown block for a model load.
         {
             let mut gpu_workers = self.gpu_workers.lock().await;
-            for ((target, lang, overrides), worker) in gpu_workers.drain() {
-                info!(
-                    target = %target.label(),
-                    lang = %lang,
-                    engine_overrides = %overrides,
-                    pid = %worker.pid(),
-                    "Shutting down GPU worker"
-                );
-                worker.shutdown().await;
+            for ((target, lang, overrides), slot) in gpu_workers.drain() {
+                match slot.ready_worker() {
+                    Some(worker) => {
+                        info!(
+                            target = %target.label(),
+                            lang = %lang,
+                            engine_overrides = %overrides,
+                            pid = %worker.pid(),
+                            "Shutting down GPU worker"
+                        );
+                        worker.shutdown().await;
+                    }
+                    None => info!(
+                        target = %target.label(),
+                        lang = %lang,
+                        engine_overrides = %overrides,
+                        "GPU worker still spawning at shutdown; its spawner will retire it"
+                    ),
+                }
             }
         }
 

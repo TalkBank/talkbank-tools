@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 use crate::api::{ReleasedCommand, WorkerLanguage};
 use crate::worker::WorkerTarget;
 
+use super::gpu_slot::GpuSlotState;
 use super::{WorkerPool, lock_recovered};
 
 impl WorkerPool {
@@ -42,10 +43,19 @@ impl WorkerPool {
                     return true;
                 }
             }
+            // A key whose spawn is still in flight does NOT count as having a
+            // worker: this answers "can a request be served right now", and it
+            // answered `false` for such a key before slots existed (the entry
+            // appeared only once the spawn had succeeded). Preserved
+            // deliberately.
             let gpu_workers = self.gpu_workers.lock().await;
-            return gpu_workers.keys().any(|(group_target, group_lang, _)| {
-                group_target == &target && group_lang == &lang
-            });
+            return gpu_workers
+                .iter()
+                .any(|((group_target, group_lang, _), slot)| {
+                    group_target == &target
+                        && group_lang == &lang
+                        && matches!(slot.state(), GpuSlotState::Ready(_))
+                });
         }
 
         // Sequential groups use std::sync::Mutex, scope the guard so it
@@ -74,7 +84,16 @@ impl WorkerPool {
                 .map(|g| g.total.load(Ordering::Relaxed))
                 .sum()
         };
-        let gpu_count = self.gpu_workers.lock().await.len();
+        // Keys whose spawn is in flight have no worker process yet, so they are
+        // not counted: this total is compared against worker CAPS, and counting
+        // a worker that does not exist would let the caps admit one too few.
+        let gpu_count = self
+            .gpu_workers
+            .lock()
+            .await
+            .values()
+            .filter(|slot| matches!(slot.state(), GpuSlotState::Ready(_)))
+            .count();
         let tcp_gpu_count = self.gpu_tcp_workers.lock().await.len();
         groups_count + gpu_count + tcp_gpu_count
     }
@@ -105,17 +124,23 @@ impl WorkerPool {
         };
 
         {
+            // This one REPORTS an in-flight spawn rather than hiding it. It is
+            // the operator-facing key listing, and "a worker for this key is
+            // coming up" is exactly what an operator watching a cold start
+            // wants to see; a key that silently appears minutes later reads as
+            // the server having done nothing.
             let gpu_workers = self.gpu_workers.lock().await;
-            for (target, lang, engine_overrides) in gpu_workers.keys() {
+            for ((target, lang, engine_overrides), slot) in gpu_workers.iter() {
                 let suffix = if engine_overrides.is_empty() {
                     String::new()
                 } else {
                     format!(":{}", engine_overrides)
                 };
-                keys.push(format!(
-                    "{}:{lang}{suffix} (1 total, shared)",
-                    target.label()
-                ));
+                let state = match slot.state() {
+                    GpuSlotState::Ready(_) => "1 total, shared",
+                    GpuSlotState::Spawning => "spawning",
+                };
+                keys.push(format!("{}:{lang}{suffix} ({state})", target.label()));
             }
         }
 
@@ -182,8 +207,16 @@ impl WorkerPool {
         };
 
         {
+            // Every field of an entry (profile, lang, pid, transport) is read
+            // off the worker itself, and a key whose spawn is in flight has no
+            // worker to read them from: there is no pid yet. So this listing
+            // skips it, and `worker_keys` above is where an operator sees that
+            // the key is coming up.
             let gpu_workers = self.gpu_workers.lock().await;
-            for ((_target, _lang, _engine_overrides), worker) in gpu_workers.iter() {
+            for slot in gpu_workers.values() {
+                let GpuSlotState::Ready(worker) = slot.state() else {
+                    continue;
+                };
                 entries.push(WorkerSummaryEntry {
                     profile: worker.profile_label(),
                     lang: worker.lang().to_string(),

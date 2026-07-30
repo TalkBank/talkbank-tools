@@ -65,13 +65,22 @@ macro_rules! require_python {
     }};
 }
 
-/// Build a GPU execute_v2 request with a unique request_id.
+/// Build a GPU execute_v2 request with a unique request_id, for English.
 fn gpu_execute_request(request_id: &str) -> ExecuteRequestV2 {
+    gpu_execute_request_for_lang(request_id, LanguageCode3::eng())
+}
+
+/// Build a GPU execute_v2 request with a unique request_id, for a given language.
+///
+/// The language matters to callers that need two DIFFERENT worker keys: a shared
+/// GPU worker is keyed on `(target, lang, engine_overrides)`, so two dispatches
+/// that differ only in language resolve to two separate workers.
+fn gpu_execute_request_for_lang(request_id: &str, lang: LanguageCode3) -> ExecuteRequestV2 {
     ExecuteRequestV2 {
         request_id: WorkerRequestIdV2::from(request_id),
         task: InferenceTaskV2::Asr,
         payload: TaskRequestV2::Asr(AsrRequestV2 {
-            lang: WorkerLanguage::from(LanguageCode3::eng()),
+            lang: WorkerLanguage::from(lang),
             backend: AsrBackendV2::LocalWhisper,
             input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
                 audio_ref_id: WorkerArtifactIdV2::from("audio-test"),
@@ -989,19 +998,37 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // supported ("TrackerGuard wiring is broken"), which is precisely what
     // invited the bound increase instead of a diagnosis. Registration happens
     // in `dispatch_gpu_execute_v2` at `TrackerGuard::new`, AFTER
-    // `get_or_create_gpu_worker(...).await` returns, and that function holds the
-    // `gpu_workers` mutex across a Python `WorkerHandle::spawn` plus a
-    // capabilities round trip. So a long wait here means one of:
+    // `get_or_create_gpu_worker(...).await` returns. So a long wait here means
+    // one of:
     //
     //   (a) the dispatch resolved a DIFFERENT worker key than warmup did, so it
-    //       is spawning a second Python worker from scratch while holding that
-    //       lock, and this is a spawn-under-load wait, not a wiring bug; or
-    //   (b) registration genuinely never happens (a real wiring bug).
+    //       is spawning a Python worker from scratch, and this is a
+    //       spawn-under-load wait, not a wiring bug;
+    //   (b) registration genuinely never happens (a real wiring bug); or
+    //   (c) the spawn has not started a process at all, because it is queued at
+    //       memory_guard's process-global spawn permit behind another test
+    //       binary's worker coming up.
     //
-    // The two are distinguishable by whether a NEW pid appears in the pool, so
-    // the failure below reports that rather than guessing. If it is (a), the fix
-    // is in the pool (do not hold the map lock across a spawn), not in this
-    // bound.
+    // A new pid separates (a); a free spawn permit separates (b) from (c). The
+    // failure below reports both rather than guessing. Case (c) was added
+    // 2026-07-30 after a run produced NO new pid, which the two-case version of
+    // this note would have mislabelled a wiring bug.
+    //
+    // CORRECTION, 2026-07-30: the 2026-07-30 occurrence reported (a), and the
+    // note here (and in the pool) then read that as proof that the map lock
+    // `get_or_create_gpu_worker` held across the spawn was this test's cause.
+    // It is not, and per-key coordination in the pool (`gpu_slot.rs`) does NOT
+    // quiet this test. This test's dispatch is the ONLY caller of that map at
+    // the time, so there was never contention on it to remove; its wait is its
+    // own spawn, queued behind `memory_guard`'s process-global spawn semaphore
+    // (one permit, held until a worker reports ready) alongside every other
+    // test binary running under full-suite load, and then paying Python
+    // startup. Per-key coordination leaves that serialization untouched by
+    // design. So if this fails again, the honest next questions are why warmup
+    // warms a key this dispatch does not resolve to, and whether a 30s
+    // registration bound can coexist with a 30s ready timeout on a saturated
+    // host, NOT the pool's locking, which has now been fixed for its own
+    // (real, separate) reasons.
     let max_wait = Duration::from_secs(30);
     loop {
         if !pool.workers_for_job(&job_id).is_empty() {
@@ -1017,6 +1044,7 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
                 .filter(|pid| !pids_before.contains(pid))
                 .collect();
             let dispatch_finished = dispatch_handle.is_finished();
+            let free_spawn_permits = batchalign::worker::memory_guard::available_spawn_permits();
             panic!(
                 "dispatch did not register a worker for job {job_id} within {max_wait:?}.\n\
                  EVIDENCE (read this before touching the bound):\n\
@@ -1025,12 +1053,22 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
                  \x20 pids now:             {pids_now:?}\n\
                  \x20 pids that appeared:   {new_pids:?}\n\
                  \x20 dispatch task finished: {dispatch_finished}\n\
+                 \x20 free global spawn permits: {free_spawn_permits}\n\
                  A pid appearing means cause (a): the dispatch resolved a key \
-                 warmup had not warmed and spent the wait inside \
-                 get_or_create_gpu_worker, which holds the gpu_workers mutex \
-                 across WorkerHandle::spawn. Fix the pool, not this bound.\n\
-                 No new pid AND dispatch not finished means cause (b): \
-                 registration never happened, a real TrackerGuard wiring bug.\n\
+                 warmup had not warmed, and spent the wait spawning that \
+                 worker, queued behind the process-global spawn semaphore. \
+                 That is NOT the pool's map locking (already fixed, and this \
+                 test is the map's only user here); ask why warmup warmed a \
+                 key this dispatch does not resolve to. Not this bound.\n\
+                 No new pid AND zero free spawn permits means cause (c), the \
+                 one this note originally missed: the spawn is queued at \
+                 memory_guard's process-global permit (one, held until a worker \
+                 reports ready) behind some other test binary, so it has not \
+                 created a process yet. Nothing in this crate is broken; the \
+                 machine is the bottleneck.\n\
+                 No new pid, dispatch not finished, and a permit FREE means \
+                 cause (b): registration never happened, a real TrackerGuard \
+                 wiring bug.\n\
                  dispatch task finished with no registration means it failed \
                  before checkout; read its result.",
                 task = request_task,
@@ -1100,4 +1138,241 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     }
 
     drop(pool);
+}
+
+// ---------------------------------------------------------------------------
+// Per-key spawn coordination
+// ---------------------------------------------------------------------------
+
+/// How long the hanging interpreter refuses to signal ready.
+///
+/// Longer than `SLOW_KEY_READY_TIMEOUT` so the spawn's outcome is decided by
+/// the pool's own timeout rather than by the stub giving up.
+const SLOW_INTERPRETER_HANG: Duration = Duration::from_secs(60);
+
+/// The pool's ready timeout for the test below: how long the cold key's spawn
+/// occupies the pool before failing.
+const SLOW_KEY_READY_TIMEOUT_S: u64 = 20;
+
+/// How long a dispatch to an ALREADY-WARM key may take while another key is
+/// cold-spawning. Generously above the ~milliseconds a test-echo round trip
+/// needs, and far below `SLOW_KEY_READY_TIMEOUT_S`, so exceeding it can only
+/// mean the dispatch queued behind the cold spawn.
+const WARM_DISPATCH_BOUND: Duration = Duration::from_secs(5);
+
+/// Write an interpreter shim that hangs for one language and is the real
+/// interpreter for every other.
+///
+/// The worker command line always carries `--lang <code>` (see
+/// `worker/handle/spawn.rs::build_worker_command`), so matching an argument
+/// against the code is enough to single out one worker key without touching
+/// production code. A worker that never writes its ready line is exactly what a
+/// slow model load looks like to the pool.
+#[cfg(unix)]
+fn hang_for_one_language_interpreter(
+    dir: &std::path::Path,
+    real_python: &str,
+    slow_lang: &LanguageCode3,
+) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let script = dir.join("hang_for_one_language.sh");
+    let hang_s = SLOW_INTERPRETER_HANG.as_secs();
+    std::fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\n\
+             for arg in \"$@\"; do\n\
+             \x20 if [ \"$arg\" = \"{slow_lang}\" ]; then\n\
+             \x20   sleep {hang_s}\n\
+             \x20   exit 1\n\
+             \x20 fi\n\
+             done\n\
+             exec {real_python} \"$@\"\n"
+        ),
+    )
+    .expect("write interpreter shim");
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755))
+        .expect("chmod interpreter shim");
+    script
+}
+
+/// A cold spawn for one worker key must not block dispatch to a warm key.
+///
+/// **The defect.** `WorkerPool::get_or_create_gpu_worker` holds the
+/// `gpu_workers` map mutex across the whole slow path: a process-global spawn
+/// semaphore, a cross-process host-memory lease, the Python process spawn, the
+/// wait for `{"ready": true}` and a capabilities round trip. Every other user of
+/// that map waits behind it, including the FAST path, which only wants to read
+/// an entry that already exists. So on a busy host one cold key stalls
+/// dispatches that need no spawn at all, for as long as a model takes to load,
+/// and `/health` (which walks the same map) stops answering for that long too.
+///
+/// **What this does NOT claim.** It does not claim spawns should run in
+/// parallel. They deliberately do not: `memory_guard::SPAWN_SEMAPHORE` is
+/// process-global with one permit, held until the worker signals ready, so that
+/// each spawn's memory check sees the previous worker's models already resident.
+/// Per-key coordination leaves that serialization exactly as it is. The property
+/// here is only that work needing NO spawn does not queue behind one.
+///
+/// **How the cold spawn is made slow.** An interpreter shim that hangs for one
+/// language, so the pool sees a worker that never becomes ready. No production
+/// knob is involved; a hung ready handshake is the real shape of a slow load.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_cold_spawn_for_one_key_does_not_block_dispatch_to_a_warm_key() {
+    let python = require_python!();
+
+    let shim_dir = tempfile::tempdir().expect("interpreter shim dir");
+    let cold_lang = LanguageCode3::spa();
+    let warm_lang = LanguageCode3::eng();
+    let shim = hang_for_one_language_interpreter(shim_dir.path(), &python, &cold_lang);
+
+    let pool = std::sync::Arc::new(WorkerPool::new(PoolConfig {
+        python_path: shim.display().to_string(),
+        health_check_interval_s: 600,
+        ready_timeout_s: SLOW_KEY_READY_TIMEOUT_S,
+        test_echo: true,
+        max_workers_per_key: PerProfile::uniform(8),
+        verbose: 0,
+        engine_overrides: String::new(),
+        worker_registry_path: test_state_dir().join("workers.json").display().to_string(),
+        runtime: WorkerRuntimeConfig {
+            state_dir: Some(test_state_dir().to_path_buf()),
+            ..Default::default()
+        },
+        ..Default::default()
+    }));
+    pool.mark_warmup_complete();
+
+    // Warm the English key by using it. The shim is the real interpreter for
+    // every language but the cold one, so this is an ordinary test-echo worker.
+    pool.dispatch_execute_v2(&warm_lang, &gpu_execute_request("warm-the-key"))
+        .await
+        .expect("warming dispatch should succeed");
+
+    // Start the cold key. Its spawn will sit in the pool until the ready
+    // timeout; we never look at its result.
+    let cold_pool = pool.clone();
+    let cold_request = gpu_execute_request_for_lang("cold-key", cold_lang.clone());
+    let cold_lang_for_task = cold_lang.clone();
+    let cold = tokio::spawn(async move {
+        cold_pool
+            .dispatch_execute_v2(&cold_lang_for_task, &cold_request)
+            .await
+    });
+
+    // Give the cold dispatch time to reach the spawn. Anything it does before
+    // that point is irrelevant to the property.
+    tokio::time::sleep(Duration::from_millis(1_500)).await;
+    assert!(
+        !cold.is_finished(),
+        "the cold spawn must still be in flight for this test to mean anything; \
+         it finished early, so the interpreter shim did not hang for {cold_lang}"
+    );
+
+    // The property: the warm key is still dispatchable.
+    let warm_again = tokio::time::timeout(
+        WARM_DISPATCH_BOUND,
+        pool.dispatch_execute_v2(&warm_lang, &gpu_execute_request("warm-again")),
+    )
+    .await;
+
+    let warm_result = warm_again.unwrap_or_else(|_| {
+        panic!(
+            "a dispatch to the already-warm {warm_lang} key did not complete within \
+             {WARM_DISPATCH_BOUND:?} while the {cold_lang} key was spawning. The warm \
+             dispatch needs no spawn at all: it is queued behind the cold key on the \
+             gpu_workers mutex, which get_or_create_gpu_worker holds across the whole \
+             spawn. Fix the pool's locking; do not raise this bound."
+        )
+    });
+    warm_result.expect("warm dispatch should succeed while another key is spawning");
+
+    cold.abort();
+    pool.shutdown().await;
+}
+
+/// Count this process's live worker children whose command line mentions `lang`.
+///
+/// Parent-scoped on purpose: the whole test binary shares one process, and other
+/// binaries run concurrently, so a bare `pgrep -f` would count strangers. Every
+/// stdio worker is a direct child of the test process (`setpgid(0,0)` changes
+/// its process GROUP, not its parent).
+#[cfg(unix)]
+fn worker_children_for_lang(lang: &LanguageCode3) -> usize {
+    let mine = std::process::id().to_string();
+    let output = std::process::Command::new("pgrep")
+        .args(["-P", &mine, "-f", &format!("lang {lang}")])
+        .output()
+        .expect("pgrep should run");
+    // pgrep exits 1 with empty stdout when nothing matches; that is zero, not an
+    // error, so the exit status is deliberately not consulted.
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+}
+
+/// Concurrent callers arriving at a COLD key must produce exactly one worker.
+///
+/// This is the invariant the map-wide lock existed to protect, and the one thing
+/// per-key coordination could plausibly have broken, so it is pinned separately
+/// from the stall it fixed. Without any coordination, every one of these callers
+/// misses the map, spawns its own multi-gigabyte Python process, and all but the
+/// last are orphaned: the map holds one entry per key, so a duplicate spawn is
+/// invisible there. That is why this counts PROCESSES rather than map entries.
+///
+/// `gpu_concurrent_dispatch_shares_same_pid` does not cover this: it warms the
+/// key first, so its callers never race the spawn.
+///
+/// **This pin was verified to fail.** A pin written after the fact proves
+/// nothing until it has been seen failing, and this one nearly shipped green for
+/// the wrong reason (its `pgrep` pattern began with `-`, which `pgrep` read as a
+/// flag, so it counted zero workers and the "starts cold" assertion passed too).
+/// With the slot lookup replaced by a fresh slot per caller, it fails reporting
+/// 6 workers; with the lookup restored, 1.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_callers_at_a_cold_key_spawn_exactly_one_worker() {
+    let python = require_python!();
+
+    // A language no other test in this binary uses, so the process count below
+    // sees only this test's workers.
+    let lang = LanguageCode3::deu();
+    let pool = std::sync::Arc::new(test_pool(python));
+    pool.mark_warmup_complete();
+
+    assert_eq!(
+        worker_children_for_lang(&lang),
+        0,
+        "the key must start cold for this test to race the spawn"
+    );
+
+    let racers = 6;
+    let mut handles = Vec::with_capacity(racers);
+    for i in 0..racers {
+        let pool = pool.clone();
+        let lang = lang.clone();
+        let request = gpu_execute_request_for_lang(&format!("cold-race-{i}"), lang.clone());
+        handles.push(tokio::spawn(async move {
+            pool.dispatch_execute_v2(&lang, &request).await
+        }));
+    }
+    for (i, handle) in handles.into_iter().enumerate() {
+        handle
+            .await
+            .expect("dispatch task panicked")
+            .unwrap_or_else(|e| panic!("racer {i} failed: {e}"));
+    }
+
+    assert_eq!(
+        worker_children_for_lang(&lang),
+        1,
+        "{racers} concurrent callers for one cold key must share ONE spawn; more \
+         than one means the per-key slot is not coordinating them, and the extra \
+         processes are orphans no map entry points at"
+    );
+
+    pool.shutdown().await;
 }

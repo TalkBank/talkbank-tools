@@ -45,6 +45,15 @@ pub(crate) fn classify_worker_error(error: &WorkerError) -> FailureCategory {
         // full Python traceback before the worker exited.
         WorkerError::Bootstrap(_) => FailureCategory::WorkerBootstrap,
         WorkerError::MemoryGuard(_) => FailureCategory::MemoryPressure,
+        // Deliberately NOT `Cancelled`, which means "cancelled intentionally"
+        // by an operator and is a TERMINAL user-intent state. The server
+        // shutting down is infrastructure: the work was not repudiated, and a
+        // job that dies this way should be recoverable when the server comes
+        // back. Marking it as a user cancellation is how a job becomes
+        // permanently dead, the same shape as the 2026-07-28 `finalize_job`
+        // defect where a status the caller ASKED for outranked the job's real
+        // one and left a row recovery never revisits.
+        WorkerError::PoolShuttingDown => FailureCategory::System,
         WorkerError::SpawnFailed(_)
         | WorkerError::ReadyParseFailed(_)
         | WorkerError::NoWorker { .. } => FailureCategory::System,

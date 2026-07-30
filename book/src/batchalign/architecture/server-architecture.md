@@ -1,7 +1,7 @@
 # Server Dispatch Architecture
 
 **Status:** Current
-**Last updated:** 2026-06-30 13:55 EDT
+**Last updated:** 2026-07-30 09:05 EDT
 
 This page describes the implemented `batchalign3` runtime:
 
@@ -405,6 +405,32 @@ sequenceDiagram
     T1-->>W: response(id=1)
     W-->>R1: response(id=1)
 ```
+
+### How a shared GPU worker gets created
+
+Two different serializations govern worker creation, and conflating them leads to
+wrong conclusions about where a stall came from.
+
+| Level | Mechanism | What it serializes |
+|---|---|---|
+| Process | `memory_guard`'s `SPAWN_SEMAPHORE`, one permit, held until the worker signals ready | **Every** spawn in the process, so a second model load never checks free RAM before the first one's models are resident |
+| Key | the `GpuWorkerSlot` in each `gpu_workers` entry (`worker/pool/gpu_slot.rs`) | The callers of ONE key, so they share a single spawn instead of racing to start several worker processes |
+
+The map's own lock is held only long enough to hand out a slot. It used to be
+held across the whole spawn, which did prevent duplicate spawns but also made
+every other user of the map wait for an unrelated key's model load: dispatches
+whose worker was already warm, and `/health`, which walks the same map. On a
+busy host that is tens of seconds of unrelated stalling per cold key.
+
+Two consequences worth knowing:
+
+- **Per-key coordination does not make spawns parallel.** The process-level
+  semaphore still admits one at a time, deliberately. What it removes is work
+  that needs no spawn queuing behind one.
+- **A spawn can now finish after `shutdown()` has drained the map.** `shutdown()`
+  cancels its token before draining, and the spawning task retires its own worker
+  when it sees that token set, rather than returning a worker nothing would reap.
+  Callers get `WorkerError::PoolShuttingDown`.
 
 `execute_v2` is the main path for live server-owned inference:
 

@@ -43,6 +43,7 @@ mod discovery;
 mod dispatch;
 mod eviction;
 mod execute_v2;
+pub(super) mod gpu_slot;
 mod idle_eviction;
 pub(crate) mod job_tracker;
 mod lifecycle;
@@ -70,6 +71,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
+use self::gpu_slot::GpuWorkerSlot;
 use crate::worker::error::WorkerError;
 use crate::worker::handle::{WorkerConfig, WorkerHandle, WorkerRuntimeConfig};
 use crate::worker::python::resolve_python_executable;
@@ -447,8 +449,13 @@ pub struct WorkerPool {
     /// Sequential worker groups (Stanza, IO profiles).
     pub(super) groups: GroupsMap,
     /// Shared GPU workers for concurrent V2 dispatch (GPU profile, stdio).
-    pub(super) gpu_workers:
-        Arc<tokio::sync::Mutex<HashMap<GpuWorkerKey, Arc<shared_gpu::SharedGpuWorker>>>>,
+    ///
+    /// The value is a [`GpuWorkerSlot`], not a worker: an entry appears when a
+    /// key's spawn STARTS, and holds a worker once that spawn succeeds. The map
+    /// lock is therefore never held across a spawn, so a cold key no longer
+    /// stalls dispatches to warm keys or `/health`. Readers must state what an
+    /// in-flight spawn means for them; see `gpu_slot.rs`.
+    pub(super) gpu_workers: Arc<tokio::sync::Mutex<HashMap<GpuWorkerKey, GpuWorkerSlot>>>,
     /// Shared GPU workers discovered from registry (TCP transport).
     pub(super) gpu_tcp_workers:
         Arc<tokio::sync::Mutex<HashMap<GpuWorkerKey, Arc<shared_gpu::SharedGpuTcpWorker>>>>,
@@ -768,13 +775,16 @@ impl WorkerPool {
 
     /// Get or create a shared GPU worker for the given (lang, engine_overrides).
     ///
-    /// Holds the lock across the spawn to prevent the TOCTOU race where
-    /// multiple concurrent callers each spawn their own worker process.
-    /// The spawn includes waiting for the `{"ready": true}` signal, so
-    /// the lock is held for 10-30 seconds on first call. This is acceptable
-    /// because GPU worker creation is rare (once per lang+overrides combo),
-    /// and the `pre_scale` call in the runner ensures the worker exists
-    /// before file dispatch begins.
+    /// Coordination is PER KEY, not per map: the map lock is held only long
+    /// enough to hand out this key's [`GpuWorkerSlot`], and the spawn runs with
+    /// the lock released. Two callers for one key still produce exactly one
+    /// worker process (they share the slot's cell); a caller for a DIFFERENT
+    /// key, including one whose worker is already warm, no longer waits behind
+    /// the spawn.
+    ///
+    /// Spawns still serialize globally on `memory_guard`'s single-permit
+    /// semaphore. That is deliberate and unchanged: what this stops is work
+    /// needing no spawn from queuing behind one. See `gpu_slot.rs`.
     #[instrument(
         skip_all,
         fields(target = %target.label(), lang = %lang),
@@ -787,38 +797,17 @@ impl WorkerPool {
     ) -> Result<Arc<shared_gpu::SharedGpuWorker>, WorkerError> {
         let key = (*target, lang.clone(), engine_overrides.to_owned());
 
-        let mut gpu_workers = self.gpu_workers.lock().await;
+        // The only time the map lock is held: long enough to hand out this
+        // key's slot. Every caller for this key gets the SAME slot, which is
+        // what still makes duplicate spawns impossible.
+        let slot = {
+            let mut gpu_workers = self.gpu_workers.lock().await;
+            gpu_workers
+                .entry(key)
+                .or_insert_with(GpuWorkerSlot::pending)
+                .clone()
+        };
 
-        // Fast path: worker already exists.
-        if let Some(worker) = gpu_workers.get(&key) {
-            return Ok(worker.clone());
-        }
-
-        // Slow path: spawn while holding the lock to prevent duplicate spawns.
-        //
-        // CONFIRMED CONTENTION POINT, 2026-07-30. This lock is held across a
-        // Python process spawn plus a capabilities round trip, so the FIRST
-        // spawn for any key blocks every other dispatcher that needs this map,
-        // whatever key it wants. That is a production concern, not only a test
-        // one: on a busy host, one cold key stalls unrelated dispatches for as
-        // long as a worker takes to come up.
-        //
-        // How it was confirmed: `cancel_kills_in_flight_worker_under_dispatch`
-        // has timed out here at two successive bounds (2026-07-08, 2026-07-29),
-        // and rather than raise the bound a third time the test was made to
-        // report pids before and after. On 2026-07-30 it timed out again and
-        // reported a NEW pid appearing with the dispatch task unfinished, which
-        // is that test's documented signature for "the wait was spent inside
-        // this function spawning a worker warmup had not warmed" (request task
-        // Asr, bootstrap mode Profile). So the cause is named: it is this lock,
-        // not a registration bug.
-        //
-        // The fix is per-key coordination (one in-flight spawn per key, with the
-        // map lock released while it runs), so a cold key serializes only with
-        // itself. Deliberately NOT done in the same pass that diagnosed it: it
-        // changes the locking of the hot path every ML dispatch takes, and it
-        // wants its own change with the full suite run repeatedly under load.
-        // Do NOT raise the test's bound instead.
         let config = WorkerConfig {
             python_path: self.config.python_path.clone(),
             profile: target.profile_kind(),
@@ -835,22 +824,45 @@ impl WorkerPool {
             test_delay_ms: self.config.test_delay_ms,
         };
 
-        let mut handle = WorkerHandle::spawn(config).await?;
-        if self.lazy_capabilities.get().is_none()
-            && let Err(e) = self.detect_capabilities_from_worker(&mut handle).await
-        {
-            tracing::warn!(error = %e, "Failed to detect capabilities from first GPU worker (continuing)");
-        }
-        info!(
-            target = %target.label(),
-            lang = %lang,
-            pid = %handle.pid(),
-            "GPU worker spawned (concurrent mode)"
-        );
-        let shared = Arc::new(shared_gpu::SharedGpuWorker::from_handle(handle).await);
+        let worker = slot
+            .worker_or_init(|| async move {
+                let mut handle = WorkerHandle::spawn(config).await?;
+                if self.lazy_capabilities.get().is_none()
+                    && let Err(e) = self.detect_capabilities_from_worker(&mut handle).await
+                {
+                    tracing::warn!(error = %e, "Failed to detect capabilities from first GPU worker (continuing)");
+                }
+                info!(
+                    target = %target.label(),
+                    lang = %lang,
+                    pid = %handle.pid(),
+                    "GPU worker spawned (concurrent mode)"
+                );
+                Ok(Arc::new(shared_gpu::SharedGpuWorker::from_handle(handle).await))
+            })
+            .await?;
 
-        gpu_workers.insert(key, shared.clone());
-        Ok(shared)
+        // A spawn can now finish AFTER `shutdown()` has drained the map, which
+        // was impossible while the map lock was held across it. `shutdown()`
+        // cancels before it drains, so a set token here means the drain either
+        // has already passed this slot (and missed a worker that did not exist
+        // yet) or is about to find it. Retire the worker ourselves rather than
+        // hand back a worker nothing will ever reap: that is precisely the
+        // orphaned-model-process class this pool keeps being bitten by.
+        // `SharedGpuWorker::shutdown` is idempotent, so racing the drain and
+        // both retiring it is harmless.
+        if self.cancel.is_cancelled() {
+            warn!(
+                target = %target.label(),
+                lang = %lang,
+                pid = %worker.pid(),
+                "GPU worker finished spawning during pool shutdown; retiring it"
+            );
+            worker.shutdown().await;
+            return Err(WorkerError::PoolShuttingDown);
+        }
+
+        Ok(worker)
     }
 
     /// Query capabilities from an already-spawned worker and cache the result.
