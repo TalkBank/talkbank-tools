@@ -2,7 +2,7 @@
 
 use crate::api::JobId;
 #[cfg(test)]
-use crate::queue::QueuePoll;
+use crate::store::registry::QueuePoll;
 use tracing::warn;
 
 use super::super::{JobStore, unix_now};

@@ -16,8 +16,6 @@ use crate::api::{
     DisplayPath, FileStatusEntry, JobId, JobInfo, JobListItem, JobStatus, NodeId, UnixTimestamp,
 };
 use crate::error::ServerError;
-#[cfg(test)]
-use crate::queue::QueuePoll;
 use crate::scheduling::LeaseRecord;
 
 use super::JobDetail;
@@ -38,6 +36,22 @@ pub(crate) struct ClaimedLeaseRecord {
     pub(crate) job_id: JobId,
     /// Lease details that should be written to SQLite.
     pub(crate) lease: LeaseRecord,
+}
+
+/// Result of polling a queue backend for currently eligible queued jobs.
+///
+/// Lived in a top-level `crate::queue` module until 2026-07-30, where the
+/// step-5 purity measurement reported it as a 7-line module that would fit in a
+/// pure core crate. It would compile there and it does not belong there: it is a
+/// `#[cfg(test)]` type whose only two users are this file and
+/// `store/queries/dispatch.rs`, so its home is beside the wrapper below.
+#[cfg(test)]
+#[derive(Debug, Default)]
+pub(crate) struct QueuePoll {
+    /// Job IDs that are ready to run now and have been claimed by the backend.
+    pub ready_job_ids: Vec<JobId>,
+    /// Earliest future eligibility timestamp among still-queued jobs.
+    pub next_wake_at: Option<UnixTimestamp>,
 }
 
 /// Result of claiming all currently runnable queued jobs.

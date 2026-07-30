@@ -173,7 +173,6 @@ pub mod morphosyntax;
 mod pipeline;
 pub(crate) mod planning;
 pub mod provenance;
-pub(crate) mod queue;
 pub(crate) mod recipe_runner;
 pub(crate) mod revai;
 pub mod runner;
