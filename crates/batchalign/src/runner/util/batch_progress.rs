@@ -317,15 +317,20 @@ mod tests {
     /// stall detection sees real incomplete groups.
     ///
     /// READ THIS BEFORE TRUSTING THE FEATURE. This test drives
-    /// `BatchInferProgress` by hand. It used to describe itself as a copy of a
-    /// live drain loop in the batched-text dispatch module, and that module is
-    /// now retired without the loop being re-established anywhere. So this
-    /// pins the TYPE's aggregation behaviour, and nothing more: in the running
-    /// program `register_group` / `update_group` / `complete_group` have no
-    /// callers at all, `Job::batch_progress` is `None` on every construction
-    /// path, and the CLI summary line plus the dashboard
-    /// `BatchProgressPanel` therefore never appear. A green test here is not
-    /// evidence that per-language progress works.
+    /// `BatchInferProgress` by hand, and it pins the TYPE's aggregation
+    /// behaviour and nothing more. It used to describe itself as a copy of a
+    /// live drain loop in the batched-text dispatch module; that module is
+    /// retired and the loop was never re-established, but the deeper point is
+    /// that the feature was already dead before that, because the tagger it
+    /// depends on never runs: every caller of `infer_batch` passes
+    /// `progress_tx: None`. Full three-part diagnosis in
+    /// `morphosyntax::worker::infer_batch_homogeneous`.
+    ///
+    /// So: `register_group` / `update_group` / `complete_group` have no
+    /// callers, `Job::batch_progress` is `None` at every construction site, and
+    /// the CLI summary line and the dashboard `BatchProgressPanel` never
+    /// appear. A green test here is not evidence that per-language progress
+    /// works.
     #[test]
     fn progress_events_from_multiple_languages_must_not_collapse_on_stage_label() {
         let mut progress = BatchInferProgress::new();

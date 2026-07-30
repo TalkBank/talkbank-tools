@@ -219,14 +219,35 @@ async fn infer_batch_homogeneous(
     // per-language rather than collapsing into one bucket. Only spawned
     // when the caller actually wants progress updates.
     //
-    // HISTORICAL NOTE, and a live defect. This rewrite was introduced to
-    // feed a drain loop that keyed `BatchInferProgress` by `event.stage`,
-    // in the batched-text dispatch module that has since been retired.
-    // Nothing re-established that producer on the recipe-owned path, so
-    // `Job::batch_progress` is `None` on every code path today and the
-    // per-language panels in the CLI and the dashboard never render. The
-    // rewrite is still correct and still reaches generic `progress_v2`
-    // consumers; it is the aggregation above it that is missing.
+    // LIVE DEFECT: this tagger never installs in production, and neither
+    // does anything downstream of it. Per-language batch progress is dead
+    // end to end, in three linked places:
+    //
+    //   1. HERE. Every caller of `infer_batch` passes `progress_tx: None`
+    //      (`morphosyntax/mod.rs`, `morphosyntax/batch.rs`,
+    //      `pipeline/morphosyntax.rs`), so `ProgressTagger::install` gets
+    //      `None` and no event is ever tagged or emitted.
+    //   2. No drain loop aggregates tagged events into
+    //      `BatchInferProgress`. One existed in the batched-text dispatch
+    //      module, which has been retired; the recipe-owned `execution`
+    //      path consumes no `ProgressEventV2` at all. `register_group` /
+    //      `update_group` / `complete_group` have zero callers.
+    //   3. `Job::batch_progress` is therefore `None` at every construction
+    //      site, so the CLI's per-language summary line and the
+    //      dashboard's `BatchProgressPanel` never render, and the OpenAPI
+    //      field is permanently null.
+    //
+    // Restoring it means threading a progress channel from the recipe
+    // execution path down through `execution::worker_gateway` and
+    // `process_morphosyntax` to here, then aggregating and storing it.
+    // That is a feature-sized piece of work and it is display-only: no
+    // output data is affected. The parameter and the tagger are kept
+    // because they are the correct shape for the restored path, NOT
+    // because they currently do anything.
+    //
+    // The compiler cannot warn about any of this: `BatchInferProgress` is
+    // `pub` and re-exported through `types/api.rs`, so rustc treats it as
+    // reachable public API.
     let tagger = ProgressTagger::install(progress_tx, lang);
     let inner_tx = tagger.sender();
 
