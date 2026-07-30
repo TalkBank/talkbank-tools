@@ -74,19 +74,6 @@ pub(crate) trait RunnerEventSink: Send + Sync {
         current: Option<i64>,
         total: Option<i64>,
     );
-    /// Publish a job-level batch-inference progress snapshot.
-    ///
-    /// This method existed until `e8235c13` (2026-05-03) removed it along with
-    /// the drain loop that called it, which left `BatchInferProgress` a type
-    /// with a serialized API field, a dashboard panel, and no producer for
-    /// three months. Restored 2026-07-29 with the aggregation defect fixed; see
-    /// `runner::util::batch_progress` for why the ledger keys on
-    /// (source, group, chunk).
-    async fn set_batch_progress(
-        &self,
-        job_id: &JobId,
-        progress: crate::runner::util::batch_progress::BatchInferProgress,
-    );
     async fn unfinished_files(&self, job_id: &JobId) -> Vec<DisplayPath>;
     async fn file_status_label(&self, job_id: &JobId, filename: &str) -> Option<String>;
     async fn bump_forced_terminal_errors(&self, count: usize);
@@ -252,14 +239,6 @@ impl RunnerEventSink for StoreRunnerEventSink {
                 },
             )
             .await;
-    }
-
-    async fn set_batch_progress(
-        &self,
-        job_id: &JobId,
-        progress: crate::runner::util::batch_progress::BatchInferProgress,
-    ) {
-        self.store.set_batch_progress(job_id, progress).await;
     }
 
     async fn unfinished_files(&self, job_id: &JobId) -> Vec<DisplayPath> {

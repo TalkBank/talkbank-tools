@@ -795,6 +795,30 @@ impl WorkerPool {
         }
 
         // Slow path: spawn while holding the lock to prevent duplicate spawns.
+        //
+        // CONFIRMED CONTENTION POINT, 2026-07-30. This lock is held across a
+        // Python process spawn plus a capabilities round trip, so the FIRST
+        // spawn for any key blocks every other dispatcher that needs this map,
+        // whatever key it wants. That is a production concern, not only a test
+        // one: on a busy host, one cold key stalls unrelated dispatches for as
+        // long as a worker takes to come up.
+        //
+        // How it was confirmed: `cancel_kills_in_flight_worker_under_dispatch`
+        // has timed out here at two successive bounds (2026-07-08, 2026-07-29),
+        // and rather than raise the bound a third time the test was made to
+        // report pids before and after. On 2026-07-30 it timed out again and
+        // reported a NEW pid appearing with the dispatch task unfinished, which
+        // is that test's documented signature for "the wait was spent inside
+        // this function spawning a worker warmup had not warmed" (request task
+        // Asr, bootstrap mode Profile). So the cause is named: it is this lock,
+        // not a registration bug.
+        //
+        // The fix is per-key coordination (one in-flight spawn per key, with the
+        // map lock released while it runs), so a cold key serializes only with
+        // itself. Deliberately NOT done in the same pass that diagnosed it: it
+        // changes the locking of the hot path every ML dispatch takes, and it
+        // wants its own change with the full suite run repeatedly under load.
+        // Do NOT raise the test's bound instead.
         let config = WorkerConfig {
             python_path: self.config.python_path.clone(),
             profile: target.profile_kind(),

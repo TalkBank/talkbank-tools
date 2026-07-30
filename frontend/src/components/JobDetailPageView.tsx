@@ -8,7 +8,6 @@ import { useState } from "react";
 import { Layout } from "./Layout";
 import { ProgressBar } from "./ProgressBar";
 import { ActionButtons } from "./ActionButtons";
-import { BatchProgressPanel } from "./BatchProgressPanel";
 import { StatusSummaryStrip } from "./StatusSummaryStrip";
 import { ErrorPanel } from "./ErrorPanel";
 import { FilterTabs } from "./FilterTabs";
@@ -393,7 +392,6 @@ export function JobDetailPageView({
               animated={isRunning}
             />
             {/* Per-language batch progress for morphotag/utseg/translate/coref */}
-            <BatchProgressPanel progress={(detail as Record<string, unknown>).batch_progress as never} />
           </div>
         )}
 

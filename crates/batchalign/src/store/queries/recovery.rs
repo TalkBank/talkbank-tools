@@ -273,7 +273,6 @@ impl JobStore {
                             results,
                             error: job_error,
                             completed_files,
-                            batch_progress: None,
                         },
                         schedule: JobScheduleState {
                             submitted_at: UnixTimestamp(row.submitted_at),

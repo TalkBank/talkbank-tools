@@ -119,10 +119,6 @@ impl ProgressDisplay for TuiProgress {
         // State already updated via update(), no additional action needed.
     }
 
-    fn update_batch_progress(&self, progress: &crate::api::BatchInferProgress) {
-        self.send_update(TuiUpdate::BatchProgress(progress.clone()));
-    }
-
     fn log_error(&self, filename: &str, msg: &str) {
         self.send_update(TuiUpdate::FileError {
             filename: filename.to_string(),

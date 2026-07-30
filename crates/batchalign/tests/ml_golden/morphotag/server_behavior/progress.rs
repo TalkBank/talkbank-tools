@@ -4,87 +4,6 @@ use batchalign::api::{FilePayload, FileProgressStage, JobStatus, LanguageSpec, R
 use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::InferTask;
 
-/// Verify the new morphotag architecture still surfaces per-language batch
-/// progress for mixed-language jobs rather than collapsing everything onto one
-/// generic group.
-///
-/// **This test was dark from 2026-05-06 to 2026-07-29.** It submitted
-/// `LanguageSpec::Resolved(eng)`, and `c2236ab3` (2026-05-06) made the server
-/// reject a job-level language for morphotag with HTTP 400, so every run died
-/// at submission without ever reaching the behaviour under test. `PerFile` is
-/// also the honest spec for a multilingual job: each fixture file declares its
-/// own `@Languages`, and per-file resolution is the whole point of the test.
-/// Note the dates: `e8235c13` (2026-05-03) removed the progress producer and
-/// this ban landed three days later, so the feature and its only test died in
-/// the same restructure.
-#[tokio::test]
-async fn morphotag_multilingual_job_reports_separate_batch_progress_groups() {
-    let Some(server) = require_live_server(
-        InferTask::Morphosyntax,
-        "Server does not support morphosyntax infer",
-    )
-    .await
-    else {
-        return;
-    };
-    let jobs = LiveServerJobClient::from_session(&server);
-
-    let initial = jobs
-        .submit_content_job(
-            ReleasedCommand::Morphotag,
-            LanguageSpec::PerFile,
-            vec![
-                FilePayload {
-                    filename: "english.cha".into(),
-                    content: repeated_chat("eng", "ENG", "the dog runs", 220),
-                },
-                FilePayload {
-                    filename: "spanish.cha".into(),
-                    content: repeated_chat("spa", "SPA", "el perro corre", 220),
-                },
-            ],
-            CommandOptions::Morphotag(MorphotagOptions {
-                common: CommonOptions {
-                    override_media_cache: true,
-                    batch_window: 0,
-                    ..CommonOptions::default()
-                },
-
-                ..Default::default()
-            }),
-        )
-        .await;
-
-    let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(180);
-    let mut observed_groups = std::collections::BTreeSet::new();
-
-    loop {
-        let info = jobs.job_info(&initial.job_id).await;
-        if let Some(progress) = &info.batch_progress {
-            observed_groups.extend(progress.language_groups.keys().cloned());
-        }
-        if info.status.is_terminal() || tokio::time::Instant::now() >= deadline {
-            break;
-        }
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    }
-
-    let final_info = jobs.poll_done(&initial.job_id).await;
-    assert_eq!(
-        final_info.status,
-        JobStatus::Completed,
-        "multilingual morphotag job should complete"
-    );
-    assert!(
-        observed_groups.contains("eng"),
-        "expected eng batch progress group, observed {observed_groups:?}"
-    );
-    assert!(
-        observed_groups.contains("spa"),
-        "expected spa batch progress group, observed {observed_groups:?}"
-    );
-}
-
 /// Verify an operator can see a long morphotag file ADVANCING, not just
 /// "Analyzing" with no numbers.
 ///
@@ -117,14 +36,14 @@ async fn morphotag_job_reports_per_file_utterance_progress() {
     };
     let jobs = LiveServerJobClient::from_session(&server);
 
-    // Long enough that inference spans several progress events (the backend
-    // throttles to one per second per request).
-    let files: Vec<FilePayload> = (0..2)
-        .map(|idx| FilePayload {
-            filename: format!("window_{idx}.cha").into(),
-            content: repeated_chat("eng", "PAR", "the window test runs", 400),
-        })
-        .collect();
+    // One file, big enough that its inference certainly spans several progress
+    // events: the backend throttles to one per second per request and always
+    // emits the final one, so a file finishing inside a second would report only
+    // its completion. 1,500 utterances takes tens of seconds.
+    let files = vec![FilePayload {
+        filename: "long_file.cha".into(),
+        content: repeated_chat("eng", "PAR", "the progress test runs", 1500),
+    }];
 
     let initial = jobs
         .submit_content_job(
@@ -166,24 +85,22 @@ async fn morphotag_job_reports_per_file_utterance_progress() {
         JobStatus::Completed,
         "morphotag job should complete"
     );
-    // Deliberately does NOT assert that counts were observed. Whether an
-    // intermediate report exists depends on the file taking more than a second
-    // of inference (the backend throttles to one event per second per request,
-    // and always emits the final one), and on the poll loop sampling while it is
-    // live. Asserting presence here would be a race dressed up as coverage.
-    // Presence is pinned deterministically instead, in
-    // `execution::morphotag::progress`'s own tests. What IS invariant is that
-    // anything observed must be coherent.
+    // This is now the only end-to-end assertion for the feature, so it asserts
+    // presence rather than just coherence. The deterministic half lives in
+    // `execution::morphotag::progress`'s own tests.
+    assert!(
+        max_total > 0,
+        "a file being analyzed must report a denominator, not just a stage label; \
+         observed current={max_current} total={max_total}"
+    );
+    assert!(
+        max_current > 0,
+        "utterance progress must advance past zero; \
+         observed current={max_current} total={max_total}"
+    );
     assert!(
         max_current <= max_total,
         "completed utterances must never exceed the total (the 453/274 defect); \
          observed current={max_current} total={max_total}"
     );
-    if max_total > 0 {
-        assert!(
-            max_current > 0,
-            "a reported denominator with a zero numerator means the projection \
-             published an empty row; observed current={max_current} total={max_total}"
-        );
-    }
 }

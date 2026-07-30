@@ -1,40 +1,52 @@
-//! Batch-level progress for the batched-text commands.
+//! Inference progress for the batched-text commands.
 //!
-//! # Why a job-level progress surface exists at all
+//! # What this exists to answer
 //!
-//! Per-file progress (`set_file_progress`) answers "which file, what stage".
-//! It cannot answer "how far into this file's inference are we", because a
-//! file's utterances are handed to a text backend as one batch and nothing
-//! comes back until the batch does. So during `FileStage::Analyzing` a file
-//! has a stage and no numbers, which is the largest remaining violation of
-//! the crate's time-transparency rule (see
-//! `book/src/batchalign/architecture/time-transparency.md`): every audio
+//! "How far into this file's inference are we." A file's utterances go to a text
+//! backend as a batch, so without this the file carries a stage
+//! (`FileStage::Analyzing`) and no numbers for the whole of its inference, which
+//! was the largest remaining violation of the crate's time-transparency rule
+//! (see `book/src/batchalign/architecture/time-transparency.md`): every audio
 //! command publishes counts, and the batched-text path did not.
 //!
-//! The backend already produces the missing numbers.
+//! The backend already produces the numbers.
 //! `batchalign/worker/_text_v2.py` installs an `_on_progress` callback that
 //! emits a `progress_v2` event at most once per second per request, carrying
 //! `completed` / `total` utterances. This module is the accounting that turns
-//! that stream into the two things a UI can render.
+//! that stream into one honest per-file count.
 //!
-//! # Two projections, one ledger
+//! # One projection, per input file
 //!
 //! ```text
 //! Python backend ──progress_v2──▶ worker handle ──▶ BackendProgress
 //!                                                        │
 //!                                            BatchProgressLedger
-//!                                              │            │
-//!                    per-group projection ◀────┘            └────▶ per-source projection
-//!                    BatchInferProgress                            SourceProgress
-//!                    (job-level: the dashboard                     (per-file counts on the
-//!                     BatchProgressPanel, the CLI                   existing file-progress
-//!                     summary line, the API field)                  channel)
+//!                                                        │
+//!                                                        ▼
+//!                                                 SourceProgress
+//!                                       (per-file counts on the existing
+//!                                        file-progress channel)
 //! ```
 //!
-//! Both come from the same events, so they cannot disagree. That matters:
-//! the previous design published only the job-level view, and the per-file
-//! view it did not feed is the one an operator watching a single long file
-//! actually needs.
+//! # Why there is no job-level per-language aggregate any more
+//!
+//! There was one (`BatchInferProgress`), with a REST field, a dashboard panel
+//! and a CLI summary line, and it was **retired on 2026-07-30 because it could
+//! not be made honest** under per-file processing.
+//!
+//! A denominator only enters this ledger when a file's payloads are collected
+//! and dispatched, and files are dispatched `num_workers` at a time. So a
+//! job-wide "1250/1500 utterances (83%)" was really "83% of the handful of
+//! files currently in flight", displayed next to `0/740 files` and drifting up
+//! toward truth over hours. Under the pooled batching this replaced, the same
+//! field was honest: everything was pooled up front, so the denominator really
+//! was the job. Making it honest again would mean parsing every file before
+//! dispatch, which is exactly the up-front work that was deliberately removed
+//! for interfering with per-file processing.
+//!
+//! A file's own total, by contrast, is exact the moment its payloads exist. If
+//! a job-level view is ever wanted, the honest form is a rate or ETA computed
+//! from COMPLETED files, not a mid-flight utterance percentage.
 //!
 //! # Why the key is (source, group, chunk)
 //!
@@ -57,12 +69,15 @@
 //! utterances twice and keep the abandoned attempt's stale count forever. The
 //! chunk is the stable unit of work; the request is one attempt at it.
 //!
-//! Totals are therefore SUMMED across chunks and the latest report per chunk
-//! wins, which is correct under both chunking and retry.
+//! Completions are therefore SUMMED across chunks and the latest report per
+//! chunk wins, which is correct under both chunking and retry. The DENOMINATOR
+//! is not summed from chunk reports at all: it is declared up front (see
+//! [`ProgressReport::GroupTotal`]), because a file whose first chunk finished
+//! would otherwise look complete while its other chunks had not started, and the
+//! publisher would skip it as done. That bug shipped briefly on 2026-07-30 and
+//! is pinned by `one_finished_chunk_does_not_make_a_file_look_complete`.
 
 use std::collections::BTreeMap;
-
-use serde::{Deserialize, Serialize};
 
 use crate::api::{DisplayPath, LanguageCode3, UtteranceCount};
 use crate::types::worker_v2::ProgressEventV2;
@@ -74,6 +89,30 @@ use crate::types::worker_v2::ProgressEventV2;
 /// of work. See the module docs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct BatchChunkIndex(pub(crate) u32);
+
+/// One report on the progress channel.
+///
+/// A group DECLARES its item count before dispatch and then reports chunk
+/// completions. The declaration is what makes a denominator trustworthy: a
+/// file's total cannot be inferred from the chunks that happen to have reported,
+/// because a chunk that finished first would make the file look complete while
+/// three others had not started. That is the same scope error as the retired
+/// job-level aggregate, one level smaller, and it is why this is an enum rather
+/// than a single message type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ProgressReport {
+    /// This (source, group) will process exactly this many utterances.
+    GroupTotal {
+        /// Which input file.
+        source_id: DisplayPath,
+        /// Which homogeneous batch group.
+        group: LanguageCode3,
+        /// Utterances the group will process in total.
+        total: UtteranceCount,
+    },
+    /// One chunk of a group has progressed.
+    Chunk(BackendProgress),
+}
 
 /// Progress reported by one backend for one chunk of work.
 ///
@@ -94,6 +133,9 @@ pub(crate) struct BackendProgress {
     /// Utterances finished in this chunk so far.
     pub(crate) completed: UtteranceCount,
     /// Utterances in this chunk in total.
+    ///
+    /// Kept for the coherence check in tests and for tracing; the DENOMINATOR a
+    /// UI sees comes from [`ProgressReport::GroupTotal`], never from this.
     pub(crate) total: UtteranceCount,
 }
 
@@ -121,6 +163,13 @@ impl BackendProgress {
     }
 }
 
+/// Identity of one homogeneous group within one input file.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct GroupKey {
+    source_id: DisplayPath,
+    group: LanguageCode3,
+}
+
 /// Identity of one unit of batched work within a job.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ChunkKey {
@@ -143,6 +192,9 @@ struct ChunkProgress {
 /// there is no lock here by construction.
 #[derive(Debug, Default)]
 pub(crate) struct BatchProgressLedger {
+    /// Declared work per (source, group): the authoritative denominator.
+    declared: BTreeMap<GroupKey, UtteranceCount>,
+    /// Latest completion report per chunk: the numerator.
     chunks: BTreeMap<ChunkKey, ChunkProgress>,
 }
 
@@ -152,43 +204,57 @@ impl BatchProgressLedger {
         Self::default()
     }
 
-    /// Record one backend report.
+    /// Record one report.
     ///
     /// Returns whether this changed the ledger, so the caller can skip
-    /// republishing an identical snapshot. A chunk's later report replaces its
+    /// republishing identical numbers. A chunk's later report replaces its
     /// earlier one; a retried chunk replaces its own abandoned attempt.
-    pub(crate) fn record(&mut self, progress: BackendProgress) -> bool {
-        let key = ChunkKey {
-            source_id: progress.source_id,
-            group: progress.group,
-            chunk: progress.chunk,
-        };
-        let next = ChunkProgress {
-            completed: progress.completed,
-            total: progress.total,
-        };
-        match self.chunks.insert(key, next) {
-            Some(previous) => previous != next,
-            None => true,
+    pub(crate) fn record(&mut self, report: ProgressReport) -> bool {
+        match report {
+            ProgressReport::GroupTotal {
+                source_id,
+                group,
+                total,
+            } => {
+                let key = GroupKey { source_id, group };
+                self.declared.insert(key, total) != Some(total)
+            }
+            ProgressReport::Chunk(progress) => {
+                let key = ChunkKey {
+                    source_id: progress.source_id,
+                    group: progress.group,
+                    chunk: progress.chunk,
+                };
+                let next = ChunkProgress {
+                    completed: progress.completed,
+                    total: progress.total,
+                };
+                match self.chunks.insert(key, next) {
+                    Some(previous) => previous != next,
+                    None => true,
+                }
+            }
         }
     }
 
-    /// Project the ledger onto the job-level, per-language API shape.
-    pub(crate) fn snapshot(&self) -> BatchInferProgress {
-        let mut language_groups: BTreeMap<LanguageCode3, LanguageGroupProgress> = BTreeMap::new();
-        for (key, chunk) in &self.chunks {
-            let entry = language_groups
-                .entry(key.group.clone())
-                .or_insert_with(|| LanguageGroupProgress::empty(key.group.clone()));
-            entry.add(*chunk);
-        }
-        BatchInferProgress { language_groups }
-    }
-
-    /// Project the ledger onto per-source totals, for the file-progress
-    /// channel every other command already publishes on.
+    /// Project the ledger onto per-source counts, for the file-progress channel
+    /// every other command already publishes on.
+    ///
+    /// The total comes from the DECLARED group work, so a file shows its full
+    /// denominator from the moment its groups are declared, before any chunk has
+    /// finished. Completions are summed across chunks.
     pub(crate) fn source_progress(&self) -> Vec<SourceProgress> {
         let mut per_source: BTreeMap<&DisplayPath, SourceProgress> = BTreeMap::new();
+        for (key, declared) in &self.declared {
+            let entry = per_source
+                .entry(&key.source_id)
+                .or_insert_with(|| SourceProgress {
+                    source_id: key.source_id.clone(),
+                    completed: UtteranceCount(0),
+                    total: UtteranceCount(0),
+                });
+            entry.total = UtteranceCount(entry.total.0 + declared.0);
+        }
         for (key, chunk) in &self.chunks {
             let entry = per_source
                 .entry(&key.source_id)
@@ -198,7 +264,6 @@ impl BatchProgressLedger {
                     total: UtteranceCount(0),
                 });
             entry.completed = UtteranceCount(entry.completed.0 + chunk.completed.0);
-            entry.total = UtteranceCount(entry.total.0 + chunk.total.0);
         }
         per_source.into_values().collect()
     }
@@ -217,149 +282,6 @@ pub(crate) struct SourceProgress {
     pub(crate) completed: UtteranceCount,
     /// Utterances in total across all of this file's chunks.
     pub(crate) total: UtteranceCount,
-}
-
-/// Progress for one language group within a batched infer job.
-///
-/// Wire-compatible with the pre-2026-07 shape: `LanguageCode3` and
-/// `UtteranceCount` are both `#[serde(transparent)]` newtypes, so the JSON is
-/// byte-identical to the `String` / `u64` version the dashboard and the
-/// generated TypeScript already consume.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-pub struct LanguageGroupProgress {
-    /// ISO 639-3 language code (e.g. `"fra"`, `"eng"`).
-    pub lang: LanguageCode3,
-    /// Number of utterances completed so far.
-    pub completed_utterances: UtteranceCount,
-    /// Total utterances in this language group.
-    pub total_utterances: UtteranceCount,
-}
-
-impl LanguageGroupProgress {
-    /// A group with no work recorded yet.
-    fn empty(lang: LanguageCode3) -> Self {
-        Self {
-            lang,
-            completed_utterances: UtteranceCount(0),
-            total_utterances: UtteranceCount(0),
-        }
-    }
-
-    /// Fold one chunk's counts into this group.
-    fn add(&mut self, chunk: ChunkProgress) {
-        self.completed_utterances = UtteranceCount(self.completed_utterances.0 + chunk.completed.0);
-        self.total_utterances = UtteranceCount(self.total_utterances.0 + chunk.total.0);
-    }
-
-    /// Whether this language group has finished processing.
-    pub fn is_complete(&self) -> bool {
-        self.completed_utterances.0 >= self.total_utterances.0
-    }
-
-    /// Progress as a fraction in `[0.0, 1.0]`.
-    ///
-    /// An empty group reads as complete rather than as 0%: a group with no
-    /// utterances has nothing left to do.
-    pub fn fraction(&self) -> f64 {
-        if self.total_utterances.0 == 0 {
-            1.0
-        } else {
-            self.completed_utterances.0 as f64 / self.total_utterances.0 as f64
-        }
-    }
-}
-
-/// Aggregate progress for a batched infer job across all language groups.
-///
-/// This is a PROJECTION of [`BatchProgressLedger`], not a thing callers
-/// mutate. The 2026-04 version exposed `register_group` / `update_group` /
-/// `complete_group`, and those mutators are what made the double-counting bug
-/// expressible: they invited last-write-wins updates keyed on language, which
-/// is the wrong granularity. Build one of these with
-/// `BatchProgressLedger::snapshot` instead.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-pub struct BatchInferProgress {
-    /// Per-language-group progress, keyed by language code.
-    /// `BTreeMap` for deterministic JSON.
-    pub language_groups: BTreeMap<LanguageCode3, LanguageGroupProgress>,
-}
-
-impl BatchInferProgress {
-    /// Total utterances across all language groups.
-    pub fn total_utterances(&self) -> UtteranceCount {
-        UtteranceCount(
-            self.language_groups
-                .values()
-                .map(|g| g.total_utterances.0)
-                .sum(),
-        )
-    }
-
-    /// Total completed utterances across all language groups.
-    pub fn completed_utterances(&self) -> UtteranceCount {
-        UtteranceCount(
-            self.language_groups
-                .values()
-                .map(|g| g.completed_utterances.0)
-                .sum(),
-        )
-    }
-
-    /// Overall progress as a fraction in `[0.0, 1.0]`.
-    pub fn overall_fraction(&self) -> f64 {
-        let total = self.total_utterances().0;
-        if total == 0 {
-            1.0
-        } else {
-            self.completed_utterances().0 as f64 / total as f64
-        }
-    }
-
-    /// Whether all language groups have finished.
-    pub fn is_complete(&self) -> bool {
-        self.language_groups.values().all(|g| g.is_complete())
-    }
-
-    /// Language codes for groups that have not yet completed.
-    ///
-    /// This is what a stall report names: with the ledger keyed per chunk, an
-    /// incomplete group here means real outstanding utterances, not an
-    /// artefact of one chunk's numbers overwriting another's.
-    pub fn incomplete_groups(&self) -> Vec<&LanguageCode3> {
-        self.language_groups
-            .values()
-            .filter(|g| !g.is_complete())
-            .map(|g| &g.lang)
-            .collect()
-    }
-
-    /// Number of language groups still in progress.
-    pub fn active_groups(&self) -> usize {
-        self.language_groups
-            .values()
-            .filter(|g| !g.is_complete())
-            .count()
-    }
-
-    /// Human-readable summary for CLI display.
-    ///
-    /// Example: `"3/5 languages done, 1200/1800 utterances (67%)"`.
-    pub fn summary(&self) -> String {
-        let total_groups = self.language_groups.len();
-        let complete_groups = total_groups - self.active_groups();
-        let completed = self.completed_utterances().0;
-        let total = self.total_utterances().0;
-        let pct = (100u64.saturating_mul(completed))
-            .checked_div(total)
-            .map(|v| v as u32)
-            .unwrap_or(100);
-        format!(
-            "{complete_groups}/{total_groups} languages done, \
-             {completed}/{total} utterances ({pct}%)"
-        )
-    }
 }
 
 #[cfg(test)]
@@ -383,6 +305,14 @@ mod tests {
         LanguageCode3::try_new(code).expect("test language code must be a valid ISO 639-3 code")
     }
 
+    fn declare(ledger: &mut BatchProgressLedger, source: &str, group: &str, total: u64) -> bool {
+        ledger.record(ProgressReport::GroupTotal {
+            source_id: DisplayPath::from(source),
+            group: lang(group),
+            total: UtteranceCount(total),
+        })
+    }
+
     fn report(
         ledger: &mut BatchProgressLedger,
         source: &str,
@@ -391,12 +321,12 @@ mod tests {
         completed: u32,
         total: u32,
     ) -> bool {
-        ledger.record(BackendProgress::from_event(
+        ledger.record(ProgressReport::Chunk(BackendProgress::from_event(
             DisplayPath::from(source),
             lang(group),
             BatchChunkIndex(chunk),
             &event("req", completed, total),
-        ))
+        )))
     }
 
     /// THE REGRESSION THIS MODULE EXISTS FOR.
@@ -409,19 +339,20 @@ mod tests {
     #[test]
     fn chunked_group_totals_sum_instead_of_overwriting() {
         let mut ledger = BatchProgressLedger::new();
+        declare(&mut ledger, "a.cha", "eng", 1_096);
         for chunk in 0..4 {
             report(&mut ledger, "a.cha", "eng", chunk, 0, 274);
         }
         report(&mut ledger, "a.cha", "eng", 0, 274, 274);
         report(&mut ledger, "a.cha", "eng", 1, 179, 274);
 
-        let snapshot = ledger.snapshot();
-        let group = &snapshot.language_groups[&lang("eng")];
-        assert_eq!(group.total_utterances, UtteranceCount(1_096));
-        assert_eq!(group.completed_utterances, UtteranceCount(453));
+        let sources = ledger.source_progress();
+        let file = sources.first().expect("a.cha must be present");
+        assert_eq!(file.total, UtteranceCount(1_096));
+        assert_eq!(file.completed, UtteranceCount(453));
         assert!(
-            group.completed_utterances.0 <= group.total_utterances.0,
-            "completed must never exceed total: {group:?}"
+            file.completed.0 <= file.total.0,
+            "completed must never exceed total: {file:?}"
         );
     }
 
@@ -434,47 +365,46 @@ mod tests {
     #[test]
     fn retried_chunk_replaces_its_abandoned_attempt() {
         let mut ledger = BatchProgressLedger::new();
+        declare(&mut ledger, "a.cha", "eng", 300);
         report(&mut ledger, "a.cha", "eng", 0, 90, 300);
         // Same chunk, new attempt, counts restart from zero.
         report(&mut ledger, "a.cha", "eng", 0, 10, 300);
 
-        let snapshot = ledger.snapshot();
-        let group = &snapshot.language_groups[&lang("eng")];
-        assert_eq!(group.total_utterances, UtteranceCount(300));
-        assert_eq!(group.completed_utterances, UtteranceCount(10));
+        let sources = ledger.source_progress();
+        let file = sources.first().expect("a.cha must be present");
+        assert_eq!(file.total, UtteranceCount(300));
+        assert_eq!(file.completed, UtteranceCount(10));
     }
 
-    /// Distinct languages stay distinct, and the wire-protocol `stage` label
-    /// they all share cannot merge them.
+    /// The wire-protocol `stage` label cannot merge two languages, and cannot
+    /// be mistaken for one.
+    ///
+    /// The group is still part of the ledger's key even though nothing displays
+    /// it (the batcher will want it), so a file that code-switches keeps its
+    /// per-language chunks distinct rather than overwriting them.
     #[test]
-    fn languages_do_not_collapse_on_the_shared_stage_label() {
-        let mut ledger = BatchProgressLedger::new();
-        report(&mut ledger, "eng.cha", "eng", 0, 100, 100);
-        report(&mut ledger, "hrv.cha", "hrv", 0, 100, 209);
-        report(&mut ledger, "cat.cha", "cat", 0, 130, 274);
-
-        let snapshot = ledger.snapshot();
-        assert_eq!(
-            snapshot.language_groups.len(),
-            3,
-            "expected eng + hrv + cat, got {:?}",
-            snapshot.language_groups.keys().collect::<Vec<_>>()
-        );
-        // The old collapse is now UNREPRESENTABLE rather than merely absent:
-        // the shared stage label cannot even be built into a group key, because
-        // `LanguageCode3` validates its input.
+    fn the_shared_stage_label_can_never_become_a_group() {
         assert!(
             LanguageCode3::try_new("stanza_processing").is_err(),
             "the wire stage label must not be constructible as a language group"
         );
-        assert_eq!(snapshot.total_utterances(), UtteranceCount(583));
 
-        let incomplete = snapshot.incomplete_groups();
+        let mut ledger = BatchProgressLedger::new();
+        // One file, two languages (the L2 code-switch path), same chunk index.
+        declare(&mut ledger, "mixed.cha", "eng", 100);
+        declare(&mut ledger, "mixed.cha", "spa", 60);
+        report(&mut ledger, "mixed.cha", "eng", 0, 40, 100);
+        report(&mut ledger, "mixed.cha", "spa", 0, 10, 60);
+
+        let sources = ledger.source_progress();
+        assert_eq!(sources.len(), 1, "one file, one row");
+        let file = sources.first().expect("mixed.cha must be present");
         assert_eq!(
-            incomplete.len(),
-            2,
-            "expected hrv + cat, got {incomplete:?}"
+            file.total,
+            UtteranceCount(160),
+            "both language groups of one file count toward that file"
         );
+        assert_eq!(file.completed, UtteranceCount(50));
     }
 
     /// The same events must also answer "how far into THIS file are we",
@@ -482,6 +412,8 @@ mod tests {
     #[test]
     fn per_source_projection_sums_that_file_only() {
         let mut ledger = BatchProgressLedger::new();
+        declare(&mut ledger, "a.cha", "eng", 200);
+        declare(&mut ledger, "b.cha", "spa", 40);
         report(&mut ledger, "a.cha", "eng", 0, 50, 100);
         report(&mut ledger, "a.cha", "eng", 1, 25, 100);
         report(&mut ledger, "b.cha", "spa", 0, 10, 40);
@@ -502,72 +434,78 @@ mod tests {
         assert_eq!(b.total, UtteranceCount(40));
     }
 
-    /// Two files in the same language belong to one job-level group but stay
-    /// separate per-source rows. This is the multilingual-job shape the
-    /// dashboard panel renders, and the single-language case that used to be
-    /// dismissed as "one bar, not worth it".
+    /// Two files in the same language stay two rows.
+    ///
+    /// They used to be summed into one job-level language bar. That aggregate
+    /// was retired: see the module docs on why its denominator lied.
     #[test]
-    fn one_group_can_span_several_sources() {
+    fn two_files_in_one_language_stay_two_rows() {
         let mut ledger = BatchProgressLedger::new();
+        declare(&mut ledger, "a.cha", "eng", 100);
+        declare(&mut ledger, "b.cha", "eng", 100);
         report(&mut ledger, "a.cha", "eng", 0, 10, 100);
         report(&mut ledger, "b.cha", "eng", 0, 40, 100);
 
-        let snapshot = ledger.snapshot();
-        assert_eq!(snapshot.language_groups.len(), 1);
-        let group = &snapshot.language_groups[&lang("eng")];
-        assert_eq!(group.completed_utterances, UtteranceCount(50));
-        assert_eq!(group.total_utterances, UtteranceCount(200));
-        assert_eq!(ledger.source_progress().len(), 2);
+        let sources = ledger.source_progress();
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].completed, UtteranceCount(10));
+        assert_eq!(sources[1].completed, UtteranceCount(40));
     }
 
-    /// Republishing an unchanged snapshot is wasted work, so `record` reports
+    /// THE BUG A LIVE RUN CAUGHT, and the reason the denominator is declared.
+    ///
+    /// A file's first chunk finishing must not make the whole file look
+    /// complete. With the total inferred from the chunks that had reported, one
+    /// finished chunk of four read as 375/375, the publisher skipped the file as
+    /// done, and no per-file update was ever sent: the common case was silently
+    /// suppressed while every unit test passed.
+    #[test]
+    fn one_finished_chunk_does_not_make_a_file_look_complete() {
+        let mut ledger = BatchProgressLedger::new();
+        declare(&mut ledger, "long.cha", "eng", 1_500);
+        // Chunk 0 finished; chunks 1..3 have not reported at all.
+        report(&mut ledger, "long.cha", "eng", 0, 375, 375);
+
+        let sources = ledger.source_progress();
+        let file = sources.first().expect("long.cha must be present");
+        assert_eq!(
+            file.total,
+            UtteranceCount(1_500),
+            "the denominator is declared work, not reported work"
+        );
+        assert_eq!(file.completed, UtteranceCount(375));
+        assert!(
+            file.completed.0 < file.total.0,
+            "a file with three chunks unreported is not complete"
+        );
+    }
+
+    /// A declaration alone gives a file its denominator, before any inference.
+    #[test]
+    fn a_declared_group_shows_zero_of_its_total() {
+        let mut ledger = BatchProgressLedger::new();
+        declare(&mut ledger, "a.cha", "eng", 800);
+
+        let sources = ledger.source_progress();
+        let file = sources.first().expect("a.cha must be present");
+        assert_eq!(file.completed, UtteranceCount(0));
+        assert_eq!(file.total, UtteranceCount(800));
+    }
+
+    /// Republishing identical numbers is wasted work, so `record` reports
     /// whether it changed anything.
     #[test]
     fn record_reports_whether_the_ledger_changed() {
         let mut ledger = BatchProgressLedger::new();
+        assert!(declare(&mut ledger, "a.cha", "eng", 100));
+        assert!(!declare(&mut ledger, "a.cha", "eng", 100));
         assert!(report(&mut ledger, "a.cha", "eng", 0, 10, 100));
         assert!(!report(&mut ledger, "a.cha", "eng", 0, 10, 100));
         assert!(report(&mut ledger, "a.cha", "eng", 0, 11, 100));
     }
 
     #[test]
-    fn empty_ledger_is_complete_and_empty() {
-        let snapshot = BatchProgressLedger::new().snapshot();
-        assert!(snapshot.is_complete());
-        assert_eq!(snapshot.total_utterances(), UtteranceCount(0));
-        assert_eq!(snapshot.active_groups(), 0);
-        assert_eq!(snapshot.overall_fraction(), 1.0);
-    }
-
-    #[test]
-    fn summary_reads_as_a_sentence() {
-        let mut ledger = BatchProgressLedger::new();
-        report(&mut ledger, "a.cha", "eng", 0, 1000, 1000);
-        report(&mut ledger, "b.cha", "fra", 0, 250, 500);
-        report(&mut ledger, "c.cha", "deu", 0, 0, 300);
-
-        let summary = ledger.snapshot().summary();
-        assert!(summary.contains("1/3 languages done"), "got: {summary}");
-        assert!(summary.contains("1250/1800"), "got: {summary}");
-        assert!(summary.contains("69%"), "got: {summary}");
-    }
-
-    /// The JSON contract the dashboard and the generated TypeScript consume
-    /// must not change: transparent newtypes, alphabetical keys.
-    #[test]
-    fn json_shape_is_unchanged_and_deterministic() {
-        let mut ledger = BatchProgressLedger::new();
-        report(&mut ledger, "c.cha", "fra", 0, 5, 50);
-        report(&mut ledger, "a.cha", "eng", 0, 10, 100);
-        report(&mut ledger, "b.cha", "deu", 0, 0, 30);
-
-        let json = serde_json::to_string(&ledger.snapshot()).expect("snapshot must serialize");
-        assert_eq!(
-            json,
-            r#"{"language_groups":{"deu":{"lang":"deu","completed_utterances":0,"total_utterances":30},"eng":{"lang":"eng","completed_utterances":10,"total_utterances":100},"fra":{"lang":"fra","completed_utterances":5,"total_utterances":50}}}"#
-        );
-        let back: BatchInferProgress =
-            serde_json::from_str(&json).expect("snapshot must round-trip");
-        assert_eq!(back, ledger.snapshot());
+    fn an_empty_ledger_has_no_rows() {
+        assert!(BatchProgressLedger::new().source_progress().is_empty());
     }
 }

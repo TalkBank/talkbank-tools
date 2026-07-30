@@ -1,4 +1,4 @@
-//! Batch-progress reporting for a morphotag job.
+//! Per-file inference progress reporting for a morphotag job.
 //!
 //! One reporter per job owns the accounting and the publishing cadence; each
 //! per-file task holds a cheap [`BackendProgressPort`] that stamps its own
@@ -30,9 +30,9 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::api::{DisplayPath, JobId, LanguageCode3};
+use crate::api::{DisplayPath, JobId, LanguageCode3, UtteranceCount};
 use crate::runner::util::batch_progress::{
-    BackendProgress, BatchChunkIndex, BatchProgressLedger, SourceProgress,
+    BackendProgress, BatchChunkIndex, BatchProgressLedger, ProgressReport, SourceProgress,
 };
 use crate::runner::util::{FileStage, RunnerEventSink};
 use crate::types::worker_v2::ProgressEventV2;
@@ -61,7 +61,7 @@ const REPORT_CHANNEL_DEPTH: usize = 256;
 /// Owns one job's batch-progress accounting and publishing.
 pub(crate) struct BatchProgressReporter {
     /// Kept so [`Self::port`] can hand out clones.
-    tx: Option<mpsc::Sender<BackendProgress>>,
+    tx: Option<mpsc::Sender<ProgressReport>>,
     /// Explicit shutdown signal for the drain task.
     ///
     /// Shutdown is NOT inferred from the channel closing. Every port holds a
@@ -77,7 +77,7 @@ pub(crate) struct BatchProgressReporter {
 impl BatchProgressReporter {
     /// Start a reporter for one job.
     pub(crate) fn spawn(sink: Arc<dyn RunnerEventSink>, job_id: JobId) -> Self {
-        let (tx, rx) = mpsc::channel::<BackendProgress>(REPORT_CHANNEL_DEPTH);
+        let (tx, rx) = mpsc::channel::<ProgressReport>(REPORT_CHANNEL_DEPTH);
         let shutdown = CancellationToken::new();
         let drain = tokio::spawn(drain_reports(sink, job_id, rx, shutdown.clone()));
         Self {
@@ -117,10 +117,23 @@ impl BatchProgressReporter {
 #[derive(Clone)]
 pub(crate) struct BackendProgressPort {
     source_id: DisplayPath,
-    tx: mpsc::Sender<BackendProgress>,
+    tx: mpsc::Sender<ProgressReport>,
 }
 
 impl BackendProgressPort {
+    /// Declare how many utterances one language group of this file will process.
+    ///
+    /// Called before the group's chunks are dispatched. This is what gives a
+    /// file an exact denominator from the start; inferring it from the chunks
+    /// that have reported makes a file whose first chunk finished look complete.
+    pub(crate) fn declare_group_total(&self, group: &LanguageCode3, total: UtteranceCount) {
+        self.send(ProgressReport::GroupTotal {
+            source_id: self.source_id.clone(),
+            group: group.clone(),
+            total,
+        });
+    }
+
     /// Report one wire progress event for one chunk of one language group.
     ///
     /// Uses `try_send`: a progress report must never slow inference or, worse,
@@ -134,14 +147,21 @@ impl BackendProgressPort {
         chunk: BatchChunkIndex,
         event: &ProgressEventV2,
     ) {
-        let progress =
-            BackendProgress::from_event(self.source_id.clone(), group.clone(), chunk, event);
-        match self.tx.try_send(progress) {
+        self.send(ProgressReport::Chunk(BackendProgress::from_event(
+            self.source_id.clone(),
+            group.clone(),
+            chunk,
+            event,
+        )));
+    }
+
+    /// Queue one report, dropping it rather than ever blocking inference.
+    fn send(&self, report: ProgressReport) {
+        match self.tx.try_send(report) {
             Ok(()) => {}
             Err(mpsc::error::TrySendError::Full(_)) => {
                 tracing::debug!(
                     source_id = %self.source_id,
-                    group = %group,
                     "dropped a batch progress report: channel full"
                 );
             }
@@ -159,7 +179,7 @@ impl BackendProgressPort {
 async fn drain_reports(
     sink: Arc<dyn RunnerEventSink>,
     job_id: JobId,
-    mut rx: mpsc::Receiver<BackendProgress>,
+    mut rx: mpsc::Receiver<ProgressReport>,
     shutdown: CancellationToken,
 ) {
     let mut ledger = BatchProgressLedger::new();
@@ -174,8 +194,8 @@ async fn drain_reports(
             received = tokio::time::timeout(PUBLISH_INTERVAL, rx.recv()) => received,
             () = shutdown.cancelled() => {
                 // Take whatever is already queued, then publish and stop.
-                while let Ok(progress) = rx.try_recv() {
-                    unpublished_change |= ledger.record(progress);
+                while let Ok(report) = rx.try_recv() {
+                    unpublished_change |= ledger.record(report);
                 }
                 if unpublished_change {
                     publish(sink.as_ref(), &job_id, &ledger).await;
@@ -185,8 +205,8 @@ async fn drain_reports(
         };
 
         match received {
-            Ok(Some(progress)) => {
-                unpublished_change |= ledger.record(progress);
+            Ok(Some(report)) => {
+                unpublished_change |= ledger.record(report);
             }
             Ok(None) => {
                 // Every port is gone: publish the final state and stop.
@@ -209,10 +229,13 @@ async fn drain_reports(
     }
 }
 
-/// Publish both projections of the ledger.
+/// Publish the ledger's per-file counts.
+///
+/// There was a second, job-level per-language projection here until
+/// 2026-07-30; see `runner::util::batch_progress` for why an aggregate whose
+/// denominator only covers the files currently in flight was retired rather
+/// than kept.
 async fn publish(sink: &dyn RunnerEventSink, job_id: &JobId, ledger: &BatchProgressLedger) {
-    sink.set_batch_progress(job_id, ledger.snapshot()).await;
-
     for source in ledger.source_progress() {
         // Skip a file whose utterances are all accounted for. Its row is about
         // to go terminal (or already has), and the store refuses progress on a
@@ -261,15 +284,13 @@ mod tests {
         LanguageCode3::try_new(code).expect("valid test language")
     }
 
-    /// The reporter must publish BOTH projections: the job-level per-language
-    /// snapshot and the per-file utterance counts.
+    /// The reporter must publish a mid-flight file's utterance counts.
     ///
-    /// The per-file half is the one that had no coverage anywhere: it is what
-    /// gives an operator watching a single long file a denominator, and a live
-    /// ML test cannot assert it reliably because a fast file emits only its
-    /// final event.
+    /// This is what gives an operator watching a single long file a
+    /// denominator, and a live ML test cannot assert it reliably because a fast
+    /// file emits only its final event.
     #[tokio::test]
-    async fn reporter_publishes_both_projections() {
+    async fn reporter_publishes_per_file_counts() {
         let sink = Arc::new(RecordingSink::default());
         let job_id = JobId::from("job-1");
         let reporter = BatchProgressReporter::spawn(sink.clone(), job_id.clone());
@@ -278,19 +299,9 @@ mod tests {
             .port(DisplayPath::from("a.cha"))
             .expect("a fresh reporter must hand out ports");
         // Mid-flight: 40 of 100 utterances done in this file's only chunk.
+        port.declare_group_total(&lang("eng"), UtteranceCount(100));
         port.report(&lang("eng"), BatchChunkIndex(0), &event(40, 100));
         reporter.finish().await;
-
-        let snapshots = sink.batch_snapshots();
-        let last = snapshots
-            .last()
-            .expect("the reporter must publish at least once");
-        let group = last
-            .language_groups
-            .get(&lang("eng"))
-            .expect("eng group must be present");
-        assert_eq!(group.completed_utterances.0, 40);
-        assert_eq!(group.total_utterances.0, 100);
 
         let file_writes = sink.progress();
         let write = file_writes
@@ -315,6 +326,7 @@ mod tests {
         let port = reporter
             .port(DisplayPath::from("done.cha"))
             .expect("port must exist");
+        port.declare_group_total(&lang("eng"), UtteranceCount(100));
         port.report(&lang("eng"), BatchChunkIndex(0), &event(100, 100));
         reporter.finish().await;
 
@@ -322,9 +334,6 @@ mod tests {
             sink.progress().is_empty(),
             "a complete file must not receive a per-file progress write"
         );
-        let snapshots = sink.batch_snapshots();
-        let last = snapshots.last().expect("job-level snapshot must publish");
-        assert_eq!(last.completed_utterances().0, 100);
     }
 
     /// Chunk keying survives the whole path, not just the ledger: two chunks of
@@ -337,18 +346,15 @@ mod tests {
         let port = reporter
             .port(DisplayPath::from("big.cha"))
             .expect("port must exist");
+        port.declare_group_total(&lang("eng"), UtteranceCount(548));
         port.report(&lang("eng"), BatchChunkIndex(0), &event(150, 274));
         port.report(&lang("eng"), BatchChunkIndex(1), &event(120, 274));
         reporter.finish().await;
 
-        let snapshots = sink.batch_snapshots();
-        let last = snapshots.last().expect("job-level snapshot must publish");
-        let group = last
-            .language_groups
-            .get(&lang("eng"))
-            .expect("eng group must be present");
-        assert_eq!(group.total_utterances.0, 548, "chunk totals must sum");
-        assert_eq!(group.completed_utterances.0, 270);
+        let writes = sink.progress();
+        let write = writes.last().expect("big.cha must get a write");
+        assert_eq!(write.total, Some(548), "chunk totals must sum");
+        assert_eq!(write.current, Some(270));
     }
 
     /// `finish()` must not wait for outstanding ports.
@@ -365,6 +371,7 @@ mod tests {
         let port = reporter
             .port(DisplayPath::from("held.cha"))
             .expect("port must exist");
+        port.declare_group_total(&lang("eng"), UtteranceCount(50));
         port.report(&lang("eng"), BatchChunkIndex(0), &event(5, 50));
 
         // The port is deliberately still alive here.
@@ -373,9 +380,9 @@ mod tests {
             .expect("finish must not wait on an outstanding port");
 
         assert_eq!(
-            sink.batch_snapshots().len(),
+            sink.progress().len(),
             1,
-            "the queued report must still be published on shutdown"
+            "the queued reports must still be published on shutdown"
         );
         drop(port);
     }

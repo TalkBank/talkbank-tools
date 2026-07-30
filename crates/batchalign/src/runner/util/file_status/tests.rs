@@ -81,7 +81,6 @@ fn make_job(id: &str) -> Job {
             results: Vec::new(),
             error: None,
             completed_files: 0,
-            batch_progress: None,
         },
         schedule: JobScheduleState {
             submitted_at: unix_now(),

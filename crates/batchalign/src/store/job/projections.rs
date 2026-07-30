@@ -66,7 +66,6 @@ impl Job {
             next_eligible_at: self.schedule.next_eligible_at,
             num_workers: self.schedule.num_workers,
             active_lease: self.active_lease(),
-            batch_progress: self.execution.batch_progress.clone(),
             control_plane: None,
             execution_plan: self.execution_plan.clone(),
             last_cancelled_at: self.schedule.last_cancel.as_ref().map(|c| c.at),

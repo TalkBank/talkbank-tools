@@ -27,6 +27,11 @@ use indicatif::{ProgressBar, ProgressStyle};
 /// into, introduced alongside `Dispatcher`. Where a name collides, the upstream
 /// name wins and ours moves, so shared vocabulary means the same thing on both
 /// sides. Do not reuse `ProgressSink` for a display type.
+///
+/// Per-file utterance counts reach this trait through the ordinary
+/// [`Self::update`] path, as `progress_current` / `progress_total` on a file
+/// entry. There is no separate job-level batch method: the aggregate that used
+/// one was retired on 2026-07-30 (see `runner::util::batch_progress`).
 pub trait ProgressDisplay: Send + Sync {
     /// Update completed file count and file status entries.
     fn update(&self, done: u64, file_statuses: &[FileStatusEntry]);
@@ -38,14 +43,6 @@ pub trait ProgressDisplay: Send + Sync {
     fn finish(&self);
     /// Update server health snapshot. Default no-op for non-TUI sinks.
     fn update_health(&self, _health: &HealthResponse) {}
-    /// Update batch-level language-group progress.
-    ///
-    /// Deliberately has NO default body. It used to default to a no-op, and
-    /// `TuiProgress` silently inherited that, so the TUI dropped every batch
-    /// progress update with nothing to indicate it: the same
-    /// declared-but-unwired shape as the feature this method belongs to. A sink
-    /// that genuinely has nowhere to show this must say so explicitly.
-    fn update_batch_progress(&self, progress: &crate::api::BatchInferProgress);
     /// Surface a cancellation receipt for the end-of-run banner.
     /// Default no-op for non-TUI sinks (which already print the
     /// receipt to stderr inline as part of their finish() output).
@@ -156,22 +153,5 @@ impl ProgressDisplay for BatchProgress {
 
     fn finish(&self) {
         self.finish();
-    }
-
-    fn update_batch_progress(&self, progress: &crate::api::BatchInferProgress) {
-        self.update_batch_progress(progress);
-    }
-}
-
-// -- Batch progress extension --
-impl BatchProgress {
-    /// Update the activity spinner with batch-level language-group progress.
-    ///
-    /// Called when the polled job response includes `batch_progress` from a
-    /// running batched text command. Shows a summary like:
-    /// `morphotag: 2/4 languages done, 1200/1800 utterances (67%)`
-    pub fn update_batch_progress(&self, progress: &crate::api::BatchInferProgress) {
-        self.activity
-            .set_message(format!("{}: {}", self.command, progress.summary()));
     }
 }

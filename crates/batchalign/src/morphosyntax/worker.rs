@@ -225,6 +225,14 @@ async fn infer_batch_homogeneous(
     // 2026-05-03. The chunk index is the stable key, because a retry reissues
     // the same chunk under a fresh request id. Full reasoning:
     // `crate::runner::util::batch_progress`.
+    // Declare this group's work BEFORE dispatching it, so the file has an exact
+    // denominator from the start. Inferring it from chunk reports makes a file
+    // whose first chunk finished look complete while its other chunks have not
+    // started, which silently suppressed every per-file update.
+    if let Some(port) = progress {
+        port.declare_group_total(lang, crate::api::UtteranceCount(items.len() as u64));
+    }
+
     let num_chunks = compute_chunk_count(
         items.len(),
         pool.max_workers_per_key_for(crate::worker::WorkerProfile::Stanza),

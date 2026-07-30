@@ -194,7 +194,6 @@ fn snapshot_job_info() {
         num_workers: Some(4),
         active_lease: None,
         control_plane: None,
-        batch_progress: None,
         execution_plan: None,
         last_cancelled_at: None,
         last_cancelled_source: None,

@@ -169,29 +169,6 @@ impl Job {
         self.schedule.num_workers = Some(num_workers as i64);
     }
 
-    /// Publish the latest batch-inference progress snapshot for this job.
-    ///
-    /// Unconditional by design, unlike the status transitions above: progress is
-    /// display state, it carries no invariant another writer could violate, and
-    /// a snapshot arriving late cannot corrupt anything. The one rule is that a
-    /// finalized job must not keep stale in-flight counts, which
-    /// [`Self::clear_batch_progress`] enforces from `finalize`.
-    pub(crate) fn set_batch_progress(
-        &mut self,
-        progress: crate::runner::util::batch_progress::BatchInferProgress,
-    ) {
-        self.execution.batch_progress = Some(progress);
-    }
-
-    /// Drop any batch-inference progress snapshot.
-    ///
-    /// Called when the job reaches a terminal state: a completed job showing
-    /// "1200/1800 utterances" forever is worse than showing nothing, because it
-    /// reads as work still outstanding.
-    pub(crate) fn clear_batch_progress(&mut self) {
-        self.execution.batch_progress = None;
-    }
-
     /// Fail the job immediately with a job-level error message.
     ///
     /// Refuses for a job that is no longer active, so a late dispatch error
@@ -275,7 +252,6 @@ impl Job {
         if applied && final_status == JobStatus::Failed {
             self.set_failure_reason_from_files();
         }
-        self.clear_batch_progress();
         if applied {
             self.schedule.completed_at = Some(completed_at);
             self.schedule.next_eligible_at = None;

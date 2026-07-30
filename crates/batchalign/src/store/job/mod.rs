@@ -88,7 +88,6 @@ mod tests {
                 results: Vec::new(),
                 error: None,
                 completed_files: 0,
-                batch_progress: None,
             },
             schedule: JobScheduleState {
                 submitted_at: UnixTimestamp(100.0),

@@ -1,7 +1,7 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-07-29 23:41 EDT
+**Last updated:** 2026-07-30 06:40 EDT
 
 ## Overview
 
@@ -90,35 +90,52 @@ and broadcast over WebSocket to the dashboard.
 
 ### Batch-inference progress
 
-Restored 2026-07-29 after three months with no producer. Read the history at
-the end of this section before changing anything here: this surface has been
-wrong in three different ways.
-
 For the batched-text commands (morphotag today; utseg / translate / coref have
 the same shape and are not wired yet), the Python backend reports utterance
-counts as it works, and `BatchProgressLedger` turns them into two projections:
+counts as it works, and those counts reach the UI as **per-file** progress on
+the same channel every other command uses: `progress_current` /
+`progress_total` on the file's status entry, under `FileStage::Analyzing`.
 
-| Projection | Type | Where it shows |
-|---|---|---|
-| Per language group, job-wide | `BatchInferProgress` | `JobInfo.batch_progress` (REST), dashboard `BatchProgressPanel`, CLI summary line, TUI header |
-| Per input file | `SourceProgress` | the ordinary file-progress channel, so per-file rows and the CLI spinner get a denominator |
+There is deliberately **no job-level aggregate**. One existed
+(`BatchInferProgress`, with a REST field, a dashboard panel and a CLI summary
+line) and it was retired on 2026-07-30 because it could not be made honest.
 
-Both come from the same events, so they cannot disagree. The per-file
-projection is the one that answers "is THIS long file moving", which is the
-question the stage label `Analyzing` alone could not answer.
+| Concern | Where it lives |
+|---|---|
+| Provenance-carrying report from a backend | `BackendProgress` (`runner/util/batch_progress.rs`) |
+| Declared work + completions per file | `BatchProgressLedger`, projected as `SourceProgress` |
+| Publishing cadence and shutdown | `BatchProgressReporter` (`execution/morphotag/progress.rs`) |
+| Per-file handle threaded to the dispatch site | `BackendProgressPort` |
 
-**The key is (source, group, chunk), and that is the whole design.**
-`morphosyntax::worker::infer_batch_homogeneous` splits one language group into
-up to `max_workers_per_key` chunks whenever it holds `2 * MIN_CHUNK_SIZE` items
-or more (so: always, on a multi-worker host), and each chunk is a separate
-backend request reporting its own `completed` / `total`. Totals are SUMMED
-across chunks and the newest report per chunk wins. Keying on the chunk index
-rather than the request id is deliberate: a retry reissues the same chunk under
-a fresh request id, and a request-keyed ledger would double the denominator and
-strand the abandoned attempt's count.
+**Two scope rules, both learned by getting them wrong.**
 
-Provenance is supplied by the dispatch site, which knows the file, the language
-and the chunk for certain. The wire event's `stage` field is ignored:
+1. **A group DECLARES its work before dispatch; the denominator is never
+   inferred from what has reported.** `infer_batch_homogeneous` calls
+   `declare_group_total(lang, items.len())` before chunking. Without it, a file
+   whose first chunk finished (375/375) looked complete while three chunks had
+   not started, so the publisher skipped it as done and no per-file update was
+   ever sent. Every unit test passed; a live run caught it.
+2. **Completions are keyed (source, group, chunk) and summed.** A language group
+   is split into up to `max_workers_per_key` chunks, each its own request with
+   its own counts, so aggregating them by language alone displayed `453/274`
+   (165%) before this feature was removed in May. The chunk index is the key,
+   not the request id, because a retry reissues the same chunk under a fresh id.
+
+**Why the job-level aggregate went.** Its denominator only covered files that
+had already been dispatched, and files are dispatched `num_workers` at a time.
+So "1250/1500 utterances (83%)" meant "83% of the handful of files in flight",
+rendered next to `0/740 files`, drifting up toward truth over hours. Under the
+pooled batching it was written for, the same field was honest: everything was
+pooled up front, so the denominator really was the job. Making it honest again
+would require parsing every file before dispatch, which is exactly the up-front
+work that was deliberately removed for interfering with per-file processing. A
+file's own total, by contrast, is exact the moment its payloads exist.
+
+If a job-level view is wanted later, the honest form is a rate or ETA computed
+from COMPLETED files, not a mid-flight utterance percentage.
+
+Provenance comes from the dispatch site, which knows the file, the language and
+the chunk for certain. The wire event's `stage` field is ignored:
 `batchalign/worker/_protocol.py::write_progress_event` hard-codes
 `stage="stanza_processing"` on every event, so it identifies nothing.
 
@@ -126,16 +143,18 @@ and the chunk for certain. The wire event's `stage` field is ignored:
 sequenceDiagram
     participant Py as "Python backend\n(worker/_text_v2.py, 1 event/s/request)"
     participant Port as "BackendProgressPort\n(one per input file)"
-    participant Drain as "Reporter drain task\n(execution/morphotag/progress.rs)"
-    participant Ledger as "BatchProgressLedger\n(runner/util/batch_progress.rs)"
+    participant Drain as "Reporter drain task"
+    participant Ledger as "BatchProgressLedger"
     participant Store as "Job store"
 
+    Port->>Drain: GroupTotal {source_id, group, total}
+    Drain->>Ledger: record()
+    Drain->>Store: set_file_progress(0 / total)
     Py->>Port: progress_v2 {completed, total}
-    Port->>Drain: BackendProgress {source_id, group, chunk, completed, total}
+    Port->>Drain: Chunk {source_id, group, chunk, completed}
     Drain->>Ledger: record()
     Note over Drain,Ledger: publishes on a 2s cadence when changed,\nand republishes after 120s of silence
-    Drain->>Store: set_batch_progress(snapshot)
-    Drain->>Store: set_file_progress(per-source counts)
+    Drain->>Store: set_file_progress(completed / total)
 ```
 
 Shutdown is an explicit `CancellationToken`, not "the channel closed": every
@@ -153,19 +172,18 @@ Verified against: `batchalign/worker/_text_v2.py`,
   batched-text dispatch, plus a designed replacement that nothing constructed.
 - `e8235c13` (2026-05-03): the working loop, the channel and
   `RunnerEventSink::set_batch_progress` were all removed. From then until
-  2026-07-29 the type, the REST field, the dashboard panel and the CLI line
-  all existed with **no producer**: `batch_progress` was permanently `null`.
-- `c2236ab3` (2026-05-06): morphotag stopped accepting a job-level `--lang`.
-  The golden tests covering this feature still sent one, so every one of them
-  failed at submission with HTTP 400 and the coverage went dark three days
-  after the feature did.
-- An earlier revision of this page claimed a per-language "tagger" had FIXED
-  the `453/274` (165%) overflow. It had not. The tagger addressed a different
-  bug (all languages collapsing onto the shared `stage` label) and could not
-  address the overflow at all, because the overflow comes from aggregating
-  CHUNKS of one language by language alone. Both are fixed now, by keying on
-  (source, group, chunk) and by taking provenance from the dispatch site
-  instead of rewriting a wire field.
+  2026-07-29 the type, the REST field, the dashboard panel and the CLI line all
+  existed with **no producer**: `batch_progress` was permanently `null`.
+- `c2236ab3` (2026-05-06): morphotag stopped accepting a job-level `--lang`. The
+  golden tests covering this feature still sent one, so every one of them failed
+  at submission with HTTP 400 and the coverage went dark three days after the
+  feature did.
+- An earlier revision of this page claimed a per-language "tagger" had FIXED the
+  `453/274` overflow. It had not; the tagger addressed a different bug (all
+  languages collapsing onto the shared `stage` label) and could not address the
+  overflow, which comes from aggregating CHUNKS by language.
+- 2026-07-30: producer restored, then the aggregate retired for the scope reason
+  above. What survives is one honest per-file number.
 
 ### Job status authority: the local store
 
@@ -271,8 +289,8 @@ parsers is the right approach.
 
 | File | What it observes |
 |------|-----------------|
-| `runner/util/file_status/` | `RunnerEventSink` trait, `set_file_progress`, `set_batch_progress` (split: `event_sink.rs`, `file_stage.rs`, `supervision.rs`, `tracker.rs`, `tests.rs`) |
-| `runner/util/batch_progress.rs` | `BackendProgress`, `BatchProgressLedger`, and its `BatchInferProgress` / `SourceProgress` projections |
+| `runner/util/file_status/` | `RunnerEventSink` trait, `set_file_progress` (split: `event_sink.rs`, `file_stage.rs`, `supervision.rs`, `tracker.rs`, `tests.rs`) |
+| `runner/util/batch_progress.rs` | `ProgressReport`, `BackendProgress`, `BatchProgressLedger` and its `SourceProgress` projection |
 | `execution/morphotag/progress.rs` | `BatchProgressReporter` (owns the ledger, publishing cadence, stall republish) and `BackendProgressPort` (per-file handle) |
 | `runner/dispatch/infer_batched.rs` | Drain task, heartbeat gap, progress publishing |
 | `morphosyntax/batch.rs` | Language group dispatch, semaphore, timeouts |

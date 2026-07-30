@@ -189,15 +189,8 @@ fn draw_header(f: &mut Frame, state: &AppState, area: Rect) {
         String::new()
     };
 
-    // The batch summary sits after the file counter because it answers a
-    // different question: the counter says how many FILES are done, this says
-    // how far into the current inference the utterances are.
-    let batch = match &state.progress.batch_summary {
-        Some(summary) => format!("  |  {summary}"),
-        None => String::new(),
-    };
     let label = format!(
-        " {}: {completed}/{total} files{breakdown}{batch}  [{mins:02}:{secs:02}]{suffix}",
+        " {}: {completed}/{total} files{breakdown}  [{mins:02}:{secs:02}]{suffix}",
         state.progress.command,
     );
 

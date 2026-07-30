@@ -78,7 +78,6 @@ pub(crate) fn running_job_fixture() -> Job {
             results: Vec::new(),
             error: None,
             completed_files: 0,
-            batch_progress: None,
         },
         schedule: JobScheduleState {
             submitted_at: UnixTimestamp(1_000_000.0),

@@ -28,7 +28,6 @@ pub(crate) struct RecordedProgress {
 #[derive(Default)]
 pub(crate) struct RecordingSink {
     progress: Mutex<Vec<RecordedProgress>>,
-    batch_snapshots: Mutex<Vec<crate::runner::util::batch_progress::BatchInferProgress>>,
 }
 
 #[async_trait]
@@ -113,17 +112,6 @@ impl RunnerEventSink for RecordingSink {
             });
     }
 
-    async fn set_batch_progress(
-        &self,
-        _job_id: &JobId,
-        progress: crate::runner::util::batch_progress::BatchInferProgress,
-    ) {
-        self.batch_snapshots
-            .lock()
-            .expect("batch snapshots lock")
-            .push(progress);
-    }
-
     async fn unfinished_files(&self, _job_id: &JobId) -> Vec<DisplayPath> {
         Vec::new()
     }
@@ -161,15 +149,5 @@ impl RecordingSink {
     /// Every file-progress write the sink received, in order.
     pub(crate) fn progress(&self) -> Vec<RecordedProgress> {
         self.progress.lock().expect("progress lock").clone()
-    }
-
-    /// Every batch-progress snapshot the sink received, in order.
-    pub(crate) fn batch_snapshots(
-        &self,
-    ) -> Vec<crate::runner::util::batch_progress::BatchInferProgress> {
-        self.batch_snapshots
-            .lock()
-            .expect("batch snapshots lock")
-            .clone()
     }
 }

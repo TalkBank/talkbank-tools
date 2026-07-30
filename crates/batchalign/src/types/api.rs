@@ -14,7 +14,6 @@ pub use super::domain::*;
 pub use super::request::*;
 pub use super::response::*;
 pub use super::status::*;
-pub use crate::runner::util::batch_progress::{BatchInferProgress, LanguageGroupProgress};
 
 #[cfg(test)]
 mod tests {
@@ -98,7 +97,6 @@ mod tests {
             next_eligible_at: None,
             num_workers: None,
             active_lease: None,
-            batch_progress: None,
             control_plane: Some(JobControlPlaneInfo::local()),
             execution_plan: None,
             last_cancelled_at: None,
@@ -357,7 +355,6 @@ mod tests {
                 heartbeat_at: UnixTimestamp(1700000001.0),
                 expires_at: UnixTimestamp(1700000301.0),
             }),
-            batch_progress: None,
             control_plane: None,
             execution_plan: None,
             last_cancelled_at: None,
