@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-07-25 22:45 EDT
+**Last modified:** 2026-07-30 10:37 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -70,7 +70,8 @@ here; otherwise it belongs in chatter.
 `make help` lists the targets; CI workflows live in
 `.github/workflows/`. Shell scripts pass `shellcheck` at default
 severity (`scripts/lint/shellcheck-all.sh`; wired into the ci-report
-gate). Rust tests: prefer scoped `cargo nextest run -p <crate>`.
+gate). Rust tests: prefer scoped `cargo test -p <crate>` (never
+`cargo nextest`, which is banned and uninstalled in this workspace).
 Developer procedure pages: `book/src/batchalign/developer/`.
 
 ## Releases and Versioning

@@ -39,7 +39,7 @@ environment variable.
    }
    ```
 
-5. Run `cargo nextest run --profile ml -E 'test(regression_fixtures)'`
+5. Run `cargo test -p batchalign --features ml-golden --test ml_golden -- regression_fixtures`
    and confirm the fixture is RED (or GREEN if it is a
    regression-prevention snapshot). Commit the runner change to
    the public repo and the fixture content to the private repo.

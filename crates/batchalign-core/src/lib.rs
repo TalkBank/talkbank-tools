@@ -4,13 +4,11 @@
 //! # Why this crate exists
 //!
 //! Today a task runner cannot be compiled, let alone tested, without the CLI,
-//! the jobs database and the worker pool coming with it. That is the single
-//! largest structural difference between this codebase and the fork studied in
-//! `docs/design/2026-07-28-fork-architecture-essence-and-our-shortfall.md`: a
-//! `Dispatcher` trait living in a core crate makes every runner testable
-//! against a mock, with no model download, no GPU and no interpreter. The
-//! crate has to be extracted before that seam can exist, which is why the split
-//! comes first (step 5) and the trait second (step 6).
+//! the jobs database and the worker pool coming with it. A `Dispatcher` trait
+//! living in a core crate makes every runner testable against a mock, with no
+//! model download, no GPU and no interpreter. The crate has to be extracted
+//! before that seam can exist, which is why the split comes first and the trait
+//! second.
 //!
 //! # The boundary, stated as a rule
 //!
@@ -35,6 +33,11 @@
 //! well-intentioned dependency added eighteen months from now; a failing build
 //! does.
 //!
+//! `clippy.toml` in this directory is a second, complementary layer: clippy
+//! resolves real paths, so it catches an aliased or re-exported `std::fs` call
+//! the gate's substring scan would read straight past. It is not the gate,
+//! though, because no workflow here runs clippy.
+//!
 //! The source half is not belt-and-braces, it is load-bearing. Cargo unifies
 //! features across a workspace, so this crate links whatever `tokio` the CLI
 //! asks for regardless of what its own manifest requests, which means
@@ -46,5 +49,9 @@
 //! # Empty on purpose
 //!
 //! The crate and its gate landed before any code moved, so that the first
-//! module to arrive is already constrained. Migration order and per-module
-//! measurements: `docs/design/2026-07-28-ba3-phase-2-incremental-sequence.md`.
+//! module to arrive is already constrained rather than audited afterwards.
+//!
+//! Which module moves next is not obvious from reading a file in isolation:
+//! whether it fits here is decided by what it IMPORTS from the rest of
+//! `batchalign`, not by whether its own body happens to mention a capability.
+//! The compiler is the authority on that; move leaves first and work upward.

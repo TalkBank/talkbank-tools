@@ -14,7 +14,6 @@
 //! `wide_struct_audit` test target has ever existed here. Only CI keeps this
 //! honest, which is why it now runs there.
 
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::Result;
@@ -495,11 +494,6 @@ pub fn run(root: &Path) -> Result<()> {
         .filter(|info| info.field_count >= WIDE_STRUCT_THRESHOLD)
         .collect();
 
-    let actual_by_key: BTreeMap<(String, String), NamedStructInfo> = wide_structs
-        .iter()
-        .cloned()
-        .map(|info| ((info.path.clone(), info.struct_name.clone()), info))
-        .collect();
     let mut failures = Vec::new();
 
     for info in &wide_structs {
@@ -540,11 +534,10 @@ pub fn run(root: &Path) -> Result<()> {
     }
 
     for allowance in WIDE_STRUCT_ALLOWANCES {
-        let key = (
-            allowance.path.to_string(),
-            allowance.struct_name.to_string(),
-        );
-        if !actual_by_key.contains_key(&key) {
+        let registered = wide_structs
+            .iter()
+            .any(|info| info.path == allowance.path && info.struct_name == allowance.struct_name);
+        if !registered {
             failures.push(format!(
                 "{}: stale audit entry for {} ({}, {})",
                 allowance.path,

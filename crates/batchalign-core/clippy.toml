@@ -1,0 +1,43 @@
+# Capability lints for this crate ONLY. Cargo sets CARGO_MANIFEST_DIR per
+# workspace member and clippy resolves its config from there, so nothing here
+# reaches the engine crate. Verified by probe, not assumed.
+#
+# COMPLEMENTARY TO, NOT A REPLACEMENT FOR, `xtask -- lint-core-purity`:
+#
+# - This layer resolves real paths, so it catches what a substring scan cannot:
+#   `use std::fs::read_to_string as slurp; slurp(p)`, or the same function
+#   reached through a re-export.
+# - The xtask gate covers breadth this cannot: `disallowed-*` takes exact paths
+#   with no globbing, so banning `std::fs` wholesale would mean enumerating
+#   every function in the module, and the gate does it in one pattern.
+# - The xtask gate is the one wired into CI. Clippy is not run by any workflow
+#   here (only by `make ci-full` and `make lint-affected`), so this fires for a
+#   developer running clippy locally and is defence in depth, not the gate.
+#
+# tokio and pyo3 paths are deliberately absent: this crate has no dependencies
+# yet, so those paths would not resolve. Add them when core first depends on
+# tokio for `tokio::sync`, at which point `tokio::spawn`, `tokio::task::*`,
+# `tokio::runtime::Runtime` and `#[tokio::main]` become the ones worth naming.
+
+disallowed-methods = [
+    { path = "std::env::var", reason = "core is handed its configuration; it does not read the process" },
+    { path = "std::env::var_os", reason = "core is handed its configuration; it does not read the process" },
+    { path = "std::env::args", reason = "core is handed its configuration; it does not read the process" },
+    { path = "std::env::set_var", reason = "core must not mutate ambient process state" },
+    { path = "std::env::remove_var", reason = "core must not mutate ambient process state" },
+    { path = "std::fs::read", reason = "core is given content; the engine crate reads the disk" },
+    { path = "std::fs::read_to_string", reason = "core is given content; the engine crate reads the disk" },
+    { path = "std::fs::write", reason = "core returns content; the engine crate writes the disk" },
+    { path = "std::fs::read_dir", reason = "core is given its inputs; it does not discover them" },
+    { path = "std::fs::create_dir_all", reason = "core does not own a filesystem layout" },
+    { path = "std::fs::remove_file", reason = "core does not own a filesystem layout" },
+    { path = "std::fs::File::open", reason = "core is given content; the engine crate reads the disk" },
+    { path = "std::fs::File::create", reason = "core returns content; the engine crate writes the disk" },
+]
+
+disallowed-types = [
+    { path = "std::process::Command", reason = "a core unit test must not need a tool installed to pass" },
+    { path = "std::net::TcpStream", reason = "a core unit test must not need something answering on a port" },
+    { path = "std::net::TcpListener", reason = "a core unit test must not need something answering on a port" },
+    { path = "std::net::UdpSocket", reason = "a core unit test must not need something answering on a port" },
+]

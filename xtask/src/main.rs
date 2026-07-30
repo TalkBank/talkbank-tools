@@ -102,15 +102,22 @@ fn run_main() -> Result<()> {
             };
             run_affected_rust(mode)
         }
-        Some("lint-wide-structs") => wide_struct_audit::run(repo_root()),
-        Some("lint-ci-hygiene") => ci_hygiene::run(repo_root()),
+        Some("lint-wide-structs") => {
+            reject_trailing_args(&mut args)?;
+            wide_struct_audit::run(repo_root())
+        }
+        Some("lint-ci-hygiene") => {
+            reject_trailing_args(&mut args)?;
+            ci_hygiene::run(repo_root())
+        }
         Some("lint-core-purity") => {
-            if args.next().is_some() {
-                return Err(usage_error());
-            }
+            reject_trailing_args(&mut args)?;
             core_purity::run(repo_root())
         }
-        Some("lint-docs-sync") => docs_sync::run(repo_root()),
+        Some("lint-docs-sync") => {
+            reject_trailing_args(&mut args)?;
+            docs_sync::run(repo_root())
+        }
         Some("lint-dead-variants") => {
             let rest: Vec<String> = args.collect();
             dead_variant_audit::run(repo_root(), rest)
@@ -124,9 +131,7 @@ fn run_main() -> Result<()> {
             audit_docs::parse_and_run(rest)
         }
         Some("audit-prose-references") => {
-            if args.next().is_some() {
-                return Err(usage_error());
-            }
+            reject_trailing_args(&mut args)?;
             audit_prose_references::run(repo_root())
         }
         Some("gen-runtime-toml") => {
@@ -134,6 +139,20 @@ fn run_main() -> Result<()> {
             gen_runtime_toml::run(check).map_err(|e| e.to_string().into())
         }
         _ => Err(usage_error()),
+    }
+}
+
+/// Refuse arguments a no-argument subcommand cannot act on.
+///
+/// Shared so every no-argument subcommand has the SAME contract. Four of them
+/// used to ignore trailing arguments silently, which meant a typo such as
+/// `lint-wide-structs --json` ran the audit and quietly dropped the flag,
+/// leaving the caller to conclude the flag did nothing rather than that it does
+/// not exist.
+fn reject_trailing_args(args: &mut impl Iterator<Item = String>) -> Result<()> {
+    match args.next() {
+        None => Ok(()),
+        Some(_) => Err(usage_error()),
     }
 }
 
@@ -162,9 +181,9 @@ fn print_help() {
     println!("      Verify merged Batchalign/CI retirement and version-consistency rules.");
     println!("  lint-core-purity");
     println!(
-        "      Fail if batchalign-core's normal dependency tree acquires an async runtime, \
-         an HTTP server or client, SQL or the Python bridge. `tokio` is checked by feature: \
-         `sync` is allowed, a scheduler is not."
+        "      Fail if batchalign-core's dependency tree acquires an HTTP server or client, \
+         SQL, the Python bridge or a foreign executor, OR if its src/ reaches for the tokio \
+         scheduler, the filesystem, a subprocess, a socket or the process environment."
     );
     println!("  lint-docs-sync");
     println!("      Check docs that must stay synchronized with the command/runtime surface.");
@@ -535,17 +554,6 @@ fn print_scope(scope: &AffectedScope) {
     }
 }
 
-fn cargo_nextest_available() -> bool {
-    Command::new("cargo")
-        .args(["nextest", "--version"])
-        .current_dir(repo_root())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
 fn run_command(command: &[String], cwd: &Path) -> Result<()> {
     println!("+ {}", command.join(" "));
     let status = Command::new(&command[0])
@@ -576,22 +584,18 @@ fn run_workspace_mode(mode: AffectedMode, full_workspace: bool, impacted: &[Stri
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        AffectedMode::Test => if cargo_nextest_available() {
-            vec!["cargo", "nextest", "run", "--no-fail-fast"]
-        } else {
-            vec!["cargo", "test", "--no-fail-fast"]
-        }
-        .into_iter()
-        .map(str::to_owned)
-        .collect(),
+        // `cargo test`, never `cargo nextest`. This used to probe for nextest
+        // and prefer it; the runner is banned and uninstalled in this
+        // workspace, so the probe spawned a subprocess that could only fail in
+        // order to take the branch it would always take.
+        AffectedMode::Test => vec!["cargo", "test", "--no-fail-fast"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
     };
 
     if full_workspace {
-        if mode == AffectedMode::Test && command.get(1).map(String::as_str) == Some("nextest") {
-            command.insert(3, "--workspace".to_owned());
-        } else {
-            command.insert(2, "--workspace".to_owned());
-        }
+        command.insert(2, "--workspace".to_owned());
     } else {
         for package in impacted {
             command.push("-p".to_owned());

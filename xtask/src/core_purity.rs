@@ -6,10 +6,10 @@
 //! mock dispatcher instead of a GPU, a model download and a jobs database, and
 //! it is the whole reason the crate is being extracted.
 //!
-//! Nothing in the language expresses it. `#![forbid(...)]` works on lints, not
-//! on capabilities, so one `axum = { workspace = true }` added in good faith
+//! Nothing in rustc expresses it: `#![forbid(...)]` takes lint names, not
+//! capabilities, so one `axum = { workspace = true }` added in good faith
 //! eighteen months from now ends the property with every test still green. This
-//! gate is the only mechanism that states it, and it runs in `make lint` and CI.
+//! gate is what states it, and it runs in `make lint` and CI.
 //!
 //! # Two halves, because one instrument cannot see both kinds of violation
 //!
@@ -21,6 +21,22 @@
 //!    ambient-environment surface: `tokio::spawn`, `std::fs`, `std::process`,
 //!    `std::net`, `std::env`. These need no dependency of their own, so nothing
 //!    in the tree betrays them.
+//!
+//! # The third layer, which is NOT this gate
+//!
+//! Clippy's `disallowed_methods` / `disallowed_types` ARE capability lints, and
+//! `crates/batchalign-core/clippy.toml` uses them. A per-package `clippy.toml`
+//! genuinely resolves inside a workspace (cargo sets `CARGO_MANIFEST_DIR` per
+//! member; verified here by probe, not assumed), and because clippy resolves
+//! real paths it catches what a substring scan cannot: `use std::fs::read_to_string
+//! as slurp;` then `slurp(p)`, or the same function reached through a re-export.
+//!
+//! It does not replace this gate, for two reasons. `disallowed-*` takes exact
+//! paths with no globbing, so banning `std::fs` wholesale there means
+//! enumerating the module function by function, which the source half does in
+//! one pattern. And no workflow in this repo runs clippy at all: it lives in
+//! `make ci-full` and `make lint-affected`. So clippy is depth for a developer
+//! and this gate is the thing CI actually fails on.
 //!
 //! # WHY the tokio question is answered in the source half and not the tree half
 //!
@@ -71,9 +87,8 @@ use std::fmt;
 use std::path::Path;
 use std::process::Command;
 
-use walkdir::WalkDir;
-
 use crate::Result;
+use crate::rust_scan::walkdir;
 
 /// The crate this gate exists to protect. Not a parameter: a gate that can be
 /// pointed at an arbitrary package is a reporting tool, and the one job here is
@@ -92,11 +107,11 @@ const CORE_SOURCE_DIR: &str = "crates/batchalign-core/src";
 struct PackageName(String);
 
 /// A path relative to the repo root, as reported to the operator.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct RepoRelativePath(String);
 
 /// A 1-based source line number, as an editor would show it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct LineNumber(usize);
 
 impl fmt::Display for LineNumber {
@@ -122,7 +137,9 @@ enum ForbiddenCapability {
 }
 
 impl ForbiddenCapability {
-    /// Every capability, so a new variant cannot be silently left out.
+    /// Every capability. `every_forbidden_capability_is_in_all` is what keeps
+    /// this honest: a hand-written array cannot notice an omission by itself,
+    /// and a variant missing from it silently disables its own check.
     const ALL: &'static [Self] = &[
         Self::ForeignExecutor,
         Self::HttpServer,
@@ -175,6 +192,7 @@ enum SourceMarker {
 }
 
 impl SourceMarker {
+    /// Every marker; see [`ForbiddenCapability::ALL`] on why a test guards it.
     const ALL: &'static [Self] = &[
         Self::AsyncRuntime,
         Self::Filesystem,
@@ -186,8 +204,7 @@ impl SourceMarker {
     /// Substrings whose presence in a code line means the file uses this
     /// capability. Chosen to be unambiguous rather than exhaustive: a false
     /// positive on a pure file wastes an afternoon and teaches the next person
-    /// to distrust the gate, which is worse than a gap the private
-    /// `ba3-core-purity` measurement also covers.
+    /// to distrust the gate, which costs more than a gap does.
     fn patterns(self) -> &'static [&'static str] {
         match self {
             Self::AsyncRuntime => &[
@@ -250,7 +267,7 @@ impl SourceMarker {
 const ALLOWED_TEST_ATTRIBUTE: &str = "#[tokio::test";
 
 /// One thing wrong with core.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 enum Violation {
     /// A forbidden package appears in core's normal dependency tree.
     ForbiddenPackage {
@@ -307,72 +324,62 @@ impl Violation {
 // The dependency half
 // ---------------------------------------------------------------------------
 
-/// One `cargo tree` line, reduced to the one thing this half reads.
-///
-/// Features are parsed but not judged: see the module doc on why a feature-level
-/// verdict is not sound in a workspace. Keeping the field makes it obvious that
-/// the information was available and deliberately not used.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct TreeEntry {
-    package: PackageName,
-    features: BTreeSet<String>,
-}
-
-/// Parse one line of `cargo tree -f '{p} | {f}'` output.
+/// Parse one line of `cargo tree` output into the package it names.
 ///
 /// Returns `None` for anything that is not a package line: the section headers
 /// cargo prints per dependency kind, and blank lines. Tolerant of the tree
-/// glyphs, the ` (path)` suffix workspace members carry and the
-/// ` (proc-macro)` marker, none of which affect the package name.
-fn parse_tree_line(line: &str) -> Option<TreeEntry> {
-    let (left, right) = line.split_once('|')?;
-
-    // `{p}` renders as `<name> v<version>[ (<path>)][ (proc-macro)]`, so once the
-    // tree drawing is stripped the first whitespace token is the name.
-    let name = left
-        .trim_start_matches(|c: char| c.is_whitespace() || "│├└─".contains(c))
+/// glyphs, the ` (path)` suffix workspace members carry, the ` (proc-macro)`
+/// marker and the trailing `(*)` cargo puts on a repeat, none of which affect
+/// the name.
+///
+/// Features are deliberately not read. `{f}` was in the format string once, on
+/// the way to a feature-level tokio verdict; the module doc explains why that
+/// verdict is unsound in a workspace, and parsing a column no rule consults is
+/// how a reader concludes it must matter.
+fn parse_tree_line(line: &str) -> Option<PackageName> {
+    // `cargo tree` renders `<name> v<version>[ (<path>)][ (proc-macro)]`, so once
+    // the tree drawing is stripped the first whitespace token is the name.
+    let name = line
+        .trim_start_matches(|c: char| {
+            c.is_whitespace() || "\u{2502}\u{251c}\u{2514}\u{2500}".contains(c)
+        })
         .split_whitespace()
         .next()?;
     if name.is_empty() || name.starts_with('[') {
         return None;
     }
-
-    let features = right
-        .split(',')
-        .map(str::trim)
-        .filter(|feature| !feature.is_empty())
-        .map(str::to_owned)
-        .collect();
-
-    Some(TreeEntry {
-        package: PackageName(name.to_owned()),
-        features,
-    })
+    Some(PackageName(name.to_owned()))
 }
 
 /// Classify a whole `cargo tree` stdout capture.
 ///
-/// The root is skipped by NAME rather than by position: `--no-dedupe` repeats a
-/// package at every point it is reached, so core's own line can appear more than
-/// once, and a package cannot be its own forbidden dependency.
+/// The root is skipped by NAME rather than by position, since a workspace member
+/// can legitimately appear more than once in its own tree, and a package cannot
+/// be its own forbidden dependency.
 fn classify_tree(stdout: &str) -> Vec<Violation> {
     let mut violations: Vec<Violation> = Vec::new();
     let mut reported: BTreeSet<PackageName> = BTreeSet::new();
 
-    for entry in stdout.lines().filter_map(parse_tree_line) {
-        let PackageName(name) = &entry.package;
+    for package in stdout.lines().filter_map(parse_tree_line) {
+        let PackageName(name) = &package;
         if name == CORE_PACKAGE {
             continue;
         }
-        for capability in ForbiddenCapability::ALL {
-            if capability.packages().contains(&name.as_str())
-                && reported.insert(entry.package.clone())
-            {
-                violations.push(Violation::ForbiddenPackage {
-                    package: entry.package.clone(),
-                    capability: *capability,
-                });
-            }
+        let Some(capability) = ForbiddenCapability::ALL
+            .iter()
+            .find(|capability| capability.packages().contains(&name.as_str()))
+        else {
+            continue;
+        };
+        // One violation per package, however many times the tree reaches it.
+        // Kept as an explicit statement rather than folded into the condition
+        // above: a set insertion hidden in the right operand of `&&` works only
+        // by short-circuit order and breaks silently when someone reorders it.
+        if reported.insert(package.clone()) {
+            violations.push(Violation::ForbiddenPackage {
+                package,
+                capability: *capability,
+            });
         }
     }
 
@@ -383,16 +390,10 @@ fn classify_tree(stdout: &str) -> Vec<Violation> {
 fn resolve_tree(root: &Path) -> std::result::Result<String, String> {
     let output = Command::new(env!("CARGO"))
         .current_dir(root)
-        .args([
-            "tree",
-            "-p",
-            CORE_PACKAGE,
-            "-e",
-            "normal",
-            "--no-dedupe",
-            "-f",
-            "{p} | {f}",
-        ])
+        // Neither `--no-dedupe` nor a `-f` format: only the distinct package
+        // set is read, and the default deduped tree already prints every
+        // package it reaches at least once.
+        .args(["tree", "-p", CORE_PACKAGE, "-e", "normal"])
         .output()
         .map_err(|error| format!("could not run `cargo tree`: {error}"))?;
 
@@ -407,23 +408,23 @@ fn resolve_tree(root: &Path) -> std::result::Result<String, String> {
         ));
     }
 
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    String::from_utf8(output.stdout)
+        .map_err(|error| format!("`cargo tree` printed invalid UTF-8: {error}"))
 }
 
 // ---------------------------------------------------------------------------
 // The source half
 // ---------------------------------------------------------------------------
 
-/// The part of a line that is code rather than prose.
+/// Whether the whole line is a comment: `//`, `///` and `//!` alike.
 ///
-/// Whole-line comments only, `//` / `///` / `//!` alike. See the module doc for
-/// why a trailing comment is deliberately NOT stripped.
-fn code_only(line: &str) -> &str {
-    let trimmed = line.trim_start();
-    if trimmed.starts_with("//") {
-        return "";
-    }
-    line
+/// Deliberately NOT a "strip the comment off this line" helper. Removing a
+/// TRAILING comment correctly means knowing whether the slashes sit inside a
+/// string literal, and guessing there would silently blind the scan, so the
+/// module doc states the consequence instead: a marker named in a trailing
+/// comment is a violation, and the fix is to move the prose onto its own line.
+fn is_comment_line(line: &str) -> bool {
+    line.trim_start().starts_with("//")
 }
 
 /// Scan one file's text for ambient-capability markers.
@@ -434,9 +435,8 @@ fn code_only(line: &str) -> &str {
 fn scan_source_text(path: &RepoRelativePath, text: &str) -> Vec<Violation> {
     let mut violations: Vec<Violation> = Vec::new();
 
-    for (index, raw_line) in text.lines().enumerate() {
-        let line = code_only(raw_line);
-        if line.contains(ALLOWED_TEST_ATTRIBUTE) {
+    for (index, line) in text.lines().enumerate() {
+        if is_comment_line(line) || line.contains(ALLOWED_TEST_ATTRIBUTE) {
             continue;
         }
         let found = SourceMarker::ALL.iter().find_map(|marker| {
@@ -471,18 +471,20 @@ fn scan_source_tree(root: &Path) -> std::result::Result<Vec<Violation>, String> 
         ));
     }
 
+    // `rust_scan::walkdir` is xtask's shared `.rs` enumerator, the same one the
+    // sibling audits use, so the skip-set stays in one place. It is sorted here
+    // because it yields directory order, and a gate whose findings move around
+    // between runs is hard to diff.
+    let mut paths = walkdir(&source_dir);
+    paths.sort();
+
     let mut violations: Vec<Violation> = Vec::new();
-    for entry in WalkDir::new(&source_dir).sort_by_file_name() {
-        let entry = entry.map_err(|error| format!("could not walk {CORE_SOURCE_DIR}: {error}"))?;
-        let path = entry.path();
-        if !path.is_file() || path.extension().is_none_or(|ext| ext != "rs") {
-            continue;
-        }
+    for path in paths {
         // The walk was rooted under `root`, so stripping cannot fail. If it ever
         // did, reporting the absolute path is strictly better than dropping the
         // finding, which is why this is a fallback rather than a `?`.
-        let relative = path.strip_prefix(root).unwrap_or(path);
-        let text = std::fs::read_to_string(path)
+        let relative = path.strip_prefix(root).unwrap_or(&path);
+        let text = std::fs::read_to_string(&path)
             .map_err(|error| format!("could not read {}: {error}", relative.display()))?;
         violations.extend(scan_source_text(
             &RepoRelativePath(relative.display().to_string()),
@@ -534,10 +536,10 @@ mod tests {
     /// Shaped exactly like real output, including the workspace member's path
     /// suffix and the empty feature list that produces a trailing `| `.
     const PURE_TREE: &str = "\
-batchalign-core v0.1.0 (/repo/crates/batchalign-core) |
-├── serde v1.0.229 | alloc,default,derive,serde_derive,std
-│   └── serde_derive v1.0.229 (proc-macro) | default
-└── thiserror v2.0.17 | default,std
+batchalign-core v0.1.0 (/repo/crates/batchalign-core)
+├── serde v1.0.229
+│   └── serde_derive v1.0.229 (proc-macro)
+└── thiserror v2.0.17
 ";
 
     fn at(path: &str) -> RepoRelativePath {
@@ -557,23 +559,30 @@ batchalign-core v0.1.0 (/repo/crates/batchalign-core) |
     #[test]
     fn the_root_package_line_is_parsed_as_the_crate_itself() {
         assert_eq!(
-            parse_tree_line("batchalign-core v0.1.0 (/repo/crates/batchalign-core) | "),
-            Some(TreeEntry {
-                package: PackageName("batchalign-core".to_owned()),
-                features: BTreeSet::new(),
-            })
+            parse_tree_line("batchalign-core v0.1.0 (/repo/crates/batchalign-core)"),
+            Some(PackageName("batchalign-core".to_owned()))
+        );
+    }
+
+    /// Without `--no-dedupe` cargo marks a package it has already expanded, and
+    /// that marker must not become part of the name.
+    #[test]
+    fn a_deduplicated_repeat_still_parses_as_its_package() {
+        assert_eq!(
+            parse_tree_line("└── serde v1.0.229 (*)"),
+            Some(PackageName("serde".to_owned()))
         );
     }
 
     #[test]
     fn a_dependency_kind_header_is_not_a_package() {
-        assert_eq!(parse_tree_line("[build-dependencies] | "), None);
+        assert_eq!(parse_tree_line("[build-dependencies]"), None);
         assert_eq!(parse_tree_line(""), None);
     }
 
     #[test]
     fn an_axum_dependency_is_reported_as_an_http_server() {
-        let tree = format!("{PURE_TREE}└── axum v0.8.7 | default,http1,json,tokio\n");
+        let tree = format!("{PURE_TREE}└── axum v0.8.7\n");
         assert_eq!(
             classify_tree(&tree),
             vec![Violation::ForbiddenPackage {
@@ -585,9 +594,7 @@ batchalign-core v0.1.0 (/repo/crates/batchalign-core) |
 
     #[test]
     fn a_transitive_forbidden_crate_is_reported_even_when_nested() {
-        let tree = format!(
-            "{PURE_TREE}└── some-wrapper v1.0.0 | default\n    └── sqlx-core v0.8.7 | any,json\n"
-        );
+        let tree = format!("{PURE_TREE}└── some-wrapper v1.0.0\n    └── sqlx-core v0.8.7\n");
         assert_eq!(
             classify_tree(&tree),
             vec![Violation::ForbiddenPackage {
@@ -603,20 +610,16 @@ batchalign-core v0.1.0 (/repo/crates/batchalign-core) |
     /// crate whose source is clean, so neither is a forbidden package.
     #[test]
     fn tokio_and_mio_in_the_tree_are_not_by_themselves_violations() {
-        let tree = format!(
-            "{PURE_TREE}└── tokio v1.53.1 | full,rt,rt-multi-thread,sync,time\n    └── mio v1.2.2 | net,os-poll\n"
-        );
+        let tree = format!("{PURE_TREE}└── tokio v1.53.1\n    └── mio v1.2.2\n");
         assert_eq!(classify_tree(&tree), Vec::new());
     }
 
-    /// `--no-dedupe` repeats a package at every point it is reached, so the same
-    /// forbidden crate can appear a dozen times. One violation per package, or
-    /// the report buries its own finding.
+    /// A package can still appear more than once (cargo expands it once and
+    /// marks later reaches), and a workspace member appears in its own tree. One
+    /// violation per package, or the report buries its own finding.
     #[test]
     fn a_repeated_forbidden_crate_is_reported_once() {
-        let tree = format!(
-            "{PURE_TREE}├── axum v0.8.7 | default\n└── other v1.0.0 | default\n    └── axum v0.8.7 | default\n"
-        );
+        let tree = format!("{PURE_TREE}├── axum v0.8.7\n└── other v1.0.0\n    └── axum v0.8.7\n");
         assert_eq!(classify_tree(&tree).len(), 1);
     }
 
@@ -740,6 +743,66 @@ pub trait Dispatcher {
             "std::fs::write(std::process::id().to_string())?;\n",
         );
         assert_eq!(violations.len(), 1);
+    }
+
+    // -- the registries ------------------------------------------------------
+
+    /// Both `ALL` arrays are hand-written, so nothing but a test stops a new
+    /// variant from being declared and then never scanned for. The exhaustive
+    /// `match` is the mechanism: adding a variant fails to compile here until
+    /// its arm exists, and the arm is what asserts it was registered.
+    #[test]
+    fn every_forbidden_capability_is_in_all() {
+        for capability in [
+            ForbiddenCapability::ForeignExecutor,
+            ForbiddenCapability::HttpServer,
+            ForbiddenCapability::HttpClient,
+            ForbiddenCapability::Database,
+            ForbiddenCapability::PythonBridge,
+        ] {
+            match capability {
+                ForbiddenCapability::ForeignExecutor
+                | ForbiddenCapability::HttpServer
+                | ForbiddenCapability::HttpClient
+                | ForbiddenCapability::Database
+                | ForbiddenCapability::PythonBridge => {}
+            }
+            assert!(
+                ForbiddenCapability::ALL.contains(&capability),
+                "{capability:?} is declared but never scanned for"
+            );
+            assert!(
+                !capability.packages().is_empty(),
+                "{capability:?} names no packages, so it can never fire"
+            );
+        }
+    }
+
+    #[test]
+    fn every_source_marker_is_in_all() {
+        for marker in [
+            SourceMarker::AsyncRuntime,
+            SourceMarker::Filesystem,
+            SourceMarker::Subprocess,
+            SourceMarker::Network,
+            SourceMarker::Environment,
+        ] {
+            match marker {
+                SourceMarker::AsyncRuntime
+                | SourceMarker::Filesystem
+                | SourceMarker::Subprocess
+                | SourceMarker::Network
+                | SourceMarker::Environment => {}
+            }
+            assert!(
+                SourceMarker::ALL.contains(&marker),
+                "{marker:?} is declared but never scanned for"
+            );
+            assert!(
+                !marker.patterns().is_empty(),
+                "{marker:?} has no patterns, so it can never fire"
+            );
+        }
     }
 
     // -- the message ---------------------------------------------------------

@@ -1,7 +1,7 @@
 # batchalign-core: Rust Worker Runtime
 
 **Status:** Current
-**Last modified:** 2026-07-25 22:22 EDT
+**Last modified:** 2026-07-30 10:37 EDT
 
 ## Overview
 
@@ -40,7 +40,7 @@ crates/batchalign-pyo3/src/
 ## Key Commands
 
 ```bash
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 cargo build --manifest-path crates/batchalign-pyo3/Cargo.toml
 cd /path/to/talkbank-tools && uv run maturin develop
 ```

@@ -1,4 +1,4 @@
-.PHONY: help hooks-check test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-test-ml-golden batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
+.PHONY: help hooks-check lint test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-test-ml-golden batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
 
 help:
 	@echo "talkbank-tools task index (batchalign3 workspace)"
@@ -26,6 +26,8 @@ help:
 	@echo "  make batchalign-dashboard-e2e-real   Dashboard e2e tests (real server)"
 	@echo "  make batchalign-runtime-check        Imported runtime constants check"
 	@echo "  make batchalign-ci-rust              Imported Batchalign Rust/PyO3 CI gate"
+	@echo ""
+	@echo "  make lint                  Structural lints (core purity, wide structs)"
 	@echo ""
 	@echo "Docs and developer helpers:"
 	@echo "  make install-hooks          Install the git pre-push hook"
@@ -80,6 +82,8 @@ batchalign-test-rust:
 	cargo test -p batchalign-transform --lib -q
 	@echo "==> Testing imported batchalign..."
 	cargo test -p batchalign --lib -q
+	@echo "==> Testing xtask (the audits and lint gates themselves)..."
+	cargo test -p xtask -q
 
 # The ML golden suite: real engines, real model weights, real network.
 #
@@ -193,17 +197,23 @@ batchalign-dashboard-e2e-real:
 	cd frontend/e2e && npm ci && npm run install:browsers
 	BATCHALIGN_REAL_SERVER_E2E=1 bash scripts/run_react_dashboard_smoke.sh
 
-# The purity gate runs FIRST: it is the cheapest gate here and the only one
-# stating a property no compiler can, namely that batchalign-core stays
-# reachable without a runtime, a disk, a server, a database or an interpreter.
-batchalign-ci-rust:
+# The structural lints: the checks that state properties no compiler can.
+#
+# One target rather than a line per lint per gate. Before 2026-07-30 each lint
+# was named in every target that wanted it, and the cost showed up immediately:
+# `ci-full` invoked the purity gate twice (once directly, once through
+# batchalign-ci-rust), and `lint-wide-structs` reached only `ci-local`, which
+# nobody runs, so its table drifted for two months. Adding a sixth lint is now
+# one line here.
+lint:
 	@echo "==> batchalign-core purity gate"
 	@cargo run -q -p xtask -- lint-core-purity
-	@# Added to CI on 2026-07-30, when a re-adjudication found it had been
-	@# failing since the chatter split: it ran only in `make ci-local`, which
-	@# nobody runs, so its table drifted for two months unnoticed.
 	@echo "==> wide struct audit"
 	@cargo run -q -p xtask -- lint-wide-structs
+
+# Lints run FIRST: they are the cheapest gates here.
+batchalign-ci-rust:
+	@$(MAKE) lint
 	@$(MAKE) batchalign-check
 	@$(MAKE) batchalign-test-rust
 	@$(MAKE) batchalign-test-integration
@@ -283,10 +293,7 @@ ci-local:
 	cargo fmt --all -- --check
 	@echo "==> affected compile check"
 	cargo run -q -p xtask -- affected-rust check
-	@echo "==> wide struct audit"
-	cargo run -q -p xtask -- lint-wide-structs
-	@echo "==> batchalign-core purity gate"
-	cargo run -q -p xtask -- lint-core-purity
+	@$(MAKE) lint
 	@echo "==> docs sync"
 	cargo run -q -p xtask -- lint-docs-sync
 	@echo "✓ ci-local passed"
@@ -301,8 +308,6 @@ ci-full:
 	cargo check --workspace --all-targets
 	@echo "==> runtime_constants.toml drift check"
 	@cargo run -p xtask --quiet -- gen-runtime-toml --check
-	@echo "==> batchalign-core purity gate"
-	@cargo run -q -p xtask -- lint-core-purity
 	@echo "==> imported Batchalign Rust/PyO3 gate"
 	@$(MAKE) batchalign-ci-rust
 	@echo "✓ ci-full passed"

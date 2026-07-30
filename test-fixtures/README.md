@@ -167,8 +167,8 @@ Currently supported `kind` values:
 
 5. Run:
    ```bash
-   cargo nextest run -p batchalign --profile ml \
-        -E 'test(<command>::regressions::<command>_regression_<NNN>)'
+   cargo test -p batchalign --features ml-golden --test ml_golden -- \
+        '<command>::regressions::<command>_regression_<NNN>'
    ```
 
 6. Confirm the fixture is RED (captures the bug) or GREEN
