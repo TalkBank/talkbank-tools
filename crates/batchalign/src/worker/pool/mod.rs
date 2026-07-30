@@ -101,25 +101,12 @@ pub(super) fn lock_recovered<T>(mutex: &std::sync::Mutex<T>) -> std::sync::Mutex
 /// Key for looking up workers: (bootstrap target, lang, engine overrides).
 pub(super) type WorkerKey = (WorkerTarget, WorkerLanguage, String);
 
-/// Lifecycle state of background model warmup.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-#[serde(rename_all = "snake_case")]
-/// Background warmup lifecycle state for the worker pool.
-///
-/// The server pre-spawns workers at startup ("warmup") so the first job
-/// does not pay cold-start costs. This enum tracks that lifecycle for
-/// the health endpoint.
-pub enum WarmupStatus {
-    /// No warmup has been requested yet (initial state).
-    #[default]
-    NotStarted,
-    /// Warmup is running: workers are being spawned in the background.
-    InProgress,
-    /// All requested warmup spawns have finished (or none were requested).
-    Complete,
-}
+pub use crate::types::response::WarmupStatus;
 
+/// The `AtomicU8` encoding for [`WarmupStatus`], kept beside the atomic in
+/// [`WorkerPool::warmup_status`] rather than with the type. The type itself is
+/// a wire enum and lives in `types/response.rs`; only this encoding is the
+/// pool's business.
 impl WarmupStatus {
     const NOT_STARTED: u8 = 0;
     const IN_PROGRESS: u8 = 1;

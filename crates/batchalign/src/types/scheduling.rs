@@ -16,8 +16,14 @@
 use serde::{Deserialize, Serialize};
 
 use crate::api::{JobId, NodeId, UnixTimestamp};
-use crate::worker::WorkerPid;
+// `batchalign_types`, not `crate::worker`. This said `use crate::worker::
+// WorkerPid` until 2026-07-30, which resolved through `worker/mod.rs`'s
+// `pub use crate::types::worker::*`, i.e. `types` imported its own re-export
+// back out of `worker`. A round trip, and one of the three references that made
+// `types` and `worker` mutually dependent and so kept every module downstream
+// of `types` out of the core crate.
 pub use batchalign_types::scheduling::{AttemptId, WorkUnitId};
+use batchalign_types::worker::WorkerPid;
 
 // `DurationMs` is defined in domain.rs alongside the other core numeric
 // newtypes and re-exported here so that `crate::scheduling::DurationMs`

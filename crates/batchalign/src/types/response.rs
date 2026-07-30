@@ -431,7 +431,7 @@ pub struct HealthResponse {
     /// or `"complete"`.  Clients can poll this to know when the server is
     /// fully ready for low-latency jobs.
     #[serde(default)]
-    pub warmup_status: crate::worker::pool::WarmupStatus,
+    pub warmup_status: WarmupStatus,
 
     // ── System memory snapshot ──────────────────────────────────────────
     /// Total physical memory in MB.
@@ -503,4 +503,30 @@ mod tests {
         assert_eq!(info.file_statuses.len(), 2);
         assert_eq!(&*info.file_statuses[0].filename, "PWA/TYO_a1.cha");
     }
+}
+
+/// Background warmup lifecycle state for the worker pool.
+///
+/// The server pre-spawns workers at startup ("warmup") so the first job does
+/// not pay cold-start costs. This enum tracks that lifecycle for the health
+/// endpoint.
+///
+/// Declared here, beside [`HealthResponse`] which carries it, rather than in
+/// `worker/pool/`. It is a serde + `ToSchema` wire type whose only consumer
+/// outside the pool is the health API, and while it lived in the pool it was
+/// one of the three references that made `types` depend on `worker`, which in
+/// turn kept every module downstream of `types` out of the core crate. Its
+/// `AtomicU8` encoding stays in the pool, in an inherent impl beside the atomic
+/// it encodes for; Rust only requires that to be in the same crate.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum WarmupStatus {
+    /// No warmup has been requested yet (initial state).
+    #[default]
+    NotStarted,
+    /// Warmup is running: workers are being spawned in the background.
+    InProgress,
+    /// All requested warmup spawns have finished (or none were requested).
+    Complete,
 }

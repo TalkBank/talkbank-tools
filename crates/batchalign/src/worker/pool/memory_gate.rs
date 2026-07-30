@@ -54,13 +54,10 @@
 /// Used as the base for tier-scaled floors via
 /// [`host_min_free_mb_threshold_for_tier`].
 ///
-/// Visible at crate scope so the host-memory coordinator
-/// (`crate::host_memory`) and the `ServerConfig` resolver
-/// (`crate::types::config::resolve`) can reach the same constant
-/// when their checks need a default headroom value. The
-/// authoritative tier-aware floor goes through
-/// [`host_min_free_mb_threshold_for_tier`].
-pub(crate) const MIN_FREE_MEMORY_MB: u64 = 2048;
+/// Re-exported from `types::config`, which declares it: the configuration
+/// layer owns the default and this gate enforces it. Kept visible under this
+/// path so the call sites in the pool read as they always have.
+pub(crate) use crate::types::config::MIN_FREE_MEMORY_MB;
 
 /// Whether the worker pool currently has any workers for the
 /// (profile, lang, engine) class the admission check is for.
