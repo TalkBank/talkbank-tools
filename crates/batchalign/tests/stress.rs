@@ -18,8 +18,10 @@
 //! tokio runtime with real TCP, real Python test-echo workers, and real SQLite.
 //! The concurrency comes from `tokio::spawn` + `JoinSet`, not a framework.
 //!
-//! All tests are serialized via nextest test-group (`max-threads = 1`) to
-//! avoid contention between test binaries.
+//! These tests contend with each other and with any other worker-spawning
+//! binary. A retired runner's test-group used to serialize them; it is banned
+//! and uninstalled here, so run this binary on its own when it matters:
+//! `cargo test -p batchalign --test stress -- --test-threads=1`.
 
 mod common;
 

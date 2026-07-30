@@ -38,7 +38,7 @@ impl ServerConfig {
     /// `Some(n)` is an explicit operator override (used today by
     /// `--sequential` mode to set `MemoryMb(1)`); `None` falls
     /// through to the hardcoded
-    /// [`crate::types::config::MIN_FREE_MEMORY_MB`]
+    /// [`batchalign_types::memory::MIN_FREE_MEMORY_MB`]
     /// floor, the same number the worker-pool admission gate
     /// enforces. The previous tier-derived fallback
     /// (`resolved_memory_tier().headroom_mb`, 2/4/8 GB by host RAM)
@@ -47,7 +47,7 @@ impl ServerConfig {
     pub fn resolved_memory_gate_mb(&self) -> crate::api::MemoryMb {
         match self.memory_gate_mb {
             Some(value) => value,
-            None => crate::api::MemoryMb(super::MIN_FREE_MEMORY_MB),
+            None => batchalign_types::memory::MIN_FREE_MEMORY_MB,
         }
     }
 

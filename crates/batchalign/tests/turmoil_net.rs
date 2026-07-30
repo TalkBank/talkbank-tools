@@ -198,8 +198,10 @@ fn serve_health_only(sim: &mut turmoil::Sim<'_>) {
 /// (JobRegistry, RuntimeSupervisor). Must outlive `sim.run()`, dropping
 /// it kills the actors.
 ///
-/// Concurrency is controlled by nextest: `.config/nextest.toml` assigns the
-/// `turmoil_net` binary to a `turmoil` test-group with `max-threads = 1`.
+/// Concurrency used to be controlled by a retired runner's test-group. That
+/// runner is banned and uninstalled here, so serialize this binary yourself
+/// when it matters: `cargo test -p batchalign --test turmoil_net --
+/// --test-threads=1`.
 struct RealAppHandle {
     router: Option<Router>,
     _state: std::sync::Arc<batchalign::AppState>,

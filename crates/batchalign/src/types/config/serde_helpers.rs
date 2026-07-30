@@ -1,19 +1,17 @@
-//! Serde helpers for the `ServerConfig` deserialization boundary.
-//!
-//! Moved here from `host_facts/` on 2026-07-30. `host_facts` did not use any
-//! of it: every consumer was already in `types/config`, so the module only
-//! ever made `types` depend on an impure module.
-
 //! Serde helpers for the `Option<u32>` / `Option<i32>` / `Option<u64>`
 //! migration in Phase C of the host-facts architecture.
+//!
+//! Moved here from `host_facts/` on 2026-07-30. `host_facts` did not use
+//! any of it: every consumer was already in `types/config`, so the module
+//! only ever made `types` depend on an impure module.
 //!
 //! The migration changes integer config knobs that today use the
 //! `0 = auto-detect` sentinel idiom (e.g.,
 //! `gpu_thread_pool_size: u32` defaulting to `0` to mean "fall back
 //! to the static constant") into proper `Option<T>` fields where
-//! `None` means "fall through to the recommendation function." See
-//! `talkbank/docs/investigations/2026-04-25-host-facts-architecture.md`
-//! § Decisions Q1 for the rationale.
+//! `None` means "fall through to the recommendation function." The rationale
+//! is the host-facts architecture decision Q1: a sentinel value cannot express
+//! "unset" without colliding with a legitimate setting of the same number.
 //!
 //! For the duration of the rollout, deployed `server.yaml` files will
 //! continue to carry literal `0` values written before the migration

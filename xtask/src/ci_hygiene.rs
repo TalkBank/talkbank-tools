@@ -46,9 +46,19 @@ fn check_version_sync(root: &Path) -> std::result::Result<(), String> {
 // Legacy terms
 // ---------------------------------------------------------------------------
 
+/// Extensions the legacy-term scan reads.
+///
+/// `.sh` and the extensionless `Makefile` were added 2026-07-30: the two files
+/// whose stale runner invocations were fixed by hand that day were both
+/// unreadable by the check written to prevent exactly that recurrence. A
+/// suffix allowlist plus a path allowlist is two lists that drift; see
+/// `require_existing_paths` for the half that now fails closed.
 const SCAN_SUFFIXES: &[&str] = &[
-    ".css", ".js", ".jsx", ".md", ".py", ".rs", ".toml", ".ts", ".tsx", ".yaml", ".yml",
+    ".css", ".js", ".jsx", ".md", ".py", ".rs", ".sh", ".toml", ".ts", ".tsx", ".yaml", ".yml",
 ];
+
+/// Files with no extension that the scan should still read.
+const SCAN_EXTENSIONLESS: &[&str] = &["Makefile"];
 
 const SKIP_DIRS: &[&str] = &[
     ".git",
@@ -221,9 +231,10 @@ fn should_scan(path: &Path) -> bool {
     if !path.is_file() {
         return false;
     }
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let dotted = format!(".{ext}");
-    if !SCAN_SUFFIXES.contains(&dotted.as_str()) {
+    if !SCAN_SUFFIXES.contains(&dotted.as_str()) && !SCAN_EXTENSIONLESS.contains(&name) {
         return false;
     }
     !path
@@ -264,17 +275,39 @@ fn scan_files(root: &Path) -> Vec<PathBuf> {
     // control. Directory names move; the root does not.
     let active_paths: Vec<PathBuf> = [
         "README.md",
+        "Makefile",
+        ".config",
         ".github/workflows",
         "batchalign",
         "crates",
         "frontend/src",
         "book/src",
+        "scripts",
+        "test-fixtures",
     ]
     .iter()
     .map(|p| root.join(p))
     .collect();
 
     let self_path = root.join(SELF_EXCLUDE);
+
+    // Every configured root must exist. A path that quietly stops resolving is
+    // how this check, `lint-docs-sync` and the wide-struct allowance table each
+    // spent months reporting OK while reading almost nothing; the first two were
+    // repaired by hand on 2026-07-30 and this is the guard that makes a fourth
+    // occurrence impossible. `panic!` rather than a `Result` because `run` is
+    // the only caller and a misconfigured gate must not be recoverable.
+    let missing: Vec<String> = active_paths
+        .iter()
+        .filter(|path| !path.exists())
+        .map(|path| path.display().to_string())
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "ci-hygiene scan roots no longer exist, so the check would silently \
+         cover less than it claims: {}",
+        missing.join(", ")
+    );
 
     let mut files = Vec::new();
     for base in &active_paths {

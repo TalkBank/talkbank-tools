@@ -24,7 +24,7 @@ fn default_config() {
     assert_eq!(cfg.memory_gate_mb, None);
     assert_eq!(
         cfg.resolved_memory_gate_mb(),
-        MemoryMb(super::MIN_FREE_MEMORY_MB)
+        batchalign_types::memory::MIN_FREE_MEMORY_MB
     );
     assert_eq!(cfg.max_concurrent_worker_startups, 1);
     assert_eq!(cfg.max_workers_per_key, None);

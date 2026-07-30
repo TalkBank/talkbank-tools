@@ -103,32 +103,6 @@ pub(super) type WorkerKey = (WorkerTarget, WorkerLanguage, String);
 
 pub use crate::types::response::WarmupStatus;
 
-/// The `AtomicU8` encoding for [`WarmupStatus`], kept beside the atomic in
-/// [`WorkerPool::warmup_status`] rather than with the type. The type itself is
-/// a wire enum and lives in `types/response.rs`; only this encoding is the
-/// pool's business.
-impl WarmupStatus {
-    const NOT_STARTED: u8 = 0;
-    const IN_PROGRESS: u8 = 1;
-    const COMPLETE: u8 = 2;
-
-    pub(super) fn from_u8(v: u8) -> Self {
-        match v {
-            Self::IN_PROGRESS => Self::InProgress,
-            Self::COMPLETE => Self::Complete,
-            _ => Self::NotStarted,
-        }
-    }
-
-    pub(super) fn as_u8(self) -> u8 {
-        match self {
-            Self::NotStarted => Self::NOT_STARTED,
-            Self::InProgress => Self::IN_PROGRESS,
-            Self::Complete => Self::COMPLETE,
-        }
-    }
-}
-
 /// Default per-profile `max_workers_per_key` for `PoolConfig::default()`
 /// test fixtures.
 ///

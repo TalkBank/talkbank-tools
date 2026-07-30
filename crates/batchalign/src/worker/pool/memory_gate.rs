@@ -54,10 +54,6 @@
 /// Used as the base for tier-scaled floors via
 /// [`host_min_free_mb_threshold_for_tier`].
 ///
-/// Re-exported from `types::config`, which declares it: the configuration
-/// layer owns the default and this gate enforces it. Kept visible under this
-/// path so the call sites in the pool read as they always have.
-pub(crate) use crate::types::config::MIN_FREE_MEMORY_MB;
 
 /// Whether the worker pool currently has any workers for the
 /// (profile, lang, engine) class the admission check is for.
@@ -290,7 +286,10 @@ mod tests {
     #[test]
     fn medium_tier_floor_is_2048_mb() {
         let medium = crate::types::runtime::MemoryTier::from_total_mb(32_000);
-        assert_eq!(MIN_FREE_MEMORY_MB, 2048);
+        assert_eq!(
+            batchalign_types::memory::MIN_FREE_MEMORY_MB,
+            batchalign_types::domain::MemoryMb(2048)
+        );
         assert_eq!(host_min_free_mb_threshold_for_tier(&medium), 2048);
     }
 

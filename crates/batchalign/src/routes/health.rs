@@ -13,7 +13,8 @@ use axum::routing::get;
 use axum::{Json, Router};
 
 use crate::AppState;
-use crate::host_memory::{HostMemoryCoordinator, HostMemoryPressureLevel};
+use crate::host_memory::HostMemoryCoordinator;
+use crate::types::response::HostMemoryPressureLevel;
 
 /// Build the health-check router (`GET /health`).
 pub fn router() -> Router<Arc<AppState>> {

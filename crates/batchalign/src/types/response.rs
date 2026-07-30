@@ -531,13 +531,45 @@ pub enum WarmupStatus {
     Complete,
 }
 
+/// The `AtomicU8` encoding used by `WorkerPool::warmup_status`.
+///
+/// Kept with the type rather than with the atomic. It briefly lived in
+/// `worker/pool/mod.rs` on the theory that it belonged "beside the atomic it
+/// encodes for", which does not survive reading it: it is a pure match over
+/// three associated consts and touches no atomic, no pool and no runtime. The
+/// cost of moving it here is that `pub(super)` becomes `pub(crate)`, a real if
+/// small widening, and the benefit is that the enum does not present as a type
+/// with no behaviour to anyone reading it or its rustdoc.
+impl WarmupStatus {
+    const NOT_STARTED: u8 = 0;
+    const IN_PROGRESS: u8 = 1;
+    const COMPLETE: u8 = 2;
+
+    pub(crate) fn from_u8(v: u8) -> Self {
+        match v {
+            Self::IN_PROGRESS => Self::InProgress,
+            Self::COMPLETE => Self::Complete,
+            _ => Self::NotStarted,
+        }
+    }
+
+    pub(crate) fn as_u8(self) -> u8 {
+        match self {
+            Self::NotStarted => Self::NOT_STARTED,
+            Self::InProgress => Self::IN_PROGRESS,
+            Self::Complete => Self::COMPLETE,
+        }
+    }
+}
+
+/// Host-wide memory pressure level derived from the current memory snapshot and
+/// reserved headroom.
+///
 /// Declared here rather than in `host_memory`, where it lived until
 /// 2026-07-30: it is a serde + `ToSchema` wire enum whose consumers are the
 /// health response and the health route, and while it lived there it was one of
 /// the references keeping `types` dependent on an impure module, and so keeping
 /// every module downstream of `types` out of the core crate.
-/// Host-wide memory pressure level derived from the current memory snapshot and
-/// reserved headroom.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]

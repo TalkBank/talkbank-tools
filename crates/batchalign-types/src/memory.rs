@@ -70,11 +70,27 @@ impl std::fmt::Display for MemoryTierKind {
 // MemoryTier: concrete per-tier parameters
 // ---------------------------------------------------------------------------
 
+/// Default host headroom reserve, in MB: the floor `ServerConfig` falls back
+/// to when no `memory_gate_mb` override is set, and the number the worker
+/// pool's admission gate enforces.
+///
+/// Lives here, beside [`MemoryTier::headroom_mb`], because this module already
+/// declares itself the canonical source for memory budgets and every sibling
+/// value is a `MemoryMb`. It spent time in `worker/pool/memory_gate.rs`, whose
+/// own doc comment conceded that the config resolver and the host-memory
+/// coordinator both had to reach into the pool to read it, and then briefly in
+/// `batchalign::types::config`, which was a third home in a second crate.
+///
+/// The authoritative TIER-AWARE floor is [`MemoryTier::headroom_mb`]; this is
+/// only the flat default. The two are deliberately allowed to differ.
+pub const MIN_FREE_MEMORY_MB: MemoryMb = MemoryMb(2048);
+
 /// Concrete memory budget parameters for a detected tier.
 ///
 /// Constructed via [`MemoryTier::from_total_mb`] (pure, testable) or
 /// [`MemoryTier::detect`] (reads system RAM via sysinfo).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+
 pub struct MemoryTier {
     /// Which tier was selected.
     pub kind: MemoryTierKind,

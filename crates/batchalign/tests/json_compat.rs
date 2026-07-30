@@ -17,8 +17,8 @@
 use batchalign::api::*;
 use batchalign::api::{LanguageCode3, LanguageSpec, WorkerLanguage};
 use batchalign::config::ServerConfig;
-use batchalign::host_memory::HostMemoryPressureLevel;
 use batchalign::options::{AlignOptions, CommandOptions, CommonOptions, MorphotagOptions};
+use batchalign::types::response::HostMemoryPressureLevel;
 use std::collections::BTreeMap;
 
 use batchalign::worker::{
@@ -277,7 +277,7 @@ fn snapshot_health_response() {
         memory_gate_aborts: 0,
         build_hash: "0.10.0-abc1234-1700000000".into(),
         node_id: NodeId::default(),
-        warmup_status: batchalign::worker::pool::WarmupStatus::Complete,
+        warmup_status: batchalign::types::response::WarmupStatus::Complete,
         system_memory_total_mb: MemoryMb(65536),
         system_memory_available_mb: MemoryMb(32768),
         system_memory_used_mb: MemoryMb(32768),

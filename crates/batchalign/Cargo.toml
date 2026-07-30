@@ -18,7 +18,8 @@ default = ["server", "binary-entry", "embed-dashboard", "whisper-rs-backend"]
 # Gate for the heavy ML golden suite (real Rev.AI keys, network, multi-GB
 # models). Declared as a feature so the `ml_golden` test target below is
 # skipped by a plain `cargo test`, replacing the exclusion that used to live
-# ONLY in `.config/nextest.toml` as `default-filter = 'not binary(ml_golden)'`.
+# ONLY in a runner config as a `default-filter` (that file was deleted
+# 2026-07-30, once nothing read it).
 # That made correctness depend on which runner you used: with nextest removed
 # on 2026-07-27, `cargo test` would have started pulling models and calling
 # Rev.AI. The exclusion now lives in the code, where it belongs.

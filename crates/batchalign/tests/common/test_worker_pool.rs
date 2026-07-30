@@ -3,11 +3,13 @@
 //! Each `cargo test` run of the worker-spawning suites fork/exec's
 //! ~50 `uv run python -m batchalign.worker` processes. At default parallelism
 //! the spawn tail under contention exceeded `ready_timeout_s`, producing
-//! flaky failures. `.config/nextest.toml` currently caps the group at
-//! `max-threads = 4` to make spawn cost an OS-bounded constant rather than
-//! a tail distribution. This fixture is the principled fix that makes the
-//! cap unnecessary: tests within a binary share workers keyed by the subset
-//! of [`WorkerConfig`] the Python child observes at startup.
+//! flaky failures. This fixture is the principled fix: tests within a binary
+//! share workers keyed by the subset of [`WorkerConfig`] the Python child
+//! observes at startup.
+//!
+//! A runner config used to cap that parallelism too. That runner is banned
+//! and uninstalled here, so nothing caps it now, which is why the suites
+//! rely on this fixture rather than on a cap.
 //!
 //! Fields the Python child does NOT observe, `ready_timeout_s`,
 //! `audio_task_timeout_s`, `analysis_task_timeout_s`, `runtime.host_memory`,

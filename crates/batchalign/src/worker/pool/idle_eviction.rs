@@ -240,7 +240,7 @@ mod tests {
     fn threshold_is_twice_the_admission_floor() {
         assert_eq!(
             EVICTION_PRESSURE_THRESHOLD_MB,
-            super::super::memory_gate::MIN_FREE_MEMORY_MB * 2
+            *batchalign_types::memory::MIN_FREE_MEMORY_MB * 2
         );
     }
 }
