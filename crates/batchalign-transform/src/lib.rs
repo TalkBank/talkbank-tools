@@ -58,15 +58,17 @@
 // and downstream consumers reach the whole generic surface through one root.
 pub use talkbank_transform::*;
 
-/// Compatibility shim for the historical `unified_cache` module path.
-///
-/// chatter moved caching into the `talkbank-cache` crate, which
-/// `talkbank-transform` re-exports at its root rather than as a `unified_cache`
-/// module. This re-exposes the old path so existing batchalign references
-/// (`batchalign_transform::unified_cache::...`) keep resolving.
-pub mod unified_cache {
-    pub use talkbank_transform::{CacheError, CachePool, CacheStats, UnifiedCache};
-}
+// The `unified_cache` compatibility shim was deleted on 2026-07-30. It existed
+// to keep historical `batchalign_transform::unified_cache::...` references
+// resolving after chatter moved caching into `talkbank-cache`, and a search of
+// the whole workspace found ZERO such references: it had no consumers at any
+// point after it was written.
+//
+// It was also the one thing here that would have broken if chatter put its
+// cache surface behind a feature, because it names those four types EXPLICITLY.
+// The blanket `pub use talkbank_transform::*` above is a glob and simply
+// re-exports fewer names when a feature is off, so with the shim gone this
+// crate compiles against chatter either way.
 
 // Batchalign-specific transforms. These need ML-pipeline context (ASR output,
 // neural morphotag, forced-alignment decisions, utterance segmentation), so
