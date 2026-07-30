@@ -220,7 +220,7 @@ impl JobSubmission {
                 "Language '{}' is not supported by Rev.AI ASR. Alternatives:\n\
                  - Use --asr-engine whisper for local Whisper ASR (supports most languages)\n\
                  - Use --asr-engine-custom tencent for Chinese/Hakka via Tencent\n\
-                 - Check supported languages: book/src/reference/language-code-resolution.md",
+                 - Check supported languages: book/src/batchalign/reference/language-code-resolution.md",
                 lang
             )));
         }
@@ -235,14 +235,14 @@ impl JobSubmission {
         // names a working alternative.
         //
         // Rationale and escalation path (when the deny-list stops being
-        // enough): book/src/reference/revai-language-quality-strategy.md.
+        // enough): book/src/batchalign/reference/revai-language-quality-strategy.md.
         if let Some(AsrEngineName::RevAi) = &asr_engine
             && let Some(entry) = revai_known_broken(lang)
         {
             return Err(ValidationError(format!(
                 "Language '{}' is known to produce unusable quality on Rev.AI ASR: {}. \
                  Use --asr-engine {} instead. \
-                 See book/src/reference/revai-language-quality-strategy.md \
+                 See book/src/batchalign/reference/revai-language-quality-strategy.md \
                  for the rationale and the list of known-broken pairs.",
                 lang, entry.reason, entry.recommended_engine
             )));
@@ -634,7 +634,7 @@ mod tests {
 
     /// ``whisper_hub`` is the recommended alternative in the updated
     /// Rev.AI deny-list error message (see
-    /// ``book/src/reference/revai-language-quality-strategy.md``). For
+    /// ``book/src/batchalign/reference/revai-language-quality-strategy.md``). For
     /// the recommendation to be viable, ``whisper_hub`` + ``mal`` must
     /// pass validation itself.
     #[test]

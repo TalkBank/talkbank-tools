@@ -1,6 +1,6 @@
 //! English ordinal + year + decade expansion. Round 2 of the
 //! number-expansion rework documented in
-//! `book/src/architecture/number-expansion.md`.
+//! `book/src/batchalign/architecture/number-expansion.md`.
 //!
 //! Replaces the Python `num2words(N, to="ordinal" | "year")` IPC
 //! roundtrip for the only language that realistically hits these

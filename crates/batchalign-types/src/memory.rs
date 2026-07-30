@@ -4,9 +4,6 @@
 //!   (a) per-tier per-profile worker startup envelopes (Principle 1)
 //!   (b) per-command peak estimation (Principle 2;
 //!       was `tier_aware_command_execution_budget_mb` in `batchalign::types::runtime`).
-//!
-//! Spec: docs/architecture/2026-05-10-tier-aware-memory-consolidation.md
-//!       docs/architecture/2026-05-10-phase-beta-command-spec.md
 
 use crate::api::MemoryMb;
 use crate::worker_profile::WorkerProfile;

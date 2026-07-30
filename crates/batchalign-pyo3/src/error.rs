@@ -1,6 +1,7 @@
 //! Typed boundary errors for the Rust ↔ Python PyO3 interface.
 //!
-//! See `book/src/batchalign/architecture/python-rust-errors.md` for the
+//! See `book/src/architecture/errors-and-validation/python-rust-errors.md`
+//! for the
 //! contract: every error crossing the boundary is categorized into one
 //! of the variants of [`BatchalignBoundaryError`], which converts to
 //! the matching Python exception subclass (declared via

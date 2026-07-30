@@ -182,7 +182,7 @@ pub(crate) async fn run_fa_from_ast(
     // might seem safe (e.g., monotonicity enforcement); those are
     // the researcher's responsibility.
     //
-    // See book/src/developer/commands/align.md: "NoAlign: strict pass-through".
+    // See book/src/batchalign/developer/commands/align.md: "NoAlign: strict pass-through".
     if is_no_align(&chat_file) {
         return Ok(FaResult {
             chat_text: to_chat_string(&chat_file),
@@ -263,7 +263,7 @@ pub(crate) async fn run_fa_from_ast(
     //
     // Covered by the private regression fixture set under
     // `test-fixtures/align/regressions/` (gitignored; see
-    // `book/src/developer/regression-fixtures.md`).
+    // `book/src/batchalign/developer/regression-fixtures.md`).
     let rescue_decisions = rescue_narrow_bullets(&mut chat_file);
 
     // 2b. Expand utterance bullets to cover edge fillers in inter-utterance gaps.

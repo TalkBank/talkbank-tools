@@ -134,8 +134,7 @@ mod tests {
     // `data/compounds.json` contains `["come","back"]` and `["put","down"]`,
     // and `merge_compounds()` applies them unconditionally with no POS /
     // phrase-vs-noun disambiguation. The empirical CHAT corpora strongly
-    // favor the open form for these verb-particle pairs
-    // (see `book/src/decisions/asr-compound-merging.md`).
+    // favor the open form for these verb-particle pairs.
     //
     // These tests encode the policy that the bare 2-token sequence
     // should survive as two tokens when the usage is verb-particle.

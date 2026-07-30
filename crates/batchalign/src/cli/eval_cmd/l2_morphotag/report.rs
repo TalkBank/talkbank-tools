@@ -591,7 +591,7 @@ pub fn summary_markdown(
         }
         out.push('\n');
         out.push_str(
-            "See [`book/src/architecture/morphotag-invariants.md`](../../../architecture/morphotag-invariants.md) \
+            "See [`book/src/batchalign/architecture/morphotag-invariants.md`](../../../architecture/morphotag-invariants.md) \
              for how to investigate anomalies.\n\n",
         );
     }

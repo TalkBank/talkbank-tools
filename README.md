@@ -76,7 +76,6 @@ User, developer, and architecture docs live in the mdBook under
 |---|---|
 | Install hub and quickstart | [Install](book/src/install/index.md), [Quickstart](book/src/quickstart/index.md) |
 | Batchalign3 user guide, architecture, developer guide | [Batchalign3 introduction](book/src/batchalign/introduction.md) |
-| Architecture and design | [Architecture overview](book/src/architecture/overview.md) |
 
 Build the book locally:
 

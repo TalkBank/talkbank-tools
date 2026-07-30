@@ -89,8 +89,7 @@ impl ExecutionEngine {
 /// Holds an [`EffectiveConfig`] resolved once at construction from the host's
 /// `ServerConfig` plus the live `HostFacts` snapshot. Per-job dispatch reads
 /// from this resolved view rather than re-detecting host facts on every call,
-/// which is the architectural seam the host-facts migration introduced (see
-/// `talkbank/docs/investigations/2026-04-25-host-facts-architecture.md`).
+/// which is the architectural seam the host-facts migration introduced.
 #[derive(Clone)]
 pub(crate) struct DispatchHostContext {
     store: Arc<JobStore>,

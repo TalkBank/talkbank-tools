@@ -11,8 +11,7 @@
 //! (the future `batchalign3 doctor --explain <knob>` surface).
 //!
 //! Phase B1 adds `gpu_thread_pool_size`, the knob that motivated the
-//! architecture (see
-//! `talkbank/docs/postmortems/2026-04-25-whisper-hub-malayalam-queue-wait-timeout.md`).
+//! architecture.
 //! Subsequent B-phases extend `RecommendedKnobs` with `force_cpu`,
 //! `max_total_workers`, `max_concurrent_jobs`, `max_workers_per_job`,
 //! and `max_workers_per_key_by_profile`.
@@ -38,7 +37,7 @@ pub struct RecommendedKnobs {
     /// In-flight `execute_v2` cap per shared GPU worker, mirroring the
     /// Python `ThreadPoolExecutor(max_workers=...)` capacity. The
     /// canonical reference is
-    /// `book/src/developer/worker-protocol-v2.md` § "The dispatch
+    /// `book/src/batchalign/developer/worker-protocol-v2.md` § "The dispatch
     /// semaphore contract".
     pub gpu_thread_pool_size: u32,
 
@@ -170,7 +169,7 @@ pub fn recommend(facts: &HostFacts) -> RecommendedKnobs {
 /// Apple Silicon (the entire current fleet), 4 produces silent
 /// contention without any throughput gain. The architectural fix
 /// for the dispatch_semaphore (see
-/// `book/src/developer/worker-protocol-v2.md` § "The dispatch
+/// `book/src/batchalign/developer/worker-protocol-v2.md` § "The dispatch
 /// semaphore contract") removed the spurious-timeout failure mode;
 /// matching K to the real device parallelism removes the
 /// contention-without-gain failure mode.
@@ -210,8 +209,7 @@ const MIN_TOTAL_WORKERS: u32 = 2;
 ///
 /// Empirical evidence that this cap is currently binding under
 /// multi-language morphosyntax workloads, plus the separately-filed
-/// busy-loop spawn-rejection bug that surfaces it, lives in
-/// `docs/bugs/BUG-028-worker-pool-spawn-rejection-busy-loop.md`.
+/// busy-loop spawn-rejection bug that surfaces it, is tracked as BUG-028.
 const MAX_TOTAL_WORKERS: u32 = 32;
 
 /// Conservative fallback when `ram_total_mb` is zero, almost
@@ -276,9 +274,7 @@ pub fn recommend_max_total_workers(facts: &HostFacts) -> u32 {
 /// operator sets `gpu_thread_pool_size` independently of
 /// `max_workers_per_job`; under the new architecture, those two knobs
 /// are decoupled: overriding one no longer cascades into the other.
-/// Both can be overridden independently. Documented in
-/// `docs/investigations/2026-04-25-host-facts-architecture.md` §
-/// Layer 2.
+/// Both can be overridden independently (host-facts Layer 2).
 pub(super) fn recommend_max_workers_per_job(facts: &HostFacts, command: &ReleasedCommand) -> u32 {
     let tier = crate::runtime::MemoryTier::from_total_mb(facts.ram_total_mb);
     let by_cpu: usize = usize::try_from(facts.cpu_logical_count.max(1)).unwrap_or(usize::MAX);

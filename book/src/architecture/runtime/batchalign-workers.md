@@ -16,8 +16,8 @@ and the no-`Mutex` policy.
 > budget, so a 16 GB laptop with a clean memory state can admit a
 > 1-worker morphotag job (Contract C-16GB is GREEN). The five
 > architectural principles that prevent the layer-by-layer
-> consolidation bug class from returning are documented in
-> `<workspace>/docs/architecture/2026-05-10-tier-aware-memory-consolidation.md`.
+> consolidation bug class from returning are covered by the tier-aware memory
+> tests in `batchalign-types`.
 
 ## Three Layers of Parallelism
 
@@ -422,8 +422,7 @@ A streaming redesign (per-file flow through stages with windowed
 language accumulators) is a future direction; the trade-offs
 (batching efficiency, cross-file language grouping, error
 propagation, testing complexity) are documented in the
-forward-looking proposal under
-`<workspace>/docs/talkbank-tools-proposals/pipeline-parallelism-future-directions.md`.
+forward-looking proposal, not a commitment.
 
 ## Source File Map
 

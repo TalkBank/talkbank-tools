@@ -558,7 +558,6 @@ mod tests {
                  found parallel definition(s) of *_startup_mb inside batchalign/src.\n\
                  MemoryTier in batchalign-types/src/memory.rs is the SOLE canonical source.\n\
                  Operator overrides via RuntimeOverridesConfig are the only allowed channel.\n\
-                 See docs/architecture/2026-05-10-tier-aware-memory-consolidation.md \
                  (Phase α, Principle 1).\n\n\
                  ripgrep matches:\n{matches}"
             );

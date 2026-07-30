@@ -393,9 +393,7 @@ fn demote_duplicate_l2_root(
 /// `bien → fecha (head=2)`). Splicing each position with the
 /// per-item [`splice_coordinated`] misclassifies these as within-MWT
 /// and remaps them with the wrong `chunk_offset`, yielding the E722 +
-/// E724 cascade documented in
-/// `docs/postmortems/2026-05-03-l2-splice-cardinality-investigation.md`
-/// §6c. To fix this, we group consecutive same-line same-language
+/// E724 cascade. To fix this, we group consecutive same-line same-language
 /// positions here and apply [`splice_range_coordinated`] to each
 /// multi-position span atomically. Single-position spans still use
 /// the existing [`splice_coordinated`] path so the (passing) MWT
@@ -536,8 +534,7 @@ pub fn splice_l2_into_chat(
             // (`local_chunk_offset` after the per-position loop above);
             // cross-position head references like `head=2` for chunk 1
             // pointing at chunk 2 of the span are valid here, not OOB.
-            // See `repair_secondary_gras` in merge.rs and the §6
-            // walkthrough in `docs/architecture/l2-morphotag-redesign-2026-05-07.md`.
+            // See `repair_secondary_gras` in merge.rs.
             let span_attachment = merged_results[span_indices.start]
                 .as_ref()
                 .map(|m| m.attachment.clone())
@@ -573,8 +570,7 @@ pub fn splice_l2_into_chat(
             // Whole-tier snapshot for rollback. `splice_range_coordinated`
             // mutates `.head` and `.index` fields across the ENTIRE host
             // gra (not just the spliced range), so slice-scoped restore
-            // is not structurally sufficient. Cost analysis +
-            // alternatives in `docs/l2-splice-snapshot-cost-analysis.md`.
+            // is not structurally sufficient.
             let mor_snapshot = mor.clone();
             let gra_snapshot = gra.clone();
 
@@ -715,8 +711,7 @@ fn splice_one_position(
             // Whole-tier snapshot for rollback. `splice_coordinated`
             // mutates `.head` and `.index` fields across the ENTIRE host
             // gra (not just the spliced item), so slice-scoped restore
-            // is not structurally sufficient. Cost analysis +
-            // alternatives in `docs/l2-splice-snapshot-cost-analysis.md`.
+            // is not structurally sufficient.
             let mor_snapshot = mor.clone();
             let gra_snapshot = gra.clone();
 
@@ -2535,8 +2530,7 @@ mod cardinality_tests {
     /// root with a generic DEP relation.
     ///
     /// Background: this is the 43-rollbacks-per-750-files variant
-    /// the constructive merge didn't address. See the postmortem at
-    /// `docs/postmortems/2026-05-07-noalign-morphotag-skip.md`.
+    /// the constructive merge didn't address.
     #[test]
     fn merge_demotes_duplicate_root_when_host_already_has_one() {
         let chat_text = "@UTF8\n\

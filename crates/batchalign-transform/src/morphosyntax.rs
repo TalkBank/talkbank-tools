@@ -33,7 +33,7 @@
 //! [`DecisionRecord`](crate::decisions::DecisionRecord) so operators
 //! see it and developers can fix it.
 //!
-//! See `book/src/architecture/morphotag-invariants.md` for the full
+//! See `book/src/batchalign/architecture/morphotag-invariants.md` for the full
 //! architectural discussion.
 //!
 //! # Module layout

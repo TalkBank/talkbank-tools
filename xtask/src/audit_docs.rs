@@ -619,7 +619,7 @@ fn classify_bucket(rel: &str) -> Bucket {
         || (rel.starts_with("book/src/batchalign/")
             && rel.contains("/user-guide/"))
         || rel == "book/src/SUMMARY.md"
-        || rel == "book/src/introduction.md"
+        || rel == "book/src/batchalign/introduction.md"
     {
         return Bucket::A;
     }
@@ -1508,8 +1508,7 @@ async fn compute_streak(conn: &mut SqliteConnection, today: NaiveDate) -> Result
 /// staleness and is no longer evidence.
 ///
 /// Required env vars (each overridable by the matching `--flag`):
-///   TB_AUDIT_DB: path to the SQLite catalog (e.g.
-///                       `<workspace>/docs/release-doc-audit/audit.db`)
+///   TB_AUDIT_DB: path to the SQLite catalog
 ///   TB_AUDIT_TT_ROOT: path to the talkbank-tools clone being audited
 ///
 /// The `vet` and `streak` subcommands need only `TB_AUDIT_DB`;

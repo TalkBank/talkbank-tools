@@ -12,10 +12,7 @@
 //! Per-file durability: each task's result is written back to disk
 //! (`write_morphotag_results` → `text_io::write_text_results`) as soon
 //! as it completes, so a daemon redeploy mid-run loses at most the
-//! files currently in flight rather than the entire batch. Rationale
-//! recorded in
-//! `docs/investigations/2026-04-25-ba3-feedback-by-default-architecture.md`
-//! §4.4 and `docs/session-handoff-2026-05-02.md` §6.4.
+//! files currently in flight rather than the entire batch.
 
 use std::sync::Arc;
 

@@ -228,7 +228,7 @@ pub enum AsrEngineName {
     /// HuggingFace Whisper fine-tune backend. Loads community fine-tunes
     /// by model_id (resolved per-language, with an explicit override in
     /// ``engine_overrides.model_id``). See
-    /// ``book/src/reference/whisper-hub-asr.md``.
+    /// ``book/src/batchalign/reference/whisper-hub-asr.md``.
     WhisperHub,
     /// WhisperX worker backend.
     WhisperX,
@@ -239,7 +239,7 @@ pub enum AsrEngineName {
     /// `whisper-rs-backend` Cargo feature is DEFAULT since 2026-07-28, the
     /// model auto-resolves (``BATCHALIGN_WHISPER_RS_MODEL`` override, else
     /// ggml-large-v3 fetched once via hf-hub), and language `Auto` engages
-    /// whisper.cpp's own detection. See ``book/src/reference/whisper-asr.md``.
+    /// whisper.cpp's own detection. See ``book/src/batchalign/reference/whisper-asr.md``.
     WhisperRs,
     /// Tencent Cloud ASR (HK/Cantonese).
     HkTencent,

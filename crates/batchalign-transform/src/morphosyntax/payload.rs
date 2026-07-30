@@ -190,8 +190,7 @@ pub fn collect_payloads(
                 // CA-mode utterances may legitimately lack a main-tier
                 // terminator. Stanza needs a sentence-final tagging
                 // signal regardless, so synthesize Period, matches the
-                // BA2 default. See `docs/coding-standards.md` rule 6d
-                // for why this isn't a sentinel: it's the canonical
+                // BA2 default. This is not a sentinel: it is the canonical
                 // Stanza-input default explicitly chosen for the
                 // ambiguous case, not a stand-in for a parse failure.
                 let terminator_typed: talkbank_model::Terminator =

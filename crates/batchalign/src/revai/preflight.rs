@@ -150,7 +150,7 @@ pub(crate) fn try_revai_language_hint(lang: &LanguageCode3) -> Option<RevAiLangu
 /// letting the failure surface as confusing per-token validation errors.
 ///
 /// The deny-list is Option A from
-/// [`book/src/reference/revai-language-quality-strategy.md`]. Each entry
+/// [`book/src/batchalign/reference/revai-language-quality-strategy.md`]. Each entry
 /// carries a dated provenance comment so a successor reading this table
 /// can see *why* it exists and *when* it should be re-evaluated against
 /// Rev.AI's current model.
@@ -194,7 +194,7 @@ pub(crate) const REVAI_KNOWN_BROKEN: &[RevAiKnownBroken] = &[
     // hallucinated "Thank you for watching." Only the community
     // fine-tune ``thennal/whisper-medium-ml`` (routed through the
     // ``whisper_hub`` engine) produced coherent Malayalam output. See
-    // ``book/src/reference/whisper-hub-asr.md`` for the comparison.
+    // ``book/src/batchalign/reference/whisper-hub-asr.md`` for the comparison.
     RevAiKnownBroken {
         iso3: "mal",
         reason: "Malayalam ASR returns cross-script tokens (Hangul, Gurmukhi, Latin) and \

@@ -278,7 +278,7 @@ pub fn inject_results(
             // the input unchanged when no rule fires, so this is safe
             // to call unconditionally. See
             // `crate::morphosyntax` for the current rule set and
-            // `book/src/reference/stanza-limitations.md` for the
+            // `book/src/batchalign/reference/stanza-limitations.md` for the
             // versioned defect registry.
             let ud_sentence_rescued = apply_grammatical_invariants(ud_sentence, &ctx);
 

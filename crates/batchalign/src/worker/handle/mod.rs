@@ -74,7 +74,6 @@ impl WorkerHandle {
         // Memory guard: acquire a serialized spawn permit and check available RAM.
         // This prevents the TOCTOU race where N concurrent spawns all see "enough"
         // memory before any model is loaded, then collectively exceed physical RAM.
-        // See docs/memory-safety.md for the full crash history and design rationale.
         let startup_reservation = config.startup_reservation_mb();
         let spawn_permit = crate::worker::memory_guard::acquire_spawn_permit(&config).await?;
 

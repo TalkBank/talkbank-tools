@@ -1,7 +1,7 @@
 //! Worker protocol V2 schema types shared across batchalign crates.
 //!
 //! These types define the next worker boundary described in
-//! `book/src/developer/worker-protocol-v2.md`. Unlike the current
+//! `book/src/batchalign/developer/worker-protocol-v2.md`. Unlike the current
 //! JSON-lines protocol in [`super::worker`], this schema is intentionally
 //! staged for migration:
 //!

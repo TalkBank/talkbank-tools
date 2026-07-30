@@ -8,8 +8,7 @@
 //! warnings without re-querying the OS.
 //!
 //! This module is the **type scaffolding** for that architecture
-//! (Phase A1 of the migration described in
-//! `talkbank/docs/investigations/2026-04-25-host-facts-architecture.md`).
+//! (Phase A1 of the host-facts migration).
 //! No production code consumes `HostFacts` yet; `Real::detect()` is a
 //! `todo!()` placeholder. The point of landing the types first is that
 //! every later phase's tests can be written against the `Mock` source
@@ -284,8 +283,7 @@ mod tests {
     /// AppleSiliconKernelDeadlock }`: the policy decision that
     /// downstream `recommend()` and `validate()` both depend on.
     ///
-    /// This is the integration test for Phase A4 of the migration
-    /// (`talkbank/docs/investigations/2026-04-25-host-facts-architecture.md`):
+    /// This is the integration test for Phase A4 of the migration:
     /// confirms that the wiring through `RealHostFactsSource::detect()`
     /// → `detect_gpu_presence` → Apple Silicon short-circuit produces
     /// the correct variant on the actual host this test runs on.

@@ -1,13 +1,24 @@
-//! Layer 1 CI gate: prose references to deleted crates / moved book paths.
+//! Layer 1 CI gate: prose references to deleted crates, moved book paths, and
+//! documents that do not exist in this repository.
 //!
-//! Walks every markdown file under the repo root, applies the
-//! high-severity patterns from `audit_docs::FLAG_PATTERNS`, and exits
-//! non-zero if any non-allow-listed hit is found. Catalog-independent:
-//! does not touch the `audit.db` in the meta-repo, so it runs cleanly
-//! in talkbank-tools CI where that database is not checked in.
+//! Two checks:
 //!
-//! The audit method calls this "Layer 1 mechanical CI gate". See
-//! `<workspace>/docs/release-doc-audit/audit-method.md`.
+//! 1. High-severity patterns from `audit_docs::FLAG_PATTERNS` over every
+//!    markdown file. Catalog-independent: it does not touch the `audit.db`
+//!    that lives outside this repo, so it runs cleanly in CI.
+//! 2. Every markdown path named in prose, under either doc root, must
+//!    RESOLVE. This one reads Rust doc comments as well as markdown, which
+//!    check 1 does not.
+//!
+//! Why check 2 reads Rust. On 2026-07-30 this repository carried 38 doc-comment
+//! references to documents that exist only in the maintainer's private
+//! workspace: investigations, postmortems, an architecture series, panic-audit
+//! snapshots. They were correct when written, because the code was developed
+//! beside those documents before it became a public repository, and they came
+//! along with it. A public reader got a path they could not open, and several
+//! leaked dated incident titles. Nothing noticed, because this gate read only
+//! markdown while rustdoc is prose too, and because the gate itself was in no
+//! CI target despite the line above calling it one. Both are now fixed.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -53,15 +64,107 @@ pub(crate) struct Violation {
     pub(crate) excerpt: String,
 }
 
+/// A prose reference to a document, and where it was written.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct DocReference {
+    /// Repo-relative file the reference was written in.
+    source: String,
+    /// 1-based line it sits on.
+    line: usize,
+    /// The repo-relative document path the prose names.
+    target: String,
+}
+
+/// Doc paths named in prose, in both markdown and Rust doc comments.
+///
+/// Rust is included deliberately: a `//!` block is prose that ships to rustdoc,
+/// and it was the format in which 38 references to a private doc tree survived
+/// a repository split unnoticed.
+fn collect_doc_references(repo_root: &Path) -> Vec<DocReference> {
+    let pattern = match Regex::new(r"(?:docs|book/src)/[A-Za-z0-9._/-]+\.md") {
+        Ok(pattern) => pattern,
+        // A malformed literal here is a bug in this file, not in the tree.
+        Err(_) => return Vec::new(),
+    };
+
+    let mut found = Vec::new();
+    for entry in WalkDir::new(repo_root)
+        .into_iter()
+        .filter_entry(|e| !is_excluded(e.file_name().to_string_lossy().as_ref()))
+        .filter_map(Result::ok)
+    {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if ext != "rs" && ext != "md" {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(path) else {
+            continue;
+        };
+        let source = path
+            .strip_prefix(repo_root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        for (index, line) in text.lines().enumerate() {
+            // Rust: comments only. A path inside a string literal is usually a
+            // runtime path rather than a citation, and this gate is about prose.
+            if ext == "rs" && !line.trim_start().starts_with("//") {
+                continue;
+            }
+            for m in pattern.find_iter(line) {
+                found.push(DocReference {
+                    source: source.clone(),
+                    line: index + 1,
+                    target: m.as_str().to_string(),
+                });
+            }
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
+/// Every referenced document that does not exist in this repository.
+fn unresolvable_doc_references(repo_root: &Path) -> Vec<DocReference> {
+    collect_doc_references(repo_root)
+        .into_iter()
+        .filter(|reference| !repo_root.join(&reference.target).is_file())
+        .collect()
+}
+
 pub fn run(repo_root: &Path) -> crate::Result<()> {
     let docs = collect_markdown(repo_root);
     let total_files = docs.len();
     let violations = scan_docs(&docs)?;
 
+    let dangling = unresolvable_doc_references(repo_root);
+    if !dangling.is_empty() {
+        eprintln!(
+            "xtask audit-prose-references: {} reference(s) to a document that does \
+             not exist in this repository.\n  A public reader cannot open it, and if \
+             it lives in a private tree the path itself leaks. State the substance \
+             inline instead of pointing at it.",
+            dangling.len()
+        );
+        for reference in &dangling {
+            eprintln!(
+                "  {}:{}: {}",
+                reference.source, reference.line, reference.target
+            );
+        }
+        return Err("prose references a document that does not exist here".into());
+    }
+
     if violations.is_empty() {
         println!(
             "xtask audit-prose-references: 0 violations across {} markdown files \
-             ({} allow-listed historical surfaces respected)",
+             ({} allow-listed historical surfaces respected); every doc path in \
+             markdown and Rust doc comments resolves",
             total_files,
             ALLOW_LIST.len()
         );

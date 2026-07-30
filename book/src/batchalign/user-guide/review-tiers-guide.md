@@ -183,7 +183,7 @@ Source files verified against:
 `inject_review_tiers` builds the `%xalign`/`%xrev` dependent tiers),
 `crates/batchalign-transform/src/decisions.rs` (typed `DecisionStrategy`
 enum, `xalign_content` rendering, and `strip_decision_tiers` cleanup
-helper), and `docs/pipeline-decision-metadata-design.md` (design doc).
+helper).
 
 The `finalize` and `harvest_reviews` stages are currently **roadmap**,
 they are not yet shipped. Today, reviewers clean a file by re-running with
@@ -345,8 +345,7 @@ flagging for someone else to fix.
 **Is there a `%xmor` tier?**
 
 Not currently. Morphotag decisions are recorded in the unified `%xalign`
-tier with a `morphosyntax:` prefix. A draft design in
-`docs/pipeline-decision-metadata-design.md` proposes splitting per-task
+tier with a `morphosyntax:` prefix. A draft design proposes splitting per-task
 tiers, but implementation depends on project-level decisions about whether
 the split is worth the extra tier noise.
 

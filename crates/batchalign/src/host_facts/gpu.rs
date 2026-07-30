@@ -81,7 +81,7 @@ pub enum GpuPresence {
 pub enum MpsExclusionReason {
     /// Apple Silicon AGXG14X kernel deadlock under batchalign3's
     /// Whisper FA workload. See
-    /// `book/src/developer/apple-mps-workarounds.md` for the full
+    /// `book/src/batchalign/developer/apple-mps-workarounds.md` for the full
     /// incident write-up.
     AppleSiliconKernelDeadlock,
 }

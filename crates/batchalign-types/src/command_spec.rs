@@ -1,8 +1,7 @@
 //! Static per-command metadata. Sole canonical source of resource
 //! shape and classification for every released batchalign command.
 //!
-//! Per the Phase β spec
-//! (`docs/architecture/2026-05-10-phase-beta-command-spec.md`),
+//! Per the Phase β spec,
 //! `CommandSpec` is orthogonal to `recipe_runner::CatalogEntry`
 //! (planning/execution shape). They cross-reference by
 //! `ReleasedCommand` identity.

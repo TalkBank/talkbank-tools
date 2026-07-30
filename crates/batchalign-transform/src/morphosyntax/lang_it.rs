@@ -15,10 +15,9 @@
 //! a regression test. Periodic re-audits should retire entries
 //! whose Stanza-raw output has been fixed upstream.
 //!
-//! See the design plan at
-//! `docs/investigations/2026-04-23-italian-defect-6-reconciler-plan.md`
-//! and the user-facing documentation at
-//! `book/src/reference/languages/italian.md` (§"Reconciler hacks").
+//! See the user-facing documentation at
+//! `book/src/batchalign/reference/languages/italian.md`
+//! (§"Reconciler hacks").
 
 use crate::morphosyntax::UdId;
 use crate::morphosyntax::{
@@ -685,8 +684,7 @@ pub(crate) struct ComponentRewriteOverride {
 /// Table of known Italian Defect-9 component rewrites. Closed
 /// allowlist; each entry is seeded from a specific direct-probe
 /// observation against Stanza. See the module docstring for the
-/// scope trade-off and the plan file at
-/// `docs/investigations/2026-04-23-italian-defect-6-reconciler-plan.md`.
+/// scope trade-off.
 pub(crate) const IT_COMPONENT_REWRITES: &[ComponentRewriteOverride] = &[
     // Defect 9: `dagliela` (imperative `dare` + `glie` + `la`):
     // Stanza emits `da/ADP/da + glie/PRON/gli + la/PRON/la`. The

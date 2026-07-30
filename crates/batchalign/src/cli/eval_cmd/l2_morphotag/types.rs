@@ -422,7 +422,7 @@ pub struct FileAnalysis {
 //                             file-level boundary and emitted no tier)
 //
 // Wave 4 of the morphotag reconciliation architecture. See
-// `book/src/architecture/morphotag-invariants.md`.
+// `book/src/batchalign/architecture/morphotag-invariants.md`.
 // ---------------------------------------------------------------------------
 
 /// Post-hoc classification of one utterance's morphotag outcome, inferred

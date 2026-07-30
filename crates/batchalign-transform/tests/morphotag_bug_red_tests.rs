@@ -1,8 +1,6 @@
 //! Boundary contract tests for known morphotag-pipeline bugs.
 //!
-//! Each test is annotated with the bug ID from
-//! `docs/session-handoff-2026-05-01.md` and the postmortem
-//! `docs/postmortems/2026-05-01-morphotag-rerun-debacle.md`.
+//! Each test is annotated with its bug ID.
 //!
 //! Both bugs in this file reduce to the same architectural debt class:
 //! "the typed AST is decorative, not contract." The fix routes through
@@ -144,9 +142,7 @@ fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() ->
              separator (spec/symbols/symbol_registry.json \
              `word_segment_forbidden_first_symbols`); the morphotag \
              payload collector must consume the typed AST, not \
-             re-tokenize raw text. See \
-             docs/postmortems/2026-05-01-morphotag-rerun-debacle.md \
-             Mistake 19 for full context."
+             re-tokenize raw text."
         );
     }
 

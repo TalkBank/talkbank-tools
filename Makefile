@@ -210,6 +210,8 @@ lint:
 	@cargo run -q -p xtask -- lint-core-purity
 	@echo "==> wide struct audit"
 	@cargo run -q -p xtask -- lint-wide-structs
+	@echo "==> prose references"
+	@cargo run -q -p xtask -- audit-prose-references
 
 # Lints run FIRST: they are the cheapest gates here.
 batchalign-ci-rust:

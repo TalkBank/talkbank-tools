@@ -1,5 +1,5 @@
-// Test code is exempt from this crate's `deny`-level panic lints
-// see `<workspace>/talkbank-tools/docs/panic-audit/pyo3.md`.
+// Test code is exempt from this crate's `deny`-level panic lints: assertion
+// macros panic by design.
 #![cfg_attr(
     test,
     allow(
@@ -64,7 +64,7 @@ fn batchalign_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Typed boundary exceptions. Python `batchalign/errors.py`
     // re-exports these so application catch sites match by class
     // rather than parsing the message string. See
-    // `book/src/batchalign/architecture/python-rust-errors.md`.
+    // `book/src/architecture/errors-and-validation/python-rust-errors.md`.
     let py = m.py();
     m.add("BatchalignError", py.get_type::<error::BatchalignError>())?;
     m.add(

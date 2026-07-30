@@ -165,9 +165,8 @@ Listing them here so a contributor doesn't reach for the wrong tool.
   there is no `[: ...]` wrapper.
 - **Use replacements to carry CHAT-illegal text.** Each replacement
   word goes through the standard `Word` validator. `[: C-3PO]` fails
-  E220 the same way `C-3PO` on the main tier does. (See
-  `talkbank-tools/book/src/chat-format/replacements.md` §
-  "Each Replacement Word Is Validated".)
+  E220 the same way `C-3PO` on the main tier does: each replacement word is
+  validated in its own right.
 - **Generate replacements during retokenization.** When Stanza
   re-tokenizes a word, the retokenize module rebuilds the AST in place
   (`crates/batchalign-transform/src/retokenize/rebuild.rs`). It

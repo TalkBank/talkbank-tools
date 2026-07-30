@@ -106,7 +106,7 @@ pub enum AsrEngine {
     /// per-language default is resolved from
     /// ``batchalign/models/resolve.py``; override with
     /// ``--engine-overrides '{"asr":"whisper_hub","model_id":"<owner>/<model>"}'``.
-    /// See ``book/src/reference/whisper-hub-asr.md``.
+    /// See ``book/src/batchalign/reference/whisper-hub-asr.md``.
     #[value(name = "whisper_hub")]
     WhisperHub,
     /// Use WhisperX.

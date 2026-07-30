@@ -620,15 +620,13 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     // re-attach it to the LAST child below so the original utterance's
     // end-of-span timing anchor is preserved across the split, without
     // this, every split utterance loses its `_NNN` bullet and any
-    // `@Media` linkage assertion the file relied on. See
-    // `docs/postmortems/2026-04-26-utseg-split-bullet-loss.md`.
+    // `@Media` linkage assertion the file relied on.
     let parent_bullet = utt.main.content.bullet.clone();
 
     // Capture the rest of the parent's main-tier metadata so each child
     // can inherit the right slice of it. Per-field propagation policy
     // (linkers → first only, terminator/postcodes → last only, language
-    // code/spans → all) is documented in
-    // `docs/postmortems/2026-04-26-utseg-split-bullet-loss.md` (F1.6).
+    // code/spans → all).
     let parent_linkers = utt.main.content.linkers.clone();
     let parent_terminator = utt.main.content.terminator.clone();
     let parent_language_code = utt.main.content.language_code.clone();
@@ -1024,8 +1022,6 @@ mod tests {
     /// the original utterance ended at the bullet's end timestamp, and
     /// the last child of the split contains the last words and ends at
     /// that same end timestamp.
-    ///
-    /// See: docs/postmortems/2026-04-26-utseg-split-bullet-loss.md
     #[test]
     fn utseg_split_preserves_parent_bullet_on_last_child() {
         // Bullet syntax: NAK-delimited "start_end" appended after the
@@ -1381,7 +1377,7 @@ mod tests {
     /// the replacement words.
     ///
     /// Coverage gap discovered 2026-04-27 while writing replacements
-    /// docs (`book/src/architecture/replacements-handling.md`); analogous
+    /// docs (`book/src/batchalign/architecture/replacements-handling.md`); analogous
     /// to the FA bug shape from 2026-04-08. The current code is correct
     /// by construction (extract + split both use TierDomain::Mor); these
     /// tests pin that invariant against future drift.

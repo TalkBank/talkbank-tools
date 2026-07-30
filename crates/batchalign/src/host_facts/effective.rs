@@ -24,8 +24,7 @@
 //!   (`max_workers_per_job(command)`) can recompute the
 //!   recommendation lazily without callers re-passing facts.
 //!
-//! See `talkbank/docs/investigations/2026-04-25-host-facts-architecture.md`
-//! § Layer 3 for the merge-precedence rules and rationale.
+//! Layer 3 of the host-facts architecture owns the merge-precedence rules.
 
 use crate::api::{MemoryMb, ReleasedCommand};
 use crate::config::ServerConfig;

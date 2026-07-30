@@ -18,8 +18,7 @@
 //!   would clearly fail; the server refuses to start with a message
 //!   that includes the recommendation.
 //!
-//! See `talkbank/docs/investigations/2026-04-25-host-facts-architecture.md`
-//! § Layer 4 for the validate-warns-mostly rationale (decision Q2).
+//! Layer 4 warns rather than rejects for most findings (decision Q2).
 //!
 //! ## Why not use `EffectiveConfig` directly
 //!

@@ -208,9 +208,8 @@ fn allowlist() -> HashMap<&'static str, Vec<&'static str>> {
             ],
         ),
         // Historical/architecture docs legitimately reference batchalign-next by name.
-        // The former `book/src/architecture/worker-architecture-assessment.md`
-        // entry was dropped on 2026-07-30: that page does not exist anywhere in
-        // the book, under this or any other path.
+        // A fourth entry, for a worker-architecture assessment page, was
+        // dropped on 2026-07-30: that page does not exist anywhere in the book.
         (
             "book/src/batchalign/developer/worker-protocol-v2.md",
             vec!["batchalign-next"],

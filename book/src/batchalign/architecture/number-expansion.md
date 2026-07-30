@@ -278,7 +278,7 @@ for number expansion. Remaining issues:
    registry only surfaces at validation time as E220. The
    registry could be consulted at job submission to reject the
    request with a clearer error ("no number expansion configured
-   for language X, see book/src/architecture/number-expansion.md").
+   for language X, see book/src/batchalign/architecture/number-expansion.md").
 
 ---
 
@@ -493,7 +493,7 @@ expansion code), update:
 4. The `Last updated` header at the top.
 5. Cross-references: `book/src/reference/languages/<lang>.md` for
    any per-language pages that mention numbers; the
-   `book/src/developer/adding-language-support.md` checklist
+   `book/src/batchalign/developer/adding-language-support.md` checklist
    ("Number expansion" section) if the procedure changes.
 
 **When adding a new language** (transcribe support for a language

@@ -77,7 +77,6 @@ This document is the unified reference for all Python/Rust interface boundaries 
 - Side-effects: None
 
 **Cross-references:**
-- See: `book/src/batchalign/architecture/alignment-structures.md`
 - Rust server caches FA results; Python is stateless
 
 **Responsibility:**
@@ -240,9 +239,7 @@ This document is the unified reference for all Python/Rust interface boundaries 
 ## Documentation Map
 
 ### Architecture (Decision Record)
-- `book/src/batchalign/architecture/python-rust-interface.md`: Overview of PyO3 boundary, worker architecture, GIL strategy
 - `book/src/batchalign/architecture/server-architecture.md`: Server-side orchestration, job lifecycle
-- `book/src/batchalign/architecture/worker-architecture-assessment.md`: Worker pool, memory model
 
 ### Developer Reference (Implementation Spec)
 - `book/src/batchalign/developer/worker-protocol-v2.md`: IPC protocol, envelope types, V1/V2 migration status

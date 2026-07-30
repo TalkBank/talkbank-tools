@@ -151,8 +151,6 @@ pub fn strip_boundary_quotes(words: Vec<AsrWord>) -> Vec<AsrWord> {
 /// space without enumerating CHAT-legal codepoints. Language-agnostic.
 ///
 /// Logs sanitization at `debug!` (mutate) / `warn!` (drop entirely).
-/// Origin: `docs/investigations/2026-05-26-cantonese-asr-benchmark-v2.md`.
-///
 /// Test-only convenience over the per-word sanitizer; production code sanitizes
 /// at the utterance level via [`sanitize_chat_illegal_chars_in_utterances`].
 #[cfg(test)]
@@ -281,7 +279,7 @@ pub fn apply_disfluency_replacements(utterances: &mut [Utterance], lang: &str) {
 /// repeat and marks the first `I`), but filler tokens themselves are
 /// never re-typed to `Retrace`. A bare `&-um &-um` therefore produces no
 /// retrace mark: the repetition is filler behavior, not a false start.
-/// User-facing contract is in `book/src/reference/retrace-detection.md`.
+/// User-facing contract is in `book/src/batchalign/reference/retrace-detection.md`.
 ///
 /// CANTONESE-SPECIFIC ADJUSTMENT: For Cantonese (yue) and Standard Chinese (zho),
 /// the minimum n-gram length is 2 characters instead of 1. This is because
@@ -767,7 +765,7 @@ mod tests {
     // Worked example: the sequence
     //   `&-uh and &-uh &-uh you you can see it , leaves on the bushes .`
     // must produce one retrace mark on the first `you`; every `&-uh` stays
-    // `Regular`. See `book/src/reference/retrace-detection.md` for the
+    // `Regular`. See `book/src/batchalign/reference/retrace-detection.md` for the
     // user-facing policy description.
 
     #[test]

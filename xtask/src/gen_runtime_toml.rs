@@ -1,8 +1,7 @@
 //! Codegen `batchalign/runtime_constants.toml` from
 //! `batchalign_types::command_spec::COMMAND_SPECS`.
 //!
-//! Per the Phase β spec
-//! (`docs/architecture/2026-05-10-phase-beta-command-spec.md`),
+//! Per the Phase β spec,
 //! the Rust `CommandSpec` registry is the SOLE canonical source of
 //! per-command metadata. The TOML is a generated mirror that Python
 //! reads at import time. The `make generated-check` target invokes

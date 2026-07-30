@@ -759,8 +759,7 @@ mod tests {
     #[tokio::test]
     async fn noalign_files_get_morphotagged_with_provenance() {
         // Pin the post-2026-05-07 inversion: NoAlign no longer skips
-        // morphotag. Background in `is_no_align` field doc and the
-        // postmortem at `docs/postmortems/2026-05-07-noalign-morphotag-skip.md`.
+        // morphotag. Background in the `is_no_align` field doc.
         let chat = "@UTF8\n\
                     @PID:\t11312/c-test\n\
                     @Begin\n\

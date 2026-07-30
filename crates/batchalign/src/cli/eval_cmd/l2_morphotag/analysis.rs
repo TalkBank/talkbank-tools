@@ -96,7 +96,7 @@ pub fn analyze_chat_file(chat: &ChatFile, path: PathBuf, pair_key: PairKey) -> F
         // reconciliation architecture). Observed post-hoc from the
         // morphotag output: a pair of (alignable_count, mor_count) plus
         // the presence of the tier fully determines the outcome class.
-        // See book/src/architecture/morphotag-invariants.md for the
+        // See book/src/batchalign/architecture/morphotag-invariants.md for the
         // full observation model.
         let alignable_count = utt.mor_alignable_word_count();
         let mor_count_opt = utt.mor_tier().map(|t| MorItemCount::new(t.items().len()));

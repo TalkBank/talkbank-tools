@@ -69,9 +69,8 @@ The `new_worker_estimate_mb` is the average RSS of same-profile
 idle peers (Mode B, `rss_observer.rs`) when peers exist; otherwise
 falls back to the canonical per-tier `MemoryTier::*_startup_mb`
 (Mode A fallback), `tier.gpu_startup_mb`, `tier.stanza_startup_mb`,
-`tier.io_startup_mb`. Per the spec at
-`<workspace>/docs/architecture/2026-05-10-tier-aware-memory-consolidation.md`
-(Principle 1), `MemoryTier` is the sole canonical source of these
+`tier.io_startup_mb`. By design (Principle 1), `MemoryTier` is the sole
+canonical source of these
 values; an architectural-invariant test in `types/runtime.rs`
 prevents reintroduction of parallel constants.
 
@@ -269,7 +268,7 @@ must only be run on a Fleet/Large-tier host with ≥ 256 GB RAM:
 ```bash
 make test                                            # Pure Rust, no Python
 cargo test -p batchalign --test worker_integration -- --test-threads=1
-# ML golden tests: Fleet/Large-tier hosts only, see docs/runbooks/batchalign3-testing.md
+# ML golden tests: Fleet/Large-tier hosts only
 ```
 
 ## Environment Variables

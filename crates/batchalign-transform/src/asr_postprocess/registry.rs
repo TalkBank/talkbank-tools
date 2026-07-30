@@ -1,6 +1,6 @@
 //! Per-language number-expansion registry: Layer 1 of the
 //! number-expansion rework documented in
-//! `book/src/architecture/number-expansion.md`.
+//! `book/src/batchalign/architecture/number-expansion.md`.
 //!
 //! Replaces the dual-pass dispatch (Python `num2words` IPC + Rust
 //! `NUM2LANG` safety pass) with a single typed routing table:

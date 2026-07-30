@@ -1,6 +1,7 @@
 #![warn(missing_docs)]
-// Test code is exempt from the crate's `deny`-level panic lints; see
-// `docs/panic-audit/batchalign-app.md` for the full pattern and rationale.
+// Test code is exempt from the crate's `deny`-level panic lints: assertion
+// macros panic by design, and `unwrap` on a fixture known to parse is the
+// standard Rust testing idiom.
 #![cfg_attr(
     test,
     allow(

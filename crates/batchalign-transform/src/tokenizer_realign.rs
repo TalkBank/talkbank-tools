@@ -37,8 +37,6 @@
 //! `book/src/reference/languages/{french,italian,portuguese,dutch}.md` for
 //! the audit records. The character-DP alone satisfies the morphotag 1-to-1
 //! invariant for the five previously-patched languages.
-//!
-//! See: `book/src/reference/morphotag-migration-audit.md` Section 6.
 
 /// Token produced by [`align_tokens`] at the Rust↔Python boundary.
 ///

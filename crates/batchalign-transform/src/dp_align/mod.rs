@@ -293,7 +293,7 @@ fn hirschberg<T: Alignable>(
 /// Compute the last row of the DP cost matrix for reference vs payload.
 ///
 /// Reuses a scratch buffer (`cur`) across rows instead of allocating a fresh
-/// `Vec` per reference item. See `book/src/developer/arena-allocators.md`
+/// `Vec` per reference item. See `book/src/batchalign/developer/arena-allocators.md`
 /// Pattern 2 (scratch buffers).
 fn row_costs<T: Alignable>(reference: &[T], payload: &[T], mode: MatchMode) -> Vec<usize> {
     let pay_len = payload.len();
@@ -349,7 +349,7 @@ enum Action {
 /// Full-table alignment for small problems.
 ///
 /// Uses a flat `Vec` instead of `Vec<Vec<...>>` to reduce allocation count
-/// from `rows + 1` to `1`. See `book/src/developer/arena-allocators.md`
+/// from `rows + 1` to `1`. See `book/src/batchalign/developer/arena-allocators.md`
 /// Pattern 3 (flat table).
 fn align_small<T: Alignable>(
     payload: &[T],

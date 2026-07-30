@@ -4,8 +4,7 @@
 //! Renamed from `CommandSpec` in Phase β to free the `CommandSpec`
 //! name for the public `batchalign-types::command_spec::CommandSpec`
 //! (resource/classification spec). The two types are orthogonal,
-//! cross-referenced by `ReleasedCommand` identity. See
-//! `docs/architecture/2026-05-10-phase-beta-command-spec.md`.
+//! cross-referenced by `ReleasedCommand` identity.
 
 use crate::api::ReleasedCommand;
 use crate::worker::InferTask;

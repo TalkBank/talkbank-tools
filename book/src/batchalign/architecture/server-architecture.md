@@ -579,8 +579,7 @@ expected hash, and `UPDATE`s any drifted row with a `WARN` log line.
 The trust model: the developer who pushed the migration content change
 is asserting (by deploying) that the change is semantically benign. The
 runtime codifies that assertion against the fleet. Operational
-runbook: `<workspace>/docs/runbooks/batchalign3-deploy.md` § "Migration-hash
-drift (self-healing)".
+runbook: the deploy procedure's migration-hash drift (self-healing) section.
 
 ## Key files
 
