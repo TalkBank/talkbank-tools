@@ -94,4 +94,4 @@ pub mod wer_conform;
 // caching, validation_runner) now come from chatter via the `pub use
 // talkbank_transform::*` glob above. Only the batchalign-specific convenience
 // re-export stays here.
-pub use self::merge_abbrev::merge_abbreviations;
+pub use self::merge_abbrev::{merge_abbreviations, merge_abbreviations_in_chat_text};

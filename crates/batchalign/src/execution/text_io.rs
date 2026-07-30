@@ -115,7 +115,10 @@ pub(crate) async fn write_text_results(
                         continue;
                     }
                     let output_text = if should_merge_abbrev {
-                        apply_merge_abbrev_local(output_chat.as_ref())
+                        batchalign_transform::merge_abbreviations_in_chat_text(
+                            &crate::chat_parser(),
+                            output_chat.as_ref(),
+                        )
                     } else {
                         output_chat.as_ref().to_string()
                     };
@@ -190,11 +193,4 @@ pub(crate) fn resolve_before_path(
     } else {
         None
     }
-}
-
-fn apply_merge_abbrev_local(chat_text: &str) -> String {
-    let parser = crate::chat_parser();
-    let (mut file, _) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
-    batchalign_transform::merge_abbreviations(&mut file);
-    batchalign_transform::serialize::to_chat_string(&file)
 }

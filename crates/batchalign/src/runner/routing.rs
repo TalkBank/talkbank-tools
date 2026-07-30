@@ -21,7 +21,6 @@ use crate::execution::{
     MorphotagRuntimeOptions, PooledWorkerGateway, WorkerGateway, dispatch_compare_job,
     dispatch_coref_job, dispatch_morphotag_job, dispatch_translate_job, dispatch_utseg_job,
 };
-use crate::pipeline::PipelineServices;
 use crate::store::{RunnerJobSnapshot, unix_now};
 use crate::worker::InferTask;
 use crate::worker::pool::WorkerPool;
@@ -31,9 +30,8 @@ use super::context::{DispatchHostContext, JobDispatchRequest, RunnerExecutionCon
 use super::dispatch::{
     BatchedInferDispatchPlan, BenchmarkDispatchPlan, BenchmarkDispatchRuntime, FaDispatchPlan,
     FaDispatchRuntime, MediaAnalysisDispatchPlan, MediaAnalysisDispatchRuntime,
-    TranscribeDispatchPlan, TranscribeDispatchRuntime, dispatch_batched_infer,
-    dispatch_benchmark_infer, dispatch_fa_infer, dispatch_media_analysis_v2,
-    dispatch_transcribe_infer,
+    TranscribeDispatchPlan, TranscribeDispatchRuntime, dispatch_benchmark_infer, dispatch_fa_infer,
+    dispatch_media_analysis_v2, dispatch_transcribe_infer,
 };
 use super::policy::{command_requires_chat_infer, infer_task_for_command};
 use super::test_echo::dispatch_test_echo_files;
@@ -204,7 +202,7 @@ pub(super) async fn dispatch_job_with_execution_context(
                 .map(|s| s.as_str())
                 .unwrap_or("unknown"),
         );
-        let plan = BatchedInferDispatchPlan::from_job(&job, host.config());
+        let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
         if let Err(error) = gateway
             .ensure_command_capabilities(
@@ -252,7 +250,7 @@ pub(super) async fn dispatch_job_with_execution_context(
                 .map(|s| s.as_str())
                 .unwrap_or("unknown"),
         );
-        let plan = BatchedInferDispatchPlan::from_job(&job, host.config());
+        let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
         if let Err(error) = gateway
             .ensure_command_capabilities(
@@ -285,7 +283,7 @@ pub(super) async fn dispatch_job_with_execution_context(
                 .map(|s| s.as_str())
                 .unwrap_or("unknown"),
         );
-        let plan = BatchedInferDispatchPlan::from_job(&job, host.config());
+        let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway: std::sync::Arc<dyn crate::execution::WorkerGateway> = std::sync::Arc::new(
             PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone()),
         );
@@ -327,7 +325,7 @@ pub(super) async fn dispatch_job_with_execution_context(
                 .map(|s| s.as_str())
                 .unwrap_or("unknown"),
         );
-        let plan = BatchedInferDispatchPlan::from_job(&job, host.config());
+        let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
         if let Err(error) = gateway
             .ensure_command_capabilities(
@@ -360,7 +358,7 @@ pub(super) async fn dispatch_job_with_execution_context(
                 .map(|s| s.as_str())
                 .unwrap_or("unknown"),
         );
-        let plan = BatchedInferDispatchPlan::from_job(&job, host.config());
+        let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
         if let Err(error) = gateway
             .ensure_command_capabilities(
@@ -418,17 +416,41 @@ pub(super) async fn dispatch_job_with_execution_context(
                 )
                 .await;
             }
-            RunnerDispatchKind::BatchedTextInfer => {
-                dispatch_batched_text_command(&job, host, pool, cache, &engine_version).await;
-            }
-            other => {
+            // Every other dispatch kind is claimed by a name-matched arm
+            // earlier in this chain, so arriving here means the catalog
+            // declares a kind that no arm handles: a programming error, not a
+            // user error.
+            //
+            // It FAILS the job. The previous code logged an error and returned
+            // `Ok(())`, which left the job sitting in `Running` with nothing
+            // dispatched and nothing that would ever reconcile it, since
+            // recovery only revisits rows it can tell are abandoned. A loud
+            // failure is the only honest outcome for a command the router
+            // cannot route.
+            //
+            // Spelled out variant by variant with no catch-all, so a new
+            // `RunnerDispatchKind` cannot be introduced without stating which
+            // side of this it falls on. `BatchedTextInfer` belongs on this side
+            // now: the five released batched-text commands are all intercepted
+            // by name above (pinned by this module's test), and the legacy
+            // batched-text dispatch they used to fall through to is gone.
+            kind @ (RunnerDispatchKind::BatchedTextInfer
+            | RunnerDispatchKind::TranscribeAudioInfer
+            | RunnerDispatchKind::BenchmarkAudioInfer
+            | RunnerDispatchKind::MediaAnalysisV2) => {
+                let err_msg = format!(
+                    "No dispatch arm handled command '{command}' on the infer path; it declares \
+                     dispatch kind {kind:?}, which reaches this point only if the command has no \
+                     name-matched arm in runner::routing."
+                );
                 tracing::error!(
                     job_id = %job_id,
                     correlation_id = %correlation_id,
                     command = %command,
-                    runner_dispatch_kind = ?other,
-                    "Infer path selected for unsupported command dispatch kind"
+                    runner_dispatch_kind = ?kind,
+                    "{}", err_msg
                 );
+                sink.fail_job(job_id, &err_msg, unix_now()).await;
                 return Ok(());
             }
         }
@@ -452,23 +474,6 @@ fn warn_invalid_dispatch_plan(job: &RunnerJobSnapshot) {
         command = %job.dispatch.command,
         "Command plan could not be built from job options"
     );
-}
-
-async fn dispatch_batched_text_command(
-    job: &RunnerJobSnapshot,
-    host: &DispatchHostContext,
-    pool: &Arc<WorkerPool>,
-    cache: &Arc<UtteranceCache>,
-    engine_version: &EngineVersion,
-) {
-    let plan = BatchedInferDispatchPlan::from_job(job, host.config());
-    dispatch_batched_infer(
-        job,
-        host,
-        PipelineServices::new(pool, cache, engine_version),
-        plan,
-    )
-    .await;
 }
 
 async fn dispatch_forced_alignment_command(
@@ -624,20 +629,22 @@ mod tests {
     /// The dispatch chain above intercepts each batched-text command by NAME
     /// (`else if use_infer && command == ReleasedCommand::Morphotag`, and four
     /// more) before reaching the generic `match runner_dispatch_kind` arm at the
-    /// end. So the generic arm's `BatchedTextInfer` branch, and
-    /// `runner/dispatch/infer_batched.rs::dispatch_batched_infer` behind it, can
-    /// only execute for a command that declares `BatchedTextInfer` and has NO
-    /// name-matched arm.
+    /// end. Every one of those arms runs the recipe-owned stack in
+    /// `crate::execution`.
     ///
-    /// Today no such command exists, which is what makes that legacy path
-    /// retirable in step 4 of the phase-2 sequence. That is a property of two
-    /// things agreeing (the catalog's declared dispatch kinds, and the set of
-    /// names the chain matches), and nothing was checking it.
+    /// This test is what allowed the legacy batched-text dispatch module
+    /// (`runner/dispatch/infer_batched.rs`) to be deleted: it proved the
+    /// module was unreachable, which is a property of two things AGREEING (the
+    /// catalog's declared dispatch kinds, and the set of names the chain
+    /// matches) that nothing was checking. It stays because that agreement can
+    /// still be broken by adding a command.
     ///
-    /// If this test fails because a new command declares `BatchedTextInfer`,
-    /// the fix is to give it a name-matched arm on the recipe-owned path, NOT
-    /// to let it fall through to the legacy one: falling through is silent, and
-    /// the whole point of the phase-2 work is that the legacy path goes away.
+    /// If it fails because a new command declares `BatchedTextInfer`, the fix
+    /// is to give that command a name-matched arm on the recipe-owned path.
+    /// Nothing silent happens if you forget: the generic arm now fails the job
+    /// with a message naming the declared dispatch kind. This test exists so
+    /// the problem is found at `cargo test` time instead of by a user whose
+    /// job failed.
     #[test]
     fn every_batched_text_command_is_intercepted_before_the_legacy_arm() {
         // Matched on the enum with no catch-all, so a new released command
@@ -662,8 +669,8 @@ mod tests {
                 assert!(
                     intercepted_by_name,
                     "{command} declares BatchedTextInfer but the dispatch chain has no \
-                     name-matched arm for it, so it would silently take the legacy \
-                     infer_batched path"
+                     name-matched arm for it, so every job for it would fail at the \
+                     generic arm. Give it an arm on the recipe-owned execution path."
                 );
             }
         }

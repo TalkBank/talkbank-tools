@@ -397,8 +397,8 @@ fn ca_arrow_terminator_must_normalize_to_period_in_morphotag_payload() {
     );
 }
 
-/// `@s` in a `cat,spa` document with `primary_lang="eng"` (the
-/// dispatch-layer fallback fabricated by `infer_batched.rs:79` when
+/// `@s` in a `cat,spa` document with `primary_lang="eng"` (the job-level
+/// fallback the dispatch layer fabricates when the job's language is
 /// `WorkerLanguage::Unspecified`) must resolve to the file's secondary
 /// declared language `spa`, not to the bogus `eng`.
 ///

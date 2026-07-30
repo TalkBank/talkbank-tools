@@ -3,7 +3,7 @@
 //! This keeps the control-plane stage vocabulary typed all the way through the
 //! runner and store layers before the API derives an operator-facing label.
 
-use crate::api::{FileProgressStage, ReleasedCommand};
+use crate::api::FileProgressStage;
 
 /// Canonical runner-owned stage labels for file lifecycles.
 ///
@@ -59,18 +59,6 @@ pub(crate) enum FileStage {
 }
 
 impl FileStage {
-    /// Resolve the initial batch-infer stage for a top-level command.
-    pub(crate) fn for_batch_command(command: ReleasedCommand) -> Self {
-        match command {
-            ReleasedCommand::Morphotag => Self::Analyzing,
-            ReleasedCommand::Utseg => Self::Segmenting,
-            ReleasedCommand::Translate => Self::Translating,
-            ReleasedCommand::Coref => Self::ResolvingCoreference,
-            ReleasedCommand::Compare => Self::Comparing,
-            _ => Self::Processing,
-        }
-    }
-
     /// Convert the runner-local stage vocabulary to the stable API enum.
     pub(crate) const fn api_stage(self) -> FileProgressStage {
         match self {

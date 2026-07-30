@@ -443,32 +443,18 @@ async fn file_run_tracker_records_setup_failure() {
     );
 }
 
+/// The runner-local stage vocabulary must map onto the stable API enum and its
+/// labels without drift, since the labels are what users read.
+///
+/// This test previously also pinned `FileStage::for_batch_command`, a
+/// command-to-initial-stage map whose sole caller was the retired batched-text
+/// dispatch module. Those assertions went with it: a mapping nothing consumes
+/// has no behaviour to pin, and its `_ => Processing` catch-all was the exact
+/// shape that makes a new command silently take a wrong default. The
+/// recipe-owned execution path sets its stages explicitly per recipe stage
+/// instead.
 #[test]
-fn file_stage_for_batch_command_is_stable() {
-    assert_eq!(
-        FileStage::for_batch_command(ReleasedCommand::Morphotag),
-        FileStage::Analyzing
-    );
-    assert_eq!(
-        FileStage::for_batch_command(ReleasedCommand::Utseg),
-        FileStage::Segmenting
-    );
-    assert_eq!(
-        FileStage::for_batch_command(ReleasedCommand::Translate),
-        FileStage::Translating
-    );
-    assert_eq!(
-        FileStage::for_batch_command(ReleasedCommand::Coref),
-        FileStage::ResolvingCoreference
-    );
-    assert_eq!(
-        FileStage::for_batch_command(ReleasedCommand::Compare),
-        FileStage::Comparing
-    );
-    assert_eq!(
-        FileStage::for_batch_command(ReleasedCommand::Align),
-        FileStage::Processing
-    );
+fn file_stage_maps_onto_the_stable_api_stage_and_its_labels() {
     assert_eq!(FileStage::Writing.api_stage().label(), "Writing");
     assert_eq!(
         FileStage::CheckingCache.api_stage().label(),

@@ -21,11 +21,6 @@ impl OwnedChatText {
     pub(crate) fn new(text: String) -> Self {
         Self(text)
     }
-
-    /// Consume into the underlying `String`.
-    pub(crate) fn into_string(self) -> String {
-        self.0
-    }
 }
 
 impl From<String> for OwnedChatText {
@@ -141,15 +136,6 @@ impl TextWorkflowFileError {
             total,
             samples,
         }
-    }
-
-    /// Consume into the rendered message string.
-    ///
-    /// Kept for backward compatibility with downstream runner code that
-    /// treats per-file errors as opaque strings. Internal callers that
-    /// can match the variant directly should do so.
-    pub(crate) fn into_message(self) -> String {
-        self.to_string()
     }
 }
 
@@ -431,11 +417,5 @@ mod tests {
             msg.contains("showing first 5 of 10"),
             "expected truncation marker, got: {msg}"
         );
-    }
-
-    #[test]
-    fn into_message_renders_via_display() {
-        let e = TextWorkflowFileError::batch("plain message");
-        assert_eq!(e.into_message(), "plain message");
     }
 }

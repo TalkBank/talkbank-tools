@@ -214,12 +214,19 @@ async fn infer_batch_homogeneous(
 ) -> Result<Vec<Result<UdResponse, String>>, ServerError> {
     // Python workers emit `stage="stanza_processing"` on every progress
     // event (see `batchalign/worker/_protocol.py::write_progress_event`).
-    // The drain loop in `runner/dispatch/infer_batched.rs` keys
-    // `BatchInferProgress` by `event.stage`, so without a language-aware
-    // rewrite every language collapses into one bucket and stall
-    // detection goes blind. The tagger below rewrites `event.stage` to
-    // the language code for the duration of this batch. Only spawned
+    // The tagger below rewrites `event.stage` to the language code for
+    // the duration of this batch, so a multi-language batch reports
+    // per-language rather than collapsing into one bucket. Only spawned
     // when the caller actually wants progress updates.
+    //
+    // HISTORICAL NOTE, and a live defect. This rewrite was introduced to
+    // feed a drain loop that keyed `BatchInferProgress` by `event.stage`,
+    // in the batched-text dispatch module that has since been retired.
+    // Nothing re-established that producer on the recipe-owned path, so
+    // `Job::batch_progress` is `None` on every code path today and the
+    // per-language panels in the CLI and the dashboard never render. The
+    // rewrite is still correct and still reaches generic `progress_v2`
+    // consumers; it is the aggregation above it that is missing.
     let tagger = ProgressTagger::install(progress_tx, lang);
     let inner_tx = tagger.sender();
 

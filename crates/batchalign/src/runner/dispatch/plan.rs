@@ -26,12 +26,19 @@ use super::options::{
 
 /// Typed plan for the batched text infer family.
 ///
-/// This plan carries the option-derived behavior knobs that the batched
-/// morphosyntax / utseg / translate / coref / compare dispatch code owns.
+/// This plan carries the option-derived behavior knobs for the
+/// morphotag / utseg / translate / coref / compare commands. Its consumer is
+/// `runner::routing`, which reads these knobs to build the runtime options for
+/// the recipe-owned execution path in `crate::execution`. It no longer feeds a
+/// dispatch module of its own: the batched-text dispatch module was retired
+/// once every one of those five commands had a name-matched arm.
+///
+/// It deliberately carries NO resource-execution profile. It used to hold a
+/// `CommandKernelPlan`, whose only reader was that retired dispatch module; the
+/// recipe stack derives parallelism from the recipe instead. Do not re-add one
+/// speculatively.
 #[derive(Clone)]
 pub(crate) struct BatchedInferDispatchPlan {
-    /// Resource-aware execution profile for the command's remaining workload.
-    pub kernel_plan: CommandKernelPlan,
     /// Morphotag-specific retokenization policy. Other text commands keep the
     /// default `Preserve` behavior.
     pub tokenization_mode: TokenizationMode,
@@ -54,7 +61,13 @@ pub(crate) struct BatchedInferDispatchPlan {
 
 impl BatchedInferDispatchPlan {
     /// Build the batched-text plan once from the runner snapshot.
-    pub(crate) fn from_job(job: &RunnerJobSnapshot, config: &ServerConfig) -> Self {
+    ///
+    /// Takes no `ServerConfig`: every field is derived from the job's submitted
+    /// options alone. That became true when the plan's `CommandKernelPlan` went
+    /// away with the retired batched-text dispatch, and it is worth preserving,
+    /// since a plan that depends on nothing host-shaped is one that can move
+    /// into a pure crate unchanged.
+    pub(crate) fn from_job(job: &RunnerJobSnapshot) -> Self {
         let morphotag_params = extract_morphotag_dispatch_params(&job.dispatch.options);
         let MorphotagDispatchParams {
             tokenization_mode,
@@ -75,7 +88,6 @@ impl BatchedInferDispatchPlan {
         });
 
         Self {
-            kernel_plan: kernel_plan_for_job(job, config),
             tokenization_mode,
             multilingual_policy,
             should_merge_abbrev: merge_abbrev.should_merge(),
@@ -415,7 +427,7 @@ mod tests {
             BTreeMap::new(),
         );
 
-        let plan = BatchedInferDispatchPlan::from_job(&snapshot, &ServerConfig::default());
+        let plan = BatchedInferDispatchPlan::from_job(&snapshot);
 
         assert_eq!(plan.tokenization_mode, TokenizationMode::StanzaRetokenize);
         assert_eq!(plan.multilingual_policy, MultilingualPolicy::SkipNonPrimary);

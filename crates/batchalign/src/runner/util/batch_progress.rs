@@ -307,37 +307,44 @@ mod tests {
     ///
     /// The Python worker's `write_progress_event` (see
     /// `batchalign/worker/_protocol.py`) hard-codes
-    /// `stage="stanza_processing"`. The drain loop in
-    /// `runner/dispatch/infer_batched.rs` keys `BatchInferProgress` by
-    /// `event.stage`, so a multi-language batch would collapse into one
-    /// map entry unless the tagger in `morphosyntax::worker::infer_batch`
-    /// rewrites `event.stage` to the language code first. When the
-    /// collapse happens, `is_complete()` on the single merged group
-    /// returns true before the real work is done, hiding stalls from
-    /// the 120s heartbeat detector. This test simulates the
-    /// post-tagger event stream and asserts the three invariants the
-    /// fix must uphold: distinct groups per language, keys are language
-    /// codes, and stall detection sees real incomplete groups.
+    /// `stage="stanza_processing"`, so a multi-language batch collapses into
+    /// one map entry unless the tagger in `morphosyntax::worker::infer_batch`
+    /// rewrites `event.stage` to the language code first. When the collapse
+    /// happens, `is_complete()` on the single merged group returns true before
+    /// the real work is done, hiding stalls from the 120s heartbeat detector.
+    /// This test simulates the post-tagger event stream and asserts the three
+    /// invariants: distinct groups per language, keys are language codes, and
+    /// stall detection sees real incomplete groups.
+    ///
+    /// READ THIS BEFORE TRUSTING THE FEATURE. This test drives
+    /// `BatchInferProgress` by hand. It used to describe itself as a copy of a
+    /// live drain loop in the batched-text dispatch module, and that module is
+    /// now retired without the loop being re-established anywhere. So this
+    /// pins the TYPE's aggregation behaviour, and nothing more: in the running
+    /// program `register_group` / `update_group` / `complete_group` have no
+    /// callers at all, `Job::batch_progress` is `None` on every construction
+    /// path, and the CLI summary line plus the dashboard
+    /// `BatchProgressPanel` therefore never appear. A green test here is not
+    /// evidence that per-language progress works.
     #[test]
     fn progress_events_from_multiple_languages_must_not_collapse_on_stage_label() {
         let mut progress = BatchInferProgress::new();
 
-        // The pipeline the fix must establish:
+        // The pipeline this type was built for:
         //
         //   Python worker emits  {stage: "stanza_processing", completed, total}
-        //         │
-        //         ▼
+        //         |
+        //         v
         //   Per-language tagger in `morphosyntax::worker::infer_batch`
-        //   rewrites event.stage to the real language code.
-        //         │
-        //         ▼
-        //   Outer drain-loop in `runner/dispatch/infer_batched.rs`
-        //   keys `BatchInferProgress` by event.stage.
+        //   rewrites event.stage to the real language code.  (LIVE)
+        //         |
+        //         v
+        //   A drain loop keying `BatchInferProgress` by event.stage, and
+        //   storing it on the job.                           (MISSING)
         //
-        // This test simulates the POST-TAGGER state: events arrive at
-        // the drain loop with stage=<language code>. Before the tagger
-        // fix these would all carry stage="stanza_processing" and
-        // collapse to a single BTreeMap entry.
+        // This test simulates the POST-TAGGER state: events with
+        // stage=<language code>. Without the tagger they would all carry
+        // stage="stanza_processing" and collapse to one BTreeMap entry.
         let events = vec![
             mk_event("eng", 50, 100),
             mk_event("hrv", 100, 209),
@@ -345,11 +352,9 @@ mod tests {
             mk_event("eng", 100, 100),
         ];
 
-        // Faithful copy of the drain-loop logic in
-        // `runner/dispatch/infer_batched.rs` (lines ~283-287). Kept
-        // inline so this test fails if either the tagger upstream
-        // regresses (stage carries a non-language label again) or the
-        // drain-loop stops using event.stage as the group key.
+        // The drain-loop logic a producer has to perform, written inline
+        // because no producer currently exists. When one is restored it should
+        // call these same three methods, and this loop becomes the spec for it.
         for event in &events {
             let lang = &event.stage;
             if !progress.language_groups.contains_key(lang) {

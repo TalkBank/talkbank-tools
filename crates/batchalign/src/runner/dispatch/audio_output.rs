@@ -10,13 +10,12 @@ use crate::recipe_runner::materialize::PlannedMaterializedFile;
 use crate::recipe_runner::runtime::{
     ChatOutputTarget, primary_output_artifact, write_chat_output_artifact_with_provenance_gate,
 };
-use crate::runner::dispatch::infer_batched::apply_merge_abbrev;
 use crate::store::RunnerFilesystemConfig;
 
 /// Apply output-finalization policy before the CHAT file is written.
 pub(crate) fn finalize_chat_output(chat_text: &str, should_merge_abbrev: bool) -> String {
     if should_merge_abbrev {
-        apply_merge_abbrev(chat_text)
+        batchalign_transform::merge_abbreviations_in_chat_text(&crate::chat_parser(), chat_text)
     } else {
         chat_text.to_owned()
     }

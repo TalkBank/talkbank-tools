@@ -29,7 +29,6 @@ use super::super::util::{
 };
 use super::BenchmarkDispatchPlan;
 use super::asr_media::{prepare_asr_media_input, preserved_media_name_for_chat};
-use super::infer_batched::apply_merge_abbrev;
 
 /// Shared runtime dependencies for top-level benchmark dispatch.
 ///
@@ -305,7 +304,11 @@ async fn process_one_benchmark_file(
                 let finished_at = unix_now();
 
                 if should_merge_abbrev {
-                    outputs.annotated_main_chat = apply_merge_abbrev(&outputs.annotated_main_chat);
+                    outputs.annotated_main_chat =
+                        batchalign_transform::merge_abbreviations_in_chat_text(
+                            &crate::chat_parser(),
+                            &outputs.annotated_main_chat,
+                        );
                 }
 
                 let primary_output = primary_output_artifact(

@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use talkbank_model::model::{ChatFile, Line, UtteranceContent, Word};
+use talkbank_parser::TreeSitterParser;
 
 /// Known abbreviations loaded from the embedded JSON list.
 #[allow(clippy::expect_used)]
@@ -24,6 +25,30 @@ pub fn merge_abbreviations(chat_file: &mut ChatFile) {
             merge_in_content_items(&mut utt.main.content.content.0);
         }
     }
+}
+
+/// Merge abbreviations across a whole CHAT document supplied as text.
+///
+/// The text-to-text form every production caller needs: parse leniently,
+/// merge, re-serialize.
+///
+/// Two deliberate properties, both inherited from the four call sites this was
+/// collapsed out of (`runner/dispatch/audio_output.rs`,
+/// `runner/dispatch/benchmark_pipeline.rs`, `execution/text_io.rs`,
+/// `execution/kernel.rs`), which each carried their own byte-identical copy:
+///
+/// - **Parse diagnostics are discarded.** A document with parse errors
+///   round-trips through the lenient model's best effort rather than failing
+///   the job. That is why this takes the lenient path and not
+///   `parse_chat_file`.
+/// - **The parser is a parameter, not a local.** Constructing a
+///   `TreeSitterParser` can fail, so the fallible step stays at the caller's
+///   boundary instead of putting a panic inside a pure transform.
+pub fn merge_abbreviations_in_chat_text(parser: &TreeSitterParser, chat_text: &str) -> String {
+    let (mut chat_file, _parse_diagnostics) =
+        talkbank_transform::parse::parse_lenient(parser, chat_text);
+    merge_abbreviations(&mut chat_file);
+    talkbank_transform::serialize::to_chat_string(&chat_file)
 }
 
 fn merge_in_content_items(items: &mut Vec<UtteranceContent>) {
@@ -101,7 +126,7 @@ fn single_letter_word(item: &UtteranceContent) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::merge_abbreviations;
+    use super::{merge_abbreviations, merge_abbreviations_in_chat_text};
     use talkbank_model::model::{Terminator, WriteChat};
     use talkbank_parser::TreeSitterParser;
 
@@ -156,5 +181,47 @@ mod tests {
         assert!(words.contains(&"XYZ".to_string()));
         assert!(words.contains(&"Q".to_string()));
         assert!(words.contains(&"W".to_string()));
+    }
+
+    /// The text-to-text form is what every production caller actually invokes,
+    /// and it existed as three byte-identical private copies before being
+    /// collapsed here. Pin it directly so the single remaining copy cannot
+    /// drift without a test noticing.
+    #[test]
+    fn text_form_merges_over_a_lenient_parse() -> Result<(), Box<dyn std::error::Error>> {
+        let parser = TreeSitterParser::new()?;
+        let out = merge_abbreviations_in_chat_text(&parser, &minimal_chat("the F B I is here ."));
+        let words = main_tier_words(&out);
+        assert!(words.contains(&"FBI".to_string()), "got {words:?}");
+        assert!(!words.contains(&"F".to_string()), "got {words:?}");
+        Ok(())
+    }
+
+    /// The lenient parse is the whole reason the text form differs from
+    /// `merge_and_serialize` above, which parses strictly. A document the
+    /// strict parser rejects must still come back as text with its content
+    /// intact, because that is what all four production call sites relied on:
+    /// this transform runs over freshly generated ASR output, so "the parser
+    /// refused it" must not become "the job produced nothing".
+    ///
+    /// The fixture is an unmatched `[`, a main-tier malformation, chosen
+    /// because the strict parser rejects it (an `Error`-severity diagnostic)
+    /// while lenient recovery keeps every word. Note what does NOT qualify: a
+    /// missing `@End`, an undeclared speaker, and a missing `@Participants`
+    /// are all accepted by `parse_chat_file`, since they are validation
+    /// concerns rather than parse errors.
+    #[test]
+    fn text_form_survives_input_the_strict_parser_rejects() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let parser = TreeSitterParser::new()?;
+        let malformed = minimal_chat("the F B I is here [ .");
+        assert!(
+            parser.parse_chat_file(&malformed).is_err(),
+            "fixture must be input the strict parser rejects, or this pins nothing"
+        );
+
+        let words = main_tier_words(&merge_abbreviations_in_chat_text(&parser, &malformed));
+        assert_eq!(words, vec!["the", "FBI", "is", "here"], "got {words:?}");
+        Ok(())
     }
 }

@@ -284,8 +284,8 @@ impl StageExecutor for CompareStageExecutor {
                         "compare morphosyntax stage ran before input read".into(),
                     )
                 })?;
-                // Same job-level fallback as `infer_batched.rs`: real
-                // per-file resolution lives inside `collect_payloads`;
+                // Job-level fallback only: real per-file language
+                // resolution lives inside `collect_payloads`;
                 // this is just the worker-pool / label key. Logged when
                 // the sentinel fires so misrouting is auditable.
                 let fallback_lang = crate::api::LanguageCode3::eng();
@@ -348,7 +348,10 @@ impl StageExecutor for CompareStageExecutor {
                     match artifact.role {
                         MaterializedArtifactRole::Primary => {
                             let chat_output = if ctx.should_merge_abbrev {
-                                apply_merge_abbrev_local(&outputs.chat_output)
+                                batchalign_transform::merge_abbreviations_in_chat_text(
+                                    &crate::chat_parser(),
+                                    &outputs.chat_output,
+                                )
                             } else {
                                 outputs.chat_output.clone()
                             };
@@ -399,13 +402,6 @@ impl StageExecutor for CompareStageExecutor {
             ))),
         }
     }
-}
-
-fn apply_merge_abbrev_local(chat_text: &str) -> String {
-    let parser = crate::chat_parser();
-    let (mut file, _) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
-    batchalign_transform::merge_abbreviations(&mut file);
-    batchalign_transform::serialize::to_chat_string(&file)
 }
 
 fn parse_consolidated_metrics_row(

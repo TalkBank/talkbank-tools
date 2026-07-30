@@ -9,7 +9,9 @@
 //! # Call path
 //!
 //! `batchalign-cli`/API submission
-//! → `runner::dispatch_batched_infer(command="morphotag")`
+//! → `runner::routing` (name-matched `morphotag` arm)
+//! → `execution::dispatch_morphotag_job` (recipe-owned stack)
+//! → `execution::worker_gateway`
 //! → [`process_morphosyntax`] for single-file processing
 //! → `crate::chat_ops::morphosyntax_ops::{collect_payloads, inject_results}`
 //! → worker `batch_infer(task="morphosyntax")`

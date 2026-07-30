@@ -644,11 +644,11 @@ mod tests {
     // =======================================================================
     //
     // These tests verify the indexing pattern used by dispatch code to extract
-    // per-file before_paths from Job.before_paths. The pattern appears in both
-    // dispatch_batched_infer and dispatch_fa_infer.
+    // per-file before_paths from Job.before_paths, as used by dispatch_fa_infer
+    // and the other audio orchestrators.
 
     /// Helper: extracts the before_path for a given file_index, matching the
-    /// pattern used in `dispatch_fa_infer` and `dispatch_batched_infer`.
+    /// pattern used in `dispatch_fa_infer`.
     fn resolve_before_path(before_paths: &[String], file_index: usize) -> Option<String> {
         if !before_paths.is_empty() && file_index < before_paths.len() {
             Some(before_paths[file_index].clone())
