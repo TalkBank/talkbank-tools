@@ -2,7 +2,7 @@
 
 mod coref;
 mod kernel;
-mod morphotag;
+pub(crate) mod morphotag;
 mod simple_batched_text;
 mod text_io;
 mod translate;

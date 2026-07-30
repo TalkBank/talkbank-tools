@@ -1,7 +1,7 @@
 use crate::common::{
     LiveServerJobClient, LiveServerSession, assert_completed_without_errors, chat_fixtures,
 };
-use batchalign::api::{FilePayload, LanguageCode3, LanguageSpec, ReleasedCommand};
+use batchalign::api::{FilePayload, LanguageSpec, ReleasedCommand};
 use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::InferTask;
 
@@ -77,7 +77,7 @@ async fn live_fixture_isolates_runtime_state_between_sessions() {
     let initial = jobs
         .submit_content_job(
             ReleasedCommand::Morphotag,
-            LanguageSpec::Resolved(LanguageCode3::eng()),
+            LanguageSpec::PerFile,
             vec![FilePayload {
                 filename: "fixture-isolation.cha".into(),
                 content: chat_fixtures::ENG_SIMPLE.into(),

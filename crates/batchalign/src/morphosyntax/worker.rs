@@ -1,13 +1,14 @@
 //! Worker dispatch for morphosyntax inference.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::api::LanguageCode3;
 use crate::chat_ops::morphosyntax_ops::{BatchItemWithPosition, MwtDict};
 use crate::chat_ops::nlp::UdResponse;
 use crate::error::ServerError;
+use crate::execution::morphotag::progress::BackendProgressPort;
 use crate::infer_retry::dispatch_execute_v2_with_retry_and_progress;
+use crate::runner::util::batch_progress::BatchChunkIndex;
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::pool::WorkerPool;
 use crate::worker::text_request_v2::{PreparedTextRequestIdsV2, build_morphosyntax_request_v2};
@@ -67,10 +68,9 @@ pub(crate) async fn infer_batch(
     lang: &LanguageCode3,
     mwt: &MwtDict,
     retokenize: bool,
-    progress_tx: Option<&tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
+    progress: Option<&BackendProgressPort>,
 ) -> Result<Vec<UdResponse>, ServerError> {
-    let item_results =
-        infer_batch_per_item(pool, items, lang, mwt, retokenize, progress_tx).await?;
+    let item_results = infer_batch_per_item(pool, items, lang, mwt, retokenize, progress).await?;
     crate::text_batch::unwrap_per_item_results("morphotag", item_results)
         .map_err(|err| ServerError::Validation(err.to_string()))
 }
@@ -89,7 +89,7 @@ pub(crate) async fn infer_batch_per_item(
     lang: &LanguageCode3,
     mwt: &MwtDict,
     retokenize: bool,
-    progress_tx: Option<&tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
+    progress: Option<&BackendProgressPort>,
 ) -> Result<Vec<Result<UdResponse, String>>, ServerError> {
     if items.is_empty() {
         return Ok(Vec::new());
@@ -106,7 +106,7 @@ pub(crate) async fn infer_batch_per_item(
     if !needs_grouping {
         // Single homogeneous supported group matching the caller's
         // fallback lang: the simple fast path.
-        return infer_batch_homogeneous(pool, items, lang, mwt, retokenize, progress_tx).await;
+        return infer_batch_homogeneous(pool, items, lang, mwt, retokenize, progress).await;
     }
 
     info!(
@@ -144,15 +144,9 @@ pub(crate) async fn infer_batch_per_item(
             .iter()
             .map(|&idx| items[idx].clone())
             .collect();
-        let responses = infer_batch_homogeneous(
-            pool,
-            &group_items,
-            &group.lang,
-            mwt,
-            retokenize,
-            progress_tx,
-        )
-        .await?;
+        let responses =
+            infer_batch_homogeneous(pool, &group_items, &group.lang, mwt, retokenize, progress)
+                .await?;
         for (original_idx, response) in group.indices.into_iter().zip(responses) {
             merged[original_idx] = Some(response);
         }
@@ -210,132 +204,108 @@ async fn infer_batch_homogeneous(
     lang: &LanguageCode3,
     mwt: &MwtDict,
     retokenize: bool,
-    progress_tx: Option<&tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
+    progress: Option<&BackendProgressPort>,
 ) -> Result<Vec<Result<UdResponse, String>>, ServerError> {
-    // Python workers emit `stage="stanza_processing"` on every progress
-    // event (see `batchalign/worker/_protocol.py::write_progress_event`).
-    // The tagger below rewrites `event.stage` to the language code for
-    // the duration of this batch, so a multi-language batch reports
-    // per-language rather than collapsing into one bucket. Only spawned
-    // when the caller actually wants progress updates.
+    // Progress reporting for this batch.
     //
-    // LIVE DEFECT: this tagger never installs in production, and neither
-    // does anything downstream of it. Per-language batch progress is dead
-    // end to end, in three linked places:
+    // The Python backend emits `progress_v2` events carrying `completed` /
+    // `total` for the request it is working on, at most one per second (see
+    // `batchalign/worker/_text_v2.py`). It hard-codes `stage =
+    // "stanza_processing"` on every one of them, so the wire event says nothing
+    // about WHICH work it describes. Provenance therefore comes from here,
+    // where the language and the chunk are known for certain, and is attached
+    // as typed fields rather than by rewriting `stage` in flight (what the
+    // 2026-04 code did, which is how a field named "stage" came to carry a
+    // language code by an unenforced convention).
     //
-    //   1. HERE. Every caller of `infer_batch` passes `progress_tx: None`
-    //      (`morphosyntax/mod.rs`, `morphosyntax/batch.rs`,
-    //      `pipeline/morphosyntax.rs`), so `ProgressTagger::install` gets
-    //      `None` and no event is ever tagged or emitted.
-    //   2. No drain loop aggregates tagged events into
-    //      `BatchInferProgress`, and `RunnerEventSink` no longer has the
-    //      `set_batch_progress` method a drain loop published through.
-    //      `register_group` / `update_group` / `complete_group` have zero
-    //      callers.
-    //   3. `Job::batch_progress` is therefore `None` at every construction
-    //      site, so the CLI's per-language summary line and the
-    //      dashboard's `BatchProgressPanel` never render, and the OpenAPI
-    //      field is permanently null.
-    //
-    // IT USED TO WORK, and it has a date. At `15c88de2` (2026-04-28) the
-    // legacy batched-text dispatch created the channel, passed
-    // `Some(progress_tx.clone())` into this function, drained it in a
-    // spawned task keyed by `event.stage`, and published through
-    // `sink.set_batch_progress` every 2 seconds with a 120s stall
-    // republish. `e8235c13` (2026-05-03, "Bunch of stuff.", 2,052 files,
-    // -196,031 lines) removed all of it, eight days before the 2026-05-11
-    // stop. So this is a regression from a large restructure, not a feature
-    // that was never finished.
-    //
-    // The intended replacement exists in history and was never wired up:
-    // `crates/batchalign-app/src/execution/morphotag/progress.rs` at
-    // `15c88de2` is a 61-line `BatchProgressReporter` (owns the channel,
-    // spawns the drain, publishes on a 2s cadence and on a 120s stall,
-    // `finish()` awaits the drain). Nothing ever constructed it: the recipe
-    // path was mid-migration when the restructure landed, so the working
-    // producer left with the legacy path and its designed successor stayed
-    // dead on arrival.
-    //
-    // Restoring it is therefore recovery, not design: put
-    // `set_batch_progress` back on `RunnerEventSink` (plus its store-side
-    // write to `Job::batch_progress`), restore the reporter into
-    // `execution/morphotag/`, and thread its `sender()` down through
-    // `execution::worker_gateway` and `process_morphosyntax` to here so
-    // this parameter receives `Some`. Display-only: no output data is
-    // affected. The parameter and the tagger are kept because they are the
-    // correct shape for that path, NOT because they currently do anything.
-    //
-    // The compiler cannot warn about any of this: `BatchInferProgress` is
-    // `pub` and re-exported through `types/api.rs`, so rustc treats it as
-    // reachable public API.
-    let tagger = ProgressTagger::install(progress_tx, lang);
-    let inner_tx = tagger.sender();
-
+    // One bridge PER CHUNK, not per batch. `MIN_CHUNK_SIZE` splits a language
+    // group across workers whenever it holds 60 items or more, each chunk being
+    // its own request with its own counts; aggregating those by language alone
+    // is what displayed `453/274` (165%) before this feature was removed on
+    // 2026-05-03. The chunk index is the stable key, because a retry reissues
+    // the same chunk under a fresh request id. Full reasoning:
+    // `crate::runner::util::batch_progress`.
     let num_chunks = compute_chunk_count(
         items.len(),
         pool.max_workers_per_key_for(crate::worker::WorkerProfile::Stanza),
     );
 
-    let result = if num_chunks <= 1 {
-        infer_batch_single(pool, items, lang, mwt, retokenize, inner_tx).await
-    } else {
-        let chunk_size = items.len().div_ceil(num_chunks);
-        let chunks: Vec<&[BatchItemWithPosition]> = items.chunks(chunk_size).collect();
-        info!(
-            items = items.len(),
-            chunks = chunks.len(),
-            chunk_size,
-            lang = %lang,
-            "Splitting morphosyntax batch across workers"
-        );
-        let futures: Vec<_> = chunks
-            .iter()
-            .map(|chunk| infer_batch_single(pool, chunk, lang, mwt, retokenize, inner_tx))
-            .collect();
-        let outcomes = futures::future::join_all(futures).await;
-        let mut all = Vec::with_capacity(items.len());
-        for outcome in outcomes {
-            all.extend(outcome?);
-        }
-        Ok(all)
-    };
+    if num_chunks <= 1 {
+        let bridge = ChunkProgressBridge::install(progress, lang, BatchChunkIndex(0));
+        let result = infer_batch_single(pool, items, lang, mwt, retokenize, bridge.sender()).await;
+        bridge.close().await;
+        return result;
+    }
 
-    tagger.close().await;
-    result
+    let chunk_size = items.len().div_ceil(num_chunks);
+    let chunks: Vec<&[BatchItemWithPosition]> = items.chunks(chunk_size).collect();
+    info!(
+        items = items.len(),
+        chunks = chunks.len(),
+        chunk_size,
+        lang = %lang,
+        "Splitting morphosyntax batch across workers"
+    );
+    let futures: Vec<_> = chunks
+        .iter()
+        .enumerate()
+        .map(|(index, chunk)| async move {
+            // Each chunk reports under its own index, so the ledger can sum
+            // chunk totals instead of letting the last report win.
+            let bridge = ChunkProgressBridge::install(
+                progress,
+                lang,
+                BatchChunkIndex(u32::try_from(index).unwrap_or(u32::MAX)),
+            );
+            let result =
+                infer_batch_single(pool, chunk, lang, mwt, retokenize, bridge.sender()).await;
+            bridge.close().await;
+            result
+        })
+        .collect();
+    let outcomes = futures::future::join_all(futures).await;
+    let mut all = Vec::with_capacity(items.len());
+    for outcome in outcomes {
+        all.extend(outcome?);
+    }
+    Ok(all)
 }
 
-/// Owns the inner mpsc channel + forwarder task that rewrites
-/// `event.stage` on every progress event. Explicit struct so the
-/// ownership boundary is visible (inner channel lives exactly for the
-/// duration of a batch; outer channel is borrowed from the caller).
-struct ProgressTagger {
+/// Bridges one chunk's wire progress events into typed domain reports.
+///
+/// Owns an inner mpsc channel plus the forwarder task that drains it. The
+/// inner channel lives exactly as long as one chunk's dispatch; the outer
+/// [`BackendProgressPort`] is borrowed from the caller and knows which file
+/// the work belongs to. An explicit struct so that ownership boundary is
+/// visible, and so `close()` can await the forwarder rather than dropping
+/// reports still in flight.
+///
+/// Installs nothing when the caller passes no port, which is the case for
+/// every non-job caller (the CLI's direct path, `compare`'s internal
+/// morphotag, tests): no channel, no task, no cost.
+struct ChunkProgressBridge {
     inner_tx: Option<tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
     handle: Option<tokio::task::JoinHandle<()>>,
 }
 
-impl ProgressTagger {
+impl ChunkProgressBridge {
     fn install(
-        outer: Option<&tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
+        port: Option<&BackendProgressPort>,
         lang: &LanguageCode3,
+        chunk: BatchChunkIndex,
     ) -> Self {
-        let outer = match outer {
-            Some(tx) => tx.clone(),
-            None => {
-                return Self {
-                    inner_tx: None,
-                    handle: None,
-                };
-            }
+        let Some(port) = port.cloned() else {
+            return Self {
+                inner_tx: None,
+                handle: None,
+            };
         };
         let (inner_tx, mut inner_rx) =
             tokio::sync::mpsc::channel::<crate::types::worker_v2::ProgressEventV2>(64);
-        let tag: Arc<str> = Arc::from(lang.as_ref());
+        let lang = lang.clone();
         let handle = tokio::spawn(async move {
-            while let Some(mut event) = inner_rx.recv().await {
-                event.stage = tag.as_ref().to_string();
-                if outer.send(event).await.is_err() {
-                    break;
-                }
+            while let Some(event) = inner_rx.recv().await {
+                port.report(&lang, chunk, &event);
             }
         });
         Self {

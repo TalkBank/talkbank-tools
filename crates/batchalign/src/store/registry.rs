@@ -879,6 +879,19 @@ impl JobRegistry {
         .flatten()
     }
 
+    /// Replace the job's batch-inference progress snapshot.
+    pub(crate) async fn set_batch_progress(
+        &self,
+        job_id: &JobId,
+        progress: crate::runner::util::batch_progress::BatchInferProgress,
+    ) {
+        let _ = self
+            .update_job(job_id.clone(), move |job| {
+                job.set_batch_progress(progress);
+            })
+            .await;
+    }
+
     /// Attach one newly created attempt identifier to a file status entry.
     pub(crate) async fn attach_attempt_id(
         &self,

@@ -56,7 +56,7 @@ pub enum TuiUpdate {
     CancelledReceipt(CancelledReceipt),
     /// Append one error to the persistent error summary panel.
     ///
-    /// Used as a fallback by the `ProgressSink` `log_error` path. The TUI
+    /// Used as a fallback by the `ProgressDisplay` `log_error` path. The TUI
     /// also extracts error codes directly from `PollSnapshot` entries, so
     /// this variant carries no code. Prefer the poll-based path for codes.
     FileError {
@@ -67,6 +67,8 @@ pub enum TuiUpdate {
     },
     /// Update server health snapshot (polled less frequently than job status).
     HealthSnapshot(ServerHealth),
+    /// Replace the batch-inference summary shown in the header.
+    BatchProgress(crate::api::BatchInferProgress),
     /// Mark the TUI as finished so the loop can exit after showing final state.
     Finished,
 }
@@ -131,6 +133,10 @@ pub struct JobProgressState {
     pub start_time: Instant,
     /// True once the job has reached a terminal state locally.
     pub finished: bool,
+    /// Latest batch-inference summary (e.g. `"2/4 languages done, 1200/1800
+    /// utterances (67%)"`), or `None` for a job that reports none. Only the
+    /// batched-text commands produce it.
+    pub batch_summary: Option<String>,
     /// When the job ended with status `Cancelled`, populated with the
     /// server's audit-row metadata so the end-of-run banner can show
     /// "you pressed c-y from <host> at <time>" instead of the
@@ -272,6 +278,7 @@ impl AppState {
                 start_time: Instant::now(),
                 finished: false,
                 cancelled_receipt: None,
+                batch_summary: None,
             },
             directories: DirectoryViewState {
                 groups: Vec::new(),
@@ -401,6 +408,9 @@ impl AppState {
             }
             TuiUpdate::FileError { filename, message } => {
                 self.add_error(&filename, &message, None);
+            }
+            TuiUpdate::BatchProgress(progress) => {
+                self.progress.batch_summary = Some(progress.summary());
             }
             TuiUpdate::HealthSnapshot(h) => {
                 self.health = Some(h);

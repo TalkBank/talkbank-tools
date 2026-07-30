@@ -15,8 +15,16 @@
 macro_rules! string_id {
     ($(#[$meta:meta])* $vis:vis $name:ident) => {
         $(#[$meta])*
+        // `PartialOrd`/`Ord` are derived (added 2026-07-29) so a string id can
+        // key a `BTreeMap`/`BTreeSet` directly instead of being downgraded to a
+        // raw `String` at the boundary that needs ordering. The crate already
+        // mandates `BTreeMap` for deterministic JSON, and the first consumer is
+        // `BatchInferProgress`, whose language groups are keyed by
+        // `LanguageCode3`. The derived order is the underlying `String` order,
+        // which agrees with the `Borrow<str>` impl below, so lookups by `&str`
+        // stay correct.
         #[derive(
-            Debug, Clone, PartialEq, Eq, Hash,
+            Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord,
             serde::Serialize, serde::Deserialize,
             utoipa::ToSchema,
             schemars::JsonSchema,

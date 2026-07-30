@@ -13,7 +13,7 @@ use crate::debug_artifacts::JobDebugArtifacts;
 use crate::cli::client::{BatchalignClient, MAX_POLL_FAILURES, POLL_MAX, POLL_MIN, POLL_STEP};
 use crate::cli::error::CliError;
 use crate::cli::output;
-use crate::cli::progress::ProgressSink;
+use crate::cli::progress::ProgressDisplay;
 
 // ---------------------------------------------------------------------------
 // Single-server incremental poll
@@ -57,7 +57,7 @@ pub(super) struct DirectProgressTracker {
 
 impl DirectProgressTracker {
     /// Project one job snapshot into the CLI progress sink.
-    pub(super) fn observe(&mut self, progress: &dyn ProgressSink, info: &JobInfo) {
+    pub(super) fn observe(&mut self, progress: &dyn ProgressDisplay, info: &JobInfo) {
         progress.update(info.completed_files.max(0) as u64, &info.file_statuses);
         if let Some(ref bp) = info.batch_progress {
             progress.update_batch_progress(bp);
@@ -116,7 +116,7 @@ pub(super) async fn poll_and_write_incrementally(
     result_map: &HashMap<String, PathBuf>,
     out_dir: &Path,
     _command: &str,
-    progress: &dyn ProgressSink,
+    progress: &dyn ProgressDisplay,
 ) -> Result<(), CliError> {
     let mut written_files: HashSet<String> = HashSet::new();
     let mut written_count: u64 = 0;
@@ -654,7 +654,7 @@ mod tests {
 
     use super::*;
     use crate::api::{FileStatusEntry, JobId, LanguageCode3, LanguageSpec, ReleasedCommand};
-    use crate::cli::progress::ProgressSink;
+    use crate::cli::progress::ProgressDisplay;
     use crate::options::{CommandOptions, CommonOptions, MorphotagOptions};
 
     fn test_job_info(status: JobStatus, error: Option<&str>) -> JobInfo {
@@ -713,9 +713,10 @@ mod tests {
         done: Mutex<Vec<String>>,
         errors: Mutex<Vec<(String, String)>>,
         finished: Mutex<u32>,
+        batch_summaries: Mutex<Vec<String>>,
     }
 
-    impl ProgressSink for RecordingProgressSink {
+    impl ProgressDisplay for RecordingProgressSink {
         fn update(&self, done: u64, _file_statuses: &[FileStatusEntry]) {
             self.updates.lock().expect("updates lock").push(done);
         }
@@ -736,6 +737,13 @@ mod tests {
 
         fn finish(&self) {
             *self.finished.lock().expect("finished lock") += 1;
+        }
+
+        fn update_batch_progress(&self, progress: &crate::api::BatchInferProgress) {
+            self.batch_summaries
+                .lock()
+                .expect("batch summaries lock")
+                .push(progress.summary());
         }
     }
 
@@ -1037,6 +1045,67 @@ mod tests {
             }
             other => panic!("expected JobFailed, got {other:?}"),
         }
+    }
+
+    /// The CLI must actually render batch progress when the server reports it.
+    ///
+    /// This is the link that had no test: `observe` forwarded
+    /// `info.batch_progress` to the sink and the field was permanently `None`
+    /// server-side, so nothing exercised the call. With a producer restored
+    /// (2026-07-29) this pins the CLI half in the fast suite, where the
+    /// end-to-end golden test cannot run.
+    #[test]
+    fn direct_progress_tracker_forwards_batch_progress_to_the_sink() {
+        use crate::runner::util::batch_progress::{
+            BackendProgress, BatchChunkIndex, BatchProgressLedger,
+        };
+
+        let mut ledger = BatchProgressLedger::new();
+        for (lang, completed, total) in [("eng", 1000, 1000), ("fra", 250, 500)] {
+            ledger.record(BackendProgress {
+                source_id: crate::api::DisplayPath::from("a.cha"),
+                group: crate::api::LanguageCode3::try_new(lang).expect("valid test language"),
+                chunk: BatchChunkIndex(0),
+                completed: crate::api::UtteranceCount(completed),
+                total: crate::api::UtteranceCount(total),
+            });
+        }
+
+        let sink = RecordingProgressSink::default();
+        let mut tracker = DirectProgressTracker::default();
+        let mut info = test_job_info(JobStatus::Running, None);
+        info.batch_progress = Some(ledger.snapshot());
+
+        tracker.observe(&sink, &info);
+
+        let summaries = sink
+            .batch_summaries
+            .lock()
+            .expect("batch summaries lock")
+            .clone();
+        assert_eq!(
+            summaries,
+            vec!["1/2 languages done, 1250/1500 utterances (83%)".to_string()],
+            "the CLI must render the server's batch progress verbatim"
+        );
+    }
+
+    /// A job that reports no batch progress must not push an empty summary.
+    #[test]
+    fn direct_progress_tracker_stays_quiet_without_batch_progress() {
+        let sink = RecordingProgressSink::default();
+        let mut tracker = DirectProgressTracker::default();
+        let info = test_job_info(JobStatus::Running, None);
+
+        tracker.observe(&sink, &info);
+
+        assert!(
+            sink.batch_summaries
+                .lock()
+                .expect("batch summaries lock")
+                .is_empty(),
+            "no batch progress means no summary line, not a 0/0 one"
+        );
     }
 
     #[test]

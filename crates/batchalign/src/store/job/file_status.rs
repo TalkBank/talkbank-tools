@@ -142,6 +142,13 @@ impl Job {
     }
 
     /// Apply an ephemeral progress update to one file.
+    ///
+    /// Refused for a file in a terminal state. Progress is display state and a
+    /// finished file's row must not be dragged back to "Analyzing 1200/1800" by
+    /// a late-arriving update: with batch progress republishing on a timer
+    /// (`execution::morphotag::progress`), events for a file can outlive the
+    /// file's completion by design, and every other caller wants the same
+    /// protection against an out-of-order write.
     pub(crate) fn set_file_progress(
         &mut self,
         filename: &str,
@@ -150,6 +157,9 @@ impl Job {
         let Some(file_status) = self.execution.file_statuses.get_mut(filename) else {
             return false;
         };
+        if file_status.status.is_terminal() {
+            return false;
+        }
         file_status.progress_stage = Some(progress.stage);
         file_status.progress_current = progress.current;
         file_status.progress_total = progress.total;

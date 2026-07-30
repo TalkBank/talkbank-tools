@@ -16,7 +16,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
-use crate::cli::progress::ProgressSink;
+use crate::cli::progress::ProgressDisplay;
 
 use self::app::{AppState, ServerHealth, TuiUpdate};
 use self::event::TuiEvent;
@@ -107,7 +107,7 @@ impl TuiRuntime {
     }
 }
 
-impl ProgressSink for TuiProgress {
+impl ProgressDisplay for TuiProgress {
     fn update(&self, done: u64, file_statuses: &[FileStatusEntry]) {
         self.send_update(TuiUpdate::PollSnapshot {
             done,
@@ -117,6 +117,10 @@ impl ProgressSink for TuiProgress {
 
     fn log_done(&self, _filename: &str) {
         // State already updated via update(), no additional action needed.
+    }
+
+    fn update_batch_progress(&self, progress: &crate::api::BatchInferProgress) {
+        self.send_update(TuiUpdate::BatchProgress(progress.clone()));
     }
 
     fn log_error(&self, filename: &str, msg: &str) {

@@ -237,6 +237,21 @@ impl JobStore {
         }
     }
 
+    /// Publish a job-level batch-inference progress snapshot.
+    ///
+    /// Ephemeral, like `set_file_progress`: it lives in the registry so
+    /// `GET /jobs/{id}` and the dashboard see it, and `finalize_job` clears it.
+    /// It is deliberately NOT persisted to SQLite, because a snapshot of
+    /// in-flight utterance counts has no meaning after the run that produced it
+    /// ends, and recovery reconstructs progress from file state instead.
+    pub(crate) async fn set_batch_progress(
+        &self,
+        job_id: &JobId,
+        progress: crate::runner::util::batch_progress::BatchInferProgress,
+    ) {
+        self.registry.set_batch_progress(job_id, progress).await;
+    }
+
     /// Return the filenames of files that have not yet reached a terminal state.
     pub(crate) async fn unfinished_files(&self, job_id: &JobId) -> Vec<DisplayPath> {
         self.registry.unfinished_files(job_id).await

@@ -4,6 +4,10 @@ mod auto_tune;
 pub(crate) mod batch_progress;
 mod error_classification;
 mod file_status;
+
+/// Shared recording event sink for tests in other modules.
+#[cfg(test)]
+pub(crate) use file_status::test_sink;
 mod media;
 
 // Re-export everything at the same paths callers already use.

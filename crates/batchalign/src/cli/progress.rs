@@ -7,7 +7,7 @@
 //! This module provides [`BatchProgress`], an indicatif-based implementation
 //! that renders a two-line display: a determinate progress bar for overall
 //! file completion and a spinner showing the active processing stage. Both
-//! implement the [`ProgressSink`] trait so the polling loop can be decoupled
+//! implement the [`ProgressDisplay`] trait so the polling loop can be decoupled
 //! from the rendering backend. The ratatui TUI uses a separate
 //! reducer-message sender that implements the same trait while the render loop
 //! owns UI state locally.
@@ -19,7 +19,15 @@ use indicatif::{ProgressBar, ProgressStyle};
 ///
 /// Implemented by `BatchProgress` (indicatif bars) and `TuiProgress`
 /// (reducer-message sender for the ratatui runtime).
-pub trait ProgressSink: Send + Sync {
+///
+/// **Named `ProgressDisplay`, not `ProgressSink`, since 2026-07-29.** This is a
+/// terminal RENDERER: it draws what the CLI has already learned by polling.
+/// `ProgressSink` is reserved for a different concept from the upstream fork
+/// whose mechanisms this crate is adopting: the seam a BACKEND pushes progress
+/// into, introduced alongside `Dispatcher`. Where a name collides, the upstream
+/// name wins and ours moves, so shared vocabulary means the same thing on both
+/// sides. Do not reuse `ProgressSink` for a display type.
+pub trait ProgressDisplay: Send + Sync {
     /// Update completed file count and file status entries.
     fn update(&self, done: u64, file_statuses: &[FileStatusEntry]);
     /// Log a successfully completed file.
@@ -30,8 +38,14 @@ pub trait ProgressSink: Send + Sync {
     fn finish(&self);
     /// Update server health snapshot. Default no-op for non-TUI sinks.
     fn update_health(&self, _health: &HealthResponse) {}
-    /// Update batch-level language-group progress. Default no-op.
-    fn update_batch_progress(&self, _progress: &crate::api::BatchInferProgress) {}
+    /// Update batch-level language-group progress.
+    ///
+    /// Deliberately has NO default body. It used to default to a no-op, and
+    /// `TuiProgress` silently inherited that, so the TUI dropped every batch
+    /// progress update with nothing to indicate it: the same
+    /// declared-but-unwired shape as the feature this method belongs to. A sink
+    /// that genuinely has nowhere to show this must say so explicitly.
+    fn update_batch_progress(&self, progress: &crate::api::BatchInferProgress);
     /// Surface a cancellation receipt for the end-of-run banner.
     /// Default no-op for non-TUI sinks (which already print the
     /// receipt to stderr inline as part of their finish() output).
@@ -127,7 +141,7 @@ impl BatchProgress {
     }
 }
 
-impl ProgressSink for BatchProgress {
+impl ProgressDisplay for BatchProgress {
     fn update(&self, done: u64, file_statuses: &[FileStatusEntry]) {
         self.update(done, file_statuses);
     }

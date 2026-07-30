@@ -1,25 +1,23 @@
 //! Tests for file status tracking, supervision, and progress forwarding.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
 use crate::api::{
     ContentType, DisplayPath, FileProgressStage, FileStatusKind, JobId, JobStatus, LanguageCode3,
-    LanguageSpec, NumSpeakers, ReleasedCommand, UnixTimestamp,
+    LanguageSpec, NumSpeakers, ReleasedCommand,
 };
 use crate::db::JobDB;
 use crate::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use crate::scheduling::{AttemptOutcome, FailureCategory, RetryDisposition, WorkUnitKind};
 use crate::store::unix_now;
 use crate::store::{
-    CompletedFileOutput, FileStatus, Job, JobDispatchConfig, JobExecutionState,
-    JobFilesystemConfig, JobIdentity, JobLeaseState, JobRuntimeControl, JobScheduleState,
-    JobSourceContext,
+    FileStatus, Job, JobDispatchConfig, JobExecutionState, JobFilesystemConfig, JobIdentity,
+    JobLeaseState, JobRuntimeControl, JobScheduleState, JobSourceContext,
 };
 use crate::ws::BROADCAST_CAPACITY;
 
@@ -27,134 +25,7 @@ use super::tracker::mark_file_processing;
 use super::*;
 use crate::store::JobStore;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct RecordedProgress {
-    job_id: JobId,
-    filename: String,
-    stage: FileStage,
-    current: Option<i64>,
-    total: Option<i64>,
-}
-
-#[derive(Default)]
-struct RecordingSink {
-    progress: Mutex<Vec<RecordedProgress>>,
-}
-
-#[async_trait]
-impl RunnerEventSink for RecordingSink {
-    async fn mark_file_processing(
-        &self,
-        _job_id: &JobId,
-        _filename: &str,
-        _started_at: UnixTimestamp,
-    ) {
-    }
-
-    async fn mark_file_done(
-        &self,
-        _job_id: &JobId,
-        _filename: &str,
-        _finished_at: UnixTimestamp,
-        _result: Option<CompletedFileOutput>,
-    ) {
-    }
-
-    async fn mark_file_error(
-        &self,
-        _job_id: &JobId,
-        _filename: &str,
-        _error: &str,
-        _category: FailureCategory,
-        _finished_at: UnixTimestamp,
-    ) {
-    }
-
-    async fn start_file_attempt(
-        &self,
-        _job_id: &JobId,
-        _filename: &str,
-        _work_unit_kind: WorkUnitKind,
-        _started_at: UnixTimestamp,
-    ) {
-    }
-
-    async fn finish_file_attempt(
-        &self,
-        _job_id: &JobId,
-        _filename: &str,
-        _outcome: AttemptOutcome,
-        _failure_category: Option<FailureCategory>,
-        _disposition: RetryDisposition,
-        _finished_at: UnixTimestamp,
-    ) {
-    }
-
-    async fn mark_file_retry_pending(
-        &self,
-        _job_id: &JobId,
-        _filename: &str,
-        _retry_at: UnixTimestamp,
-        _category: FailureCategory,
-        _message: &str,
-        _finished_at: UnixTimestamp,
-    ) {
-    }
-
-    async fn clear_file_retry_state(&self, _job_id: &JobId, _filename: &str) {}
-
-    async fn set_file_progress(
-        &self,
-        job_id: &JobId,
-        filename: &str,
-        stage: FileStage,
-        current: Option<i64>,
-        total: Option<i64>,
-    ) {
-        self.progress
-            .lock()
-            .expect("progress lock")
-            .push(RecordedProgress {
-                job_id: job_id.clone(),
-                filename: filename.to_string(),
-                stage,
-                current,
-                total,
-            });
-    }
-
-    async fn unfinished_files(&self, _job_id: &JobId) -> Vec<DisplayPath> {
-        Vec::new()
-    }
-
-    async fn file_status_label(&self, _job_id: &JobId, _filename: &str) -> Option<String> {
-        None
-    }
-
-    async fn bump_forced_terminal_errors(&self, _count: usize) {}
-
-    async fn fail_job(&self, _job_id: &JobId, _error: &str, _failed_at: UnixTimestamp) {}
-
-    async fn mark_job_running(&self, _job_id: &JobId) {}
-
-    async fn record_job_worker_count(&self, _job_id: &JobId, _worker_count: usize) {}
-
-    async fn requeue_job_after_memory_gate(&self, _job_id: &JobId, _retry_at: UnixTimestamp) {}
-
-    async fn bump_deferred_work_units(&self) {}
-
-    async fn bump_memory_gate_aborts(&self) {}
-
-    async fn finalize_job(
-        &self,
-        _job_id: &JobId,
-        _expected_generation: crate::store::RunGeneration,
-        _final_status: JobStatus,
-        _completed_at: UnixTimestamp,
-    ) -> Option<String> {
-        None
-    }
-}
+use super::test_sink::{RecordedProgress, RecordingSink};
 
 fn test_config() -> crate::config::ServerConfig {
     crate::config::ServerConfig {
@@ -245,7 +116,7 @@ async fn progress_forwarder_routes_updates_through_sink_boundary() {
 
     tokio::time::timeout(Duration::from_secs(1), async {
         loop {
-            if !sink.progress.lock().expect("progress lock").is_empty() {
+            if !sink.progress().is_empty() {
                 break;
             }
             tokio::task::yield_now().await;
@@ -254,7 +125,7 @@ async fn progress_forwarder_routes_updates_through_sink_boundary() {
     .await
     .expect("progress forwarder should flush");
 
-    let progress = sink.progress.lock().expect("progress lock");
+    let progress = sink.progress();
     assert_eq!(
         progress.as_slice(),
         &[RecordedProgress {

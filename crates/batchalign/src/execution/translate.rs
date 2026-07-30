@@ -155,6 +155,7 @@ mod tests {
             _before_text: Option<&str>,
             _lang: &LanguageCode3,
             _options: MorphotagRuntimeOptions,
+            _progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
         ) -> Result<String, crate::error::ServerError> {
             unreachable!()
         }

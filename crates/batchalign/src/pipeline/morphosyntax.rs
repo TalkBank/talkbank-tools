@@ -77,6 +77,8 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
     pub resolved_lang: Option<LanguageCode3>,
     /// Collected worker payloads.
     pub batch_items: Vec<BatchItemWithPosition>,
+    /// Where to report backend progress for this file, if anyone is listening.
+    pub progress: Option<&'a crate::execution::morphotag::progress::BackendProgressPort>,
     /// Inferred worker responses.
     pub ud_responses: Vec<UdResponse>,
     /// Final serialized output.
@@ -86,21 +88,18 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
 impl<'a> MorphosyntaxPipelineContext<'a> {
     fn new(
         chat_text: &'a str,
-        lang: &'a LanguageCode3,
         services: PipelineServices<'a>,
-        tokenization_mode: TokenizationMode,
-        multilingual_policy: MultilingualPolicy,
-        mwt: &'a MwtDict,
-        l2_morphotag: bool,
+        params: &'a crate::params::MorphosyntaxParams<'a>,
     ) -> Self {
         Self {
             services,
             chat_text,
-            lang,
-            tokenization_mode,
-            multilingual_policy,
-            mwt,
-            l2_morphotag,
+            lang: params.lang,
+            tokenization_mode: params.tokenization_mode,
+            multilingual_policy: params.multilingual_policy,
+            mwt: params.mwt,
+            l2_morphotag: params.l2_morphotag,
+            progress: params.progress,
             chat_file: None,
             parse_errors: Vec::new(),
             is_ca: false,
@@ -140,23 +139,15 @@ impl<'a> MorphosyntaxPipelineContext<'a> {
 /// Run the morphosyntax pipeline for a single CHAT file.
 pub(crate) async fn run_morphosyntax_pipeline(
     chat_text: &str,
-    lang: &LanguageCode3,
     services: PipelineServices<'_>,
-    tokenization_mode: TokenizationMode,
-    multilingual_policy: MultilingualPolicy,
-    mwt: &MwtDict,
-    l2_morphotag: bool,
+    params: &crate::params::MorphosyntaxParams<'_>,
 ) -> Result<String, ServerError> {
+    // Takes the params bundle whole (2026-07-29). It used to take five of the
+    // bundle's fields as positional arguments, so every new per-file input had
+    // to be added in three places and the caller re-spread a struct it already
+    // held.
     let plan = morphosyntax_plan();
-    let mut ctx = MorphosyntaxPipelineContext::new(
-        chat_text,
-        lang,
-        services,
-        tokenization_mode,
-        multilingual_policy,
-        mwt,
-        l2_morphotag,
-    );
+    let mut ctx = MorphosyntaxPipelineContext::new(chat_text, services, params);
     let _ = run_plan("morphotag", &plan, &mut ctx, None).await?;
     ctx.final_chat_text.ok_or_else(|| {
         ServerError::Validation("morphotag pipeline completed without output".to_string())
@@ -399,7 +390,7 @@ fn stage_infer<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> Stag
             &lang_code,
             ctx.mwt,
             retokenize,
-            None,
+            ctx.progress,
         )
         .await?;
         Ok(())
@@ -537,6 +528,24 @@ mod tests {
     //! is exercised by integration tests against a worker pool; these unit
     //! tests cover the local predicate and pass-through serialization logic.
     use super::{run_morphosyntax_pipeline, unsupported_primary_language_error};
+
+    /// Params for the pipeline tests: the settings the removed positional
+    /// arguments used to carry, and no progress port (no job, no reporter).
+    fn test_params<'a>(
+        lang: &'a crate::api::LanguageCode3,
+        mwt: &'a MwtDict,
+    ) -> crate::params::MorphosyntaxParams<'a> {
+        crate::params::MorphosyntaxParams {
+            lang,
+            tokenization_mode: TokenizationMode::StanzaRetokenize,
+            multilingual_policy: MultilingualPolicy::from_skip_flag(false),
+            mwt,
+            l2_morphotag: true,
+            respect_pos_hints: false,
+            review_level: crate::chat_ops::fa::ReviewLevel::None,
+            progress: None,
+        }
+    }
     use crate::api::EngineVersion;
     use crate::cache::UtteranceCache;
     use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
@@ -729,17 +738,12 @@ mod tests {
         let engine_version = EngineVersion::from("test-morphotag");
         let services = PipelineServices::new(&pool, &cache, &engine_version);
 
-        let err = run_morphosyntax_pipeline(
-            chat,
-            &crate::api::LanguageCode3::eng(),
-            services,
-            TokenizationMode::StanzaRetokenize,
-            MultilingualPolicy::from_skip_flag(false),
-            &MwtDict::default(),
-            true,
-        )
-        .await
-        .expect_err("unsupported primary language must surface as Err");
+        let lang = crate::api::LanguageCode3::eng();
+        let mwt = MwtDict::default();
+        let params = test_params(&lang, &mwt);
+        let err = run_morphosyntax_pipeline(chat, services, &params)
+            .await
+            .expect_err("unsupported primary language must surface as Err");
 
         let msg = err.to_string();
         assert!(
@@ -774,17 +778,12 @@ mod tests {
         let engine_version = EngineVersion::from("test-morphotag");
         let services = PipelineServices::new(&pool, &cache, &engine_version);
 
-        let output = run_morphosyntax_pipeline(
-            chat,
-            &crate::api::LanguageCode3::eng(),
-            services,
-            TokenizationMode::StanzaRetokenize,
-            MultilingualPolicy::from_skip_flag(false),
-            &MwtDict::default(),
-            true,
-        )
-        .await
-        .expect("NoAlign file should be processed (no longer skipped)");
+        let lang = crate::api::LanguageCode3::eng();
+        let mwt = MwtDict::default();
+        let params = test_params(&lang, &mwt);
+        let output = run_morphosyntax_pipeline(chat, services, &params)
+            .await
+            .expect("NoAlign file should be processed (no longer skipped)");
 
         assert!(
             output.contains("[ba3 morphotag |"),

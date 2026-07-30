@@ -30,9 +30,11 @@ use crate::text_batch::TextBatchFileResult;
 use super::worker_gateway::{MorphotagRuntimeOptions, WorkerGateway};
 
 mod input;
+pub(crate) mod progress;
 mod writeback;
 
 use input::load_morphotag_inputs;
+use progress::BatchProgressReporter;
 use writeback::write_morphotag_results;
 
 /// Dispatch a morphotag job: fan files out across at most `num_workers`
@@ -65,6 +67,12 @@ pub(crate) async fn dispatch_morphotag_job(
     let mut joinset: tokio::task::JoinSet<()> = tokio::task::JoinSet::new();
     let job_id = job.identity.job_id.clone();
 
+    // One reporter for the whole job: it owns the ledger and the publishing
+    // cadence, and each per-file task gets a cheap port into it. Restored
+    // 2026-07-29 after three months with no producer; see
+    // `progress::BatchProgressReporter`.
+    let reporter = BatchProgressReporter::spawn(Arc::clone(&sink), job_id.clone());
+
     for file_input in inputs.file_texts {
         if job.cancel_token.is_cancelled() {
             break;
@@ -88,6 +96,7 @@ pub(crate) async fn dispatch_morphotag_job(
             .before_texts
             .get(file_input.filename.as_ref())
             .cloned();
+        let progress_port = reporter.port(file_input.filename.clone());
 
         joinset.spawn(async move {
             let _permit = permit;
@@ -151,6 +160,7 @@ pub(crate) async fn dispatch_morphotag_job(
                     before_text.as_deref(),
                     &file_lang,
                     options_for_task.clone(),
+                    progress_port.as_ref(),
                 )
                 .await;
             let file_result = match result {
@@ -179,6 +189,10 @@ pub(crate) async fn dispatch_morphotag_job(
             );
         }
     }
+
+    // After the fanout, so the last snapshot an operator sees is the finished
+    // one rather than whatever was in flight when the final file landed.
+    reporter.finish().await;
 
     Ok(())
 }

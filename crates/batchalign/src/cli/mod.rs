@@ -133,7 +133,7 @@
 //! | Module        | Responsibility                                                     |
 //! |---------------|--------------------------------------------------------------------|
 //! | [`output`]    | Write job results to local filesystem with path traversal protection |
-//! | [`progress`]  | Terminal progress bars (indicatif) and `ProgressSink` trait        |
+//! | [`progress`]  | Terminal progress bars (indicatif) and `ProgressDisplay` trait        |
 //! | [`tui`]       | Ratatui-based TUI dashboard for real-time job monitoring           |
 //!
 //! ## Subcommands

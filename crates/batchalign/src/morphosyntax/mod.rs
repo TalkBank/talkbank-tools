@@ -76,16 +76,7 @@ pub(crate) async fn run_morphosyntax_impl(
     services: PipelineServices<'_>,
     params: &MorphosyntaxParams<'_>,
 ) -> Result<String, ServerError> {
-    run_morphosyntax_pipeline(
-        chat_text,
-        params.lang,
-        services,
-        params.tokenization_mode,
-        params.multilingual_policy,
-        params.mwt,
-        params.l2_morphotag,
-    )
-    .await
+    run_morphosyntax_pipeline(chat_text, services, params).await
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +282,7 @@ pub(crate) async fn process_morphosyntax_incremental(
             params.lang,
             params.mwt,
             retokenize,
-            None,
+            params.progress,
         )
         .await
         {

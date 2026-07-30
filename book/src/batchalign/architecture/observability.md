@@ -1,7 +1,7 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-06-30 13:55 EDT
+**Last updated:** 2026-07-29 23:41 EDT
 
 ## Overview
 
@@ -88,57 +88,84 @@ Each file tracks: status (queued/processing/done/error), stage, current/total
 counters. Published via `RunnerEventSink::set_file_progress()` to the store
 and broadcast over WebSocket to the dashboard.
 
-### Per-language-group batch progress
+### Batch-inference progress
 
-For batched commands (morphotag, utseg, translate, coref), `BatchInferProgress`
-tracks per-language utterance counts. Published to the store at 2-second
-intervals by the drain task in `infer_batched.rs`. Visible in:
-- `JobInfo.batch_progress` (REST API)
-- Dashboard `BatchProgressPanel` (React)
-- CLI progress bars
+Restored 2026-07-29 after three months with no producer. Read the history at
+the end of this section before changing anything here: this surface has been
+wrong in three different ways.
 
-**Per-language tagger.** The drain loop in `infer_batched.rs`
-groups progress events by `event.stage`. The Python worker's
+For the batched-text commands (morphotag today; utseg / translate / coref have
+the same shape and are not wired yet), the Python backend reports utterance
+counts as it works, and `BatchProgressLedger` turns them into two projections:
+
+| Projection | Type | Where it shows |
+|---|---|---|
+| Per language group, job-wide | `BatchInferProgress` | `JobInfo.batch_progress` (REST), dashboard `BatchProgressPanel`, CLI summary line, TUI header |
+| Per input file | `SourceProgress` | the ordinary file-progress channel, so per-file rows and the CLI spinner get a denominator |
+
+Both come from the same events, so they cannot disagree. The per-file
+projection is the one that answers "is THIS long file moving", which is the
+question the stage label `Analyzing` alone could not answer.
+
+**The key is (source, group, chunk), and that is the whole design.**
+`morphosyntax::worker::infer_batch_homogeneous` splits one language group into
+up to `max_workers_per_key` chunks whenever it holds `2 * MIN_CHUNK_SIZE` items
+or more (so: always, on a multi-worker host), and each chunk is a separate
+backend request reporting its own `completed` / `total`. Totals are SUMMED
+across chunks and the newest report per chunk wins. Keying on the chunk index
+rather than the request id is deliberate: a retry reissues the same chunk under
+a fresh request id, and a request-keyed ledger would double the denominator and
+strand the abandoned attempt's count.
+
+Provenance is supplied by the dispatch site, which knows the file, the language
+and the chunk for certain. The wire event's `stage` field is ignored:
 `batchalign/worker/_protocol.py::write_progress_event` hard-codes
-`stage="stanza_processing"` regardless of language, so, before the fix,
-three real language groups (eng / spa / zho ...) collapsed into a single
-BTreeMap entry keyed `"stanza_processing"`. The resulting summaries were
-nonsense (`"1/1 languages done, 453/274 utterances (165%)"`) and, critically,
-the one collapsed group showed `completed >= total`, making
-`incomplete_groups()` return `[]`: stall detection went blind.
-
-The fix lives in `crates/batchalign/src/morphosyntax/worker.rs::infer_batch`:
-a per-language tagger wrapper creates an inner `mpsc` channel, spawns a
-forwarder task that reads events from the worker and rewrites `event.stage`
-to the language code before forwarding to the outer `progress_tx`. The
-existing drain loop sees distinct language keys and the heartbeat path
-below can once again name stalled groups. Regression test:
-`progress_events_from_multiple_languages_must_not_collapse_on_stage_label`
-in `crates/batchalign/src/runner/util/batch_progress.rs`.
-
-The following sequence shows where the relabel happens:
+`stage="stanza_processing"` on every event, so it identifies nothing.
 
 ```mermaid
 sequenceDiagram
-    participant Py as "Python worker\n(batchalign/worker/_protocol.py)"
-    participant Tag as "Per-language tagger\n(morphosyntax/worker.rs::infer_batch)"
-    participant Drain as "Drain loop\n(runner/dispatch/infer_batched.rs)"
-    participant Store as "BatchInferProgress\n(runner/util/batch_progress.rs)"
+    participant Py as "Python backend\n(worker/_text_v2.py, 1 event/s/request)"
+    participant Port as "BackendProgressPort\n(one per input file)"
+    participant Drain as "Reporter drain task\n(execution/morphotag/progress.rs)"
+    participant Ledger as "BatchProgressLedger\n(runner/util/batch_progress.rs)"
+    participant Store as "Job store"
 
-    Py->>Tag: progress event\nstage=&quot;stanza_processing&quot;, lang=&quot;eng&quot;
-    Tag->>Tag: rewrite stage = lang (&quot;eng&quot;)
-    Tag->>Drain: progress event\nstage=&quot;eng&quot;
-    Py->>Tag: progress event\nstage=&quot;stanza_processing&quot;, lang=&quot;spa&quot;
-    Tag->>Tag: rewrite stage = lang (&quot;spa&quot;)
-    Tag->>Drain: progress event\nstage=&quot;spa&quot;
-    Drain->>Store: key by event.stage\n(distinct per language)
-    Store-->>Drain: incomplete_groups() sees real stalls
+    Py->>Port: progress_v2 {completed, total}
+    Port->>Drain: BackendProgress {source_id, group, chunk, completed, total}
+    Drain->>Ledger: record()
+    Note over Drain,Ledger: publishes on a 2s cadence when changed,\nand republishes after 120s of silence
+    Drain->>Store: set_batch_progress(snapshot)
+    Drain->>Store: set_file_progress(per-source counts)
 ```
 
-Diagram verified against: `batchalign/worker/_protocol.py`,
+Shutdown is an explicit `CancellationToken`, not "the channel closed": every
+port holds a sender clone, so inferring shutdown from the channel would make
+`finish()` hang whenever a caller held a port a moment too long.
+
+Verified against: `batchalign/worker/_text_v2.py`,
+`crates/batchalign/src/execution/morphotag/progress.rs`,
 `crates/batchalign/src/morphosyntax/worker.rs`,
-`crates/batchalign/src/runner/dispatch/infer_batched.rs`,
 `crates/batchalign/src/runner/util/batch_progress.rs`.
+
+#### History, because this surface misled readers for months
+
+- `15c88de2` (2026-04-28): a working drain loop existed in the legacy
+  batched-text dispatch, plus a designed replacement that nothing constructed.
+- `e8235c13` (2026-05-03): the working loop, the channel and
+  `RunnerEventSink::set_batch_progress` were all removed. From then until
+  2026-07-29 the type, the REST field, the dashboard panel and the CLI line
+  all existed with **no producer**: `batch_progress` was permanently `null`.
+- `c2236ab3` (2026-05-06): morphotag stopped accepting a job-level `--lang`.
+  The golden tests covering this feature still sent one, so every one of them
+  failed at submission with HTTP 400 and the coverage went dark three days
+  after the feature did.
+- An earlier revision of this page claimed a per-language "tagger" had FIXED
+  the `453/274` (165%) overflow. It had not. The tagger addressed a different
+  bug (all languages collapsing onto the shared `stage` label) and could not
+  address the overflow at all, because the overflow comes from aggregating
+  CHUNKS of one language by language alone. Both are fixed now, by keying on
+  (source, group, chunk) and by taking provenance from the dispatch site
+  instead of rewriting a wire field.
 
 ### Job status authority: the local store
 
@@ -245,7 +272,8 @@ parsers is the right approach.
 | File | What it observes |
 |------|-----------------|
 | `runner/util/file_status/` | `RunnerEventSink` trait, `set_file_progress`, `set_batch_progress` (split: `event_sink.rs`, `file_stage.rs`, `supervision.rs`, `tracker.rs`, `tests.rs`) |
-| `runner/util/batch_progress.rs` | `BatchInferProgress` data model |
+| `runner/util/batch_progress.rs` | `BackendProgress`, `BatchProgressLedger`, and its `BatchInferProgress` / `SourceProgress` projections |
+| `execution/morphotag/progress.rs` | `BatchProgressReporter` (owns the ledger, publishing cadence, stall republish) and `BackendProgressPort` (per-file handle) |
 | `runner/dispatch/infer_batched.rs` | Drain task, heartbeat gap, progress publishing |
 | `morphosyntax/batch.rs` | Language group dispatch, semaphore, timeouts |
 | `worker/handle/lifecycle.rs` | Stderr capture, ready signal |

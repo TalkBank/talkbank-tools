@@ -202,8 +202,22 @@ impl AsRef<str> for ChatText<'_> {
 /// Construction validates that the value is exactly 3 ASCII alphabetic
 /// characters, lowercased. Sentinel values like `"auto"` are rejected, use
 /// [`LanguageSpec`] at boundaries where auto-detection is meaningful.
+// `PartialOrd`/`Ord` are derived (added 2026-07-29) so a validated code can key
+// a `BTreeMap` directly, which is what `BatchInferProgress.language_groups`
+// needs for deterministic JSON. Ordering is the underlying string's, and since
+// construction lowercases and length-checks, it is a total order over exactly
+// the valid codes.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, utoipa::ToSchema, schemars::JsonSchema,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    utoipa::ToSchema,
+    schemars::JsonSchema,
 )]
 #[serde(transparent)]
 pub struct LanguageCode3(pub String);
@@ -682,8 +696,20 @@ impl schemars::JsonSchema for LanguageSpec {
 /// This type replaces the former `FileName` which incorrectly rejected path
 /// separators during deserialization even though the system routinely carries
 /// relative paths.
+// `PartialOrd`/`Ord` are derived (added 2026-07-29) so a file identity can key a
+// `BTreeMap`, which batch progress needs to aggregate per input file with
+// deterministic iteration order.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, utoipa::ToSchema, schemars::JsonSchema,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    utoipa::ToSchema,
+    schemars::JsonSchema,
 )]
 #[serde(transparent)]
 pub struct DisplayPath(pub String);
@@ -790,6 +816,18 @@ string_id!(
 numeric_id!(
     /// Number of speakers in a recording.
     pub NumSpeakers(u32) [Eq]
+);
+
+numeric_id!(
+    /// A count of utterances.
+    ///
+    /// Distinct from every other count in the pipeline: utterances are the unit
+    /// a text backend reports progress in (one `%mor` line's worth of work),
+    /// which is neither files (`NumWorkers`-bounded fanout) nor words nor
+    /// `%mor` items. Introduced for batch progress, where mixing an utterance
+    /// count with a file count is exactly the confusion that made the old
+    /// display read `453/274`.
+    pub UtteranceCount(u64) [Eq]
 );
 
 numeric_id!(

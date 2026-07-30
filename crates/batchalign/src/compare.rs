@@ -105,6 +105,8 @@ async fn build_comparison_artifacts(
         respect_pos_hints: false,
         // Compare's internal morphotag never surfaces review tiers.
         review_level: crate::chat_ops::fa::ReviewLevel::None,
+        // No job-level reporter on this path: see the field doc.
+        progress: None,
     };
     let morphotagged_main =
         crate::morphosyntax::process_morphosyntax(main_text, services, &mor_params).await?;

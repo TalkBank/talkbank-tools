@@ -1,7 +1,7 @@
 use super::super::fixtures::{ENG_SIMPLE_SERVER, ENG_SPA_L2, ENG_SPA_PRECODE, ENG_XYZ_L2};
 use super::super::helpers::{count_mor_lines, find_mor_line_for};
 use crate::common::{LiveServerJobClient, require_live_server};
-use batchalign::api::{FilePayload, JobStatus, LanguageCode3, LanguageSpec, ReleasedCommand};
+use batchalign::api::{FilePayload, JobStatus, LanguageSpec, ReleasedCommand};
 use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::InferTask;
 
@@ -23,7 +23,7 @@ async fn morphotag_server_no_l2_switch_controls_code_switched_words() {
     let enabled = jobs
         .submit_content_job(
             ReleasedCommand::Morphotag,
-            LanguageSpec::Resolved(LanguageCode3::eng()),
+            LanguageSpec::PerFile,
             vec![FilePayload {
                 filename: "server_l2_on.cha".into(),
                 content: ENG_SPA_L2.into(),
@@ -45,7 +45,7 @@ async fn morphotag_server_no_l2_switch_controls_code_switched_words() {
     let disabled = jobs
         .submit_content_job(
             ReleasedCommand::Morphotag,
-            LanguageSpec::Resolved(LanguageCode3::eng()),
+            LanguageSpec::PerFile,
             vec![FilePayload {
                 filename: "server_l2_off.cha".into(),
                 content: ENG_SPA_L2.into(),
@@ -125,7 +125,7 @@ async fn morphotag_server_unsupported_inline_language_does_not_poison_neighbor_f
     let initial = jobs
         .submit_content_job(
             ReleasedCommand::Morphotag,
-            LanguageSpec::Resolved(LanguageCode3::eng()),
+            LanguageSpec::PerFile,
             vec![
                 FilePayload {
                     filename: "server_clean.cha".into(),
@@ -215,7 +215,7 @@ async fn morphotag_server_skipmultilang_only_skips_non_primary_utterances() {
     let initial = jobs
         .submit_content_job(
             ReleasedCommand::Morphotag,
-            LanguageSpec::Resolved(LanguageCode3::eng()),
+            LanguageSpec::PerFile,
             vec![
                 FilePayload {
                     filename: "server_mono.cha".into(),

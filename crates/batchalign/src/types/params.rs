@@ -246,6 +246,16 @@ pub struct MorphosyntaxParams<'a> {
     ///
     /// [`ReviewLevel::None`]: crate::chat_ops::fa::ReviewLevel::None
     pub review_level: crate::chat_ops::fa::ReviewLevel,
+    /// Where to report backend progress for this file, if anyone is listening.
+    ///
+    /// `Some` only on the job path, where a `BatchProgressReporter` exists to
+    /// aggregate and publish; `None` for the CLI's direct path, `compare`'s
+    /// internal morphotag, and tests. Carried in the params bundle rather than
+    /// as another positional argument because it travels the same route as
+    /// every other per-file morphotag input.
+    /// `pub(crate)`, unlike its neighbours: the port is internal wiring between
+    /// the dispatcher and the worker call, not part of any published surface.
+    pub(crate) progress: Option<&'a crate::execution::morphotag::progress::BackendProgressPort>,
 }
 
 /// Audio file context for forced alignment and transcription.

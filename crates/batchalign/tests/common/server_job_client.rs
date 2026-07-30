@@ -92,10 +92,26 @@ impl<'a> LiveServerJobClient<'a> {
             .send()
             .await
             .expect("content job submission failed");
-        assert_eq!(resp.status(), 200, "content job submission should succeed");
-        resp.json::<JobInfo>()
-            .await
-            .expect("initial job info parse failed")
+        Self::parse_submission_response(resp).await
+    }
+
+    /// Turn a `/jobs` response into a `JobInfo`, or panic with the SERVER'S OWN
+    /// error text.
+    ///
+    /// A bare `assert_eq!(status, 200)` here reported "left: 400, right: 200"
+    /// and dropped the body, which is where the rejection reason lives. That
+    /// cost a diagnosis on 2026-07-29: a golden test had been failing at
+    /// submission for months and the assertion could not say why. Same rule as
+    /// "never filter test output", one layer down.
+    async fn parse_submission_response(resp: reqwest::Response) -> JobInfo {
+        let status = resp.status();
+        let body = resp.text().await.expect("submission body read failed");
+        assert_eq!(
+            status, 200,
+            "job submission should succeed; server said: {body}"
+        );
+        serde_json::from_str::<JobInfo>(&body)
+            .unwrap_or_else(|error| panic!("initial job info parse failed: {error}; body: {body}"))
     }
 
     pub async fn submit_paths_job(

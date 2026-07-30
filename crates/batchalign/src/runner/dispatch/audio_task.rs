@@ -309,6 +309,13 @@ mod tests {
             _total: Option<i64>,
         ) {
         }
+
+        async fn set_batch_progress(
+            &self,
+            _job_id: &JobId,
+            _progress: crate::runner::util::batch_progress::BatchInferProgress,
+        ) {
+        }
         async fn unfinished_files(&self, _job_id: &JobId) -> Vec<DisplayPath> {
             Vec::new()
         }

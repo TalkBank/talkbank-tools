@@ -12,6 +12,8 @@ mod supervision;
 pub(crate) mod tracker;
 
 #[cfg(test)]
+pub(crate) mod test_sink;
+#[cfg(test)]
 mod tests;
 
 // Re-export everything at the same paths callers already use.

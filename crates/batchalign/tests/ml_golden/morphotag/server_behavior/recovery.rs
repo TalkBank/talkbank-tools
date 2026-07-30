@@ -1,7 +1,7 @@
 use super::super::helpers::minimal_chat;
 use crate::common::{LiveServerJobClient, require_live_server};
 use batchalign::api::{
-    FilePayload, FileStatusKind, JobInfo, JobStatus, LanguageCode3, LanguageSpec, ReleasedCommand,
+    FilePayload, FileStatusKind, JobInfo, JobStatus, LanguageSpec, ReleasedCommand,
 };
 use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::InferTask;
@@ -36,10 +36,10 @@ async fn morphotag_server_missing_language_group_only_fails_affected_file() {
         let initial = jobs
             .submit_content_job(
                 ReleasedCommand::Morphotag,
-                LanguageSpec::Resolved(LanguageCode3::eng()),
+                LanguageSpec::PerFile,
                 vec![
                     FilePayload {
-                        filename: "probe_eng.cha".into(),
+                        filename: format!("probe_eng_{lang}.cha").into(),
                         content: minimal_chat("eng", "ENG", "hello world"),
                     },
                     FilePayload {
@@ -75,7 +75,7 @@ async fn morphotag_server_missing_language_group_only_fails_affected_file() {
         let eng = results
             .files
             .iter()
-            .find(|file| file.filename.as_ref() == "probe_eng.cha")
+            .find(|file| file.filename.as_ref() == format!("probe_eng_{lang}.cha"))
             .expect("eng probe file result");
         let candidate = results
             .files
@@ -132,10 +132,10 @@ async fn morphotag_server_restart_preserves_successful_neighbors_after_language_
         let initial = jobs
             .submit_content_job(
                 ReleasedCommand::Morphotag,
-                LanguageSpec::Resolved(LanguageCode3::eng()),
+                LanguageSpec::PerFile,
                 vec![
                     FilePayload {
-                        filename: "restart_probe_eng.cha".into(),
+                        filename: format!("restart_probe_eng_{lang}.cha").into(),
                         content: minimal_chat("eng", "ENG", "hello world"),
                     },
                     FilePayload {
@@ -175,7 +175,7 @@ async fn morphotag_server_restart_preserves_successful_neighbors_after_language_
         let eng_before = results
             .files
             .iter()
-            .find(|file| file.filename.as_ref() == "restart_probe_eng.cha")
+            .find(|file| file.filename.as_ref() == format!("restart_probe_eng_{lang}.cha"))
             .expect("english restart probe result");
         let candidate_before = results
             .files
@@ -222,7 +222,7 @@ async fn morphotag_server_restart_preserves_successful_neighbors_after_language_
         let restarted_eng = restarted
             .file_statuses
             .iter()
-            .find(|file| file.filename.as_ref() == "restart_probe_eng.cha")
+            .find(|file| file.filename.as_ref() == format!("restart_probe_eng_{lang}.cha"))
             .expect("restarted english file status");
         let restarted_candidate = restarted
             .file_statuses
@@ -259,7 +259,7 @@ async fn morphotag_server_restart_preserves_successful_neighbors_after_language_
         let eng_after = rerun_results
             .files
             .iter()
-            .find(|file| file.filename.as_ref() == "restart_probe_eng.cha")
+            .find(|file| file.filename.as_ref() == format!("restart_probe_eng_{lang}.cha"))
             .expect("english result after restart");
 
         assert!(

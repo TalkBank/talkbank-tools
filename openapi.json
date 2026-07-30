@@ -2,14 +2,15 @@
   "components": {
     "schemas": {
       "BatchInferProgress": {
-        "description": "Aggregate progress for a batched infer job across all language groups.",
+        "description": "Aggregate progress for a batched infer job across all language groups.\n\nThis is a PROJECTION of [`BatchProgressLedger`], not a thing callers\nmutate. The 2026-04 version exposed `register_group` / `update_group` /\n`complete_group`, and those mutators are what made the double-counting bug\nexpressible: they invited last-write-wins updates keyed on language, which\nis the wrong granularity. Build one of these with\n`BatchProgressLedger::snapshot` instead.",
         "properties": {
           "language_groups": {
             "additionalProperties": {
               "$ref": "#/components/schemas/LanguageGroupProgress"
             },
-            "description": "Per-language-group progress, keyed by language code.\nUses BTreeMap for deterministic JSON serialization.",
+            "description": "Per-language-group progress, keyed by language code.\n`BTreeMap` for deterministic JSON.",
             "propertyNames": {
+              "description": "3-letter ISO 639-3 language code (e.g. `\"eng\"`, `\"spa\"`).\n\nConstruction validates that the value is exactly 3 ASCII alphabetic\ncharacters, lowercased. Sentinel values like `\"auto\"` are rejected, use\n[`LanguageSpec`] at boundaries where auto-detection is meaningful.",
               "type": "string"
             },
             "type": "object"
@@ -1131,23 +1132,19 @@
         "type": "string"
       },
       "LanguageGroupProgress": {
-        "description": "Progress snapshot for one language group within a batched infer job.",
+        "description": "Progress for one language group within a batched infer job.\n\nWire-compatible with the pre-2026-07 shape: `LanguageCode3` and\n`UtteranceCount` are both `#[serde(transparent)]` newtypes, so the JSON is\nbyte-identical to the `String` / `u64` version the dashboard and the\ngenerated TypeScript already consume.",
         "properties": {
           "completed_utterances": {
-            "description": "Number of utterances completed so far.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
+            "$ref": "#/components/schemas/UtteranceCount",
+            "description": "Number of utterances completed so far."
           },
           "lang": {
-            "description": "ISO 639-3 language code (e.g. \"fra\", \"eng\").",
-            "type": "string"
+            "$ref": "#/components/schemas/LanguageCode3",
+            "description": "ISO 639-3 language code (e.g. `\"fra\"`, `\"eng\"`)."
           },
           "total_utterances": {
-            "description": "Total utterances in this language group.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
+            "$ref": "#/components/schemas/UtteranceCount",
+            "description": "Total utterances in this language group."
           }
         },
         "required": [
@@ -1305,6 +1302,12 @@
         "description": "Unix timestamp as fractional seconds since epoch.",
         "format": "double",
         "type": "number"
+      },
+      "UtteranceCount": {
+        "description": "A count of utterances.\n\nDistinct from every other count in the pipeline: utterances are the unit\na text backend reports progress in (one `%mor` line's worth of work),\nwhich is neither files (`NumWorkers`-bounded fanout) nor words nor\n`%mor` items. Introduced for batch progress, where mixing an utterance\ncount with a file count is exactly the confusion that made the old\ndisplay read `453/274`.",
+        "format": "int64",
+        "minimum": 0,
+        "type": "integer"
       },
       "WarmupStatus": {
         "description": "Lifecycle state of background model warmup.\nBackground warmup lifecycle state for the worker pool.\n\nThe server pre-spawns workers at startup (\"warmup\") so the first job\ndoes not pay cold-start costs. This enum tracks that lifecycle for\nthe health endpoint.",

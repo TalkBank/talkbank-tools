@@ -283,11 +283,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Aggregate progress for a batched infer job across all language groups. */
+        /**
+         * @description Aggregate progress for a batched infer job across all language groups.
+         *
+         *     This is a PROJECTION of [`BatchProgressLedger`], not a thing callers
+         *     mutate. The 2026-04 version exposed `register_group` / `update_group` /
+         *     `complete_group`, and those mutators are what made the double-counting bug
+         *     expressible: they invited last-write-wins updates keyed on language, which
+         *     is the wrong granularity. Build one of these with
+         *     `BatchProgressLedger::snapshot` instead.
+         */
         BatchInferProgress: {
             /**
              * @description Per-language-group progress, keyed by language code.
-             *     Uses BTreeMap for deterministic JSON serialization.
+             *     `BTreeMap` for deterministic JSON.
              */
             language_groups: {
                 [key: string]: components["schemas"]["LanguageGroupProgress"];
@@ -972,20 +981,21 @@ export interface components {
          *     [`LanguageSpec`] at boundaries where auto-detection is meaningful.
          */
         LanguageCode3: string;
-        /** @description Progress snapshot for one language group within a batched infer job. */
+        /**
+         * @description Progress for one language group within a batched infer job.
+         *
+         *     Wire-compatible with the pre-2026-07 shape: `LanguageCode3` and
+         *     `UtteranceCount` are both `#[serde(transparent)]` newtypes, so the JSON is
+         *     byte-identical to the `String` / `u64` version the dashboard and the
+         *     generated TypeScript already consume.
+         */
         LanguageGroupProgress: {
-            /**
-             * Format: int64
-             * @description Number of utterances completed so far.
-             */
-            completed_utterances: number;
-            /** @description ISO 639-3 language code (e.g. "fra", "eng"). */
-            lang: string;
-            /**
-             * Format: int64
-             * @description Total utterances in this language group.
-             */
-            total_utterances: number;
+            /** @description Number of utterances completed so far. */
+            completed_utterances: components["schemas"]["UtteranceCount"];
+            /** @description ISO 639-3 language code (e.g. `"fra"`, `"eng"`). */
+            lang: components["schemas"]["LanguageCode3"];
+            /** @description Total utterances in this language group. */
+            total_utterances: components["schemas"]["UtteranceCount"];
         };
         /**
          * @description Language specification from the CLI or job submission.
@@ -1100,6 +1110,18 @@ export interface components {
          * @description Unix timestamp as fractional seconds since epoch.
          */
         UnixTimestamp: number;
+        /**
+         * Format: int64
+         * @description A count of utterances.
+         *
+         *     Distinct from every other count in the pipeline: utterances are the unit
+         *     a text backend reports progress in (one `%mor` line's worth of work),
+         *     which is neither files (`NumWorkers`-bounded fanout) nor words nor
+         *     `%mor` items. Introduced for batch progress, where mixing an utterance
+         *     count with a file count is exactly the confusion that made the old
+         *     display read `453/274`.
+         */
+        UtteranceCount: number;
         /**
          * @description Lifecycle state of background model warmup.
          *     Background warmup lifecycle state for the worker pool.

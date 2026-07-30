@@ -51,12 +51,19 @@ pub(crate) trait WorkerGateway: Send + Sync {
     ) -> Result<String, ServerError>;
 
     /// Run morphotag on one CHAT file.
+    ///
+    /// `progress` is this file's port into the job's batch-progress reporter, or
+    /// `None` where no reporter exists (the CLI's direct path, tests). It is a
+    /// separate argument rather than a field on `MorphotagRuntimeOptions`
+    /// because it is an output port, not an option: options say what to compute,
+    /// this says where to narrate it.
     async fn morphotag_single(
         &self,
         chat_text: &str,
         before_text: Option<&str>,
         lang: &LanguageCode3,
         options: MorphotagRuntimeOptions,
+        progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
     ) -> Result<String, ServerError>;
 
     /// Run utterance segmentation over one cross-file batch of CHAT inputs.
@@ -149,6 +156,9 @@ impl WorkerGateway for PooledWorkerGateway {
             respect_pos_hints: false,
             // Compare's internal morphotag never surfaces review tiers.
             review_level: crate::chat_ops::fa::ReviewLevel::None,
+            // Compare runs morphotag on its own inputs, not on the job's files,
+            // so there is no file row to report utterance counts against.
+            progress: None,
         };
         crate::morphosyntax::process_morphosyntax(
             chat_text,
@@ -164,6 +174,7 @@ impl WorkerGateway for PooledWorkerGateway {
         before_text: Option<&str>,
         lang: &LanguageCode3,
         options: MorphotagRuntimeOptions,
+        progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
     ) -> Result<String, ServerError> {
         let params = MorphosyntaxParams {
             lang,
@@ -173,6 +184,7 @@ impl WorkerGateway for PooledWorkerGateway {
             l2_morphotag: options.l2_morphotag,
             respect_pos_hints: options.respect_pos_hints,
             review_level: options.review_level,
+            progress,
         };
         let services = PipelineServices::new(&self.pool, &self.cache, &self.engine_version);
         if let Some(before) = before_text {
