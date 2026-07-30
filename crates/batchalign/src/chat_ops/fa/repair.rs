@@ -432,14 +432,28 @@ mod tests {
     /// Integration test: parse a real trimmed CHAT file with E704 (same-speaker
     /// overlap) and E701 (cross-speaker non-monotonicity), run bullet repair,
     /// verify that boundary averaging and LIS removal produce correct results.
+    ///
+    /// The fixture is `include_str!`d rather than read at run time, and that is
+    /// load-bearing for more than tidiness. It was the ONLY filesystem call in
+    /// `chat_ops`, a 16,000-line module that is otherwise 97% pure and imports
+    /// nothing else in the crate, so this one line was what kept the largest
+    /// movable block in the crate out of `batchalign-core`. `include_str!` is
+    /// resolved by the compiler and the binary touches no disk, the same
+    /// distinction the purity gate already draws between `env!` and
+    /// `std::env::var`.
+    ///
+    /// It is also simply a better test: the old form resolved
+    /// `../../test-fixtures/...` against the process working directory, so it
+    /// failed at run time with a "regenerate the fixture" message whenever the
+    /// cwd was not the package root. A missing fixture is now a compile error
+    /// that names the path.
     #[test]
     fn test_repair_on_real_bre_fixture() {
-        let chat_text = std::fs::read_to_string("../../test-fixtures/bullet_repair_e704.cha")
-            .expect("fixture file missing: run trim_chat_audio.py to regenerate");
+        let chat_text = include_str!("../../../../../test-fixtures/bullet_repair_e704.cha");
 
         let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
         let (mut chat_file, _errors) =
-            batchalign_transform::parse::parse_lenient(&parser, &chat_text);
+            batchalign_transform::parse::parse_lenient(&parser, chat_text);
 
         // Dry-run first: verify we detect issues without modifying the file.
         let dry_result = repair_bullets(&mut chat_file, true);
