@@ -199,6 +199,11 @@ batchalign-dashboard-e2e-real:
 batchalign-ci-rust:
 	@echo "==> batchalign-core purity gate"
 	@cargo run -q -p xtask -- lint-core-purity
+	@# Added to CI on 2026-07-30, when a re-adjudication found it had been
+	@# failing since the chatter split: it ran only in `make ci-local`, which
+	@# nobody runs, so its table drifted for two months unnoticed.
+	@echo "==> wide struct audit"
+	@cargo run -q -p xtask -- lint-wide-structs
 	@$(MAKE) batchalign-check
 	@$(MAKE) batchalign-test-rust
 	@$(MAKE) batchalign-test-integration

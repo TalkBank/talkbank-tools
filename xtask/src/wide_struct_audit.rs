@@ -4,13 +4,17 @@
 //! named fields and ensures each is registered in `WIDE_STRUCT_ALLOWANCES`
 //! with a reviewed field cap and classification.
 //!
-//! Contributor entrypoints:
-//! - run `cargo run -q -p xtask -- lint-wide-structs` for the audit itself
-//! - run `cargo nextest run -p talkbank-tools --test wide_struct_audit` for the
-//!   thin integration-test proxy that keeps this audit visible in test output
-//!   without duplicating logic across CLI crates
+//! Run it with `cargo run -q -p xtask -- lint-wide-structs`. It is wired into
+//! `make ci-local` and `make batchalign-ci-rust`, so CI fails on drift.
+//!
+//! The line here used to name a `cargo nextest run -p talkbank-tools --test
+//! wide_struct_audit` proxy as a second entrypoint. All three parts of that
+//! were stale: nextest is banned and uninstalled in this workspace, the
+//! `talkbank-tools` package no longer exists (the workspace is virtual), and no
+//! `wide_struct_audit` test target has ever existed here. Only CI keeps this
+//! honest, which is why it now runs there.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::Result;
@@ -56,224 +60,128 @@ struct NamedStructInfo {
     bool_field_count: usize,
 }
 
+/// Every struct in this workspace with at least [`WIDE_STRUCT_THRESHOLD`] named
+/// fields, with the field cap a human actually reviewed and the verdict they
+/// reached.
+///
+/// Re-adjudicated wholesale on 2026-07-30, because the table had been failing
+/// since the chatter split and nobody was reading its output. Two thirds of its
+/// entries named crates that left this repo in 2026-05/06 (`talkbank-clan`,
+/// `talkbank-model`, `talkbank-parser-*`, `talkbank-cli`, `spec/tools`,
+/// `src/test_dashboard`); those are gone. Ten more named batchalign paths that
+/// moved under `cli/`, so the audit reported the same struct as both a stale
+/// entry and an unregistered one. `ServeStartArgs` was dropped rather than
+/// repointed: it is under the threshold at its new location.
+///
+/// A `RefactorTarget` entry is a recorded verdict, not a plan: the cap stops the
+/// struct growing further while the reason names the specific fix, so whoever
+/// picks it up does not have to re-derive it.
 const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
-        path: "crates/talkbank-clan/src/commands/eval.rs",
-        struct_name: "SpeakerEval",
-        max_fields: 25,
+        path: "crates/batchalign-transform/src/morphosyntax/ud_types.rs",
+        struct_name: "UdWord",
+        max_fields: 10,
         max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "metric record for one EVAL speaker report",
+        disposition: WideStructDisposition::RealAggregate,
+        reason: "the ten CoNLL-U columns; the format fixes the width, so it cannot grow",
     },
     WideStructAllowance {
-        path: "crates/talkbank-clan/src/commands/kideval.rs",
-        struct_name: "SpeakerKideval",
-        max_fields: 21,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "metric record for one KIDEVAL speaker report",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-clan/src/commands/complexity.rs",
-        struct_name: "SpeakerAccum",
-        max_fields: 20,
-        max_bool_fields: 2,
-        disposition: WideStructDisposition::RefactorTarget,
-        reason: "accumulator mixes counters and mode flags",
-    },
-    WideStructAllowance {
-        path: "src/test_dashboard/app.rs",
-        struct_name: "AppState",
-        max_fields: 19,
-        max_bool_fields: 2,
-        disposition: WideStructDisposition::RefactorTarget,
-        reason: "dashboard state still mixes corpus progress, global totals, render flags, and timing",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-clan/src/commands/complexity.rs",
-        struct_name: "SpeakerComplexity",
-        max_fields: 19,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "complexity report record",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-parser-re2c/src/generated/lexer.rs",
-        struct_name: "Lexer",
-        max_fields: 22,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "re2c-generated DFA lexer state, fields are scanner registers, not refactorable",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-cli/src/ui/validation_tui/state.rs",
-        struct_name: "TuiState",
-        max_fields: 15,
+        path: "crates/batchalign-types/src/worker_v2/responses.rs",
+        struct_name: "AvqiResultV2",
+        max_fields: 11,
         max_bool_fields: 1,
-        disposition: WideStructDisposition::RefactorTarget,
-        reason: "mixes widget state, progress counters, discovery flags, and final summary state",
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "worker protocol response payload for AVQI scoring",
     },
     WideStructAllowance {
-        path: "crates/talkbank-clan/src/framework/mor.rs",
-        struct_name: "MorPosCount",
+        path: "crates/batchalign-whisper-pilot/src/decoder.rs",
+        struct_name: "Decoder",
         max_fields: 14,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "report record for morphology counts",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-model/src/model/alignment_set.rs",
-        struct_name: "AlignmentUnits",
-        max_fields: 14,
-        max_bool_fields: 0,
+        max_bool_fields: 1,
         disposition: WideStructDisposition::RealAggregate,
-        reason: "cohesive alignment domain aggregate",
-    },
-    // spec/runtime-tools entries removed: bootstrap tooling being dismantled
-    WideStructAllowance {
-        path: "crates/talkbank-clan/src/commands/flucalc.rs",
-        struct_name: "SpeakerFluency",
-        max_fields: 12,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "fluency report record",
+        reason: "whisper decoding state; eight of the fourteen are special-token ids, and \
+                 gathering those into one SpecialTokens struct would take it to seven",
     },
     WideStructAllowance {
-        path: "crates/talkbank-clan/src/commands/linker_audit.rs",
-        struct_name: "FileStats",
-        max_fields: 51,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "per-file linker/terminator audit statistics record",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-clan/src/commands/linker_audit.rs",
-        struct_name: "CorpusSummary",
-        max_fields: 49,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "corpus-wide linker/terminator audit summary record",
-    },
-    // (removed: extract_corpus_candidates Args: bootstrap tooling being dismantled)
-    WideStructAllowance {
-        path: "crates/talkbank-clan/src/database/entry.rs",
-        struct_name: "DbMetadata",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "database metadata row shape",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-parser-tests/src/generated_traversal.rs",
-        struct_name: "IdDemographicFieldsChildren",
-        max_fields: 16,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "generated CST traversal struct for @ID demographic fields",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-parser-tests/src/generated_traversal.rs",
-        struct_name: "IdRoleFieldsChildren",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "generated CST traversal struct for @ID role fields",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-parser-tests/src/generated_traversal.rs",
-        struct_name: "TypesHeaderChildren",
-        max_fields: 12,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "generated CST traversal struct for @Types header",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-parser-re2c/src/ast.rs",
-        struct_name: "IdHeaderParsed",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "parsed @ID header with all demographic/role fields",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-cli/src/cli/args/clan_common.rs",
-        struct_name: "CommonAnalysisArgs",
-        max_fields: 10,
-        max_bool_fields: 2,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "shared clap boundary shape for analysis commands",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-clan/src/service_types.rs",
-        struct_name: "AnalysisOptions",
+        path: "crates/batchalign/src/cli/args/commands.rs",
+        struct_name: "AlignArgs",
         max_fields: 25,
-        max_bool_fields: 5,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "raw adapter-to-library option bag consumed by AnalysisRequestBuilder before defaults and validation",
+        max_bool_fields: 12,
+        disposition: WideStructDisposition::RefactorTarget,
+        reason: "three --flag/--no-flag pairs (wor, merge_abbrev, utr) are the boolean \
+                 blindness rule 4 names by example; clap overrides_with or an enum removes six \
+                 fields outright",
     },
     WideStructAllowance {
-        path: "crates/talkbank-cli/src/ui/theme.rs",
-        struct_name: "Theme",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "cohesive color palette aggregate",
+        path: "crates/batchalign/src/cli/args/commands.rs",
+        struct_name: "BenchmarkArgs",
+        max_fields: 14,
+        max_bool_fields: 7,
+        disposition: WideStructDisposition::RefactorTarget,
+        reason: "same two --flag/--no-flag pairs as AlignArgs (wor, merge_abbrev); fix them \
+                 together",
     },
     WideStructAllowance {
-        path: "crates/talkbank-model/src/model/alignment_set.rs",
-        struct_name: "AlignmentSet",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "cohesive alignment container",
+        path: "crates/batchalign/src/cli/args/commands.rs",
+        struct_name: "MorphotagArgs",
+        max_fields: 12,
+        max_bool_fields: 8,
+        disposition: WideStructDisposition::RefactorTarget,
+        reason: "two --flag/--no-flag pairs (merge_abbrev, and skipmultilang against multilang, \
+                 which is the same pattern under an unrelated pair of names)",
     },
     WideStructAllowance {
-        path: "crates/talkbank-model/src/model/content/word/word_serialize.rs",
-        struct_name: "WordJsonSchema",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "JSON schema boundary for word serialization",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-model/src/model/content/word/word_type.rs",
-        struct_name: "Word",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "core word domain aggregate",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-model/src/model/header/id.rs",
-        struct_name: "IDHeader",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "header record mirrors one CHAT ID line",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-parser-tests/src/bin/audit_error_codes.rs",
-        struct_name: "Analysis",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "audit tool report row",
-    },
-    WideStructAllowance {
-        path: "spec/tools/src/bin/corpus_node_coverage.rs",
-        struct_name: "CoverageReport",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "spec-tool coverage report shape",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-model/src/alignment/helpers/walk/tests.rs",
-        struct_name: "ContentCounts",
+        path: "crates/batchalign/src/cli/args/commands.rs",
+        struct_name: "TranscribeArgs",
         max_fields: 17,
+        max_bool_fields: 11,
+        disposition: WideStructDisposition::RefactorTarget,
+        reason: "three --flag/--no-flag pairs (wor, merge_abbrev, diarize); eleven bools on one \
+                 command is where a flat clap struct stops being a boundary and starts being \
+                 the design",
+    },
+    WideStructAllowance {
+        path: "crates/batchalign/src/cli/args/global_opts.rs",
+        struct_name: "GlobalOpts",
+        max_fields: 17,
+        max_bool_fields: 9,
+        disposition: WideStructDisposition::RefactorTarget,
+        reason: "three --flag/--no-flag pairs (server, tui, open_dashboard); tui against no_tui \
+                 is the literal example the repo's rule 4 gives",
+    },
+    WideStructAllowance {
+        path: "crates/batchalign/src/cli/dispatch/mod.rs",
+        struct_name: "DispatchRequest",
+        max_fields: 21,
+        max_bool_fields: 6,
+        disposition: WideStructDisposition::RefactorTarget,
+        reason: "re-spreads nine GlobalOpts fields one by one instead of holding the struct, \
+                 which is the seam shape corrected elsewhere in this crate by passing \
+                 &MorphosyntaxParams rather than five of its fields",
+    },
+    WideStructAllowance {
+        path: "crates/batchalign/src/cli/eval_cmd/l2_morphotag/report.rs",
+        struct_name: "PairAggregate",
+        max_fields: 10,
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
-        reason: "test-only counter struct, one field per UtteranceContent variant",
+        reason: "evaluation report aggregate row",
+    },
+    WideStructAllowance {
+        path: "crates/batchalign/src/cli/tui/app.rs",
+        struct_name: "FileState",
+        max_fields: 11,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "TUI file row state; the width is one progress triple plus one error pair",
+    },
+    WideStructAllowance {
+        path: "crates/batchalign/src/cli/tui/app.rs",
+        struct_name: "ServerHealth",
+        max_fields: 10,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "TUI-facing health snapshot for one server",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/db/insert.rs",
@@ -321,7 +229,8 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         max_fields: 22,
         max_bool_fields: 4,
         disposition: WideStructDisposition::RefactorTarget,
-        reason: "forced-alignment execution bag still mixes file context, engine controls, and output policy",
+        reason: "forced-alignment execution bag still mixes file context, engine controls, and \
+                 output policy; it is inside the 4b audio port, so do not touch it separately",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/runner/dispatch/fa_pipeline.rs",
@@ -329,7 +238,8 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         max_fields: 13,
         max_bool_fields: 1,
         disposition: WideStructDisposition::RefactorTarget,
-        reason: "forced-alignment per-file context still bundles several workflow concerns",
+        reason: "forced-alignment per-file context still bundles several workflow concerns; \
+                 same 4b caveat as AlignAudioTask",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/store/job/types.rs",
@@ -350,10 +260,12 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/batchalign/src/transcribe/types.rs",
         struct_name: "TranscribeOptions",
-        max_fields: 11,
-        max_bool_fields: 5,
+        max_fields: 13,
+        max_bool_fields: 6,
         disposition: WideStructDisposition::BoundaryShim,
-        reason: "transcription option bag crossing CLI/server/runtime boundaries",
+        reason: "transcription option bag crossing CLI/server/runtime boundaries; the six bools \
+                 are independent switches rather than flag/no-flag pairs, which is why this \
+                 stays a shim while the clap structs above do not",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/types/cancellation.rs",
@@ -367,9 +279,10 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         path: "crates/batchalign/src/types/config/server.rs",
         struct_name: "ServerConfig",
         max_fields: 47,
-        max_bool_fields: 2,
+        max_bool_fields: 3,
         disposition: WideStructDisposition::BoundaryShim,
-        reason: "server configuration boundary intentionally mirrors a broad operator-facing config file",
+        reason: "server configuration boundary intentionally mirrors a broad operator-facing \
+                 config file; its width is the width of server.yaml",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/types/options.rs",
@@ -414,7 +327,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/batchalign/src/types/response.rs",
         struct_name: "JobListItem",
-        max_fields: 17,
+        max_fields: 18,
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
         reason: "API response row for job list summaries",
@@ -436,6 +349,14 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         reason: "worker configuration boundary for runtime startup and tuning",
     },
     WideStructAllowance {
+        path: "crates/batchalign/src/worker/handle/config.rs",
+        struct_name: "WorkerRuntimeConfig",
+        max_fields: 10,
+        max_bool_fields: 2,
+        disposition: WideStructDisposition::BoundaryShim,
+        reason: "the host-and-process half of WorkerConfig above, same boundary, same verdict",
+    },
+    WideStructAllowance {
         path: "crates/batchalign/src/worker/pool/mod.rs",
         struct_name: "PoolConfig",
         max_fields: 16,
@@ -446,10 +367,13 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/batchalign/src/worker/pool/mod.rs",
         struct_name: "WorkerPool",
-        max_fields: 12,
+        max_fields: 17,
         max_bool_fields: 0,
         disposition: WideStructDisposition::RefactorTarget,
-        reason: "runtime pool owner still mixes registry, scheduling, and lifecycle state",
+        reason: "grew 12 to 17, and all five additions are monotonic AtomicU64 admission \
+                 rejection counters read only through metrics_snapshot; collecting them into \
+                 one AdmissionRejectionCounters takes the pool back to 13 without touching the \
+                 registry/scheduling/lifecycle mixing that earned this verdict originally",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/worker/registry.rs",
@@ -460,100 +384,13 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         reason: "worker registry snapshot entry",
     },
     WideStructAllowance {
-        path: "crates/batchalign/src/args/commands.rs",
-        struct_name: "AlignArgs",
-        max_fields: 24,
-        max_bool_fields: 12,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "flat clap boundary for align command flags",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/args/commands.rs",
-        struct_name: "BenchmarkArgs",
+        path: "crates/batchalign/tests/common/test_worker_pool.rs",
+        struct_name: "ConfigKey",
         max_fields: 14,
-        max_bool_fields: 7,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "flat clap boundary for benchmark command flags",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/args/commands.rs",
-        struct_name: "MorphotagArgs",
-        max_fields: 11,
-        max_bool_fields: 8,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "flat clap boundary for morphotag command flags",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/args/commands.rs",
-        struct_name: "ServeStartArgs",
-        max_fields: 10,
         max_bool_fields: 2,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "flat clap boundary for server startup flags",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/args/commands.rs",
-        struct_name: "TranscribeArgs",
-        max_fields: 16,
-        max_bool_fields: 10,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "flat clap boundary for transcribe command flags",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/args/global_opts.rs",
-        struct_name: "GlobalOpts",
-        max_fields: 17,
-        max_bool_fields: 8,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "shared global clap option bag for batchalign3 CLI",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/dispatch/mod.rs",
-        struct_name: "DispatchRequest",
-        max_fields: 20,
-        max_bool_fields: 5,
-        disposition: WideStructDisposition::BoundaryShim,
-        reason: "dispatch boundary carrying command/runtime routing state",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/eval_cmd/l2_morphotag/report.rs",
-        struct_name: "PairAggregate",
-        max_fields: 10,
-        max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
-        reason: "evaluation report aggregate row",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/tui/app.rs",
-        struct_name: "FileState",
-        max_fields: 11,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "TUI file row state for dashboard/process views",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign/src/tui/app.rs",
-        struct_name: "ServerHealth",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "TUI-facing health snapshot for one server",
-    },
-    WideStructAllowance {
-        path: "crates/batchalign-types/src/worker_v2/responses.rs",
-        struct_name: "AvqiResultV2",
-        max_fields: 11,
-        max_bool_fields: 1,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "worker protocol response payload for AVQI scoring",
-    },
-    WideStructAllowance {
-        path: "crates/talkbank-transform/src/morphosyntax.rs",
-        struct_name: "UdWord",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::RealAggregate,
-        reason: "core UD word domain aggregate shared by morphosyntax transforms",
+        reason: "test-only cache key; its width is the width of the WorkerConfig it keys on, so \
+                 it tracks that struct rather than growing on its own",
     },
 ];
 
@@ -663,11 +500,6 @@ pub fn run(root: &Path) -> Result<()> {
         .cloned()
         .map(|info| ((info.path.clone(), info.struct_name.clone()), info))
         .collect();
-    let expected_keys: BTreeSet<(String, String)> = WIDE_STRUCT_ALLOWANCES
-        .iter()
-        .map(|entry| (entry.path.to_string(), entry.struct_name.to_string()))
-        .collect();
-
     let mut failures = Vec::new();
 
     for info in &wide_structs {
@@ -723,14 +555,13 @@ pub fn run(root: &Path) -> Result<()> {
         }
     }
 
-    for key in actual_by_key.keys() {
-        if !expected_keys.contains(key) {
-            failures.push(format!(
-                "{}: unexpected wide struct audit state for {}",
-                key.0, key.1
-            ));
-        }
-    }
+    // There is deliberately no third pass over `actual_by_key` here. One used to
+    // exist, reporting "unexpected wide struct audit state" for any scanned
+    // struct missing from the allowances, which is the identical condition the
+    // first loop already reports with the field counts attached. Every
+    // unregistered struct therefore appeared twice, once usefully and once as
+    // noise, and the failure count read double. On 2026-07-30 that meant 70
+    // lines where 32 were information.
 
     if failures.is_empty() {
         println!("wide struct audit: OK");
