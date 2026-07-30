@@ -15,8 +15,9 @@
 //! # The boundary, stated as a rule
 //!
 //! Code belongs here when it needs none of: a tokio scheduler or timer, the
-//! filesystem, a subprocess, a socket, a database, or the Python bridge. Code
-//! that orchestrates those things belongs in `batchalign-engine` and calls in.
+//! filesystem, a subprocess, a socket, the process environment, a database, or
+//! the Python bridge. Code that orchestrates those things belongs in
+//! `batchalign-engine` and calls in.
 //!
 //! `tokio::sync` is fine. Its channels and locks are executor-agnostic, and
 //! `async fn` plus `async_trait` are language and macro surface rather than a
@@ -29,17 +30,18 @@
 //! `cargo run -q -p xtask -- lint-core-purity` runs in `make lint` and in CI,
 //! and fails on either half of the boundary: a dependency that hands core a
 //! capability wholesale (HTTP, SQL, pyo3, a second executor), or a source line
-//! in `src/` that reaches for the tokio scheduler, the filesystem, a subprocess
-//! or a socket. Prose in a module doc does not survive a well-intentioned
-//! dependency added eighteen months from now; a failing build does.
+//! in `src/` that reaches for the tokio scheduler, the filesystem, a subprocess,
+//! a socket or the process environment. Prose in a module doc does not survive a
+//! well-intentioned dependency added eighteen months from now; a failing build
+//! does.
 //!
 //! The source half is not belt-and-braces, it is load-bearing. Cargo unifies
 //! features across a workspace, so this crate links whatever `tokio` the CLI
 //! asks for regardless of what its own manifest requests, which means
 //! `tokio::spawn` written here would compile. Declaring narrow features cannot
 //! enforce anything; only the source check can. The same check is the only thing
-//! that can see `std::fs`, `std::process` and `std::net`, which need no
-//! dependency at all.
+//! that can see `std::fs`, `std::process`, `std::net` and `std::env`, which need
+//! no dependency at all.
 //!
 //! # Empty on purpose
 //!

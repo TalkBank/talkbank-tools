@@ -1,10 +1,10 @@
 //! The gate that keeps `batchalign-core` pure.
 //!
 //! `batchalign-core` is defined by what it CANNOT reach: no async runtime, no
-//! filesystem, no subprocess, no socket, no SQL, no Python bridge. That
-//! definition is what makes a task runner testable against a mock dispatcher
-//! instead of a GPU, a model download and a jobs database, and it is the whole
-//! reason the crate is being extracted.
+//! filesystem, no subprocess, no socket, no ambient environment, no SQL, no
+//! Python bridge. That definition is what makes a task runner testable against a
+//! mock dispatcher instead of a GPU, a model download and a jobs database, and
+//! it is the whole reason the crate is being extracted.
 //!
 //! Nothing in the language expresses it. `#![forbid(...)]` works on lints, not
 //! on capabilities, so one `axum = { workspace = true }` added in good faith
@@ -17,9 +17,10 @@
 //!    capability wholesale: an HTTP server, an HTTP client, SQL, pyo3, a foreign
 //!    executor. Transitive acquisition is the case it exists for, and a tree
 //!    walk is the only thing that sees it.
-//! 2. **The source half** greps core's own `src/` for the runtime and std-I/O
-//!    surface: `tokio::spawn`, `std::fs`, `std::process`, `std::net`. These need
-//!    no dependency of their own, so nothing in the tree betrays them.
+//! 2. **The source half** greps core's own `src/` for the runtime, std-I/O and
+//!    ambient-environment surface: `tokio::spawn`, `std::fs`, `std::process`,
+//!    `std::net`, `std::env`. These need no dependency of their own, so nothing
+//!    in the tree betrays them.
 //!
 //! # WHY the tokio question is answered in the source half and not the tree half
 //!
@@ -170,6 +171,7 @@ enum SourceMarker {
     Filesystem,
     Subprocess,
     Network,
+    Environment,
 }
 
 impl SourceMarker {
@@ -178,6 +180,7 @@ impl SourceMarker {
         Self::Filesystem,
         Self::Subprocess,
         Self::Network,
+        Self::Environment,
     ];
 
     /// Substrings whose presence in a code line means the file uses this
@@ -218,6 +221,10 @@ impl SourceMarker {
                 "TcpListener",
                 "UdpSocket",
             ],
+            // `std::env::` and `env::` catch the runtime readers. The `env!`
+            // macro is deliberately not listed: the compiler resolves it and it
+            // reads nothing at run time, so it is a different capability.
+            Self::Environment => &["std::env::", "env::var", "env::args", "env::set_var"],
         }
     }
 
@@ -227,6 +234,9 @@ impl SourceMarker {
             Self::Filesystem => "pure logic would need a real file laid out on disk to test",
             Self::Subprocess => "a unit test would have to have the tool installed to pass",
             Self::Network => "a unit test would depend on something answering on a port",
+            Self::Environment => {
+                "core could not be handed different configuration, only run under it"
+            }
         }
     }
 }
@@ -498,8 +508,8 @@ pub fn run(root: &Path) -> Result<()> {
 
     if violations.is_empty() {
         println!(
-            "core-purity: {CORE_PACKAGE} has no runtime, filesystem, subprocess, socket, SQL or \
-             Python surface"
+            "core-purity: {CORE_PACKAGE} has no runtime, filesystem, subprocess, socket, \
+             environment, SQL or Python surface"
         );
         return Ok(());
     }
@@ -626,6 +636,40 @@ batchalign-core v0.1.0 (/repo/crates/batchalign-core) |
                 marker: SourceMarker::AsyncRuntime,
                 pattern: "tokio::spawn",
             }]
+        );
+    }
+
+    /// Ambient in exactly the way the filesystem is: a core function that reads
+    /// its own configuration out of the process environment cannot be tested by
+    /// being given different inputs. Found while surveying `runtime_paths`,
+    /// which the purity measurement calls 100% pure and which exists solely to
+    /// read two environment variables.
+    #[test]
+    fn reading_the_process_environment_is_a_violation() {
+        let violations = scan_source_text(
+            &at("crates/batchalign-core/src/paths.rs"),
+            "let dir = std::env::var(\"BATCHALIGN_CACHE_DIR\").ok();\n",
+        );
+        assert_eq!(violations.len(), 1);
+        assert!(matches!(
+            violations.first(),
+            Some(Violation::ImpureSource {
+                marker: SourceMarker::Environment,
+                ..
+            })
+        ));
+    }
+
+    /// `env!` is resolved by the compiler and reads nothing at runtime, so it is
+    /// not the same capability at all.
+    #[test]
+    fn the_compile_time_env_macro_is_allowed() {
+        assert_eq!(
+            scan_source_text(
+                &at("crates/batchalign-core/src/version.rs"),
+                "const VERSION: &str = env!(\"CARGO_PKG_VERSION\");\n",
+            ),
+            Vec::new()
         );
     }
 
