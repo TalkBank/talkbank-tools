@@ -615,3 +615,57 @@ async fn resolve_runtime_capability_snapshot(
     )
     .map_err(|error| error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::ReleasedCommand;
+    use crate::command_model::{RunnerDispatchKind, command_runner_dispatch_kind};
+
+    /// The dispatch chain above intercepts each batched-text command by NAME
+    /// (`else if use_infer && command == ReleasedCommand::Morphotag`, and four
+    /// more) before reaching the generic `match runner_dispatch_kind` arm at the
+    /// end. So the generic arm's `BatchedTextInfer` branch, and
+    /// `runner/dispatch/infer_batched.rs::dispatch_batched_infer` behind it, can
+    /// only execute for a command that declares `BatchedTextInfer` and has NO
+    /// name-matched arm.
+    ///
+    /// Today no such command exists, which is what makes that legacy path
+    /// retirable in step 4 of the phase-2 sequence. That is a property of two
+    /// things agreeing (the catalog's declared dispatch kinds, and the set of
+    /// names the chain matches), and nothing was checking it.
+    ///
+    /// If this test fails because a new command declares `BatchedTextInfer`,
+    /// the fix is to give it a name-matched arm on the recipe-owned path, NOT
+    /// to let it fall through to the legacy one: falling through is silent, and
+    /// the whole point of the phase-2 work is that the legacy path goes away.
+    #[test]
+    fn every_batched_text_command_is_intercepted_before_the_legacy_arm() {
+        // Matched on the enum with no catch-all, so a new released command
+        // cannot be added without stating which side of this it falls on.
+        for command in ReleasedCommand::ALL {
+            let intercepted_by_name = match command {
+                ReleasedCommand::Morphotag
+                | ReleasedCommand::Utseg
+                | ReleasedCommand::Translate
+                | ReleasedCommand::Coref
+                | ReleasedCommand::Compare => true,
+                ReleasedCommand::Transcribe
+                | ReleasedCommand::TranscribeS
+                | ReleasedCommand::Benchmark
+                | ReleasedCommand::Opensmile
+                | ReleasedCommand::Avqi
+                | ReleasedCommand::Diarize
+                | ReleasedCommand::Align => false,
+            };
+
+            if command_runner_dispatch_kind(command) == RunnerDispatchKind::BatchedTextInfer {
+                assert!(
+                    intercepted_by_name,
+                    "{command} declares BatchedTextInfer but the dispatch chain has no \
+                     name-matched arm for it, so it would silently take the legacy \
+                     infer_batched path"
+                );
+            }
+        }
+    }
+}
