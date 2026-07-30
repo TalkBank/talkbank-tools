@@ -14,11 +14,10 @@ use batchalign::worker::InferTask;
 /// 1. `FileProgressStage::Parsing` has NO producer anywhere in the crate. It is
 ///    declared in the API enum and referenced only by the TUI's colour map, so
 ///    the assertion could never have passed.
-/// 2. `batch_window` is parsed from `--batch-window`, stored in options and
-///    serialized, and then read by NOTHING in the execution path. The windowing
-///    it names is not part of the per-file-fanout architecture that replaced the
-///    pooled one. That is an operator-visible flag doing nothing, recorded for
-///    adjudication rather than quietly deleted here.
+/// 2. `batch_window` was parsed from `--batch-window`, stored, serialized, and
+///    read by NOTHING in the execution path: the windowing it named belonged to
+///    the cross-file pooled batching that per-file fanout replaced. The flag was
+///    DELETED on 2026-07-30 rather than left as an operator-visible no-op.
 ///
 /// What now exists, and what this asserts: per-file utterance counts published
 /// from the batch-progress ledger's per-source projection, on the ordinary

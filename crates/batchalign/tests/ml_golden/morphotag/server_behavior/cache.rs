@@ -32,7 +32,6 @@ async fn morphotag_server_multilingual_warm_cache_preserves_per_language_outputs
     let options = CommandOptions::Morphotag(MorphotagOptions {
         common: CommonOptions {
             override_media_cache: true,
-            batch_window: 0,
             ..CommonOptions::default()
         },
 
@@ -140,7 +139,6 @@ async fn morphotag_server_cantonese_retokenize_cache_isolated_from_preserve_mode
     let disabled = CommandOptions::Morphotag(MorphotagOptions {
         common: CommonOptions {
             override_media_cache: true,
-            batch_window: 0,
             ..CommonOptions::default()
         },
 
@@ -149,7 +147,6 @@ async fn morphotag_server_cantonese_retokenize_cache_isolated_from_preserve_mode
     let enabled = CommandOptions::Morphotag(MorphotagOptions {
         common: CommonOptions {
             override_media_cache: true,
-            batch_window: 0,
             ..CommonOptions::default()
         },
         retokenize: true,

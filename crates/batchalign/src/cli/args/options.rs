@@ -140,7 +140,6 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
         engine_overrides: parse_engine_overrides(&global.engine_overrides),
         debug_dir: global.debug_dir.as_deref().map(canonicalize_debug_dir),
         override_media_cache_tasks: global.override_media_cache_tasks.clone(),
-        batch_window: global.batch_window,
         ..Default::default()
     };
 

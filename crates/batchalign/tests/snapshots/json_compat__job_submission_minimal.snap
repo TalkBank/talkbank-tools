@@ -14,7 +14,6 @@ expression: sub
   "options": {
     "command": "morphotag",
     "override_media_cache": false,
-    "batch_window": 25,
     "retokenize": false,
     "skipmultilang": false,
     "merge_abbrev": false,

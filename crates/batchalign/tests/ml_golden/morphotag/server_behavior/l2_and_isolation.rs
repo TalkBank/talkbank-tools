@@ -31,7 +31,6 @@ async fn morphotag_server_no_l2_switch_controls_code_switched_words() {
             CommandOptions::Morphotag(MorphotagOptions {
                 common: CommonOptions {
                     override_media_cache: true,
-                    batch_window: 0,
                     ..CommonOptions::default()
                 },
 
@@ -53,7 +52,6 @@ async fn morphotag_server_no_l2_switch_controls_code_switched_words() {
             CommandOptions::Morphotag(MorphotagOptions {
                 common: CommonOptions {
                     override_media_cache: true,
-                    batch_window: 0,
                     ..CommonOptions::default()
                 },
                 no_l2_morphotag: true,
@@ -139,7 +137,6 @@ async fn morphotag_server_unsupported_inline_language_does_not_poison_neighbor_f
             CommandOptions::Morphotag(MorphotagOptions {
                 common: CommonOptions {
                     override_media_cache: true,
-                    batch_window: 0,
                     ..CommonOptions::default()
                 },
 
@@ -229,7 +226,6 @@ async fn morphotag_server_skipmultilang_only_skips_non_primary_utterances() {
             CommandOptions::Morphotag(MorphotagOptions {
                 common: CommonOptions {
                     override_media_cache: true,
-                    batch_window: 0,
                     ..CommonOptions::default()
                 },
                 skipmultilang: true,

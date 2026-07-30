@@ -335,6 +335,11 @@ fn file_stage_maps_onto_the_stable_api_stage_and_its_labels() {
         "Post-processing"
     );
     assert_eq!(FileStage::Aligning.api_stage(), FileProgressStage::Aligning);
+    // `Parsing` had no producer at all until 2026-07-30 (declared in the API
+    // enum, referenced only by the TUI colour map). The morphotag per-file task
+    // now opens its attempt in it.
+    assert_eq!(FileStage::Parsing.api_stage(), FileProgressStage::Parsing);
+    assert_eq!(FileStage::Parsing.api_stage().label(), "Parsing");
     assert_eq!(
         FileStage::AnalyzingMorphosyntax.api_stage(),
         FileProgressStage::AnalyzingMorphosyntax

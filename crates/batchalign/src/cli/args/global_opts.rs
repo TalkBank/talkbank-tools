@@ -64,12 +64,6 @@ pub struct GlobalOpts {
     #[arg(long, global = true)]
     pub override_media_cache: bool,
 
-    /// Number of files per batch window for text NLP commands (morphotag,
-    /// utseg, translate, coref). Smaller windows show progress sooner;
-    /// larger windows batch more efficiently. Default: 25.
-    #[arg(long, global = true, default_value_t = 25)]
-    pub batch_window: usize,
-
     /// Use full-screen TUI dashboard instead of progress bars (default for
     /// interactive terminals). Pass --no-tui to use simple progress bars.
     #[arg(long, action = ArgAction::SetTrue, default_value_t = true, global = true)]

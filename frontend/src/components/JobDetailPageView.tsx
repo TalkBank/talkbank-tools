@@ -82,7 +82,6 @@ const OPTION_LABELS: Record<string, string> = {
   wor: "Wor tier",
   merge_abbrev: "Merge abbreviations",
   batch_size: "Batch size",
-  batch_window: "Batch window",
   feature_set: "Feature set",
   text_cache: "Text cache",
   override_media_cache: "Override media cache",
@@ -149,7 +148,6 @@ function CommandOptionsPanel({ options }: { options: unknown }) {
     // Skip false booleans, zero-like defaults, and empty strings for cleaner display
     if (val === false || val === "" || val === null || val === undefined) continue;
     // Skip default-ish values that clutter the display
-    if (key === "batch_window" && val === 25) continue;
     if (key === "batch_size" && val === 8) continue;
 
     const label = OPTION_LABELS[key] ?? key.replace(/_/g, " ");

@@ -1,7 +1,7 @@
 # Processing Provenance
 
 **Status:** Current
-**Last updated:** 2026-05-11 11:40 EDT
+**Last updated:** 2026-07-30 07:34 EDT
 
 ## What is provenance?
 
@@ -147,7 +147,6 @@ with open('file.cha') as f:
 Runtime options that don't affect output are omitted:
 - `--workers` (concurrency)
 - `--timeout` (inference timeout)
-- `--batch-window` (batching)
 - `--server` (where processing happened)
 - `--verbose` (logging)
 - `--tui` / `--no-tui` (display)

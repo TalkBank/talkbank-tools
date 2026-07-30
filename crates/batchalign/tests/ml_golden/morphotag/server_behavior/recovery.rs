@@ -50,7 +50,6 @@ async fn morphotag_server_missing_language_group_only_fails_affected_file() {
                 CommandOptions::Morphotag(MorphotagOptions {
                     common: CommonOptions {
                         override_media_cache: true,
-                        batch_window: 0,
                         ..CommonOptions::default()
                     },
 
@@ -146,7 +145,6 @@ async fn morphotag_server_restart_preserves_successful_neighbors_after_language_
                 CommandOptions::Morphotag(MorphotagOptions {
                     common: CommonOptions {
                         override_media_cache: true,
-                        batch_window: 0,
                         ..CommonOptions::default()
                     },
 

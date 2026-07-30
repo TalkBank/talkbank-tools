@@ -18,6 +18,12 @@ pub(crate) enum FileStage {
     Processing,
     /// Initial file read/setup work.
     Reading,
+    /// Parsing a CHAT file before any inference is dispatched.
+    ///
+    /// Distinct from [`Self::Reading`], which is getting the bytes: this is
+    /// building the typed document from them, which on a large transcript is
+    /// real work an operator can otherwise only see as a gap.
+    Parsing,
     /// Media discovery or normalization.
     ResolvingAudio,
     /// Utterance-level timing recovery before alignment.
@@ -64,6 +70,7 @@ impl FileStage {
         match self {
             Self::Processing => FileProgressStage::Processing,
             Self::Reading => FileProgressStage::Reading,
+            Self::Parsing => FileProgressStage::Parsing,
             Self::ResolvingAudio => FileProgressStage::ResolvingAudio,
             Self::RecoveringUtteranceTiming => FileProgressStage::RecoveringUtteranceTiming,
             Self::RecoveringTimingFallback => FileProgressStage::RecoveringTimingFallback,

@@ -216,7 +216,6 @@ mod tests {
             override_media_cache_tasks: Vec::new(),
             engine_overrides: None,
             timeout: None,
-            batch_window: 25,
             sequential: false,
             memory_tier: None,
         }

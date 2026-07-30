@@ -101,7 +101,7 @@ pub(crate) async fn dispatch_morphotag_job(
         joinset.spawn(async move {
             let _permit = permit;
 
-            // Mark this file Analyzing only AFTER its semaphore permit is
+            // Open this file's attempt only AFTER its semaphore permit is
             // held: i.e. exactly when a worker slot is actually busy with
             // this file. The previous version of this loop pre-marked every
             // pending file as `processing` upfront, which made `file_statuses`
@@ -118,8 +118,14 @@ pub(crate) async fn dispatch_morphotag_job(
                 &job_id_for_task,
                 file_input.filename.as_ref(),
             );
+            // Parsing is the file's first real work, so it is the stage the
+            // attempt opens in. `FileProgressStage::Parsing` existed in the API
+            // enum with no producer anywhere until 2026-07-30; reporting it here
+            // makes the declared stage true rather than deleting it, since a
+            // large file's parse is not instant and it is genuinely a phase
+            // distinct from the inference that follows.
             lifecycle
-                .begin_first_attempt(WorkUnitKind::BatchInfer, unix_now(), FileStage::Analyzing)
+                .begin_first_attempt(WorkUnitKind::BatchInfer, unix_now(), FileStage::Parsing)
                 .await;
 
             // Resolve language per-file from the CHAT file's own
@@ -153,6 +159,10 @@ pub(crate) async fn dispatch_morphotag_job(
                     return;
                 }
             };
+
+            // Parse done, language resolved: the file is now in inference, which
+            // is the stage its utterance counts are published under.
+            lifecycle.stage(FileStage::Analyzing).await;
 
             let result = gateway_for_task
                 .morphotag_single(

@@ -33,10 +33,6 @@ pub use super::params::{MergeAbbrevPolicy, UtsegFallbackPolicy, WorTierPolicy};
 // Default helpers
 // ---------------------------------------------------------------------------
 
-fn default_batch_window() -> usize {
-    25
-}
-
 /// Default forced-alignment engine for serialized command options.
 ///
 /// Whisper, not Wave2Vec (changed 2026-07-01). Wave2Vec's CTC decoder has a
@@ -131,13 +127,13 @@ pub struct CommonOptions {
     /// When non-empty, only the listed tasks skip cache; others use cache normally.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub override_media_cache_tasks: Vec<String>,
-
-    /// Number of files per batch window for text NLP commands.
-    /// Smaller windows show progress sooner; larger windows batch more
-    /// efficiently (Stanza batching is 7.4x faster than per-sentence).
-    /// Default: 25. Set to 0 for all-in-one (no windowing).
-    #[serde(default = "default_batch_window")]
-    pub batch_window: usize,
+    // `batch_window` used to live here (removed 2026-07-30). It was parsed from
+    // `--batch-window`, stored, serialized and read by NOTHING in the execution
+    // path: its help text promised "smaller windows show progress sooner", which
+    // was untrue at every setting. The windowing it named belonged to the
+    // cross-file pooled batching that per-file fanout replaced. There is no
+    // `deny_unknown_fields` here, so a client still sending the field is
+    // ignored rather than rejected.
 }
 
 impl CommonOptions {
@@ -165,7 +161,6 @@ impl Default for CommonOptions {
             mwt: BTreeMap::new(),
             debug_dir: None,
             override_media_cache_tasks: Vec::new(),
-            batch_window: default_batch_window(),
         }
     }
 }

@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-05-27 12:00 EDT
+**Last updated:** 2026-07-30 07:34 EDT
 
 This page documents the current public `batchalign3` CLI surface. For anything
 you are scripting against, confirm with `batchalign3 <command> --help`.
@@ -27,7 +27,6 @@ Global options go before the command name.
 | `--server URL` | Remote server URL. Env fallback: `BATCHALIGN_SERVER` |
 | `--override-media-cache` | Bypass the media analysis cache (audio tasks only; text NLP tasks are not cached at all) |
 | `--override-media-cache-tasks TASKS` | Bypass cache only for specific audio tasks (comma-separated: `forced_alignment`, `utr_asr`) |
-| `--batch-window N` | Files per batch window for text NLP commands (default: 25) |
 | `--debug-dir PATH` | Directory for pipeline debug artifacts (CHAT/JSON fixtures for offline replay). Env fallback: `BATCHALIGN_DEBUG_DIR` |
 | `--memory-tier {small,medium,large,fleet}` | Override the auto-detected memory tier (forces worker bootstrap and memory budgets for that tier regardless of actual system RAM) |
 | `--timeout SECONDS` | Inference timeout for audio tasks (default: 1800 = 30 min) |

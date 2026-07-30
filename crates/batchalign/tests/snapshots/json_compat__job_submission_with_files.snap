@@ -19,7 +19,6 @@ expression: sub
   "options": {
     "command": "align",
     "override_media_cache": false,
-    "batch_window": 25,
     "fa_engine": "wav2vec_fa",
     "utr_overlap_strategy": "auto",
     "utr_two_pass": {
