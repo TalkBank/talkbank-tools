@@ -148,21 +148,27 @@ def test_batch_infer_morphosyntax_groups_by_language_and_uses_lock(monkeypatch) 
     lock = _RecordingLock()
     eng_ctx = SimpleNamespace(original_words=[])
     fra_ctx = SimpleNamespace(original_words=[])
+    # Stanza is given the terminator, so it returns a word for it; these
+    # fakes therefore return N+1 words, and the assertions below expect the
+    # terminator to have been dropped again on the way out.
     eng_nlp = _RecordingNlp(
         eng_ctx,
-        [_raw_sentence(["hello", "world"]), _raw_sentence(["goodbye", "moon"])],
+        [
+            _raw_sentence(["hello", "world", "."]),
+            _raw_sentence(["goodbye", "moon", "."]),
+        ],
     )
-    fra_nlp = _RecordingNlp(fra_ctx, [_raw_sentence(["salut"])])
+    fra_nlp = _RecordingNlp(fra_ctx, [_raw_sentence(["salut", "."])])
 
     response = batch_infer_morphosyntax(
         BatchInferRequest(
             task="morphosyntax",
             lang="eng",
             items=[
-                {"words": ["hello", "world"]},
-                {"words": ["goodbye", "moon"]},
-                {"words": ["salut"], "lang": "fra"},
-                {"words": []},
+                {"words": ["hello", "world"], "terminator": "."},
+                {"words": ["goodbye", "moon"], "terminator": "."},
+                {"words": ["salut"], "terminator": ".", "lang": "fra"},
+                {"words": [], "terminator": "."},
                 {"bad": "shape"},
             ],
         ),
@@ -186,30 +192,10 @@ def test_batch_infer_morphosyntax_groups_by_language_and_uses_lock(monkeypatch) 
     assert response.results[0].elapsed_s == 3.5
     assert response.results[1].result == {"raw_sentences": [_raw_sentence(["goodbye", "moon"])]}
     assert response.results[2].result == {"raw_sentences": [_raw_sentence(["salut"])]}
+    # Each of the three above asserts the CHAT words only: the terminator the
+    # fakes returned is gone, which is the contract.
     assert response.results[3].result == {"sentences": []}
     assert response.results[4].error == "Invalid batch item"
-
-
-def test_batch_infer_morphosyntax_preserves_legacy_terminal_word() -> None:
-    """A legacy payload that includes its terminator must not duplicate it."""
-
-    lock = _RecordingLock()
-    ctx = SimpleNamespace(original_words=[])
-    nlp = _RecordingNlp(ctx, [_raw_sentence(["hello", "."])])
-
-    batch_infer_morphosyntax(
-        BatchInferRequest(
-            task="morphosyntax",
-            lang="eng",
-            items=[{"words": ["hello", "."]}],
-        ),
-        {"eng": nlp},
-        {"eng": ctx},
-        lock,
-        free_threaded=False,
-    )
-
-    assert nlp.calls == [("hello .", [["hello", "."]])]
 
 
 def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure(monkeypatch) -> None:
@@ -233,7 +219,7 @@ def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure
         BatchInferRequest(
             task="morphosyntax",
             lang="eng",
-            items=[{"words": ["salut", "toi"], "lang": "fra"}],
+            items=[{"words": ["salut", "toi"], "terminator": ".", "lang": "fra"}],
         ),
         {"fra": fra_nlp},
         {"eng": fallback_ctx},
@@ -269,9 +255,9 @@ def test_batch_infer_morphosyntax_leaves_defaults_for_missing_pipelines_and_mism
             task="morphosyntax",
             lang="eng",
             items=[
-                {"words": ["no", "pipeline"], "lang": "spa"},
-                {"words": ["hello", "world"]},
-                {"words": ["goodbye", "moon"]},
+                {"words": ["no", "pipeline"], "terminator": ".", "lang": "spa"},
+                {"words": ["hello", "world"], "terminator": "."},
+                {"words": ["goodbye", "moon"], "terminator": "."},
             ],
         ),
         {"eng": mismatch_nlp},
@@ -304,7 +290,7 @@ def test_batch_infer_morphosyntax_returns_early_when_no_nonempty_items(monkeypat
         BatchInferRequest(
             task="morphosyntax",
             lang="eng",
-            items=[{"words": []}, {"bad": "shape"}],
+            items=[{"words": [], "terminator": "."}, {"bad": "shape"}],
         ),
         {},
         {},
@@ -350,7 +336,7 @@ def test_batch_infer_morphosyntax_normalizes_deprels_on_the_production_path() ->
         BatchInferRequest(
             task="morphosyntax",
             lang="ita",
-            items=[{"words": ["attenzione"]}],
+            items=[{"words": ["attenzione"], "terminator": "."}],
         ),
         {"ita": nlp},
         {"ita": ctx},
@@ -365,3 +351,77 @@ def test_batch_infer_morphosyntax_normalizes_deprels_on_the_production_path() ->
         "the production path is not validating Stanza output"
     )
     assert deprels[1] == "iobj", f"expected iob normalized to iobj, got {deprels!r}"
+
+
+# ---------------------------------------------------------------------------
+# The terminator is a parsing cue for Stanza, never data
+# ---------------------------------------------------------------------------
+
+
+def _run_eng(
+    items: list[dict[str, Any]], sentences: list[list[dict[str, Any]]]
+) -> tuple[Any, _RecordingNlp]:
+    """Run one English batch through the boundary and hand back both sides."""
+    ctx = SimpleNamespace(original_words=[])
+    nlp = _RecordingNlp(ctx, sentences)
+    response = batch_infer_morphosyntax(
+        BatchInferRequest(task="morphosyntax", lang="eng", items=items),
+        {"eng": nlp},
+        {"eng": ctx},
+        _RecordingLock(),
+        free_threaded=False,
+    )
+    return response, nlp
+
+
+def test_batch_item_without_a_terminator_is_invalid() -> None:
+    """A missing terminator is a caller bug, not a period.
+
+    Rust always sends one, typed, and serializes it to its CHAT surface form
+    at the IPC boundary. A `"."` default here is a sentinel that is also a
+    legal value: it turns "the caller forgot" into "the utterance ended in a
+    period", which is indistinguishable downstream and changes what Stanza is
+    told about the sentence.
+    """
+    response, nlp = _run_eng([{"words": ["hello"]}], [_raw_sentence(["hello"])])
+
+    assert response.results[0].error == "Invalid batch item"
+    assert nlp.calls == [], "an invalid item must not reach Stanza"
+
+
+def test_words_ending_in_the_terminator_are_rejected_not_silently_deduped() -> None:
+    """The terminator is not a main-tier word, so `words` must not contain it.
+
+    Silently dropping the duplicate hides a caller that has confused the two,
+    and the two are exactly what this boundary exists to keep apart. Signal
+    the unexpected pathway instead.
+    """
+    response, nlp = _run_eng(
+        [{"words": ["hello", "."], "terminator": "."}], [_raw_sentence(["hello"])]
+    )
+
+    assert response.results[0].error == "Invalid batch item"
+    assert nlp.calls == [], "a contract violation must not reach Stanza"
+
+
+def test_terminator_word_is_stripped_by_position_not_by_recognition() -> None:
+    """The cue Stanza was given must not come back as a `%mor` item.
+
+    It is removed BY CONSTRUCTION: we appended exactly one boundary, so its UD
+    word is the last one, and no inspection of what Stanza made of it is
+    needed or wanted. This fixture returns the terminator tagged NOUN rather
+    than PUNCT precisely so that a recognition-based filter would miss it and
+    this test would fail.
+    """
+    response, nlp = _run_eng(
+        [{"words": ["hello"], "terminator": "."}], [_raw_sentence(["hello", "."])]
+    )
+
+    assert nlp.calls == [("hello .", [["hello", "."]])], (
+        "Stanza must still SEE the terminator: it is the evidence the model "
+        "uses for sentence-final analysis."
+    )
+    returned = response.results[0].result["raw_sentences"][0]
+    assert [w["text"] for w in returned] == ["hello"], (
+        "the terminator must not survive into the payload Rust maps to %mor"
+    )

@@ -357,13 +357,16 @@ jobs:
       - name: Server startup smoke test
         # Uses build-cli's release binary instead of doing a debug
         # rebuild in-job. The smoke test exercises the server's
-        # startup path with --test-echo + --warmup off; release vs
-        # debug binary makes no behavioral difference to that path.
+        # startup path with --test-echo; release vs debug binary makes
+        # no behavioral difference to that path.
+        #
+        # `--warmup off` was dropped when startup warmup was retired: the
+        # flag no longer exists and the server refuses to start with it.
         env:
           BATCHALIGN_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
           ./target/release/batchalign3 serve start \
-            --foreground --test-echo --warmup off --port 18123 &
+            --foreground --test-echo --port 18123 &
           SERVER_PID=$!
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:18123/health | grep -q '"status":"ok"'; then

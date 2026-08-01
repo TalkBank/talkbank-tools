@@ -4,10 +4,7 @@
 //! CHAT-specific planning seam lives here: contiguous span grouping,
 //! provenance-preserving word extraction, and host attachment planning.
 
-use std::collections::HashMap;
-
-use talkbank_model::alignment::helpers::TierDomain;
-use talkbank_model::model::{ChatFile, LanguageCode, Line};
+use talkbank_model::model::LanguageCode;
 
 use super::deprel::UdDeprel;
 use super::extract::L2DeferredPosition;
@@ -133,6 +130,11 @@ pub struct L2SpanPlan {
     pub words: Vec<talkbank_model::ChatCleanedText>,
     /// Explicit host-attachment plan for the span's secondary root.
     pub attachment: L2Attachment,
+    /// Terminator of the utterance this span came from.
+    ///
+    /// An INPUT to the secondary Stanza model, which changes its analysis
+    /// when sentence-final punctuation is absent or wrong.
+    pub terminator: talkbank_model::Terminator,
 }
 
 /// Full secondary-dispatch plan for one utterance batch.
@@ -203,6 +205,7 @@ fn push_planned_span(
     target_lang: LanguageCode,
     deferred_indices: Vec<usize>,
     words: Vec<talkbank_model::ChatCleanedText>,
+    terminator: talkbank_model::Terminator,
 ) {
     if deferred_indices.is_empty() {
         return;
@@ -214,74 +217,30 @@ fn push_planned_span(
         line_idx,
         target_lang,
         words,
+        terminator,
     });
 }
 
-/// Pre-extract word texts for all deferred positions, walking each utterance at
-/// most once.
-pub fn build_l2_word_text_cache(
-    chat_file: &ChatFile,
-    deferred: &[L2DeferredPosition],
-) -> HashMap<(usize, usize), talkbank_model::ChatCleanedText> {
-    let mut lines_needed: HashMap<usize, Vec<usize>> = HashMap::new();
-    for def in deferred {
-        lines_needed
-            .entry(def.line_idx)
-            .or_default()
-            .push(def.word_idx);
-    }
-
-    let mut cache: HashMap<(usize, usize), talkbank_model::ChatCleanedText> = HashMap::new();
-    for (line_idx, word_indices) in &lines_needed {
-        let utt = match &chat_file.lines[*line_idx] {
-            Line::Utterance(u) => u,
-            _ => continue,
-        };
-        let mut words = Vec::new();
-        crate::extract::collect_utterance_content(
-            &utt.main.content.content,
-            TierDomain::Mor,
-            &mut words,
-        );
-        for &widx in word_indices {
-            if let Some(w) = words.get(widx) {
-                cache.insert((*line_idx, widx), w.text.clone());
-            }
-        }
-    }
-    cache
-}
-
-/// Plan contiguous secondary-dispatch spans from deferred positions and a
-/// pre-extracted word cache.
-pub fn plan_dispatch_spans(
-    deferred: &[L2DeferredPosition],
-    word_cache: &HashMap<(usize, usize), talkbank_model::ChatCleanedText>,
-) -> L2DispatchPlan {
+/// Plan contiguous secondary-dispatch spans from deferred positions.
+///
+/// Everything a span needs travels on the positions themselves, so there is
+/// no second derivation to keep in step and no lookup that can miss.
+pub fn plan_dispatch_spans(deferred: &[L2DeferredPosition]) -> L2DispatchPlan {
     let mut spans = Vec::new();
     let mut current_indices = Vec::new();
     let mut current_words = Vec::new();
-    let mut current_line_idx = None;
+    let mut current_line: Option<(usize, talkbank_model::Terminator)> = None;
     let mut current_lang: Option<LanguageCode> = None;
     let mut previous_word_idx = None;
 
     for (global_idx, def) in deferred.iter().enumerate() {
-        let Some(word_text) = word_cache.get(&(def.line_idx, def.word_idx)).cloned() else {
-            tracing::warn!(
-                line_idx = def.line_idx,
-                word_idx = def.word_idx,
-                "L2 dispatch plan: word_cache miss; skipping deferred position"
-            );
-            continue;
-        };
-
-        let extends = current_line_idx == Some(def.line_idx)
+        let extends = current_line.as_ref().map(|(idx, _)| *idx) == Some(def.line_idx)
             && current_lang.as_ref() == Some(&def.target_lang)
             && previous_word_idx.is_some_and(|prev| prev + 1 == def.word_idx);
 
         if !extends {
-            if let (Some(line_idx), Some(target_lang)) =
-                (current_line_idx.take(), current_lang.take())
+            if let (Some((line_idx, line_terminator)), Some(target_lang)) =
+                (current_line.take(), current_lang.take())
             {
                 push_planned_span(
                     &mut spans,
@@ -290,18 +249,19 @@ pub fn plan_dispatch_spans(
                     target_lang,
                     std::mem::take(&mut current_indices),
                     std::mem::take(&mut current_words),
+                    line_terminator,
                 );
             }
-            current_line_idx = Some(def.line_idx);
+            current_line = Some((def.line_idx, def.terminator.clone()));
             current_lang = Some(def.target_lang.clone());
         }
 
         current_indices.push(global_idx);
-        current_words.push(word_text);
+        current_words.push(def.word.clone());
         previous_word_idx = Some(def.word_idx);
     }
 
-    if let (Some(line_idx), Some(target_lang)) = (current_line_idx, current_lang) {
+    if let (Some((line_idx, line_terminator)), Some(target_lang)) = (current_line, current_lang) {
         push_planned_span(
             &mut spans,
             deferred,
@@ -309,19 +269,11 @@ pub fn plan_dispatch_spans(
             target_lang,
             current_indices,
             current_words,
+            line_terminator,
         );
     }
 
     L2DispatchPlan { spans }
-}
-
-/// Build the full secondary-dispatch plan directly from a `ChatFile`.
-pub fn plan_secondary_dispatch(
-    chat_file: &ChatFile,
-    deferred: &[L2DeferredPosition],
-) -> L2DispatchPlan {
-    let word_cache = build_l2_word_text_cache(chat_file, deferred);
-    plan_dispatch_spans(deferred, &word_cache)
 }
 
 #[cfg(test)]
@@ -336,11 +288,16 @@ mod tests {
         lang: &str,
         deprel: &str,
         head: usize,
+        word: &str,
     ) -> L2DeferredPosition {
         L2DeferredPosition {
             line_idx,
             word_idx,
             target_lang: LanguageCode::new(lang).expect("valid test language code"),
+            word: talkbank_model::ChatCleanedText::test_unchecked(word),
+            terminator: talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
             primary: PrimaryStructuralInfo {
                 deprel: UdDeprel::new(deprel),
                 upos: Some(UniversalPos::Noun),
@@ -351,29 +308,14 @@ mod tests {
         }
     }
 
-    fn make_word_cache(
-        specs: &[(usize, usize, &str)],
-    ) -> HashMap<(usize, usize), talkbank_model::ChatCleanedText> {
-        specs
-            .iter()
-            .map(|(line_idx, word_idx, word)| {
-                (
-                    (*line_idx, *word_idx),
-                    talkbank_model::ChatCleanedText::test_unchecked(*word),
-                )
-            })
-            .collect()
-    }
-
     #[test]
     fn plan_dispatch_spans_tracks_external_attachment_for_contiguous_span() {
         let deferred = vec![
-            make_deferred(5, 1, "spa", "obj", 1),
-            make_deferred(5, 2, "spa", "obl", 1),
+            make_deferred(5, 1, "spa", "obj", 1, "los"),
+            make_deferred(5, 2, "spa", "obl", 1, "ninos"),
         ];
-        let cache = make_word_cache(&[(5, 1, "los"), (5, 2, "ninos")]);
 
-        let plan = plan_dispatch_spans(&deferred, &cache);
+        let plan = plan_dispatch_spans(&deferred);
         assert_eq!(plan.spans.len(), 1);
         assert_eq!(plan.spans[0].deferred_indices, vec![0, 1]);
         assert_eq!(plan.spans[0].line_idx, 5);
@@ -393,12 +335,11 @@ mod tests {
     #[test]
     fn plan_dispatch_spans_separates_noncontiguous_same_language_words() {
         let deferred = vec![
-            make_deferred(5, 1, "spa", "obj", 1),
-            make_deferred(5, 3, "spa", "obl", 1),
+            make_deferred(5, 1, "spa", "obj", 1, "uno"),
+            make_deferred(5, 3, "spa", "obl", 1, "dos"),
         ];
-        let cache = make_word_cache(&[(5, 1, "uno"), (5, 3, "dos")]);
 
-        let plan = plan_dispatch_spans(&deferred, &cache);
+        let plan = plan_dispatch_spans(&deferred);
         assert_eq!(plan.spans.len(), 2);
         assert_eq!(plan.spans[0].deferred_indices, vec![0]);
         assert_eq!(plan.spans[1].deferred_indices, vec![1]);
@@ -407,12 +348,11 @@ mod tests {
     #[test]
     fn plan_dispatch_spans_prefers_real_host_attachment_over_earlier_primary_root_noise() {
         let deferred = vec![
-            make_deferred(5, 1, "spa", "root", 0),
-            make_deferred(5, 2, "spa", "obj", 6),
+            make_deferred(5, 1, "spa", "root", 0, "uno"),
+            make_deferred(5, 2, "spa", "obj", 6, "dos"),
         ];
-        let cache = make_word_cache(&[(5, 1, "uno"), (5, 2, "dos")]);
 
-        let plan = plan_dispatch_spans(&deferred, &cache);
+        let plan = plan_dispatch_spans(&deferred);
         assert_eq!(plan.spans.len(), 1);
         assert_eq!(plan.spans[0].deferred_indices, vec![0, 1]);
         assert_eq!(
@@ -433,12 +373,11 @@ mod tests {
     #[test]
     fn plan_dispatch_spans_preserves_utterance_root_when_no_host_governor_exists() {
         let deferred = vec![
-            make_deferred(5, 1, "spa", "dep", 2),
-            make_deferred(5, 2, "spa", "root", 0),
+            make_deferred(5, 1, "spa", "dep", 2, "uno"),
+            make_deferred(5, 2, "spa", "root", 0, "dos"),
         ];
-        let cache = make_word_cache(&[(5, 1, "uno"), (5, 2, "dos")]);
 
-        let plan = plan_dispatch_spans(&deferred, &cache);
+        let plan = plan_dispatch_spans(&deferred);
         assert_eq!(plan.spans.len(), 1);
         assert_eq!(plan.spans[0].deferred_indices, vec![0, 1]);
         assert!(plan.spans[0].attachment.is_external_root());
@@ -496,10 +435,9 @@ mod tests {
         // Single L2 word; primary parse marked it head=0 (utterance
         // root) but with deprel="det", exactly the shape that produces
         // the wild `head=0/deprel=DET` pattern at sastre03.cha:843.
-        let deferred = vec![make_deferred(5, 1, "spa", "det", 0)];
-        let cache = make_word_cache(&[(5, 1, "el")]);
+        let deferred = vec![make_deferred(5, 1, "spa", "det", 0, "el")];
 
-        let plan = plan_dispatch_spans(&deferred, &cache);
+        let plan = plan_dispatch_spans(&deferred);
         assert_eq!(plan.spans.len(), 1);
 
         let attachment = &plan.spans[0].attachment;
@@ -531,10 +469,9 @@ mod tests {
     /// EXPECTED on current build: FAILS for the same reason as -1.
     #[test]
     fn family_b_planner_utterance_root_attachment_rejects_nmod_deprel_propagation() {
-        let deferred = vec![make_deferred(5, 1, "spa", "nmod", 0)];
-        let cache = make_word_cache(&[(5, 1, "camino")]);
+        let deferred = vec![make_deferred(5, 1, "spa", "nmod", 0, "camino")];
 
-        let plan = plan_dispatch_spans(&deferred, &cache);
+        let plan = plan_dispatch_spans(&deferred);
         let attachment = &plan.spans[0].attachment;
 
         assert!(attachment.uses_utterance_root_anchor());
@@ -554,10 +491,9 @@ mod tests {
     /// over-correct.
     #[test]
     fn family_b_planner_utterance_root_with_root_primary_deprel_stays_root() {
-        let deferred = vec![make_deferred(5, 1, "spa", "root", 0)];
-        let cache = make_word_cache(&[(5, 1, "camino")]);
+        let deferred = vec![make_deferred(5, 1, "spa", "root", 0, "camino")];
 
-        let plan = plan_dispatch_spans(&deferred, &cache);
+        let plan = plan_dispatch_spans(&deferred);
         let attachment = &plan.spans[0].attachment;
 
         assert!(attachment.uses_utterance_root_anchor());
@@ -567,6 +503,29 @@ mod tests {
             "GREEN baseline: when primary deprel is already \"root\", \
              host_deprel stays \"root\". Got {:?}.",
             host_deprel.as_str()
+        );
+    }
+
+    /// A planned span carries the terminator of the positions it groups.
+    ///
+    /// The utterance-level source of that terminator is tested where it
+    /// enters, in `extract`; here it only has to survive grouping.
+    #[test]
+    fn planned_span_carries_the_positions_terminator() {
+        let mut def = make_deferred(5, 1, "spa", "obj", 1, "camino");
+        def.terminator = talkbank_model::Terminator::Question {
+            span: talkbank_model::Span::DUMMY,
+        };
+
+        let plan = plan_dispatch_spans(&[def]);
+
+        assert!(
+            matches!(
+                plan.spans[0].terminator,
+                talkbank_model::Terminator::Question { .. }
+            ),
+            "grouping must not substitute a period; got {:?}",
+            plan.spans[0].terminator
         );
     }
 }

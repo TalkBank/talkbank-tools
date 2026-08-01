@@ -54,6 +54,35 @@ pub struct MorphosyntaxBatchItem {
     pub lang: talkbank_model::model::LanguageCode,
 }
 
+/// The terminator to hand Stanza for `utt`.
+///
+/// The terminator is an INPUT to the model, not decoration: Stanza's models
+/// are trained on sentences that end in punctuation and change their analysis
+/// without one. The Italian model reads `dammela` as an ADJ and declines to
+/// MWT-expand it when the terminator is missing, and produces the correct
+/// `dare` + me + la when it is present.
+///
+/// CA-mode utterances may legitimately lack a main-tier terminator, and Stanza
+/// needs a sentence-final signal regardless, so a Period is synthesized for
+/// that case only. That matches the BA2 default. It is NOT a sentinel: it is
+/// the canonical Stanza-input default explicitly chosen for the ambiguous
+/// case, not a stand-in for a parse failure.
+///
+/// One owner, deliberately. The secondary L2 dispatch path needs exactly this
+/// answer, and when it had no way to ask for it, it hardcoded a Period for
+/// every span instead, which told Stanza that every question was a statement.
+pub(crate) fn stanza_input_terminator(
+    utt: &talkbank_model::model::Utterance,
+) -> talkbank_model::Terminator {
+    utt.main
+        .content
+        .terminator
+        .clone()
+        .unwrap_or(talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        })
+}
+
 fn serialize_terminator_as_chat_str<S: serde::Serializer>(
     term: &talkbank_model::Terminator,
     serializer: S,
@@ -187,18 +216,7 @@ pub fn collect_payloads(
             );
 
             if !words.is_empty() {
-                // CA-mode utterances may legitimately lack a main-tier
-                // terminator. Stanza needs a sentence-final tagging
-                // signal regardless, so synthesize Period, matches the
-                // BA2 default. This is not a sentinel: it is the canonical
-                // Stanza-input default explicitly chosen for the
-                // ambiguous case, not a stand-in for a parse failure.
-                let terminator_typed: talkbank_model::Terminator =
-                    utt.main.content.terminator.clone().unwrap_or(
-                        talkbank_model::Terminator::Period {
-                            span: talkbank_model::Span::DUMMY,
-                        },
-                    );
+                let terminator_typed = stanza_input_terminator(utt);
 
                 // Resolution must use the same language as dispatch.
                 // Pre-2026-05-02 this had a separate `or(Some(primary_lang))`

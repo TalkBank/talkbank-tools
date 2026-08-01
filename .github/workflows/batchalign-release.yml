@@ -225,11 +225,13 @@ jobs:
           mkdir -p "$BATCHALIGN_STATE_DIR"
           trap 'batchalign3 serve stop || true' EXIT
 
+          # `--warmup off` was dropped when startup warmup was retired;
+          # the flag no longer exists and the server refuses to start
+          # with it.
           batchalign3 serve start \
             --host 127.0.0.1 \
             --port 18080 \
-            --test-echo \
-            --warmup off
+            --test-echo
 
           batchalign3 serve status --server http://127.0.0.1:18080
 

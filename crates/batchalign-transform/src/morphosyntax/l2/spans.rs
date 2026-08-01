@@ -4,13 +4,8 @@
 //! preserving within-span context for Stanza (e.g., "los niños" stays
 //! together rather than being sent as two isolated words).
 
-use std::collections::HashMap;
-
 use talkbank_model::model::LanguageCode;
 use talkbank_model::validation::LanguageResolution;
-
-use super::extract::L2DeferredPosition;
-use super::plan::plan_dispatch_spans;
 
 /// A contiguous span of @s words sharing the same target language.
 ///
@@ -25,20 +20,6 @@ pub struct L2Span {
     /// provenance-sealed `ChatCleanedText` derived from the upstream
     /// typed AST.
     pub words: Vec<talkbank_model::ChatCleanedText>,
-}
-
-/// A contiguous span of @s words ready for secondary dispatch, with
-/// provenance tracking back to the deferred position array.
-#[derive(Debug, Clone)]
-pub struct DispatchSpan {
-    /// Global indices into the `L2DeferredPosition` array.
-    pub global_indices: Vec<usize>,
-    /// Word texts for this span (sent as one sentence to Stanza). Each
-    /// is a provenance-sealed `ChatCleanedText` derived from the
-    /// upstream typed AST.
-    pub words: Vec<talkbank_model::ChatCleanedText>,
-    /// Target language for dispatch.
-    pub target_lang: LanguageCode,
 }
 
 /// Resolve the dispatch target language from a `LanguageResolution`.
@@ -95,27 +76,4 @@ pub fn group_l2_spans(
     }
 
     spans
-}
-
-/// Group deferred positions into per-utterance contiguous spans for dispatch.
-///
-/// Within each utterance, consecutive @s words with the same target language
-/// are merged into a single span. Each span becomes one sentence in the
-/// secondary Stanza batch.
-///
-/// `word_cache` provides word texts keyed by `(line_idx, word_idx)`,
-/// pre-extracted from the ChatFile.
-pub fn group_deferred_into_dispatch_spans(
-    deferred: &[L2DeferredPosition],
-    word_cache: &HashMap<(usize, usize), talkbank_model::ChatCleanedText>,
-) -> Vec<DispatchSpan> {
-    plan_dispatch_spans(deferred, word_cache)
-        .spans
-        .into_iter()
-        .map(|span| DispatchSpan {
-            global_indices: span.deferred_indices,
-            words: span.words,
-            target_lang: span.target_lang,
-        })
-        .collect()
 }

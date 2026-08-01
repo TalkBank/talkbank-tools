@@ -51,6 +51,20 @@ pub struct L2DeferredPosition {
     pub target_lang: LanguageCode,
     /// Structural info from the primary model.
     pub primary: PrimaryStructuralInfo,
+    /// The provenance-sealed text to send to the secondary model.
+    ///
+    /// Carried rather than looked up later. `word_idx` indexes the batch
+    /// item's `special_forms`, which is built by mapping over the SAME
+    /// extracted words as `MorphosyntaxBatchItem::words`, so the text is in
+    /// hand at the moment the position is created. Re-deriving it downstream
+    /// meant a second walk of the `ChatFile` whose agreement with this one
+    /// nothing enforced.
+    pub word: talkbank_model::ChatCleanedText,
+    /// Terminator of the utterance this position sits in.
+    ///
+    /// An INPUT to the secondary Stanza model, which changes its analysis
+    /// when sentence-final punctuation is absent or wrong.
+    pub terminator: talkbank_model::Terminator,
 }
 
 /// Resolve the dispatch target language from a `LanguageResolution`.
@@ -124,7 +138,19 @@ pub fn extract_l2_deferred_positions(
                 .map(|w| UdDeprel::new(&w.deprel))
                 .collect();
 
+            let Some(word) = item.words.get(word_idx).cloned() else {
+                tracing::warn!(
+                    line_idx,
+                    word_idx,
+                    "L2 extract: special_forms index has no matching word; \
+                     skipping deferred position"
+                );
+                continue;
+            };
+
             deferred.push(L2DeferredPosition {
+                word,
+                terminator: item.terminator.clone(),
                 line_idx: *line_idx,
                 word_idx,
                 target_lang,
@@ -140,4 +166,69 @@ pub fn extract_l2_deferred_positions(
     }
 
     deferred
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::morphosyntax::payload::collect_payloads;
+    use crate::morphosyntax::tests::{one_utterance_in, parse_chat};
+    use crate::morphosyntax::types::MultilingualPolicy;
+    use crate::morphosyntax::{UdResponse, UdSentence};
+
+    /// A deferred position carries the word and the terminator of the
+    /// utterance it came from.
+    ///
+    /// This is where both facts ENTER the L2 path, and it is the only place
+    /// they are in hand together with the index that names them: `word_idx`
+    /// indexes `special_forms`, which `collect_payloads` builds by mapping
+    /// over the same extracted words as `MorphosyntaxBatchItem::words`.
+    ///
+    /// They used to be re-derived downstream by walking the `ChatFile` a
+    /// second time, which meant two extractions whose agreement nothing
+    /// enforced, and a planner that had to invent a period for a line its
+    /// second walk had missed.
+    #[test]
+    fn deferred_positions_carry_their_word_and_terminator() {
+        let chat = parse_chat(&one_utterance_in("eng, spa", "I took the camino@s:spa ?"));
+        let payloads = collect_payloads(
+            &chat,
+            &LanguageCode::new("eng").expect("valid language code"),
+            &[
+                LanguageCode::new("eng").expect("valid language code"),
+                LanguageCode::new("spa").expect("valid language code"),
+            ],
+            MultilingualPolicy::ProcessAll,
+        );
+        // One response per batch item; the structural detail is irrelevant
+        // here, so an empty sentence is enough to reach the `@s` scan.
+        let responses: Vec<UdResponse> = payloads
+            .batch_items
+            .iter()
+            .map(|_| UdResponse {
+                sentences: vec![UdSentence { words: Vec::new() }],
+            })
+            .collect();
+
+        let deferred = extract_l2_deferred_positions(&payloads.batch_items, &responses);
+
+        let position = deferred
+            .first()
+            .expect("the @s word must defer to secondary dispatch");
+        assert_eq!(
+            position.word.as_str(),
+            "camino",
+            "the position must carry its own word, not one looked up later"
+        );
+        assert!(
+            matches!(
+                position.terminator,
+                talkbank_model::Terminator::Question { .. }
+            ),
+            "the position must carry the utterance's own `?`; got {:?}. A \
+             period here tells the secondary Stanza model that a question is \
+             a statement, which changes the parse it returns.",
+            position.terminator
+        );
+    }
 }

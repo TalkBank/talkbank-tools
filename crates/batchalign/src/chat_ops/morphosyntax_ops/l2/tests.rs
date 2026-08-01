@@ -88,11 +88,15 @@ fn make_mor(pos: &str, lemma: &str) -> talkbank_model::model::dependent_tier::mo
     ))
 }
 
-fn make_deferred(line_idx: usize, word_idx: usize, lang: &str) -> L2DeferredPosition {
+fn make_deferred(line_idx: usize, word_idx: usize, lang: &str, word: &str) -> L2DeferredPosition {
     L2DeferredPosition {
         line_idx,
         word_idx,
         target_lang: LanguageCode::new(lang).expect("valid test language code"),
+        word: talkbank_model::ChatCleanedText::test_unchecked(word),
+        terminator: talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
         primary: PrimaryStructuralInfo {
             deprel: UdDeprel::new("flat"),
             upos: Some(UniversalPos::Noun),
@@ -101,20 +105,6 @@ fn make_deferred(line_idx: usize, word_idx: usize, lang: &str) -> L2DeferredPosi
             head_upos: None,
         },
     }
-}
-
-fn make_word_cache(
-    entries: &[(usize, usize, &str)],
-) -> std::collections::HashMap<(usize, usize), talkbank_model::ChatCleanedText> {
-    entries
-        .iter()
-        .map(|(l, w, t)| {
-            (
-                (*l, *w),
-                talkbank_model::ChatCleanedText::test_unchecked(*t),
-            )
-        })
-        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -652,35 +642,43 @@ fn secondary_adv_still_accepted_when_deprel_matches() {
 
 #[test]
 fn dispatch_spans_contiguous_same_utterance_merged() {
-    let deferred = vec![make_deferred(5, 3, "spa"), make_deferred(5, 4, "spa")];
-    let cache = make_word_cache(&[(5, 3, "los"), (5, 4, "niños")]);
-    let spans = group_deferred_into_dispatch_spans(&deferred, &cache);
+    let deferred = vec![
+        make_deferred(5, 3, "spa", "los"),
+        make_deferred(5, 4, "spa", "niños"),
+    ];
+    let spans = plan_dispatch_spans(&deferred).spans;
     assert_eq!(spans.len(), 1);
     assert_eq!(spans[0].words, vec!["los", "niños"]);
-    assert_eq!(spans[0].global_indices, vec![0, 1]);
+    assert_eq!(spans[0].deferred_indices, vec![0, 1]);
 }
 
 #[test]
 fn dispatch_spans_non_contiguous_same_utterance_separate() {
-    let deferred = vec![make_deferred(5, 2, "spa"), make_deferred(5, 6, "spa")];
-    let cache = make_word_cache(&[(5, 2, "tienda"), (5, 6, "casa")]);
-    let spans = group_deferred_into_dispatch_spans(&deferred, &cache);
+    let deferred = vec![
+        make_deferred(5, 2, "spa", "tienda"),
+        make_deferred(5, 6, "spa", "casa"),
+    ];
+    let spans = plan_dispatch_spans(&deferred).spans;
     assert_eq!(spans.len(), 2);
 }
 
 #[test]
 fn dispatch_spans_different_utterances_separate() {
-    let deferred = vec![make_deferred(3, 5, "eng"), make_deferred(7, 2, "eng")];
-    let cache = make_word_cache(&[(3, 5, "film"), (7, 2, "studies")]);
-    let spans = group_deferred_into_dispatch_spans(&deferred, &cache);
+    let deferred = vec![
+        make_deferred(3, 5, "eng", "film"),
+        make_deferred(7, 2, "eng", "studies"),
+    ];
+    let spans = plan_dispatch_spans(&deferred).spans;
     assert_eq!(spans.len(), 2);
 }
 
 #[test]
 fn dispatch_spans_mixed_languages_separate() {
-    let deferred = vec![make_deferred(5, 2, "spa"), make_deferred(5, 3, "fra")];
-    let cache = make_word_cache(&[(5, 2, "tienda"), (5, 3, "bonjour")]);
-    let spans = group_deferred_into_dispatch_spans(&deferred, &cache);
+    let deferred = vec![
+        make_deferred(5, 2, "spa", "tienda"),
+        make_deferred(5, 3, "fra", "bonjour"),
+    ];
+    let spans = plan_dispatch_spans(&deferred).spans;
     assert_eq!(spans.len(), 2);
     assert_eq!(spans[0].target_lang.as_str(), "spa");
     assert_eq!(spans[1].target_lang.as_str(), "fra");
@@ -689,15 +687,14 @@ fn dispatch_spans_mixed_languages_separate() {
 #[test]
 fn dispatch_spans_three_word_contiguous() {
     let deferred = vec![
-        make_deferred(10, 4, "eng"),
-        make_deferred(10, 5, "eng"),
-        make_deferred(10, 6, "eng"),
+        make_deferred(10, 4, "eng", "full"),
+        make_deferred(10, 5, "eng", "English"),
+        make_deferred(10, 6, "eng", "breakfast"),
     ];
-    let cache = make_word_cache(&[(10, 4, "full"), (10, 5, "English"), (10, 6, "breakfast")]);
-    let spans = group_deferred_into_dispatch_spans(&deferred, &cache);
+    let spans = plan_dispatch_spans(&deferred).spans;
     assert_eq!(spans.len(), 1);
     assert_eq!(spans[0].words, vec!["full", "English", "breakfast"]);
-    assert_eq!(spans[0].global_indices, vec![0, 1, 2]);
+    assert_eq!(spans[0].deferred_indices, vec![0, 1, 2]);
 }
 
 // ---------------------------------------------------------------------------

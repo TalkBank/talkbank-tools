@@ -13,7 +13,7 @@ use talkbank_parser::TreeSitterParser;
 use crate::inject::{MisalignmentClass, MisalignmentDiagnostic};
 use crate::parse::parse_lenient;
 
-fn parse_chat(text: &str) -> ChatFile {
+pub(crate) fn parse_chat(text: &str) -> ChatFile {
     let parser = TreeSitterParser::new().expect("parser init");
     parser.parse_chat_file(text).expect_built()
 }
@@ -27,10 +27,16 @@ fn validate_morphosyntax(chat: &mut ChatFile) {
 }
 
 fn one_utterance(main_tier: &str) -> String {
+    one_utterance_in("eng", main_tier)
+}
+
+/// One-utterance fixture with an explicit `@Languages` list, for the
+/// code-switching cases where a second declared language is the point.
+pub(crate) fn one_utterance_in(languages: &str, main_tier: &str) -> String {
     format!(
         "@UTF8\n\
          @Begin\n\
-         @Languages:\teng\n\
+         @Languages:\t{languages}\n\
          @Participants:\tCHI Target_Child\n\
          @ID:\teng|test|CHI||female|||Target_Child|||\n\
          *CHI:\t{main_tier}\n\
@@ -38,7 +44,7 @@ fn one_utterance(main_tier: &str) -> String {
     )
 }
 
-fn first_utterance(chat: &ChatFile) -> &Utterance {
+pub(crate) fn first_utterance(chat: &ChatFile) -> &Utterance {
     for line in &chat.lines {
         if let talkbank_model::model::Line::Utterance(u) = line {
             return u;

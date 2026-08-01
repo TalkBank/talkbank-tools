@@ -338,14 +338,14 @@ export function JobDetailPageView({
                 Duration
               </div>
               <div className="font-mono text-zinc-700">
-                {formatDuration(detail.duration_s) || "\u2014"}
+                {formatDuration(detail.duration_s) || "-"}
               </div>
             </div>
             <div>
               <div className="text-[11px] text-zinc-400 uppercase tracking-wider mb-0.5">
                 Workers
               </div>
-              <div className="font-mono text-zinc-700">{detail.num_workers ?? "\u2014"}</div>
+              <div className="font-mono text-zinc-700">{detail.num_workers ?? "-"}</div>
             </div>
           </div>
 

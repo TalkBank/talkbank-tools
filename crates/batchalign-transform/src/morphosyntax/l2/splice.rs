@@ -861,6 +861,10 @@ mod cardinality_tests {
             line_idx,
             word_idx: 1,
             target_lang: LanguageCode::new("ara").expect("valid test language code"),
+            word: talkbank_model::ChatCleanedText::test_unchecked("mrhba"),
+            terminator: talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
             primary: PrimaryStructuralInfo {
                 deprel: crate::morphosyntax::l2::deprel::UdDeprel::new("root"),
                 upos: None,
@@ -954,6 +958,10 @@ mod cardinality_tests {
             line_idx,
             word_idx,
             target_lang: LanguageCode::new(target_lang).expect("valid test language code"),
+            word: talkbank_model::ChatCleanedText::test_unchecked("word"),
+            terminator: talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
             primary: PrimaryStructuralInfo {
                 deprel: crate::morphosyntax::l2::deprel::UdDeprel::new(primary_deprel),
                 upos: None,

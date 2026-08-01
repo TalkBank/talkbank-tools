@@ -650,8 +650,15 @@ mod tests {
                     source_deferred_index: 0,
                 },
             },
+            terminator: talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
         };
         let deferred = vec![super::super::extract::L2DeferredPosition {
+            word: talkbank_model::ChatCleanedText::test_unchecked("extranjero"),
+            terminator: talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
             line_idx: 3,
             word_idx: 1,
             target_lang: LanguageCode::new("spa").expect("valid test language code"),

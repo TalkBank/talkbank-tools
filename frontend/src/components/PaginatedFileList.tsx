@@ -61,7 +61,7 @@ export function PaginatedFileList({
       <div className="flex items-center justify-between mb-2">
         {totalPages > 1 ? (
           <span className="text-[11px] text-zinc-400">
-            Showing {from}&ndash;{to} of {totalFiltered}
+            Showing {from}-{to} of {totalFiltered}
           </span>
         ) : (
           <span />

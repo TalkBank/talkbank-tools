@@ -36,7 +36,7 @@ pub(crate) async fn dispatch_secondary_l2(
 ) {
     use crate::chat_ops::morphosyntax_ops::MorphosyntaxBatchItem;
 
-    let dispatch_plan = l2::plan_secondary_dispatch(chat_file, deferred);
+    let dispatch_plan = l2::plan_dispatch_spans(deferred);
 
     // Group spans by target language for batched dispatch.
     let mut by_lang: HashMap<LanguageCode, Vec<&l2::L2SpanPlan>> = HashMap::new();
@@ -89,9 +89,11 @@ pub(crate) async fn dispatch_secondary_l2(
                     0, // utt_ordinal placeholder
                     MorphosyntaxBatchItem {
                         words: span.words.clone(),
-                        terminator: talkbank_model::Terminator::Period {
-                            span: talkbank_model::Span::DUMMY,
-                        },
+                        // The span's own utterance terminator, not a period
+                        // for everything. Stanza treats sentence-final
+                        // punctuation as evidence, so a question dispatched
+                        // as a statement comes back parsed as one.
+                        terminator: span.terminator.clone(),
                         special_forms: vec![(None, None); num_words],
                         lang: target_lang.clone(),
                     },

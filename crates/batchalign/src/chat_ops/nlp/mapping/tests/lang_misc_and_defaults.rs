@@ -194,18 +194,12 @@ fn is_terminator_punct_matches_only_sentence_terminators() {
         misc: None,
     };
 
-    // Every CHAT utterance terminator string accepted by
-    // `Terminator::try_from_chat_str` must be classified as a
-    // terminator by our filter. The list mirrors the match arms of
-    // `try_from_chat_str` (`talkbank-model::model::content::terminator`).
-    for t in [
-        ".", "!", "?", "+...", "+/.", "+//.", "+/?", "+!?", "+\"/.", "+\".", "+//?", "+..?", "+.",
-    ] {
-        assert!(
-            super::is_terminator_punct(&make(t, t)),
-            "CHAT terminator {t:?} must be classified as a terminator"
-        );
-    }
+    // The positive direction, on two representatives. The vocabulary belongs
+    // to the model, and `is_terminator_punct` calls it, so a copy of the list
+    // here would only assert that the model agrees with itself, and would go
+    // stale in silence when a fourteenth terminator is added.
+    assert!(super::is_terminator_punct(&make(".", ".")));
+    assert!(super::is_terminator_punct(&make("+...", "+...")));
 
     // Content punctuation MUST NOT be classified as a terminator
     // these flow through to `map_ud_word_to_mor` to produce Mor items

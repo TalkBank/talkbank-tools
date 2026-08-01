@@ -314,7 +314,7 @@ export function DPAlignmentPage() {
             >
               {liveAlignments.map((item, idx) => (
                 <option key={idx} value={idx}>
-                  {item.filename} &mdash; {item.trace.context} (
+                  {item.filename}: {item.trace.context} (
                   {item.trace.payload.length}&times;
                   {item.trace.reference.length})
                 </option>

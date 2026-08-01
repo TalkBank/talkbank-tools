@@ -653,7 +653,10 @@ def test_routes_morphosyntax_unicode_special_forms_request(tmp_path: Path) -> No
             "items": [
                 {
                     "words": ["我", "食", "緊", "飯"],
-                    "terminator": "。",
+                    # CHAT terminators are the ASCII set `talkbank_model::Terminator`
+                    # defines; a CJK full stop is not one, and this
+                    # fixture asserted a shape Rust cannot send.
+                    "terminator": ".",
                     "special_forms": [
                         [None, None],
                         ["食緊", "eat.PROG"],

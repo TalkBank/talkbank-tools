@@ -698,7 +698,7 @@ fn collect_payloads_identifies_contiguous_at_s_span() {
 #[test]
 fn l2_pipeline_contiguous_span_replaces_placeholders_and_preserves_valid_gra() {
     use batchalign_transform::morphosyntax::l2::{
-        extract_l2_deferred_positions, merge_planned_secondary_span, plan_secondary_dispatch,
+        extract_l2_deferred_positions, merge_planned_secondary_span, plan_dispatch_spans,
         splice_l2_into_chat,
     };
     use batchalign_transform::morphosyntax::{UdId, UdPunctable, UdSentence, UdWord, UniversalPos};
@@ -780,7 +780,7 @@ fn l2_pipeline_contiguous_span_replaces_placeholders_and_preserves_valid_gra() {
     assert_eq!(mor_before.items()[4].main.pos.to_string(), "L2");
     assert_eq!(mor_before.items()[4].main.lemma.to_string(), "xxx");
 
-    let dispatch_plan = plan_secondary_dispatch(&chat_file, &deferred);
+    let dispatch_plan = plan_dispatch_spans(&deferred);
     assert_eq!(
         dispatch_plan.spans.len(),
         1,

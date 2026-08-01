@@ -12,6 +12,7 @@ import time
 import unicodedata
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError, model_validator
@@ -36,38 +37,235 @@ L = logging.getLogger("batchalign.worker")
 # Pydantic models
 # ---------------------------------------------------------------------------
 
+class Terminator(StrEnum):
+    """A CHAT utterance terminator, by its surface form.
+
+    The closed set, mirroring `talkbank_model::Terminator`'s CHAT surface
+    forms, which is what the Rust side serializes at the IPC boundary. Naming
+    each member keeps the vocabulary visible: a reader here sees that CHAT has
+    thirteen ways to end an utterance, not that "the terminator is a string".
+
+    Membership is enforced by parsing, so an unrecognized terminator fails the
+    item's validation rather than travelling on as an unknown token. That is
+    not hypothetical: it immediately caught a fixture asserting a CJK full
+    stop, which CHAT does not use and Rust cannot send.
+
+    KNOWN DUPLICATION, and it is NOT blocked. This is the third in-repo copy
+    of the vocabulary, after `talkbank_model::Terminator::try_from_chat_str`
+    and `chat_punct_chars()` in `batchalign-transform/src/translate.rs`, which
+    already enumerates all thirteen. The removal is entirely local: give the
+    Rust side one list, declare it as the schema's closed set in place of
+    `#[schemars(with = "String")]` on `MorphosyntaxBatchItem::terminator`, and
+    let `scripts/generate_ipc_types.sh` emit this enum, as it already emits
+    `AsrBackendV2` and friends. Not done here only because it reaches outside
+    this change; it is a task, not an obstacle. A conformance test asserting
+    the copies stay equal is deliberately NOT the answer: it would
+    institutionalize the second copy rather than remove it.
+    """
+
+    PERIOD = "."
+    QUESTION = "?"
+    EXCLAMATION = "!"
+    TRAILING_OFF = "+..."
+    INTERRUPTION = "+/."
+    SELF_INTERRUPTION = "+//."
+    INTERRUPTED_QUESTION = "+/?"
+    BROKEN_QUESTION = "+!?"
+    QUOTED_NEW_LINE = '+"/.'
+    QUOTED_PERIOD_SIMPLE = '+".'
+    SELF_INTERRUPTED_QUESTION = "+//?"
+    TRAILING_OFF_QUESTION = "+..?"
+    BREAK_FOR_CODING = "+."
+
+
 class MorphosyntaxBatchItem(BaseModel):
     """A single item in the batch morphosyntax payload from Rust."""
 
     words: list[str]
-    terminator: str = "."
+    # Required, with no default: a default period would be a sentinel that is
+    # also a legal value, making "the caller sent no terminator"
+    # indistinguishable from "the utterance ended in a period".
+    terminator: Terminator
     special_forms: list[list[str | None]] = []
     lang: LanguageCode = ""
 
+    @model_validator(mode="after")
+    def _words_must_not_contain_the_terminator(self) -> MorphosyntaxBatchItem:
+        """The terminator is not a main-tier word, and must not arrive as one.
 
-@dataclass(frozen=True)
+        Silently dropping a duplicate would hide a caller that has confused
+        the two, and keeping them apart is the entire purpose of this
+        boundary: `words` are CHAT content that must map 1-to-1 onto `%mor`
+        items, while the terminator is a cue for Stanza whose `%mor` and
+        `%gra` representation the Rust side synthesizes from the typed model.
+        """
+        if self.words and self.words[-1] in Terminator:
+            raise ValueError(
+                f"words must not end with the utterance terminator "
+                f"{self.words[-1]!r}: the terminator travels in its own "
+                f"field and is not a main-tier word"
+            )
+        return self
+
+
+@dataclass(frozen=True, slots=True)
 class StanzaInput:
-    """One complete utterance passed to Stanza and its tokenizer realigner."""
+    """One utterance as Stanza receives it, with the two kinds kept apart.
+
+    `chat_words` are the CHAT main-tier words, which must map 1-to-1 onto
+    `%mor` items. The terminator is EVIDENCE for the model and never data:
+    Stanza's analysis changes without it (the Italian model reads `dammela` as
+    an ADJ and declines to MWT-expand it), so it must be present in the text,
+    and it must not survive into the payload that becomes `%mor`.
+
+    Both the text and the realigner's boundary list are DERIVED here rather
+    than stored, so they cannot disagree with each other or with `chat_words`.
+    That also makes the terminator's position knowable by construction, which
+    is how it is removed on the way back: no inspection of what Stanza made of
+    it, and therefore nothing to get wrong when Stanza tags it unexpectedly.
+    """
 
     item_index: int
-    text: str
-    original_words: tuple[str, ...]
+    chat_words: tuple[str, ...]
+    terminator: Terminator
+
+    @property
+    def boundaries(self) -> tuple[str, ...]:
+        """The token boundaries the realigner holds Stanza to."""
+        return (*self.chat_words, self.terminator.value)
+
+    @property
+    def text(self) -> str:
+        """The text handed to Stanza."""
+        return " ".join(self.boundaries)
+
+    def without_terminator(self, sentence: list[JSONObject]) -> list[JSONObject]:
+        """The sentence with the cue we appended taken back off.
+
+        Symmetric with `boundaries`: the type that added the boundary is the
+        type that removes it, so the two cannot be changed apart. It is the
+        LAST boundary, hence the last UD word, which is why nothing here
+        inspects what Stanza made of it.
+
+        Only valid where we chose the boundaries; the caller gates on that.
+        """
+        if len(sentence) <= 1:
+            # The realigner did not hold, so there is no trustworthy last
+            # word to remove. Leave it and let the count-mismatch machinery
+            # downstream report the misalignment, but say so here: a silent
+            # special case is how this class of bug hides.
+            L.warning(
+                "morphotag: item %d produced %d UD words for %d boundaries; "
+                "leaving the terminator in place for the misalignment audit",
+                self.item_index,
+                len(sentence),
+                len(self.boundaries),
+            )
+            return sentence
+        return sentence[:-1]
 
 
-def _stanza_input(
-    item_index: int,
-    words: list[str],
-    terminator: str,
-) -> StanzaInput:
-    """Preserve the Rust-provided utterance terminator at the Stanza boundary."""
-    original_words = tuple(words)
-    if not original_words or original_words[-1] != terminator:
-        original_words += (terminator,)
-    return StanzaInput(
-        item_index=item_index,
-        text=" ".join(original_words),
-        original_words=original_words,
-    )
+@dataclass(frozen=True, slots=True)
+class Realigned:
+    """Our tokenization: the realigner holds Stanza to boundaries we supplied.
+
+    This is the only mode in which the terminator's position in the output is
+    known by construction, because it is the only mode in which we chose the
+    boundaries.
+    """
+
+    context: TokenizerContext
+    inputs: list[StanzaInput]
+
+
+@dataclass(frozen=True, slots=True)
+class StanzaOwnsTokenization:
+    """Retokenize requested: Stanza segments freely and its MWT passes through."""
+
+
+@dataclass(frozen=True, slots=True)
+class UnrealignedFallback:
+    """Normal mode with no realignment context: the degraded, warned-about state.
+
+    Stanza's neural tokenizer is free to split or merge CHAT words, silently
+    breaking the 1-to-1 invariant the Rust injection assumes. Count mismatches
+    from this mode surface as MisalignmentBug decisions.
+    See `book/src/architecture/morphotag-invariants.md`.
+    """
+
+    lang_code: LanguageCode
+
+
+# Named `RealignmentMode`, not `TokenizationMode`, because Rust already owns
+# that name for a COARSER and different fact: `TokenizationMode::{Preserve,
+# StanzaRetokenize}` is what the CALLER asked for. This is the resolved answer
+# to "who tokenizes this batch, and can we hold Stanza to our boundaries",
+# which refines `Preserve` into the case where we have a realignment context
+# and the case where we asked for it and do not. Two concepts, two names.
+RealignmentMode = Realigned | StanzaOwnsTokenization | UnrealignedFallback
+
+
+def _realignment_mode(
+    *,
+    context: TokenizerContext | None,
+    stanza_owns_tokenization: bool,
+    inputs: list[StanzaInput],
+    lang_code: LanguageCode,
+) -> RealignmentMode:
+    """Resolve the three modes ONCE, so the illegal one cannot be built.
+
+    These were two booleans and a `None` check evaluated at three separate
+    places, which made "normal mode, but no realignment context" a
+    representable state that the code could only warn about after the fact.
+    As a sum type it is a named variant instead, and every consumer must say
+    what it does in that case rather than falling through a condition.
+    """
+    if stanza_owns_tokenization:
+        return StanzaOwnsTokenization()
+    if context is None:
+        return UnrealignedFallback(lang_code=lang_code)
+    return Realigned(context=context, inputs=inputs)
+
+
+@contextlib.contextmanager
+def _realignment_applied(mode: RealignmentMode) -> Iterator[None]:
+    """Install the realigner's boundaries for the duration of one Stanza call."""
+    match mode:
+        case Realigned(context=context, inputs=inputs):
+            context.original_words = [list(item.boundaries) for item in inputs]
+            try:
+                yield
+            finally:
+                context.original_words = []
+        case StanzaOwnsTokenization():
+            yield
+        case UnrealignedFallback(lang_code=lang_code):
+            L.warning(
+                "morphotag: realignment context missing for language %r, "
+                "Stanza will own tokenization on this batch, which may "
+                "violate the 1-to-1 invariant. This batch's count mismatches "
+                "will surface as MisalignmentBug decisions.",
+                lang_code,
+            )
+            yield
+
+
+def _drops_appended_terminator(mode: RealignmentMode) -> bool:
+    """Whether the terminator we appended must be taken back off the output.
+
+    Only under `Realigned`, because that is the only mode in which we chose
+    the boundaries and therefore know where the terminator went. In the other
+    two nothing knows, and the Rust side's recognition-based filter is their
+    answer.
+
+    Resolved once per language batch rather than per utterance: the mode is
+    fixed for the whole group.
+    """
+    match mode:
+        case Realigned():
+            return True
+        case StanzaOwnsTokenization() | UnrealignedFallback():
+            return False
 
 
 # The 37 Universal Dependencies relation heads (UD v2). Subtypes after a
@@ -361,11 +559,13 @@ def batch_infer_morphosyntax(
 
         # Rust cleaned_text() already handles CHAT notation. Stripping parens
         # here silently drops bare "(" / ")" words, causing MOR count
-        # mismatches in the retokenize inject path. The terminator is part of
-        # the utterance, not optional decoration: Stanza's Italian model
-        # changes its analysis of clitic verbs when it is missing.
+        # mismatches in the retokenize inject path.
         by_lang.setdefault(item_lang, []).append(
-            _stanza_input(i, words, item.terminator)
+            StanzaInput(
+                item_index=i,
+                chat_words=tuple(words),
+                terminator=item.terminator,
+            )
         )
 
     if not by_lang:
@@ -373,9 +573,6 @@ def batch_infer_morphosyntax(
 
     for lang_code, lang_items in by_lang.items():
         indices = [item.item_index for item in lang_items]
-        texts = [item.text for item in lang_items]
-        word_lists = [list(item.original_words) for item in lang_items]
-
 
         # Mandarin retokenize: use Stanza neural tokenizer instead of pretokenized.
         # Only activate when the JOB language is Mandarin, per-utterance language
@@ -408,63 +605,35 @@ def batch_infer_morphosyntax(
             )
             continue
 
-        # For Mandarin retokenize, join with spaces. Stanza's neural tokenizer
-        # (tokenize_pretokenized=False) handles re-segmentation regardless of
-        # spacing. Using no-space join ("".join) would merge Latin+CJK words
-        # (e.g., "hello你好" → one token) in code-switched utterances.
-        if use_retok_pipeline:
-            combined = "\n\n".join(" ".join(w) for w in word_lists)
-        else:
-            combined = "\n\n".join(texts)
+        # Space-joined for every mode. Stanza's neural tokenizer
+        # (tokenize_pretokenized=False) re-segments regardless of spacing, and
+        # a no-space join would merge Latin+CJK words ("hello你好" as one
+        # token) in code-switched utterances. This used to be two arms that
+        # computed the same string by different routes; `StanzaInput.text` is
+        # defined as the space-joined boundaries, which is what the retokenize
+        # arm was rebuilding by hand.
+        combined = "\n\n".join(item.text for item in lang_items)
         if use_retok_pipeline:
             retok_key = f"{lang_code}:retok"
             tok_ctx = contexts.get(retok_key) or contexts.get(lang_code) or contexts.get(req.lang)
         else:
             tok_ctx = contexts.get(lang_code) or contexts.get(req.lang)
 
+        # `retokenize` is the whole condition: `use_retok_pipeline` is a
+        # narrowing of it (Mandarin, both job and utterance), so it adds
+        # nothing here. Under it Stanza owns tokenization and we want its MWT
+        # expansion (gonna -> gon+na, don't -> do+n't) to pass through.
+        mode = _realignment_mode(
+            context=tok_ctx,
+            stanza_owns_tokenization=req.retokenize,
+            inputs=lang_items,
+            lang_code=lang_code,
+        )
+
         try:
             with _maybe_lock():
-                # Set original_words so the postprocessor can realign Stanza's
-                # tokenization back to CHAT words. Skip when retokenize is
-                # requested (either CJK retok pipeline or non-CJK retokenize)
-                #, in that case, Stanza owns tokenization and we want its
-                # MWT expansion (gonna → gon+na, don't → do+n't) to pass through.
-                should_set_original_words = (
-                    tok_ctx is not None
-                    and not use_retok_pipeline
-                    and not req.retokenize
-                )
-                # Realignment-skipped audit (Wave 3 of the morphotag
-                # reconciliation architecture): if we're in normal
-                # (non-retok) mode and tok_ctx is None, Stanza runs
-                # WITHOUT tokenizer realignment: its neural tokenizer
-                # is free to split/merge CHAT words, silently breaking
-                # the 1-to-1 invariant that downstream Rust injection
-                # assumes. This warning makes that invisible mode
-                # visible so we can fix the realignment context wiring
-                # rather than paper over it with post-hoc alignment.
-                # See `book/src/architecture/morphotag-invariants.md`.
-                realignment_skipped_unexpectedly = (
-                    tok_ctx is None
-                    and not use_retok_pipeline
-                    and not req.retokenize
-                )
-                if realignment_skipped_unexpectedly:
-                    L.warning(
-                        "morphotag: realignment context missing for language "
-                        "%r (lookup keys tried: %r, %r), Stanza will own "
-                        "tokenization on this batch, which may violate the "
-                        "1-to-1 invariant. This batch's count mismatches "
-                        "will surface as MisalignmentBug decisions.",
-                        lang_code,
-                        lang_code,
-                        req.lang,
-                    )
-                if should_set_original_words:
-                    tok_ctx.original_words = word_lists
-                doc = nlp(combined)
-                if should_set_original_words:
-                    tok_ctx.original_words = []
+                with _realignment_applied(mode):
+                    doc = nlp(combined)
 
             sents = doc.to_dict()
 
@@ -493,9 +662,17 @@ def batch_infer_morphosyntax(
                 # Applied to ALL Cantonese morphotag, not just retokenize,
                 # because the POS accuracy problem affects all Cantonese output.
                 apply_pyc_pos = lang_code in ("yue",)
+                # Both decisions are fixed for the whole language group.
+                drop_terminator = _drops_appended_terminator(mode)
 
                 for i, idx in enumerate(indices):
-                    sent = sents[i]
+                    # The terminator was a cue for the model, not content, so
+                    # it leaves here rather than travelling on to `%mor`.
+                    sent = (
+                        lang_items[i].without_terminator(sents[i])
+                        if drop_terminator
+                        else sents[i]
+                    )
                     if apply_pyc_pos:
                         sent = _override_pos_with_pycantonese(sent)
                     results[idx] = InferResponse(
@@ -509,8 +686,6 @@ def batch_infer_morphosyntax(
                 len(indices),
                 e,
             )
-            if tok_ctx is not None:
-                tok_ctx.original_words = []
 
         # Report progress: how many items have been processed so far
         # (across all language groups).
