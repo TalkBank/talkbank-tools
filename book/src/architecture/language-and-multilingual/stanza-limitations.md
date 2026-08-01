@@ -41,7 +41,7 @@ Dependencies has no such relation; the label is `iobj`.
 
 **Evidence** (stanza 1.13.0, verified 2026-07-28):
 
-```
+```text
 'attenzione .'   id=2 text='ne'  upos=PRON  head=1  deprel='iob'
 ```
 
@@ -66,7 +66,7 @@ by the MWT processor into a nonexistent verb plus the clitic `ne`.
 
 **Evidence** (stanza 1.13.0, 2026-07-28), 10/10 mis-split:
 
-```
+```text
 attenzione  -> ('attenzi', VERB, root)  ('ne', PRON, iob)
 stazione    -> ('stazio',  VERB, root)  ('ne', PRON, iob)
 canzone     -> ('canzo',   VERB, root)  ('ne', PRON, iob)
@@ -77,7 +77,7 @@ opinione, ragione, lezione, situazione, televisione, macchine: same shape
 **In sentence context the same words are analyzed correctly**, so this is
 specific to short utterances:
 
-```
+```text
 mi piace questa canzone .    -> canzone intact, no iob
 ci sono molte persone qui .  -> persone intact, no iob
 ```
@@ -189,7 +189,7 @@ Residual RATES await the language-resolved corpus measurement.
 **Symptom.** The same over-splitting as limitation 2, but surviving in full
 sentences where no single-word gate can reach it:
 
-```
+```text
 la stazione e molto grande .          -> la  = il + i        (DET/DET)
 secondo la mia opinione hai ragione . -> hai = ha + i        (VERB/DET)
 questa e la mozzarella .              -> mozzarella = mozzar + la
@@ -253,7 +253,7 @@ whole utterances for exactly this reason.
 **Symptom.** The mirror image. Stanza declines to expand a real
 imperative+enclitic and invents a verb for the whole surface:
 
-```
+```text
 aprilo  -> verb|aprilare      leggila -> verb|leggilare
 aprila  -> verb|aprilare      finila  -> verb|finilare
 ```

@@ -280,6 +280,13 @@ book-check:
 	}
 	mdbook build book
 	lychee --offline --root-dir "$(CURDIR)/book/build" "$(CURDIR)/book/build"
+	@# The fence-shape regression guard, mirroring book.yml's third step.
+	@# rustdoc compiles every UNTAGGED ``` block as a Rust doctest, so a
+	@# bare fence around sample output fails the build. This target ran
+	@# only build + lychee until 2026-07-31, so it passed locally while
+	@# CI was red on three such blocks; a local gate that omits a CI step
+	@# is worse than no local gate, because it is believed.
+	mdbook test book
 
 # Fast iteration: compile-check workspace + test a single crate
 # Usage: make smoke CRATE=talkbank-model

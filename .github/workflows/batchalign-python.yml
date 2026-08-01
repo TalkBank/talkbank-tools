@@ -166,9 +166,9 @@ jobs:
           path: dist/
       - name: Install wheel in clean environment
         run: uv tool install --from dist/*.whl batchalign3
-      - name: Smoke test: batchalign3 --help
+      - name: "Smoke test: batchalign3 --help"
         run: batchalign3 --help
-      - name: Smoke test: batchalign3 version
+      - name: "Smoke test: batchalign3 version"
         run: batchalign3 version
 
   typecheck:
@@ -505,5 +505,6 @@ jobs:
           BATCHALIGN_BIN: ${{ github.workspace }}/target/release/batchalign3
           RUSTFLAGS: -C debuginfo=0
         run: |
-          export BATCHALIGN_PYTHON="$(uv run --no-sync python -c 'import sys; print(sys.executable)')"
+          BATCHALIGN_PYTHON="$(uv run --no-sync python -c 'import sys; print(sys.executable)')"
+          export BATCHALIGN_PYTHON
           bash scripts/run_react_dashboard_smoke.sh
