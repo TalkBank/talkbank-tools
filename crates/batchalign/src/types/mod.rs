@@ -37,7 +37,7 @@
 //! | Module      | Purpose |
 //! |-------------|---------|
 //! | [`api`]     | REST API request/response types (`JobSubmission`, `JobInfo`, `JobStatus`, `HealthResponse`, etc.) |
-//! | [`config`]  | Server configuration (`ServerConfig`), YAML deserialization, warmup presets |
+//! | [`config`]  | Server configuration (`ServerConfig`), YAML deserialization |
 //! | [`runtime`] | Runtime constants: command-to-task mapping, memory budgets, worker caps |
 //! | [`scheduling`] | Retry, attempt, failure-category, and work-unit domain types |
 //! | [`worker`]  | Worker IPC types: `InferRequest`/`InferResponse`, batched infer requests, capabilities |

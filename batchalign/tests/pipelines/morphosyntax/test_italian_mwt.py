@@ -21,8 +21,8 @@ from batchalign.inference._italian_mwt import (
     could_be_enclisis,
     decide_expansion,
     is_clitic_cluster,
+    is_geminated_split,
     is_preposition_article_contraction,
-    is_single_word_utterance,
     is_valid_clitic_sequence,
     split_reconstructs_word,
 )
@@ -62,6 +62,7 @@ LEXICON = ItalianLexicon(
         # Verb + enclitic imperatives: an OPEN class, the whole reason a
         # closed-class allowlist cannot work. These forms are frequent in
         # child-directed Italian and must be processed properly, no exception.
+        #
         ("dammelo", ("da", "me", "lo")),
         ("diglielo", ("di", "glie", "lo")),
         ("giralo", ("gira", "lo")),
@@ -369,10 +370,29 @@ def test_pre_filter_finds_forcing_candidates(
     assert could_be_enclisis(word, LEXICON) is plausible, why
 
 
-def test_single_word_utterance_detection_ignores_punctuation() -> None:
-    """CHAT carries the terminator as a token, so one word means length 2."""
-    assert is_single_word_utterance(["macchine", "."])
-    assert is_single_word_utterance(["attenzione", "!"])
-    assert is_single_word_utterance(["sì"])
-    assert not is_single_word_utterance(["apri", "via", "!"])
-    assert not is_single_word_utterance(["la", "stazione", "."])
+
+class TestGeminatedSplitDetection:
+    """`is_geminated_split` distinguishes an apocopated base from a plain one.
+
+    Real assertions about real code, not a parked rule: the predicate is defined
+    and uncalled, and whether `decide_expansion` should act on it is recorded as
+    Defect 8 residue in `book/src/batchalign/reference/stanza-limitations.md`.
+    A pending product decision belongs in the defect registry, not behind a test
+    marker whose only effect is to keep prose alive.
+
+    Uses the shared module `LEXICON`, which already carries every host and
+    clitic these cases need.
+    """
+
+    def test_apocopated_base_is_geminated(self) -> None:
+        assert is_geminated_split("dammela", ["da", "me", "la"])
+        assert is_geminated_split("dammelo", ["da", "me", "lo"])
+
+    def test_plain_concatenation_is_not_geminated(self) -> None:
+        """`di` is a geminating HOST, but `gli` never doubles.
+
+        The trap `Reconstruction` exists to close: asking about the host rather
+        than the reconstruction gets `diglielo` wrong.
+        """
+        assert not is_geminated_split("diglielo", ["di", "glie", "lo"])
+        assert not is_geminated_split("prendilo", ["prendi", "lo"])

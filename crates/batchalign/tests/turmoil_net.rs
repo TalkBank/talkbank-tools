@@ -242,7 +242,6 @@ fn create_real_test_app(python_path: &str) -> RealAppHandle {
             host: "0.0.0.0".into(),
             port: 8001,
             job_ttl_days: 7,
-            warmup_commands: vec![],
             memory_gate_mb: Some(MemoryMb(0)),
             ..Default::default()
         };
@@ -253,7 +252,6 @@ fn create_real_test_app(python_path: &str) -> RealAppHandle {
             ready_timeout_s: 30,
             max_workers_per_key: PerProfile::uniform(1),
             verbose: 0,
-            engine_overrides: String::new(),
             runtime: Default::default(),
             ..Default::default()
         };

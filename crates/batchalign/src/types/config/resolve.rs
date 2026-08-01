@@ -51,14 +51,6 @@ impl ServerConfig {
         }
     }
 
-    /// Resolve warmup commands before server-side capability filtering.
-    ///
-    /// Returns `warmup_commands` directly: the CLI `--warmup` flag and
-    /// `server.yaml` both write to this field. An empty list means no warmup.
-    pub fn resolved_warmup_commands(&self) -> &[String] {
-        &self.warmup_commands
-    }
-
     /// Return a list of warnings (non-fatal) about the config.
     pub fn validate(&mut self) -> Vec<String> {
         let mut warnings = Vec::new();

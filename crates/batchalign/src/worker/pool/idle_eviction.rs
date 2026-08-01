@@ -130,6 +130,7 @@ pub(super) fn snapshot_idle_workers_with_rss(groups: &GroupsMap) -> Vec<IdleWork
 mod tests {
     use super::*;
     use crate::api::{LanguageCode3, WorkerLanguage};
+    use crate::worker::pool::{EngineSelection, WorkerKey};
     use crate::worker::{WorkerProfile, WorkerTarget};
     use tokio::sync::Semaphore;
 
@@ -137,16 +138,15 @@ mod tests {
         let spawn_permits = Arc::new(Semaphore::new(0));
         let worker_returned = Arc::new(tokio::sync::Notify::new());
         IdleWorkerSample {
-            key: (
+            key: WorkerKey::without_engine_selection(
                 WorkerTarget::Profile(WorkerProfile::Stanza),
                 WorkerLanguage::from(LanguageCode3::eng()),
-                String::new(),
             ),
             group: Arc::new(WorkerGroup::new(
                 worker_returned,
                 spawn_permits,
                 WorkerProfile::Stanza,
-                String::new(),
+                EngineSelection::none(),
             )),
             pid: WorkerPid(pid),
             rss_mb,

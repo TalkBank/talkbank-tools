@@ -20,12 +20,6 @@ port: 8000
 # Each worker loads its own pipeline; multi-file jobs process in parallel.
 # max_workers_per_job: 0
 
-# Pre-load morphotag and align pipelines on startup (main thread).
-# Prevents MPS deadlock on first request from a background thread.
-warmup_commands:
-  - morphotag
-  - align
-
 # No fallback roots -- all media access must go through explicit mappings.
 # This prevents accidental full-volume walks on NFS mounts.
 media_roots: []

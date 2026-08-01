@@ -697,12 +697,6 @@ export interface components {
              */
             version?: string;
             /**
-             * @description Background warmup lifecycle state: `"not_started"`, `"in_progress"`,
-             *     or `"complete"`.  Clients can poll this to know when the server is
-             *     fully ready for low-latency jobs.
-             */
-            warmup_status?: components["schemas"]["WarmupStatus"];
-            /**
              * Format: int64
              * @description Cumulative count of worker process crashes since server start.
              *     A high rate suggests resource exhaustion or buggy engine code.
@@ -723,6 +717,12 @@ export interface components {
         /**
          * @description Host-wide memory pressure level derived from the current memory snapshot and
          *     reserved headroom.
+         *
+         *     Declared here rather than in `host_memory`, where it lived until
+         *     2026-07-30: it is a serde + `ToSchema` wire enum whose consumers are the
+         *     health response and the health route, and while it lived there it was one of
+         *     the references keeping `types` dependent on an impure module, and so keeping
+         *     every module downstream of `types` out of the core crate.
          * @enum {string}
          */
         HostMemoryPressureLevel: "healthy" | "guarded" | "constrained" | "critical";
@@ -1074,16 +1074,6 @@ export interface components {
          * @description Unix timestamp as fractional seconds since epoch.
          */
         UnixTimestamp: number;
-        /**
-         * @description Lifecycle state of background model warmup.
-         *     Background warmup lifecycle state for the worker pool.
-         *
-         *     The server pre-spawns workers at startup ("warmup") so the first job
-         *     does not pay cold-start costs. This enum tracks that lifecycle for
-         *     the health endpoint.
-         * @enum {string}
-         */
-        WarmupStatus: "not_started" | "in_progress" | "complete";
     };
     responses: never;
     parameters: never;

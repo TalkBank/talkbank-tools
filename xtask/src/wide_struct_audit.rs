@@ -175,14 +175,6 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         reason: "TUI file row state; the width is one progress triple plus one error pair",
     },
     WideStructAllowance {
-        path: "crates/batchalign/src/cli/tui/app.rs",
-        struct_name: "ServerHealth",
-        max_fields: 10,
-        max_bool_fields: 0,
-        disposition: WideStructDisposition::TransportRecord,
-        reason: "TUI-facing health snapshot for one server",
-    },
-    WideStructAllowance {
         path: "crates/batchalign/src/db/insert.rs",
         struct_name: "NewJobRecord",
         max_fields: 19,
@@ -310,7 +302,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/batchalign/src/types/response.rs",
         struct_name: "HealthResponse",
-        max_fields: 33,
+        max_fields: 32,
         max_bool_fields: 1,
         disposition: WideStructDisposition::TransportRecord,
         reason: "health/status API response aggregates many independent runtime metrics",

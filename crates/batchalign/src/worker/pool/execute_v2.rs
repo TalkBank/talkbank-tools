@@ -1,15 +1,18 @@
 //! V2 execute dispatch helpers, task mapping and engine override resolution.
 //!
 //! These pure functions bridge the V2 execute protocol (typed per-backend
-//! requests) to the pool's worker-key abstraction (bootstrap target + lang +
-//! engine overrides). Extracted from `mod.rs` for browsability.
+//! requests) to the pool's typed worker-key abstraction. Extracted from
+//! `mod.rs` for browsability.
 
 use crate::api::WorkerLanguage;
+use crate::types::engines::{AsrEngineName, EngineOverrides, FaEngineName};
 use crate::types::worker_v2::{
     AsrBackendV2, ExecuteRequestV2, FaBackendV2, InferenceTaskV2, TaskRequestV2,
 };
 use crate::worker::error::WorkerError;
 use crate::worker::{InferTask, WorkerBootstrapMode, WorkerTarget};
+
+use super::{EngineSelection, WorkerKey};
 
 /// Map a V2 inference task enum to the pool's infer-task vocabulary.
 pub(super) fn infer_task_for_execute_v2(task: InferenceTaskV2) -> Result<InferTask, WorkerError> {
@@ -26,14 +29,12 @@ pub(super) fn infer_task_for_execute_v2(task: InferenceTaskV2) -> Result<InferTa
     }
 }
 
-/// Derive the worker-pool key (target, lang, engine overrides) for one V2
-/// execute request.
+/// Derive the worker-pool key for one V2 execute request.
 pub(super) fn execute_v2_worker_key(
     lang: WorkerLanguage,
     request: &ExecuteRequestV2,
-    default_engine_overrides: &str,
     bootstrap_mode: WorkerBootstrapMode,
-) -> Result<(WorkerTarget, WorkerLanguage, String), WorkerError> {
+) -> Result<WorkerKey, WorkerError> {
     let infer_task = infer_task_for_execute_v2(request.task)?;
     let target = WorkerTarget::from_infer_task(infer_task, bootstrap_mode);
 
@@ -42,80 +43,41 @@ pub(super) fn execute_v2_worker_key(
     // creating separate workers per override. This prevents the memory guard
     // deadlock where pre-scale creates key "" and FA dispatch looks for
     // {"fa":"wave2vec"} (a user incident 2026-04-02).
-    let engine_overrides = if bootstrap_mode == WorkerBootstrapMode::LazyProfile
-        && target.is_concurrent()
-    {
-        String::new()
-    } else {
-        execute_v2_engine_overrides(request).unwrap_or_else(|| default_engine_overrides.to_owned())
-    };
+    let engine_selection =
+        if bootstrap_mode == WorkerBootstrapMode::LazyProfile && target.is_concurrent() {
+            EngineSelection::none()
+        } else {
+            EngineSelection::from_execute_request(request)
+        };
 
-    Ok((target, lang.clone(), engine_overrides))
+    Ok(WorkerKey {
+        target,
+        language: lang,
+        engine_selection,
+    })
 }
 
-/// Extract backend-specific engine override JSON from a V2 execute request.
-///
-/// The returned JSON string is used both as the worker pool key AND as
-/// the worker's `--engine-overrides` argv. It MUST round-trip every
-/// per-engine knob the user supplied, if the JSON omits `qwen_model`
-/// here, the worker spawn argv omits it too and the engine loader
-/// silently defaults to a different model than what the user asked
-/// for (the bug fixed 2026-05-27 that caused 70+ minutes of wasted
-/// compute when Bucket A's `qwen_model=0.6B` requests landed on a
-/// pool worker spawned with no `qwen_model`, defaulting to 1.7B).
-///
-/// Implementation: serialize an `EngineOverrides` (typed struct) so
-/// the JSON shape matches the schema's wire format byte-for-byte, then
-/// merge in `extras` from the V2 request. Adding a new per-engine
-/// knob in future requires no changes here, the `extras` BTreeMap
-/// carries them verbatim.
-pub(super) fn execute_v2_engine_overrides(request: &ExecuteRequestV2) -> Option<String> {
-    match &request.payload {
-        TaskRequestV2::Asr(request) => {
-            let backend = asr_backend_override_name(request.backend)?;
-            let map = asr_engine_overrides_map(backend, &request.extras);
-            serde_json::to_string(&map).ok()
-        }
-        TaskRequestV2::ForcedAlignment(request) => Some(format!(
-            r#"{{"fa":"{}"}}"#,
-            fa_backend_override_name(request.backend)
-        )),
-        _ => None,
+impl EngineSelection {
+    /// Derive worker configuration from a typed V2 request.
+    ///
+    /// This is the only V2 route into a pool engine identity. The typed
+    /// `EngineOverrides` retains every opaque ASR extra, including
+    /// `qwen_model`, until it is serialized for Python worker startup.
+    pub(super) fn from_execute_request(request: &ExecuteRequestV2) -> Self {
+        let overrides = match &request.payload {
+            TaskRequestV2::Asr(request) => EngineOverrides {
+                asr: Some(asr_backend_engine(request.backend)),
+                extras: request.extras.clone(),
+                ..EngineOverrides::default()
+            },
+            TaskRequestV2::ForcedAlignment(request) => EngineOverrides {
+                fa: Some(fa_backend_engine(request.backend)),
+                ..EngineOverrides::default()
+            },
+            _ => EngineOverrides::default(),
+        };
+        Self::from_overrides(overrides)
     }
-}
-
-/// Build the engine-overrides map for an ASR V2 request: the engine wire
-/// name plus every per-engine extras knob (`qwen_model`, `qwen_device`,
-/// `funaudio_*`, …) the user supplied.
-///
-/// Shared between [`execute_v2_engine_overrides`] (eager-profile pool
-/// key + worker spawn argv) and [`ensure_task_params`] (LazyProfile
-/// IPC reconfiguration). Both call sites previously had the same
-/// merge loop inline; consolidating prevents one site from drifting
-/// while the other stays correct.
-///
-/// The result is a `BTreeMap` so the output is deterministic (stable
-/// key order across runs) which keeps the pool key stable for
-/// cache-hit reuse. The naming convention here is the dispatch-override
-/// scheme (e.g. `{"fa":"wave2vec"}`), the same one
-/// `EngineOverrides::to_dispatch_json_string` uses at the typed-options
-/// boundary; the two are bound by the
-/// `dispatch_override_names_agree_across_boundaries` contract test
-/// below. (This function is not a wrapper over that method because this
-/// seam starts from `AsrBackendV2`/`FaBackendV2` request payloads, not
-/// from `EngineOverrides`.) The OLD code hardcoded
-/// `format!(r#"{{"asr":"{backend}"}}"#)` here and silently dropped
-/// extras, which was the 2026-05-27 `qwen_model` dispatch bug.
-fn asr_engine_overrides_map(
-    backend: &str,
-    extras: &std::collections::BTreeMap<String, String>,
-) -> std::collections::BTreeMap<String, String> {
-    let mut map = std::collections::BTreeMap::new();
-    map.insert("asr".to_owned(), backend.to_owned());
-    for (k, v) in extras {
-        map.insert(k.clone(), v.clone());
-    }
-    map
 }
 
 /// Extract the ensure_task parameters (task name + engine overrides map) from a
@@ -129,40 +91,29 @@ pub(super) fn ensure_task_params(
     let task = infer_task_for_execute_v2(request.task)?;
     let task_name = crate::worker::target::task_name(task).to_string();
 
-    let overrides = match &request.payload {
-        TaskRequestV2::Asr(req) => asr_backend_override_name(req.backend)
-            .map(|name| asr_engine_overrides_map(name, &req.extras)),
-        TaskRequestV2::ForcedAlignment(req) => {
-            let mut map = std::collections::BTreeMap::new();
-            map.insert(
-                "fa".to_owned(),
-                fa_backend_override_name(req.backend).to_owned(),
-            );
-            Some(map)
-        }
-        _ => None,
-    };
+    let selection = EngineSelection::from_execute_request(request);
+    let overrides = (!selection.is_none()).then(|| selection.overrides().dispatch_overrides());
 
     Ok((task_name, overrides))
 }
 
-fn asr_backend_override_name(backend: AsrBackendV2) -> Option<&'static str> {
+fn asr_backend_engine(backend: AsrBackendV2) -> AsrEngineName {
     match backend {
-        AsrBackendV2::LocalWhisper => Some("whisper"),
-        AsrBackendV2::WhisperHub => Some("whisper_hub"),
-        AsrBackendV2::HkTencent => Some("tencent"),
-        AsrBackendV2::HkAliyun => Some("aliyun"),
-        AsrBackendV2::HkFunaudio => Some("funaudio"),
-        AsrBackendV2::HkQwen => Some("qwen"),
-        AsrBackendV2::Revai => None,
+        AsrBackendV2::LocalWhisper => AsrEngineName::Whisper,
+        AsrBackendV2::WhisperHub => AsrEngineName::WhisperHub,
+        AsrBackendV2::HkTencent => AsrEngineName::HkTencent,
+        AsrBackendV2::HkAliyun => AsrEngineName::HkAliyun,
+        AsrBackendV2::HkFunaudio => AsrEngineName::HkFunaudio,
+        AsrBackendV2::HkQwen => AsrEngineName::HkQwen,
+        AsrBackendV2::Revai => AsrEngineName::RevAi,
     }
 }
 
-fn fa_backend_override_name(backend: FaBackendV2) -> &'static str {
+fn fa_backend_engine(backend: FaBackendV2) -> FaEngineName {
     match backend {
-        FaBackendV2::Whisper => "whisper",
-        FaBackendV2::Wave2vec => "wave2vec",
-        FaBackendV2::Wav2vecCanto => "wav2vec_canto",
+        FaBackendV2::Whisper => FaEngineName::Whisper,
+        FaBackendV2::Wave2vec => FaEngineName::Wave2Vec,
+        FaBackendV2::Wav2vecCanto => FaEngineName::Wav2vecCanto,
     }
 }
 
@@ -182,49 +133,6 @@ mod tests {
             task,
             payload,
             attachments: Vec::new(),
-        }
-    }
-
-    /// Contract test: the dispatch override names emitted at the
-    /// typed-options boundary (`FaEngineName::dispatch_override_name` /
-    /// `AsrEngineName::dispatch_override_name`, used by
-    /// `EngineOverrides::to_dispatch_json_string`) and the names emitted
-    /// at the V2 execute boundary (`fa_backend_override_name` /
-    /// `asr_backend_override_name`) must agree variant-for-variant; both
-    /// feed the same Python engine loaders and the same worker pool keys.
-    /// Prose "MUST match" doc comments were previously the only binding;
-    /// this test makes the binding mechanical. (WhisperX and WhisperOai
-    /// have no V2 backend counterpart, so they have nothing to agree with.)
-    #[test]
-    fn dispatch_override_names_agree_across_boundaries() {
-        use crate::types::engines::{AsrEngineName, FaEngineName};
-
-        for (engine, backend) in [
-            (FaEngineName::Whisper, FaBackendV2::Whisper),
-            (FaEngineName::Wave2Vec, FaBackendV2::Wave2vec),
-            (FaEngineName::Wav2vecCanto, FaBackendV2::Wav2vecCanto),
-        ] {
-            assert_eq!(
-                engine.dispatch_override_name(),
-                fa_backend_override_name(backend),
-                "FA dispatch name skew for {engine:?}"
-            );
-        }
-
-        for (engine, backend) in [
-            (AsrEngineName::Whisper, AsrBackendV2::LocalWhisper),
-            (AsrEngineName::WhisperHub, AsrBackendV2::WhisperHub),
-            (AsrEngineName::HkTencent, AsrBackendV2::HkTencent),
-            (AsrEngineName::HkAliyun, AsrBackendV2::HkAliyun),
-            (AsrEngineName::HkFunaudio, AsrBackendV2::HkFunaudio),
-            (AsrEngineName::HkQwen, AsrBackendV2::HkQwen),
-            (AsrEngineName::RevAi, AsrBackendV2::Revai),
-        ] {
-            assert_eq!(
-                engine.dispatch_override_name(),
-                asr_backend_override_name(backend),
-                "ASR dispatch name skew for {engine:?}"
-            );
         }
     }
 
@@ -253,14 +161,16 @@ mod tests {
         let key = execute_v2_worker_key(
             WorkerLanguage::from(LanguageCode3::fra()),
             &request,
-            r#"{"asr":"tencent"}"#,
             WorkerBootstrapMode::Profile,
         )
         .unwrap();
 
-        assert_eq!(key.0, WorkerTarget::profile(WorkerProfile::Gpu));
-        assert_eq!(key.1, WorkerLanguage::from(LanguageCode3::fra()));
-        assert_eq!(key.2, r#"{"asr":"whisper"}"#);
+        assert_eq!(key.target, WorkerTarget::profile(WorkerProfile::Gpu));
+        assert_eq!(key.language, WorkerLanguage::from(LanguageCode3::fra()));
+        assert_eq!(
+            key.engine_selection.worker_config_json(),
+            r#"{"asr":"whisper"}"#
+        );
     }
 
     #[test]
@@ -297,8 +207,7 @@ mod tests {
             }),
         );
 
-        let json = execute_v2_engine_overrides(&request)
-            .expect("Asr request should produce engine_overrides JSON");
+        let json = EngineSelection::from_execute_request(&request).worker_config_json();
         let parsed: std::collections::BTreeMap<String, String> =
             serde_json::from_str(&json).expect("engine_overrides JSON must round-trip");
 
@@ -311,6 +220,31 @@ mod tests {
                  pool key + worker spawn argv would lose it"
             );
         }
+    }
+
+    #[test]
+    fn execute_v2_non_worker_asr_does_not_fragment_keys_but_keeps_extras() {
+        let mut extras = std::collections::BTreeMap::new();
+        extras.insert("provider_region".to_owned(), "us-east".to_owned());
+        let request = request_with_payload(
+            InferenceTaskV2::Asr,
+            TaskRequestV2::Asr(AsrRequestV2 {
+                lang: WorkerLanguage::from(LanguageCode3::eng()),
+                backend: AsrBackendV2::Revai,
+                input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
+                    audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
+                }),
+                extras: extras.clone(),
+            }),
+        );
+
+        let selection = EngineSelection::from_execute_request(&request);
+        assert_eq!(selection.overrides().asr, None);
+        assert_eq!(selection.overrides().extras, extras);
+        assert_eq!(
+            selection.worker_config_json(),
+            r#"{"provider_region":"us-east"}"#
+        );
     }
 
     #[test]
@@ -329,14 +263,16 @@ mod tests {
         let key = execute_v2_worker_key(
             WorkerLanguage::from(LanguageCode3::eng()),
             &request,
-            r#"{"fa":"whisper"}"#,
             WorkerBootstrapMode::Profile,
         )
         .unwrap();
 
-        assert_eq!(key.0, WorkerTarget::profile(WorkerProfile::Gpu));
-        assert_eq!(key.1, WorkerLanguage::from(LanguageCode3::eng()));
-        assert_eq!(key.2, r#"{"fa":"wave2vec"}"#);
+        assert_eq!(key.target, WorkerTarget::profile(WorkerProfile::Gpu));
+        assert_eq!(key.language, WorkerLanguage::from(LanguageCode3::eng()));
+        assert_eq!(
+            key.engine_selection.worker_config_json(),
+            r#"{"fa":"wave2vec"}"#
+        );
     }
 
     #[test]
@@ -354,12 +290,14 @@ mod tests {
         let key = execute_v2_worker_key(
             WorkerLanguage::from(LanguageCode3::eng()),
             &request,
-            "",
             WorkerBootstrapMode::Task,
         )
         .unwrap();
 
-        assert_eq!(key.0, WorkerTarget::infer_task(InferTask::Morphosyntax));
+        assert_eq!(
+            key.target,
+            WorkerTarget::infer_task(InferTask::Morphosyntax)
+        );
     }
 
     #[test]
@@ -392,7 +330,6 @@ mod tests {
         let fa_key = execute_v2_worker_key(
             WorkerLanguage::from(LanguageCode3::eng()),
             &fa_request,
-            "",
             WorkerBootstrapMode::LazyProfile,
         )
         .unwrap();
@@ -400,64 +337,15 @@ mod tests {
         let asr_key = execute_v2_worker_key(
             WorkerLanguage::from(LanguageCode3::eng()),
             &asr_request,
-            "",
             WorkerBootstrapMode::LazyProfile,
         )
         .unwrap();
 
-        // Both should use empty engine_overrides, same worker key.
-        assert_eq!(fa_key.2, "");
-        assert_eq!(asr_key.2, "");
+        // Both use no engine selection, so they share one worker key.
+        assert!(fa_key.engine_selection.is_none());
+        assert!(asr_key.engine_selection.is_none());
         // Same target and language → same worker.
-        assert_eq!(fa_key.0, asr_key.0);
-        assert_eq!(fa_key.1, asr_key.1);
-    }
-
-    // -----------------------------------------------------------------------
-    // Cross-check: dispatch_override_name() must agree with backend_override_name()
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn fa_override_names_match_across_enum_families() {
-        use crate::options::FaEngineName;
-
-        assert_eq!(
-            FaEngineName::Wave2Vec.dispatch_override_name(),
-            fa_backend_override_name(FaBackendV2::Wave2vec),
-        );
-        assert_eq!(
-            FaEngineName::Whisper.dispatch_override_name(),
-            fa_backend_override_name(FaBackendV2::Whisper),
-        );
-        assert_eq!(
-            FaEngineName::Wav2vecCanto.dispatch_override_name(),
-            fa_backend_override_name(FaBackendV2::Wav2vecCanto),
-        );
-    }
-
-    #[test]
-    fn asr_override_names_match_across_enum_families() {
-        use crate::options::AsrEngineName;
-
-        assert_eq!(
-            AsrEngineName::Whisper.dispatch_override_name(),
-            asr_backend_override_name(AsrBackendV2::LocalWhisper),
-        );
-        assert_eq!(
-            AsrEngineName::HkTencent.dispatch_override_name(),
-            asr_backend_override_name(AsrBackendV2::HkTencent),
-        );
-        assert_eq!(
-            AsrEngineName::HkAliyun.dispatch_override_name(),
-            asr_backend_override_name(AsrBackendV2::HkAliyun),
-        );
-        assert_eq!(
-            AsrEngineName::HkFunaudio.dispatch_override_name(),
-            asr_backend_override_name(AsrBackendV2::HkFunaudio),
-        );
-        assert_eq!(
-            AsrEngineName::RevAi.dispatch_override_name(),
-            asr_backend_override_name(AsrBackendV2::Revai),
-        );
+        assert_eq!(fa_key.target, asr_key.target);
+        assert_eq!(fa_key.language, asr_key.language);
     }
 }

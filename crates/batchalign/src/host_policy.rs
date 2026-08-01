@@ -1,11 +1,11 @@
 //! Host-level execution policy resolved once from runtime configuration.
 //!
 //! Command metadata says what a command *can* do. The host policy says what this
-//! machine should actually allow right now: how many jobs to admit, whether
-//! startup warmup is appropriate, and whether local workers should bootstrap an
-//! entire shared profile or only one task to minimize resident memory.
+//! machine should actually allow right now: how many jobs to admit, and whether
+//! local workers should bootstrap an entire shared profile or only one task to
+//! minimize resident memory.
 
-use crate::command_model::{ConstrainedHostPolicy, WarmupPolicy};
+use crate::command_model::ConstrainedHostPolicy;
 use crate::config::ServerConfig;
 use crate::runtime::{MemoryTier, MemoryTierKind};
 use crate::worker::WorkerBootstrapMode;
@@ -16,15 +16,6 @@ pub const AUTO_CONCURRENT_MAX_SLOTS: usize = 8;
 /// Fallback slot count when the CPU count cannot be detected.
 pub const AUTO_CONCURRENT_FALLBACK_SLOTS: usize = 4;
 
-/// Host decision for startup warmup.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StartupWarmupPolicy {
-    /// Keep startup fully lazy.
-    Disabled,
-    /// Allow warmup for commands whose metadata marks them eligible.
-    EligibleCommands,
-}
-
 /// Resolved host-level execution policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HostExecutionPolicy {
@@ -32,40 +23,29 @@ pub struct HostExecutionPolicy {
     pub memory_tier: MemoryTier,
     /// How local worker processes should bootstrap.
     pub bootstrap_mode: WorkerBootstrapMode,
-    /// Whether startup warmup is allowed at all.
-    pub startup_warmup: StartupWarmupPolicy,
-}
-
-impl Default for HostExecutionPolicy {
-    fn default() -> Self {
-        Self::from_memory_tier(MemoryTier::from_total_mb(64_000))
-    }
 }
 
 impl HostExecutionPolicy {
     /// Resolve host policy from one concrete memory tier.
     ///
-    /// - Small (<24 GB): `Task` mode, separate single-task workers, no warmup.
+    /// - Small (<24 GB): `Task` mode, separate single-task workers.
     /// - Medium (24-48 GB): `LazyProfile` mode, one worker per profile but
-    ///   models loaded on demand via `ensure_task`, no warmup. Prevents the
-    ///   speculative 10-15 GB eager loading that causes memory guard deadlocks.
-    /// - Large/Fleet (>48 GB): `Profile` mode, eager loading, warmup eligible.
+    ///   models loaded on demand via `ensure_task`. Prevents the speculative
+    ///   10-15 GB eager loading that causes memory guard deadlocks.
+    /// - Large/Fleet (>48 GB): `Profile` mode, eager loading.
     pub fn from_memory_tier(memory_tier: MemoryTier) -> Self {
         match memory_tier.kind {
             MemoryTierKind::Small => Self {
                 memory_tier,
                 bootstrap_mode: WorkerBootstrapMode::Task,
-                startup_warmup: StartupWarmupPolicy::Disabled,
             },
             MemoryTierKind::Medium => Self {
                 memory_tier,
                 bootstrap_mode: WorkerBootstrapMode::LazyProfile,
-                startup_warmup: StartupWarmupPolicy::Disabled,
             },
             MemoryTierKind::Large | MemoryTierKind::Fleet => Self {
                 memory_tier,
                 bootstrap_mode: WorkerBootstrapMode::Profile,
-                startup_warmup: StartupWarmupPolicy::EligibleCommands,
             },
         }
     }
@@ -110,13 +90,6 @@ impl HostExecutionPolicy {
             suggested_parallelism.max(1)
         }
     }
-
-    /// Whether one command remains eligible for startup warmup on this host.
-    pub(crate) fn allows_command_warmup(self, warmup: WarmupPolicy, test_echo_mode: bool) -> bool {
-        test_echo_mode
-            && matches!(self.startup_warmup, StartupWarmupPolicy::EligibleCommands)
-            && matches!(warmup, WarmupPolicy::BackgroundEligible)
-    }
 }
 
 /// Resolve auto job concurrency from CPU and memory caps.
@@ -128,24 +101,22 @@ pub fn auto_max_concurrent_from(by_cpu: usize, by_memory: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{HostExecutionPolicy, StartupWarmupPolicy};
-    use crate::command_model::{ConstrainedHostPolicy, WarmupPolicy};
+    use super::HostExecutionPolicy;
+    use crate::command_model::ConstrainedHostPolicy;
     use crate::runtime::MemoryTier;
     use crate::worker::WorkerBootstrapMode;
 
     #[test]
-    fn small_hosts_choose_task_bootstrap_and_disable_warmup() {
+    fn small_hosts_choose_task_bootstrap() {
         let policy = HostExecutionPolicy::from_memory_tier(MemoryTier::from_total_mb(16_000));
         assert_eq!(policy.bootstrap_mode, WorkerBootstrapMode::Task);
-        assert_eq!(policy.startup_warmup, StartupWarmupPolicy::Disabled);
         assert!(policy.is_constrained_host());
     }
 
     #[test]
-    fn medium_hosts_choose_lazy_profile_and_disable_warmup() {
+    fn medium_hosts_choose_lazy_profile() {
         let policy = HostExecutionPolicy::from_memory_tier(MemoryTier::from_total_mb(32_000));
         assert_eq!(policy.bootstrap_mode, WorkerBootstrapMode::LazyProfile);
-        assert_eq!(policy.startup_warmup, StartupWarmupPolicy::Disabled);
         assert!(policy.is_constrained_host());
     }
 
@@ -153,7 +124,6 @@ mod tests {
     fn large_hosts_keep_profile_bootstrap() {
         let policy = HostExecutionPolicy::from_memory_tier(MemoryTier::from_total_mb(64_000));
         assert_eq!(policy.bootstrap_mode, WorkerBootstrapMode::Profile);
-        assert_eq!(policy.startup_warmup, StartupWarmupPolicy::EligibleCommands);
         assert!(!policy.is_constrained_host());
     }
 
@@ -168,14 +138,6 @@ mod tests {
             policy.resolved_file_parallelism(ConstrainedHostPolicy::DelegatedToSubcommands, 4),
             1
         );
-    }
-
-    #[test]
-    fn warmup_requires_host_and_command_eligibility() {
-        let policy = HostExecutionPolicy::from_memory_tier(MemoryTier::from_total_mb(64_000));
-        assert!(policy.allows_command_warmup(WarmupPolicy::BackgroundEligible, true));
-        assert!(!policy.allows_command_warmup(WarmupPolicy::DelegatedToSubcommands, true));
-        assert!(!policy.allows_command_warmup(WarmupPolicy::BackgroundEligible, false));
     }
 
     #[test]

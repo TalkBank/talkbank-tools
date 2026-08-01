@@ -9,7 +9,7 @@ use crate::ReleasedCommand;
 use crate::api::MemoryMb;
 use crate::command_model::{
     BatchingPolicy, ConstrainedHostPolicy, ModelSharingPolicy, ParallelismPolicy, ResourceLane,
-    SchedulingPolicy, WarmupPolicy, command_spec,
+    SchedulingPolicy, command_spec,
 };
 use crate::host_policy::HostExecutionPolicy;
 use crate::types::runtime;
@@ -80,8 +80,6 @@ pub(crate) struct CommandKernelPlan {
     pub resource_lane: ResourceLane,
     /// How the command should behave on constrained-memory hosts.
     pub constrained_host: ConstrainedHostPolicy,
-    /// Whether the command is eligible for speculative/background warmup.
-    pub warmup: WarmupPolicy,
     /// Actual worker bootstrap mode chosen for this host.
     pub worker_bootstrap: WorkerBootstrapMode,
     /// Kernel-facing worker-lane hint.
@@ -97,13 +95,6 @@ pub(crate) struct CommandKernelPlan {
 }
 
 impl CommandKernelPlan {
-    /// Derive a resource-aware plan for one released command and discovered file
-    /// count.
-    #[cfg(test)]
-    pub(crate) fn for_command(command: ReleasedCommand, file_count: usize) -> Self {
-        Self::for_command_with_policy(command, file_count, &HostExecutionPolicy::default())
-    }
-
     /// Derive a resource-aware plan under one explicit host policy.
     pub(crate) fn for_command_with_policy(
         command: ReleasedCommand,
@@ -128,7 +119,6 @@ impl CommandKernelPlan {
             batching: family.batching_policy(),
             resource_lane: family.resource_lane(),
             constrained_host: family.constrained_host_policy(),
-            warmup: family.warmup_policy(),
             worker_bootstrap: host_policy.bootstrap_mode,
             execution_lane,
             file_parallelism_hint,
@@ -182,16 +172,22 @@ fn suggested_parallelism(
 mod tests {
     use super::{CommandKernelPlan, ExecutionLaneHint};
     use crate::ReleasedCommand;
-    use crate::command_model::{
-        BatchingPolicy, ConstrainedHostPolicy, SchedulingPolicy, WarmupPolicy,
-    };
+    use crate::command_model::{BatchingPolicy, ConstrainedHostPolicy, SchedulingPolicy};
     use crate::host_policy::HostExecutionPolicy;
     use crate::types::runtime;
     use crate::worker::WorkerBootstrapMode;
 
+    fn large_host_policy() -> HostExecutionPolicy {
+        HostExecutionPolicy::from_memory_tier(runtime::MemoryTier::from_total_mb(64_000))
+    }
+
     #[test]
     fn transcribe_kernel_plan_keeps_gpu_parallelism_cap() {
-        let plan = CommandKernelPlan::for_command(ReleasedCommand::Transcribe, 99);
+        let plan = CommandKernelPlan::for_command_with_policy(
+            ReleasedCommand::Transcribe,
+            99,
+            &large_host_policy(),
+        );
         assert_eq!(plan.scheduling, SchedulingPolicy::PerFileAudio);
         assert_eq!(plan.batching, BatchingPolicy::InternalStageBatching);
         assert_eq!(
@@ -204,7 +200,6 @@ mod tests {
             plan.constrained_host,
             ConstrainedHostPolicy::SequentialFallback
         );
-        assert_eq!(plan.warmup, WarmupPolicy::BackgroundEligible);
         assert_eq!(plan.worker_bootstrap, WorkerBootstrapMode::Profile);
         assert_eq!(
             plan.file_parallelism_hint,
@@ -214,7 +209,11 @@ mod tests {
 
     #[test]
     fn morphotag_kernel_plan_stays_single_dispatch_batch() {
-        let plan = CommandKernelPlan::for_command(ReleasedCommand::Morphotag, 12);
+        let plan = CommandKernelPlan::for_command_with_policy(
+            ReleasedCommand::Morphotag,
+            12,
+            &large_host_policy(),
+        );
         assert_eq!(plan.scheduling, SchedulingPolicy::CrossFileBatch);
         assert_eq!(plan.batching, BatchingPolicy::CrossFileBatch);
         assert_eq!(
@@ -227,7 +226,11 @@ mod tests {
 
     #[test]
     fn compare_kernel_plan_keeps_paired_profile() {
-        let plan = CommandKernelPlan::for_command(ReleasedCommand::Compare, 3);
+        let plan = CommandKernelPlan::for_command_with_policy(
+            ReleasedCommand::Compare,
+            3,
+            &large_host_policy(),
+        );
         assert_eq!(plan.scheduling, SchedulingPolicy::ReferenceProjection);
         assert_eq!(plan.batching, BatchingPolicy::PairedInputs);
         assert_eq!(
@@ -243,12 +246,15 @@ mod tests {
 
     #[test]
     fn benchmark_kernel_plan_delegates_small_host_policy() {
-        let plan = CommandKernelPlan::for_command(ReleasedCommand::Benchmark, 4);
+        let plan = CommandKernelPlan::for_command_with_policy(
+            ReleasedCommand::Benchmark,
+            4,
+            &large_host_policy(),
+        );
         assert_eq!(
             plan.constrained_host,
             ConstrainedHostPolicy::DelegatedToSubcommands
         );
-        assert_eq!(plan.warmup, WarmupPolicy::DelegatedToSubcommands);
     }
 
     #[test]

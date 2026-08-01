@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-07-30 19:02 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -251,7 +251,7 @@ re-running morphotag afterwards).
 ### 8. compare
 
 **Purpose:** Compare CHAT transcripts against gold-standard references to compute
-word error rate (WER) and inject per-utterance comparison annotations.
+word error rate (WER and cWER) and inject per-utterance comparison annotations.
 
 | Aspect | Local CLI | Server (`--server`) |
 |--------|-----------|---------------------|
@@ -273,8 +273,10 @@ materialized from typed compare-tier models and lowered once at the final CHAT
 serialization boundary.
 
 **Additional output:** A companion `.compare.csv` file is written alongside each
-`.cha` output with aggregate metrics (WER, accuracy, match/insertion/deletion
-counts, total word counts) plus per-POS rows. The CSV is emitted from a typed
+`.cha` output with aggregate metrics (WER, cWER, accuracy,
+match/insertion/deletion counts, total word counts) plus per-POS rows. See
+[Benchmarks](benchmarks.md) for how to read WER against cWER, and for the
+2026-07-30 accuracy change that makes older WER numbers non-comparable. The CSV is emitted from a typed
 metrics table model via the Rust `csv` crate, not by assembling row strings by
 hand.
 

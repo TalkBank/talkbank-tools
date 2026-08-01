@@ -1,7 +1,7 @@
 # Benchmarks
 
 **Status:** Current
-**Last updated:** 2026-05-20 01:14 EDT
+**Last updated:** 2026-07-30 19:02 EDT
 
 Batchalign provides a `benchmark` command to evaluate ASR accuracy against
 gold transcripts. It transcribes each audio file, compares the result
@@ -15,9 +15,53 @@ to a human-verified reference transcript. Lower is better, 0% means
 perfect, 100% means every word was wrong or missing.
 
 ```text
-WER = (insertions + deletions) / total_gold_words
+WER  = (insertions + deletions) / total_gold_words
+cWER = (order-insensitive edits) / total_gold_words
 Accuracy = 1.0 − WER  (clamped to [0, 1])
 ```
+
+## WER and cWER: read them as a pair
+
+`cwer` counts the same errors as `wer` except that a word recognised
+correctly but placed in the wrong position **within its utterance** cancels,
+instead of being charged twice, once as a deletion where it should have been
+and once as an insertion where it landed.
+
+| Reading | Means |
+|---|---|
+| `cwer` well below `wer` | The words are right and the PLACEMENT is wrong. Look at diarization and the merge stage. |
+| `cwer` close to `wer` | The words themselves are wrong. Look at the ASR engine. |
+
+Plain WER conflates those two failure modes, and for diarized output the
+distinction is most of the diagnostic value.
+
+> **Accuracy changed on 2026-07-30, and older numbers are not comparable.**
+> Until then, compare aligned only inside a bag-of-words window chosen per gold
+> utterance and silently discarded any hypothesis word outside it. Those words
+> were counted in no category, so reported WER was systematically LOWER than the
+> truth by an amount that varied with how ragged the transcript was. The
+> two-phase compare aligns each main utterance's full token span, so those words
+> are now charged as insertions. Expect WER on the same file to RISE relative to
+> a pre-2026-07-30 run; the new number is the honest one.
+
+## What the gold claims to cover
+
+Compare maps each gold utterance onto a main utterance, and some main
+utterances are left over. Whether THEIR words count as errors is not something
+compare can work out from the two files, so the caller states it:
+
+| Coverage | Meaning | Leftover main words |
+|---|---|---|
+| `Complete` | The gold is a full reference for this recording | Charged as insertions |
+| `Partial` | The gold covers only a slice, one timepoint, one speaker | Not scored |
+
+There is deliberately no default. Getting this wrong moves the headline WER in a
+direction nobody would notice, so the compiler makes the caller choose.
+
+The `compare` and `benchmark` commands pass `Complete`, because a `FILE.gold.cha`
+companion is a re-transcription of the same recording. A measurement built on a
+sampled or single-speaker reference should pass `Partial`, and should say so
+when it reports its numbers: a `Partial` WER describes the covered part only.
 
 Word normalization is applied before comparison: compound splitting
 (`airplane` → `air plane`), contraction expansion (`he's` → `he is`),
@@ -36,7 +80,7 @@ flowchart LR
     transcribe --> morphotag["Morphotag\n(Stanza %mor/%gra)"]
     morphotag --> compare["Stage 2: Compare\n(DP align → WER)"]
     compare --> output_cha["Output .cha\n(with %xsrep / %xsmor tiers)"]
-    compare --> output_csv["Output .compare.csv\n(WER metrics)"]
+    compare --> output_csv["Output .compare.csv\n(WER + cWER metrics)"]
 ```
 
 **Stage 1, Transcribe:** Runs the full ASR pipeline (`process_transcribe()`)

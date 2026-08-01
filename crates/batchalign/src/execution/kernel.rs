@@ -549,7 +549,7 @@ mod tests {
             &self,
             _command: ReleasedCommand,
             _lang: crate::api::WorkerLanguage,
-            _engine_overrides: &str,
+            _options: &crate::options::CommandOptions,
         ) -> Result<crate::capability::WorkerCapabilitySnapshot, String> {
             unreachable!("test does not call ensure_command_capabilities")
         }

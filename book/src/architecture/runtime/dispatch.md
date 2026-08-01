@@ -1,7 +1,7 @@
 # Dispatch and Execution
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 How a job moves from the CLI to a running command: the four CLI
 dispatch targets, the workflow families that organize commands, the
@@ -396,7 +396,7 @@ On large hosts this favors profile reuse; on small hosts it favors
 task bootstrap so a laptop does not speculatively preload a whole
 profile. See
 [Batchalign Workers](batchalign-workers.md)
-for pool structure, warmup behavior, and host-policy details.
+for pool structure, pre-scaling behavior, and host-policy details.
 
 ## Key Patterns
 

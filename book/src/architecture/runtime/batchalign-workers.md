@@ -1,7 +1,7 @@
 # Batchalign Workers
 
 **Status:** Current
-**Last updated:** 2026-06-21 23:23 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 Per-app worker concerns specific to the Batchalign runtime: pool
 sizing, RAM-tier-aware memory budgets, model loading per worker,
@@ -214,7 +214,7 @@ through job completion. Each gate that can block is marked.
 flowchart TD
     start["CLI: batchalign3 morphotag corpus/ output/"]
     daemon["ensure_daemon()\n(daemon.rs)"]
-    spawn_server["spawn batchalign3 serve start\n--foreground --warmup-policy off"]
+    spawn_server["spawn batchalign3 serve start\n--foreground"]
     tier_detect["MemoryTier::detect()\n(runtime.rs)"]
     bind["Bind TCP port immediately\n/health available\nno Python running yet"]
     health_poll["CLI polls /health\n(passes instantly)"]

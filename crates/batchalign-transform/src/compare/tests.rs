@@ -39,7 +39,7 @@ fn identical_transcripts() {
     let (main_file, _) = parse_lenient(&parser, &chat);
     let (gold_file, _) = parse_lenient(&parser, &chat);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.wer, 0.0);
     assert_eq!(result.metrics.accuracy, 1.0);
     assert_eq!(result.metrics.matches, 4);
@@ -47,6 +47,38 @@ fn identical_transcripts() {
     assert_eq!(result.metrics.deletions, 0);
     assert_eq!(result.metrics.total_gold_words, 4);
     assert_eq!(result.metrics.total_main_words, 4);
+}
+
+/// Main tokens that fall outside the chosen alignment window must be reported
+/// as insertions, not dropped.
+///
+/// This is the defect the two-phase compare fixes. Phase 1's bag-of-words
+/// window is a heuristic for deciding WHICH main material corresponds to a gold
+/// utterance; it is not a licence to ignore the main tokens it did not select.
+/// While it was, every hypothesis word the window missed went uncounted, so the
+/// reported WER was systematically friendlier than the truth, in an amount that
+/// varied with how ragged the transcript was. That makes the metric unusable as
+/// a headline accuracy number, which is how it was rediscovered (2026-07-30,
+/// designing the IISRP adult-accuracy measurement).
+#[test]
+fn main_tokens_outside_the_window_are_insertions_not_silently_dropped() {
+    let parser = TreeSitterParser::new().unwrap();
+    // Two leading and two trailing main tokens sit outside any window that
+    // scores well against the gold utterance.
+    let main = make_chat(&[("CHI", "alpha beta the cat sat gamma delta .")]);
+    let gold = make_chat(&[("CHI", "the cat sat .")]);
+    let (main_file, _) = parse_lenient(&parser, &main);
+    let (gold_file, _) = parse_lenient(&parser, &gold);
+
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
+    assert_eq!(result.metrics.matches, 3, "the/cat/sat still match");
+    assert_eq!(
+        result.metrics.insertions, 4,
+        "alpha, beta, gamma and delta are hypothesis words the reference does \
+         not contain; each is an insertion however the window was chosen"
+    );
+    assert_eq!(result.metrics.deletions, 0);
+    assert_eq!(result.metrics.total_main_words, 7);
 }
 
 #[test]
@@ -57,13 +89,17 @@ fn single_substitution() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
-    // Compare aligns inside the best local window and does not surface
-    // skipped main tokens outside that window as insertions.
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
+    // A substitution is one insertion plus one deletion. Before the two-phase
+    // compare, "earth" fell outside the chosen window and was not counted at
+    // all, so a substitution registered as a bare deletion.
     assert!(result.metrics.wer > 0.0);
     assert_eq!(result.metrics.matches, 1); // "hello" matches
-    assert_eq!(result.metrics.insertions, 0); // skipped "earth"
+    assert_eq!(result.metrics.insertions, 1); // "earth"
     assert_eq!(result.metrics.deletions, 1); // "world"
+    // "earth" and "world" are different words, so nothing cancels: a genuine
+    // substitution costs the same under `cwer` as under `wer`.
+    assert_eq!(result.metrics.cwer, result.metrics.wer);
 }
 
 #[test]
@@ -74,7 +110,7 @@ fn extra_word_in_main() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.matches, 2); // "hello", "world"
     assert_eq!(result.metrics.insertions, 1); // "big"
     assert_eq!(result.metrics.deletions, 0);
@@ -90,7 +126,7 @@ fn missing_word_in_main() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.matches, 1); // "hello"
     assert_eq!(result.metrics.insertions, 0);
     assert_eq!(result.metrics.deletions, 1); // "world"
@@ -107,7 +143,7 @@ fn empty_main() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.matches, 0);
     assert_eq!(result.metrics.deletions, 2);
     assert_eq!(result.metrics.wer, 1.0);
@@ -121,11 +157,21 @@ fn empty_gold() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.matches, 0);
-    assert_eq!(result.metrics.insertions, 0);
+    // A COMPLETE gold containing nothing claims the recording contains nothing,
+    // so every word the system produced is an insertion. Before the gold
+    // coverage was stated, these two were counted nowhere.
+    assert_eq!(result.metrics.insertions, 2);
     assert_eq!(result.metrics.total_gold_words, 0);
-    assert_eq!(result.metrics.wer, 0.0); // no gold words => wer=0
+    // WER's denominator is zero here, so the rate itself is not meaningful and
+    // is reported as 0.0; read `insertions` instead in this degenerate case.
+    assert_eq!(result.metrics.wer, 0.0);
+
+    // The same files under a PARTIAL gold: the reference claims nothing about
+    // this material, so nothing is charged.
+    let partial = compare(&main_file, &gold_file, GoldCoverage::Partial);
+    assert_eq!(partial.metrics.insertions, 0);
 }
 
 #[test]
@@ -136,7 +182,7 @@ fn case_insensitive_matching() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.wer, 0.0);
     assert_eq!(result.metrics.matches, 2);
 }
@@ -150,7 +196,7 @@ fn conform_normalizes_contractions() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     // After conform: main = ["he", "is", "going"], gold = ["he", "is", "going"]
     assert_eq!(result.metrics.wer, 0.0);
 }
@@ -163,7 +209,7 @@ fn multiple_utterances() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.wer, 0.0);
     assert_eq!(result.metrics.matches, 2);
     assert_eq!(result.main_utterances.len(), 2);
@@ -255,6 +301,7 @@ fn xsmor_serializes_final_punctuation_as_surface_delimiter() {
 fn compare_metrics_csv_table_serializes_with_csv_writer() {
     let metrics = CompareMetrics {
         wer: 0.25,
+        cwer: 0.0,
         accuracy: 0.75,
         matches: 3,
         insertions: 1,
@@ -288,6 +335,7 @@ fn wer_computation_is_correct() {
     // 2 matches, 1 insertion, 1 deletion out of 3 gold words
     let metrics = CompareMetrics {
         wer: 0.0,      // will be computed
+        cwer: 0.0,     // will be computed
         accuracy: 0.0, // will be computed
         matches: 2,
         insertions: 1,
@@ -307,7 +355,7 @@ fn wer_computation_is_correct() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     // main: hello, big, world
     // gold: hello, world, today
     // align: hello=match, big=extra_main, world=match, today=extra_gold
@@ -421,7 +469,7 @@ fn compare_does_not_steal_match_across_utterance_boundary() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(
         result.metrics.matches, 2,
         "BA2 majority-projection should keep matches at 2 (dog, ran); \
@@ -447,7 +495,7 @@ fn inject_comparison_adds_xsrep_tiers() {
     let (mut main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     inject_comparison(&mut main_file, &result.main_utterances).expect("inject comparison");
 
     // Find the utterance and check it has an %xsrep tier
@@ -474,7 +522,7 @@ fn clear_comparison_removes_compare_tiers() {
     let (mut main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     inject_comparison(&mut main_file, &result.main_utterances).expect("inject comparison");
 
     // Verify xsrep was added
@@ -497,7 +545,7 @@ fn inject_comparison_idempotent() {
     let (mut main_file, _) = parse_lenient(&parser, &main);
     let (gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     inject_comparison(&mut main_file, &result.main_utterances).expect("inject comparison");
     let first = main_file.to_chat_string();
 
@@ -511,6 +559,7 @@ fn inject_comparison_idempotent() {
 fn format_metrics_csv_has_header() {
     let metrics = CompareMetrics {
         wer: 0.25,
+        cwer: 0.0,
         accuracy: 0.75,
         matches: 3,
         insertions: 1,
@@ -560,7 +609,7 @@ fn compare_uses_mor_pos_for_xsmor_output() {
     let (main_file, _) = parse_lenient(&parser, main);
     let (gold_file, _) = parse_lenient(&parser, gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(
         XsmorTierContent::try_from(&result.main_utterances[0])
             .expect("xsmor tier")
@@ -587,7 +636,7 @@ fn compare_attributes_gold_pos_to_matches() {
     let (main_file, _) = parse_lenient(&parser, main);
     let (gold_file, _) = parse_lenient(&parser, gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.matches, 2);
     assert_eq!(
         XsmorTierContent::try_from(&result.main_utterances[0])
@@ -613,30 +662,49 @@ fn compare_ignores_pos_punct_even_when_surface_is_not_punctuation() {
     let (main_file, _) = parse_lenient(&parser, main);
     let (gold_file, _) = parse_lenient(&parser, gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.matches, 1);
     assert_eq!(result.metrics.insertions, 0);
     assert_eq!(result.metrics.deletions, 0);
     assert_eq!(result.metrics.wer, 0.0);
 }
 
+/// A reordered utterance costs WER but not `cwer`.
+///
+/// This pinned the old rotation step, which cyclically re-phased the chosen
+/// window and so scored "world hello" against "hello world" as two matches.
+/// That was right for a WINDOW, whose start offset was an artifact of the
+/// search, and wrong for a whole utterance, where the order is the data: it let
+/// a genuinely scrambled utterance score perfectly. Phase 2 aligns the full
+/// utterance without rotating, so the displacement is now visible.
+///
+/// It is exactly what `cwer` exists to separate. Both words were recognised
+/// correctly and merely placed wrongly, so `cwer` is 0 while `wer` is 1.0. The
+/// pair says "the ASR heard this fine, the ordering is what went wrong".
 #[test]
-fn compare_rotation_recovers_cyclic_window_matches() {
+fn reordered_utterance_costs_wer_but_not_cwer() {
     let parser = TreeSitterParser::new().unwrap();
     let main = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\tworld hello .\n%mor:\tnoun|world intj|hello .\n@End\n";
     let gold = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\thello world .\n@End\n";
     let (main_file, _) = parse_lenient(&parser, main);
     let (gold_file, _) = parse_lenient(&parser, gold);
 
-    let result = compare(&main_file, &gold_file);
-    assert_eq!(result.metrics.matches, 2);
-    assert_eq!(result.metrics.insertions, 0);
-    assert_eq!(result.metrics.deletions, 0);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
+    assert_eq!(result.metrics.matches, 1, "one word survives in place");
+    assert_eq!(result.metrics.insertions, 1);
+    assert_eq!(result.metrics.deletions, 1);
+    assert_eq!(result.metrics.wer, 1.0);
+    assert_eq!(
+        result.metrics.cwer, 0.0,
+        "the displaced word cancels: right word, wrong position"
+    );
+    // The replay reads as what actually happened: an inserted "world" ahead of
+    // the matched "hello", and the reference "world" missing after it.
     assert_eq!(
         XsrepTierContent::try_from(&result.gold_utterances[0])
             .expect("xsrep tier")
             .to_chat_string(),
-        "hello world ."
+        "+world hello -world ."
     );
 }
 
@@ -648,7 +716,7 @@ fn batchalign2_master_simple_gold_projection_shape() {
     let (main_file, _) = parse_lenient(&parser, main);
     let (gold_file, _) = parse_lenient(&parser, gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(
         XsrepTierContent::try_from(&result.gold_utterances[0])
             .expect("xsrep tier")
@@ -674,24 +742,35 @@ fn batchalign2_master_simple_gold_projection_shape() {
     assert_eq!(result.metrics.pos_counts["?"].matches, 2);
 }
 
+/// Repeated main tokens before the matched window are insertions.
+///
+/// Named `..._ignores_skipped_prefix_tokens` until 2026-07-30, when it pinned
+/// the opposite: the two leading "dog"s scored as nothing at all. They are
+/// hypothesis words with no reference counterpart, so they are insertions.
 #[test]
-fn batchalign2_master_windowed_alignment_ignores_skipped_prefix_tokens() {
+fn windowed_alignment_counts_skipped_prefix_tokens_as_insertions() {
     let parser = TreeSitterParser::new().unwrap();
     let main = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\tdog dog the dog .\n%mor:\tnoun|dog noun|dog det|the noun|dog .\n@End\n";
     let gold = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\tthe dog .\n@End\n";
     let (main_file, _) = parse_lenient(&parser, main);
     let (gold_file, _) = parse_lenient(&parser, gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(result.metrics.matches, 2);
-    assert_eq!(result.metrics.insertions, 0);
+    assert_eq!(
+        result.metrics.insertions, 2,
+        "the two leading \"dog\" tokens"
+    );
     assert_eq!(result.metrics.deletions, 0);
-    assert_eq!(result.metrics.wer, 0.0);
+    assert_eq!(result.metrics.wer, 1.0, "2 insertions over 2 gold words");
+    // `%xsrep` is the COMPARISON replay, not a copy of the gold line, so the
+    // recovered insertions appear in it with the `+` marker. They were absent
+    // before only because they were never emitted at all.
     assert_eq!(
         XsrepTierContent::try_from(&result.gold_utterances[0])
             .expect("xsrep tier")
             .to_chat_string(),
-        "the dog ."
+        "+dog +dog the dog ."
     );
     // Strict BA2 parity: gold has no %mor, so Match POS = gold's None = "?".
     // BA3 pre-fix would have lifted DET/NOUN from main, but that's not what
@@ -700,7 +779,7 @@ fn batchalign2_master_windowed_alignment_ignores_skipped_prefix_tokens() {
         XsmorTierContent::try_from(&result.gold_utterances[0])
             .expect("xsmor tier")
             .to_chat_string(),
-        "? ? ."
+        "+NOUN +NOUN ? ? ."
     );
 }
 
@@ -712,7 +791,7 @@ fn batchalign2_master_multi_utterance_compare_metrics() {
     let (main_file, _) = parse_lenient(&parser, main);
     let (gold_file, _) = parse_lenient(&parser, gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     assert_eq!(
         XsrepTierContent::try_from(&result.gold_utterances[0])
             .expect("xsrep tier")
@@ -754,11 +833,64 @@ fn gold_anchored_projection_attaches_diff_to_gold_transcript() {
     let (main_file, _) = parse_lenient(&parser, &main);
     let (mut gold_file, _) = parse_lenient(&parser, &gold);
 
-    let result = compare(&main_file, &gold_file);
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
     inject_comparison(&mut gold_file, &result.gold_utterances).expect("inject comparison");
 
     let serialized = gold_file.to_chat_string();
     assert!(serialized.contains("*CHI:\thello world today ."));
     assert!(serialized.contains("%xsrep:\thello +big world -today"));
     assert!(serialized.contains("%xsmor:"));
+}
+
+/// With a COMPLETE gold, a main utterance no gold maps to is all insertions.
+///
+/// The caller states what the gold claims to cover, because only the caller
+/// knows. A complete gold is a full reference for this transcript, so main
+/// material it does not account for is material the system produced and the
+/// reference does not contain: insertions, by the definition of WER.
+#[test]
+fn unmapped_main_utterance_is_insertions_under_complete_gold() {
+    let parser = TreeSitterParser::new().unwrap();
+    let main = make_chat(&[
+        ("CHI", "the cat sat ."),
+        ("MOT", "entirely unrelated invented material ."),
+    ]);
+    let gold = make_chat(&[("CHI", "the cat sat .")]);
+    let (main_file, _) = parse_lenient(&parser, &main);
+    let (gold_file, _) = parse_lenient(&parser, &gold);
+
+    let result = compare(&main_file, &gold_file, GoldCoverage::Complete);
+    assert_eq!(result.metrics.matches, 3);
+    assert_eq!(
+        result.metrics.insertions, 4,
+        "the four words of the unmapped MOT utterance"
+    );
+    assert_eq!(
+        result.metrics.total_main_words, 7,
+        "the main-word total is the whole transcript"
+    );
+}
+
+/// With a PARTIAL gold, the same utterance is correctly ignored.
+///
+/// A gold that deliberately covers one slice of a recording says nothing about
+/// the rest, so charging the rest as insertions would penalise the system for
+/// transcribing material the reference never claimed. The same input as the
+/// test above, and the opposite right answer: which is exactly why this is a
+/// caller's declaration and not a default.
+#[test]
+fn unmapped_main_utterance_is_ignored_under_partial_gold() {
+    let parser = TreeSitterParser::new().unwrap();
+    let main = make_chat(&[
+        ("CHI", "the cat sat ."),
+        ("MOT", "material outside the sampled slice ."),
+    ]);
+    let gold = make_chat(&[("CHI", "the cat sat .")]);
+    let (main_file, _) = parse_lenient(&parser, &main);
+    let (gold_file, _) = parse_lenient(&parser, &gold);
+
+    let result = compare(&main_file, &gold_file, GoldCoverage::Partial);
+    assert_eq!(result.metrics.matches, 3);
+    assert_eq!(result.metrics.insertions, 0);
+    assert_eq!(result.metrics.wer, 0.0, "the covered slice is perfect");
 }

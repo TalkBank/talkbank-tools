@@ -68,7 +68,18 @@ def test_realignment_context_is_set_before_nlp_in_normal_mode() -> None:
     """In non-retok mode, ``tok_ctx.original_words`` must be populated
     with the request's per-item word lists at the moment ``nlp()`` is
     called. This is the primary invariant that keeps Stanza's tokenizer
-    aligned to CHAT word boundaries."""
+    aligned to CHAT word boundaries.
+
+    The word list is the CHAT words PLUS the utterance terminator, because
+    that is what the text handed to Stanza contains, and the realigner's job
+    is to hold Stanza to the boundaries of the text it was actually given.
+    Sending the terminator is not cosmetic: Stanza's Italian model reads
+    `dammela` as an ADJ and declines to MWT-expand it when the terminator is
+    missing, and produces the correct `dare` + me + la when it is present
+    (locked as `ita__sentence_period__dammela_needs_its_terminator` in the
+    decision-probe matrix). Both halves have to move together; pinning
+    `original_words` to the bare CHAT words while the text carries a
+    terminator would tell the realigner to expect a token the text has."""
 
     ctx = TokenizerContext()
 
@@ -121,13 +132,14 @@ def test_realignment_context_is_set_before_nlp_in_normal_mode() -> None:
     # word_lists corresponding to the batch items for this language.
     # The exact ordering follows the request items for the dispatch
     # language.
-    assert observed_original_words[0] == [["hello"], ["world"]], (
+    assert observed_original_words[0] == [["hello", "."], ["world", "."]], (
         f"tok_ctx.original_words was {observed_original_words[0]!r} at "
         f"the moment nlp() was invoked, but the invariant requires it "
-        f"to carry the batch's word lists so Stanza can realign to CHAT "
-        f"boundaries. If this assertion fires, the realignment sequencing "
-        f"in batch_infer_morphosyntax has drifted: Stanza will tokenize "
-        f"freely and the 1-to-1 invariant will silently break."
+        f"to carry the batch's word lists, terminator included, so Stanza "
+        f"can realign to the boundaries of the text it was handed. If this "
+        f"assertion fires, the realignment sequencing in "
+        f"batch_infer_morphosyntax has drifted: Stanza will tokenize freely "
+        f"and the 1-to-1 invariant will silently break."
     )
 
 

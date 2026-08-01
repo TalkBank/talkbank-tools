@@ -4,10 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use crate::api::{NumSpeakers, WorkerLanguage};
 use tracing::{error, info, warn};
 
-use crate::worker::WorkerTarget;
+use crate::api::NumSpeakers;
 use crate::worker::error::WorkerError;
 use crate::worker::handle::{WorkerConfig, WorkerHandle};
 
@@ -108,48 +107,23 @@ impl WorkerPool {
         })
     }
 
-    /// Build a `WorkerConfig` for the given worker profile and worker language.
-    pub(super) fn worker_config(
-        &self,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
-    ) -> WorkerConfig {
-        WorkerConfig {
-            python_path: self.config.python_path.clone(),
-            profile: target.profile_kind(),
-            task: target.task(),
-            lang: lang.clone(),
-            num_speakers: NumSpeakers(1),
-            engine_overrides: engine_overrides.to_owned(),
-            test_echo: self.config.test_echo,
-            ready_timeout_s: self.config.ready_timeout_s,
-            verbose: self.config.verbose,
-            runtime: self.config.runtime.clone(),
-            audio_task_timeout_s: self.config.audio_task_timeout_s,
-            analysis_task_timeout_s: self.config.analysis_task_timeout_s,
-            test_delay_ms: self.config.test_delay_ms,
-        }
+    /// Build a `WorkerConfig` at the Rust/Python boundary for one typed key.
+    pub(super) fn worker_config(&self, key: &WorkerKey) -> WorkerConfig {
+        worker_config_for_key(&self.config, key)
     }
 
     /// Get or create the `WorkerGroup` for a key.
-    pub(super) fn get_or_create_group(
-        &self,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
-    ) -> Arc<WorkerGroup> {
-        let key: super::WorkerKey = (*target, lang.clone(), engine_overrides.to_owned());
-        let profile = target.profile_kind();
+    pub(super) fn get_or_create_group(&self, key: &WorkerKey) -> Arc<WorkerGroup> {
+        let profile = key.target.profile_kind();
         let mut groups = super::lock_recovered(&self.groups);
         groups
-            .entry(key)
+            .entry(key.clone())
             .or_insert_with(|| {
                 Arc::new(WorkerGroup::new(
                     self.worker_returned.clone(),
                     self.spawn_permits.clone(),
                     profile,
-                    engine_overrides.to_owned(),
+                    key.engine_selection.clone(),
                 ))
             })
             .clone()
@@ -158,8 +132,7 @@ impl WorkerPool {
     /// Try to atomically claim a spawn slot in a group via compare_exchange.
     ///
     /// Checks two limits:
-    /// 1. Per-key cap: `max_workers_per_key.<group.profile>` (prevents
-    ///    one key from hogging within its profile).
+    /// 1. Per-key cap: `max_workers_per_key.get(group.profile)`
     /// 2. Global cap: `max_total_workers` (prevents aggregate OOM).
     ///
     /// Returns `Ok(claimed_total)` if a slot was claimed, `Err(current)` if
@@ -234,7 +207,7 @@ impl WorkerPool {
         // average RSS of same-profile idle peers (Mode B), falling
         // back to the static `startup_reservation_mb_for_tier` value
         // (Mode A) when no peers are available. The fallback ensures
-        // that pre-warmup admission decisions match Mode A behavior
+        // that pre-spawn admission decisions match Mode A behavior
         // exactly: Mode B is strictly an improvement, never worse.
         //
         // No env var, no PoolConfig field, no operator override.
@@ -244,11 +217,10 @@ impl WorkerPool {
         let mem_threshold =
             memory_gate::host_min_free_mb_threshold_for_tier(&self.config.runtime.memory_tier);
         // Engine-aware: lifts the reservation above the profile baseline
-        // when the engine override carries a heavy local model. See
-        // ``memory_gate::engine_aware_startup_reservation_mb``.
+        // when the engine selection carries a heavy local model.
         let reservation_mb = memory_gate::engine_aware_startup_reservation_mb(
             group.profile,
-            &group.engine_overrides,
+            group.engine_selection.overrides(),
             &self.config.runtime.memory_tier,
         )
         .0;
@@ -337,9 +309,7 @@ impl WorkerPool {
     pub(super) async fn try_spawn_into_group(
         &self,
         group: &Arc<WorkerGroup>,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
+        key: &WorkerKey,
     ) -> Result<bool, WorkerError> {
         let guard = match self.try_claim_spawn_slot(group) {
             Ok((_, g)) => g,
@@ -353,7 +323,7 @@ impl WorkerPool {
         // Ok we hand the permit's lifetime over to the worker (via
         // `guard.forget()`); on Err the guard drops at function exit
         // and refunds the permit alongside the per-key fetch_sub.
-        match WorkerHandle::spawn(self.worker_config(target, lang, engine_overrides)).await {
+        match WorkerHandle::spawn(self.worker_config(key)).await {
             Ok(mut handle) => {
                 // Lazily detect capabilities from the first spawned worker.
                 // This is a single IPC round-trip on an already-running worker.
@@ -383,6 +353,24 @@ impl WorkerPool {
                 Err(e)
             }
         }
+    }
+}
+
+fn worker_config_for_key(pool_config: &super::PoolConfig, key: &WorkerKey) -> WorkerConfig {
+    WorkerConfig {
+        python_path: pool_config.python_path.clone(),
+        profile: key.target.profile_kind(),
+        task: key.target.task(),
+        lang: key.language.clone(),
+        num_speakers: NumSpeakers(1),
+        engine_overrides: key.engine_selection.worker_config_json(),
+        test_echo: pool_config.test_echo,
+        ready_timeout_s: pool_config.ready_timeout_s,
+        verbose: pool_config.verbose,
+        runtime: pool_config.runtime.clone(),
+        audio_task_timeout_s: pool_config.audio_task_timeout_s,
+        analysis_task_timeout_s: pool_config.analysis_task_timeout_s,
+        test_delay_ms: pool_config.test_delay_ms,
     }
 }
 
@@ -417,9 +405,9 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
             // Check if process is alive
             if !worker.is_alive() {
                 warn!(
-                    target = %key.0.label(),
-                    lang = %key.1,
-                    engine_overrides = %key.2,
+                    target = %key.target.label(),
+                    lang = %key.language,
+                    engine_selection = %key.engine_selection,
                     pid = %worker.pid(),
                     "Worker process died, scheduling restart"
                 );
@@ -436,9 +424,9 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
                 }
                 Err(e) => {
                     warn!(
-                        target = %key.0.label(),
-                        lang = %key.1,
-                        engine_overrides = %key.2,
+                        target = %key.target.label(),
+                        lang = %key.language,
+                        engine_selection = %key.engine_selection,
                         pid = %worker.pid(),
                         error = %e,
                         "Health check failed, scheduling restart"
@@ -470,9 +458,9 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
             let Some(restart_guard) =
                 super::permit::SpawnPermitGuard::try_acquire_or_skip(&group.spawn_permits, || {
                     warn!(
-                        target = %key.0.label(),
-                        lang = %key.1,
-                        engine_overrides = %key.2,
+                        target = %key.target.label(),
+                        lang = %key.language,
+                        engine_selection = %key.engine_selection,
                         "Skipping reaper restart: global cap reached"
                     );
                 })
@@ -481,29 +469,15 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
             };
 
             info!(
-                target = %key.0.label(),
-                lang = %key.1,
-                engine_overrides = %key.2,
+                target = %key.target.label(),
+                lang = %key.language,
+                engine_selection = %key.engine_selection,
                 "Restarting worker"
             );
 
             let _bootstrap_guard = group.bootstrap.lock().await;
 
-            let config = WorkerConfig {
-                python_path: pool_config.python_path.clone(),
-                profile: key.0.profile_kind(),
-                task: key.0.task(),
-                lang: key.1.clone(),
-                num_speakers: NumSpeakers(1),
-                engine_overrides: key.2.clone(),
-                test_echo: pool_config.test_echo,
-                ready_timeout_s: pool_config.ready_timeout_s,
-                verbose: pool_config.verbose,
-                runtime: pool_config.runtime.clone(),
-                audio_task_timeout_s: pool_config.audio_task_timeout_s,
-                analysis_task_timeout_s: pool_config.analysis_task_timeout_s,
-                test_delay_ms: pool_config.test_delay_ms,
-            };
+            let config = worker_config_for_key(pool_config, key);
 
             match WorkerHandle::spawn(config).await {
                 Ok(handle) => {
@@ -515,9 +489,9 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
                     // lifetime to the worker's exit paths.
                     restart_guard.forget();
                     info!(
-                        target = %key.0.label(),
-                        lang = %key.1,
-                        engine_overrides = %key.2,
+                        target = %key.target.label(),
+                        lang = %key.language,
+                        engine_selection = %key.engine_selection,
                         pid = %pid,
                         "Worker restarted"
                     );
@@ -525,9 +499,9 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
                 Err(e) => {
                     // restart_guard drops here, refunding the permit.
                     error!(
-                        target = %key.0.label(),
-                        lang = %key.1,
-                        engine_overrides = %key.2,
+                        target = %key.target.label(),
+                        lang = %key.language,
+                        engine_selection = %key.engine_selection,
                         error = %e,
                         "Failed to restart worker"
                     );
@@ -617,8 +591,8 @@ async fn pressure_evict_idle_workers_if_needed(groups_ref: &GroupsMap) {
         info!(
             pid = %sample.pid,
             rss_mb = sample.rss_mb,
-            target = %sample.key.0.label(),
-            lang = %sample.key.1,
+            target = %sample.key.target.label(),
+            lang = %sample.key.language,
             "Evicted idle worker for memory pressure"
         );
     }

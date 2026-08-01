@@ -14,7 +14,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, TypeAlias, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, overload, runtime_checkable
 
 import numpy as np
 
@@ -109,9 +109,23 @@ class StanzaDoc(Protocol):
 
 
 class StanzaNLP(Protocol):
-    """Structural type for a Stanza Pipeline."""
+    """Structural type for a Stanza Pipeline.
 
+    Both call forms are declared because both are used. A Pipeline accepts a
+    string, and it also accepts a LIST of pre-built Documents, which is how the
+    Italian MWT probe runs a whole batch in one call. Only the string form was
+    declared, so the batch caller had to type its pipeline as `object`, which is
+    not callable, and the resulting error stayed invisible behind the
+    `batchalign.inference.*` mypy carve-out.
+    """
+
+    @overload
     def __call__(self, text: str) -> StanzaDoc: ...
+
+    @overload
+    def __call__(self, text: list[Any]) -> list[StanzaDoc]: ...
+
+    def __call__(self, text: str | list[Any]) -> StanzaDoc | list[StanzaDoc]: ...
 
 
 # ---------------------------------------------------------------------------

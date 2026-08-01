@@ -11,6 +11,7 @@ import threading
 import time
 import unicodedata
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError, model_validator
@@ -42,6 +43,31 @@ class MorphosyntaxBatchItem(BaseModel):
     terminator: str = "."
     special_forms: list[list[str | None]] = []
     lang: LanguageCode = ""
+
+
+@dataclass(frozen=True)
+class StanzaInput:
+    """One complete utterance passed to Stanza and its tokenizer realigner."""
+
+    item_index: int
+    text: str
+    original_words: tuple[str, ...]
+
+
+def _stanza_input(
+    item_index: int,
+    words: list[str],
+    terminator: str,
+) -> StanzaInput:
+    """Preserve the Rust-provided utterance terminator at the Stanza boundary."""
+    original_words = tuple(words)
+    if not original_words or original_words[-1] != terminator:
+        original_words += (terminator,)
+    return StanzaInput(
+        item_index=item_index,
+        text=" ".join(original_words),
+        original_words=original_words,
+    )
 
 
 # The 37 Universal Dependencies relation heads (UD v2). Subtypes after a
@@ -318,7 +344,7 @@ def batch_infer_morphosyntax(
         InferResponse(result=empty_ud, elapsed_s=0.0) for _ in range(n)
     ]
 
-    by_lang: dict[str, list[tuple[int, str, list[str]]]] = {}
+    by_lang: dict[LanguageCode, list[StanzaInput]] = {}
     for i, item in enumerate(items):
         if item is None:
             results[i] = InferResponse(error="Invalid batch item", elapsed_s=0.0)
@@ -333,23 +359,22 @@ def batch_infer_morphosyntax(
         if req.retokenize and item_lang in ("yue",):
             words = _segment_cantonese(words)
 
-        # Join words for Stanza input. Do NOT strip parentheses here
-        # Rust cleaned_text() already handles CHAT notation. Stripping
-        # parens in Python silently drops bare "(" / ")" words, causing
-        # MOR count mismatches in the retokenize inject path.
-        text = " ".join(words).strip()
-
-        if item_lang not in by_lang:
-            by_lang[item_lang] = []
-        by_lang[item_lang].append((i, text, words))
+        # Rust cleaned_text() already handles CHAT notation. Stripping parens
+        # here silently drops bare "(" / ")" words, causing MOR count
+        # mismatches in the retokenize inject path. The terminator is part of
+        # the utterance, not optional decoration: Stanza's Italian model
+        # changes its analysis of clitic verbs when it is missing.
+        by_lang.setdefault(item_lang, []).append(
+            _stanza_input(i, words, item.terminator)
+        )
 
     if not by_lang:
         return BatchInferResponse(results=results)
 
     for lang_code, lang_items in by_lang.items():
-        indices = [idx for idx, _, _ in lang_items]
-        texts = [text for _, text, _ in lang_items]
-        word_lists = [words for _, _, words in lang_items]
+        indices = [item.item_index for item in lang_items]
+        texts = [item.text for item in lang_items]
+        word_lists = [list(item.original_words) for item in lang_items]
 
 
         # Mandarin retokenize: use Stanza neural tokenizer instead of pretokenized.

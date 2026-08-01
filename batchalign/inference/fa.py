@@ -401,26 +401,16 @@ def batch_infer_fa(
 
             results.append(InferResponse(result=response_data, elapsed_s=0.0))
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as error:
             L.warning(
-                "FA infer failed for item %d: %s", item_idx, e, exc_info=True
+                "FA infer failed for item %d: %s", item_idx, error, exc_info=True
             )
-            if is_whisper:
-                results.append(
-                    InferResponse(
-                        result=WhisperFaResponse(tokens=[]).model_dump(),
-                        elapsed_s=0.0,
-                    )
+            results.append(
+                InferResponse(
+                    error=f"Forced alignment inference failed: {error}",
+                    elapsed_s=0.0,
                 )
-            else:
-                results.append(
-                    InferResponse(
-                        result=Wave2VecIndexedResponse(
-                            indexed_timings=[]
-                        ).model_dump(),
-                        elapsed_s=0.0,
-                    )
-                )
+            )
 
     elapsed = time.monotonic() - t0
     if results:

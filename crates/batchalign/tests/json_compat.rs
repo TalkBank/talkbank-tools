@@ -277,7 +277,6 @@ fn snapshot_health_response() {
         memory_gate_aborts: 0,
         build_hash: "0.10.0-abc1234-1700000000".into(),
         node_id: NodeId::default(),
-        warmup_status: batchalign::types::response::WarmupStatus::Complete,
         system_memory_total_mb: MemoryMb(65536),
         system_memory_available_mb: MemoryMb(32768),
         system_memory_used_mb: MemoryMb(32768),
@@ -331,7 +330,6 @@ fn snapshot_server_config_full() {
         host: "0.0.0.0".into(),
         max_workers_per_job: Some(2),
         job_ttl_days: 14,
-        warmup_commands: vec!["morphotag".into(), "align".into()],
         auto_daemon: true,
         memory_gate_mb: Some(MemoryMb(2048)),
         worker_health_interval_s: 15,
@@ -447,7 +445,6 @@ port: 8000
 host: "0.0.0.0"
 max_workers_per_job: 0
 job_ttl_days: 7
-warmup_commands: []
 auto_daemon: false
 "#;
 
@@ -462,7 +459,6 @@ auto_daemon: false
         ServerPath::new("/Volumes/Media/childes")
     );
     assert_eq!(cfg.port, 8000);
-    assert!(cfg.warmup_commands.is_empty());
 }
 
 /// Verify InferRequest/InferResponse roundtrip matches Python worker.py.

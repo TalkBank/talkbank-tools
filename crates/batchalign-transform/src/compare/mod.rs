@@ -27,8 +27,8 @@ pub use self::metrics::{
     CompareMetricsCsvTable, ComparePosMetricKind, format_metrics_csv,
 };
 pub use self::model::{
-    CompareMetrics, CompareResult, CompareStatus, CompareToken, ComparisonBundle, GoldWordMatch,
-    PosErrorCounts, UtteranceComparison,
+    CompareMetrics, CompareResult, CompareStatus, CompareToken, ComparisonBundle, GoldCoverage,
+    GoldWordMatch, PosErrorCounts, UtteranceComparison,
 };
 pub use self::serialize::{
     ComparePosLabel, CompareSerializationError, CompareSurfaceToken, CompareTierItem,

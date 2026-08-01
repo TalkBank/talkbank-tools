@@ -1,7 +1,7 @@
 # Type-Driven Design
 
 **Status:** Current
-**Last updated:** 2026-05-21 15:05 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 Batchalign uses Rust's type system to encode domain invariants at compile time. This document catalogs the patterns in use, explains when to reach for each one, and records the serde techniques that keep the wire format stable while the internal types evolve.
 
@@ -208,23 +208,26 @@ impl JobStatus {
 
 ### 6. Configuration Enums
 
-**Problem:** Boolean flags like `warmup: bool` can't express "off / minimal / full".
+**Problem:** A boolean flag like `force_cpu: bool` cannot express a third
+state, and every knob that starts as two values tends to grow a third.
 
 **Solution:** A small enum with serde rename.
 
 ```rust,ignore
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum WarmupPolicy {
-    Off,
-    Minimal,
-    Full,
+pub enum MemoryTierKind {
+    Small,
+    Medium,
+    Large,
+    Fleet,
 }
 ```
 
-This is a design pattern example, not the current `server.yaml` shape.
-Today the config uses explicit `warmup_commands`, but if preset policies ever
-return, they should be modeled as an enum rather than a boolean.
+Each variant names a real host class and carries its own bootstrap decision, so
+adding a fifth tier forces every `match` over it to state an answer. A boolean
+`constrained: bool` would have collapsed Small and Medium, which differ in
+exactly the way that matters (task bootstrap versus lazy-profile bootstrap).
 
 **When to use:** Any configuration knob with more than two values, or where the two-value case may grow.
 

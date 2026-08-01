@@ -15,7 +15,7 @@ use crate::parse::parse_lenient;
 
 fn parse_chat(text: &str) -> ChatFile {
     let parser = TreeSitterParser::new().expect("parser init");
-    parser.parse_chat_file(text).unwrap()
+    parser.parse_chat_file(text).expect_built()
 }
 
 fn validate_morphosyntax(chat: &mut ChatFile) {

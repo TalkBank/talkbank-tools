@@ -20,14 +20,12 @@ use crate::state::{
     AppBuildInfo, AppControlPlane, AppEnvironment, AppPaths, AppState, WorkerSubsystem,
 };
 use crate::worker::pool::PoolConfig;
-use crate::worker_setup::prepare_workers_background;
+use crate::worker_setup::{RegistryDiscovery, prepare_workers};
 
 // Re-export engine-level types so existing `use crate::server::PreparedWorkers`
 // paths continue to compile during migration. New code should import from
 // `crate::worker_setup` directly.
-pub use crate::worker_setup::{
-    PreparedWorkers, WarmupTarget, prepare_direct_workers, prepare_workers,
-};
+pub use crate::worker_setup::PreparedWorkers;
 
 /// Create the application: open DB, recover state, build router.
 ///
@@ -51,7 +49,7 @@ pub async fn create_app(
 /// Create the application using an explicit runtime layout for state-owned
 /// filesystem roots.
 ///
-/// Warmup runs in the background so the HTTP port binds immediately.
+/// No worker is spawned here, so the HTTP port binds immediately.
 pub async fn create_app_with_runtime(
     config: ServerConfig,
     pool_config: PoolConfig,
@@ -60,7 +58,7 @@ pub async fn create_app_with_runtime(
     db_dir: Option<std::path::PathBuf>,
     build_hash: Option<String>,
 ) -> Result<(Router, Arc<AppState>), error::ServerError> {
-    let workers = prepare_workers_background(&config, pool_config).await?;
+    let workers = prepare_workers(pool_config, RegistryDiscovery::Adopt).await?;
     create_app_with_prepared_workers(config, layout, jobs_dir, db_dir, None, build_hash, workers)
         .await
 }
@@ -78,7 +76,7 @@ pub async fn create_test_app(
     build_hash: Option<String>,
 ) -> Result<(Router, Arc<AppState>), error::ServerError> {
     let layout = RuntimeLayout::from_env();
-    let workers = prepare_workers_background(&config, pool_config).await?;
+    let workers = prepare_workers(pool_config, RegistryDiscovery::Adopt).await?;
     create_test_app_with_prepared_workers(
         config, layout, jobs_dir, db_dir, None, build_hash, workers,
     )

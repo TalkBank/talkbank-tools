@@ -9,7 +9,7 @@
 //! | Module    | Purpose |
 //! |-----------|---------|
 //! | [`layout`]  | `RuntimeLayout`, filesystem path resolution from env/home |
-//! | [`server`]  | `ServerConfig` struct, `FleetTarget`, serde defaults, warmup presets |
+//! | [`server`]  | `ServerConfig` struct, `FleetTarget`, serde defaults |
 //! | [`resolve`] | `ServerConfig` methods: validation and memory-tier resolution |
 //! | [`load`]    | YAML loading helpers and `ConfigError` |
 

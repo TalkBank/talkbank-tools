@@ -19,10 +19,6 @@ expression: cfg
   "allow_mps": true,
   "max_workers_per_job": 2,
   "job_ttl_days": 14,
-  "warmup_commands": [
-    "morphotag",
-    "align"
-  ],
   "auto_daemon": true,
   "memory_gate_mb": 2048,
   "worker_health_interval_s": 15,

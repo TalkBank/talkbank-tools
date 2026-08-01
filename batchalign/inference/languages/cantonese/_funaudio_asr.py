@@ -37,6 +37,16 @@ L = logging.getLogger("batchalign.hk.funaudio_asr")
 
 _recognizer: FunAudioRecognizer | None = None
 
+# The error returned when inference is attempted before the model is loaded.
+#
+# A constant because the test for that path asserted the same sentence as a
+# second literal, and the 2026-07-29 dash sweep then resolved the one em-dash
+# they shared differently on each side: a colon here, a comma there. Both edits
+# obeyed the rule (punctuation is chosen per occurrence), and the pair still
+# broke, because nothing recorded that these two occurrences were one sentence.
+# Duplicated knowledge with no owner behaves exactly like this.
+NOT_LOADED_ERROR = "FunAudio ASR not loaded: call load_funaudio_asr first"
+
 
 # ---------------------------------------------------------------------------
 # Load
@@ -107,7 +117,7 @@ def infer_funaudio_asr(req: BatchInferRequest) -> BatchInferResponse:
     if _recognizer is None:
         return BatchInferResponse(
             results=[
-                InferResponse(error="FunAudio ASR not loaded: call load_funaudio_asr first", elapsed_s=0.0)
+                InferResponse(error=NOT_LOADED_ERROR, elapsed_s=0.0)
                 for _ in req.items
             ]
         )

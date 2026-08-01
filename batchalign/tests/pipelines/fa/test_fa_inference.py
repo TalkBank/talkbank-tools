@@ -564,8 +564,8 @@ def test_batch_infer_fa_whisper_reuses_audio_cache_and_shapes_token_results(monk
     assert response.results[2].result["tokens"][1]["time_s"] == 0.3
 
 
-def test_batch_infer_fa_wave2vec_handles_invalid_empty_and_runtime_fallbacks(monkeypatch) -> None:
-    """Wave2Vec batch FA should type invalid items, short-circuit empties, and fall back on errors."""
+def test_batch_infer_fa_wave2vec_reports_runtime_item_errors(monkeypatch) -> None:
+    """Wave2Vec batch FA must distinguish empty work from failed inference."""
 
     monotonic = iter([1.0, 2.5])
     monkeypatch.setattr("batchalign.inference.fa.time.monotonic", lambda: next(monotonic))
@@ -605,11 +605,12 @@ def test_batch_infer_fa_wave2vec_handles_invalid_empty_and_runtime_fallbacks(mon
             {"start_ms": 40, "end_ms": 90, "confidence": None},
         ]
     ).model_dump()
-    assert response.results[3].result == Wave2VecIndexedResponse(indexed_timings=[]).model_dump()
+    assert response.results[3].result is None
+    assert response.results[3].error == "Forced alignment inference failed: wave2vec exploded"
 
 
-def test_batch_infer_fa_whisper_empty_words_and_runtime_fallback(monkeypatch) -> None:
-    """Whisper batch FA should short-circuit empty items and recover to empty tokens on errors."""
+def test_batch_infer_fa_whisper_reports_runtime_item_errors(monkeypatch) -> None:
+    """Whisper batch FA must distinguish empty work from failed inference."""
 
     monotonic = iter([50.0, 53.0])
     monkeypatch.setattr("batchalign.inference.fa.time.monotonic", lambda: next(monotonic))
@@ -642,4 +643,5 @@ def test_batch_infer_fa_whisper_empty_words_and_runtime_fallback(monkeypatch) ->
     assert load_calls == ["/tmp/boom.wav"]
     assert response.results[0].result == WhisperFaResponse(tokens=[]).model_dump()
     assert response.results[0].elapsed_s == 3.0
-    assert response.results[1].result == WhisperFaResponse(tokens=[]).model_dump()
+    assert response.results[1].result is None
+    assert response.results[1].error == "Forced alignment inference failed: whisper exploded"

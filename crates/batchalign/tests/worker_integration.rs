@@ -308,7 +308,6 @@ async fn pool_dispatch_batch_infer_spawns_and_processes() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
@@ -343,7 +342,6 @@ async fn pool_reuses_existing_worker() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
@@ -374,7 +372,6 @@ async fn pool_multiple_task_groups() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
@@ -412,7 +409,6 @@ async fn pool_task_bootstrap_separates_same_profile_tasks() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig::default().with_bootstrap_mode(WorkerBootstrapMode::Task),
         ..Default::default()
     });
@@ -454,7 +450,7 @@ async fn pool_task_bootstrap_separates_same_profile_tasks() {
 }
 
 #[tokio::test]
-async fn pool_warmup_uses_infer_targets() {
+async fn pool_pre_scale_uses_infer_targets() {
     let python = require_python!();
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
@@ -463,21 +459,21 @@ async fn pool_warmup_uses_infer_targets() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
 
-    pool.warmup(&[
-        batchalign::server::WarmupTarget {
-            command: ReleasedCommand::Morphotag,
-            lang: WorkerLanguage::from(LanguageCode3::eng()),
-        },
-        batchalign::server::WarmupTarget {
-            command: ReleasedCommand::Align,
-            lang: WorkerLanguage::from(LanguageCode3::eng()),
-        },
-    ])
+    pool.pre_scale(
+        ReleasedCommand::Morphotag,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+    )
+    .await;
+    pool.pre_scale(
+        ReleasedCommand::Align,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+    )
     .await;
 
     let summary = pool.worker_summary().await;
@@ -520,7 +516,6 @@ async fn discover_from_registry_seeds_capabilities_from_external_tcp_daemon() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         worker_registry_path: registry_path.to_string_lossy().into_owned(),
         ..Default::default()
@@ -563,7 +558,6 @@ async fn discover_from_registry_reaps_stale_foreign_server_owned_daemon() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig {
             server_instance_id: Some("current-server-instance".to_string()),
             server_process_id: Some(std::process::id()),
@@ -618,7 +612,6 @@ async fn shutdown_only_kills_current_server_owned_daemons() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: owned_runtime,
         worker_registry_path: registry_path.to_string_lossy().into_owned(),
         ..Default::default()
@@ -654,7 +647,6 @@ async fn pool_pre_scale_respects_max_workers_per_key() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(2),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
@@ -701,7 +693,6 @@ async fn pool_serializes_worker_bootstrap_per_key() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(3),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
@@ -890,7 +881,6 @@ async fn profile_groups_related_tasks_into_single_worker() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
@@ -932,7 +922,6 @@ async fn each_profile_gets_its_own_worker() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });

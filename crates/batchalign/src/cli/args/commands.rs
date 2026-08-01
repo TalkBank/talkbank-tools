@@ -906,19 +906,6 @@ pub struct ServeStartArgs {
     #[arg(long)]
     pub foreground: bool,
 
-    /// Warmup configuration: a preset (`off`, `minimal`, `full`) or a
-    /// comma-separated list of commands to pre-load (e.g. `align,morphotag`).
-    ///
-    /// Presets expand to built-in command lists:
-    ///   - `off`, no warmup (workers spawn on first job)
-    ///   - `minimal`: morphotag only
-    ///   - `full`: morphotag, align, transcribe
-    ///
-    /// When a command list is given, only those commands are warmed up.
-    /// Default (no flag): uses `server.yaml` config or `full`.
-    #[arg(long)]
-    pub warmup: Option<String>,
-
     /// Maximum concurrent files per job. Overrides the `max_workers_per_job`
     /// value from `server.yaml`. 0 = auto-tune.
     #[arg(long)]

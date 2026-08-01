@@ -1,7 +1,7 @@
 # Workflow Contributor Guide
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This is the shortest path for adding a new command, workflow family, or engine
 without fighting the refactor stream.
@@ -42,7 +42,7 @@ before picking.
 - `AudioSequential` for one media file at a time (GPU lane, bounded file-level parallelism).
 - `BatchedText` when work is pooled across files into shared infer batches (CPU lane, one dispatch per job).
 - `ReferenceProjection` when two artifacts are jointly primary (paired inputs).
-- `MediaAnalysis` when the output is not CHAT (IO lane, stays lazy: no background warmup).
+- `MediaAnalysis` when the output is not CHAT (IO lane).
 - `Composite` when you are composing existing command flows (all policy delegated to children).
 - Use `text_batch.rs` and typed materializers when the hard part is output shape rather than dispatch shape.
 

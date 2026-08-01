@@ -132,7 +132,7 @@ mod tests {
 
     fn merge_and_serialize(chat: &str) -> String {
         let parser = TreeSitterParser::new().unwrap();
-        let mut file = parser.parse_chat_file(chat).unwrap();
+        let mut file = parser.parse_chat_file(chat).expect_built();
         merge_abbreviations(&mut file);
         file.to_chat_string()
     }
@@ -198,14 +198,14 @@ mod tests {
     }
 
     /// The lenient parse is the whole reason the text form differs from
-    /// `merge_and_serialize` above, which parses strictly. A document the
-    /// strict parser rejects must still come back as text with its content
+    /// `merge_and_serialize` above, which parses strictly. A document with
+    /// strict error diagnostics must still come back as text with its content
     /// intact, because that is what all four production call sites relied on:
     /// this transform runs over freshly generated ASR output, so "the parser
-    /// refused it" must not become "the job produced nothing".
+    /// reported an error" must not become "the job produced nothing".
     ///
     /// The fixture is an unmatched `[`, a main-tier malformation, chosen
-    /// because the strict parser rejects it (an `Error`-severity diagnostic)
+    /// because the strict parser reports an `Error`-severity diagnostic
     /// while lenient recovery keeps every word. Note what does NOT qualify: a
     /// missing `@End`, an undeclared speaker, and a missing `@Participants`
     /// are all accepted by `parse_chat_file`, since they are validation
@@ -216,8 +216,8 @@ mod tests {
         let parser = TreeSitterParser::new()?;
         let malformed = minimal_chat("the F B I is here [ .");
         assert!(
-            parser.parse_chat_file(&malformed).is_err(),
-            "fixture must be input the strict parser rejects, or this pins nothing"
+            parser.parse_chat_file(&malformed).has_error_diagnostics(),
+            "fixture must produce a strict parse error, or this pins nothing"
         );
 
         let words = main_tier_words(&merge_abbreviations_in_chat_text(&parser, &malformed));

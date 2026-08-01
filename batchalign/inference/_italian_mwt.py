@@ -167,6 +167,16 @@ PRESENTATIVE_HOST: str = "ecco"
 # up. Regular morphology, not a word list: these are the three conjugations.
 INFINITIVE_APOCOPE_ENDINGS: tuple[str, ...] = ("ar", "er", "ir")
 
+# The full infinitives, and their reflexive forms, DERIVED from the same three
+# conjugations rather than retyped. A word whose lemma ends in one of these is a
+# form of that verb, which is how verb attestation is reconstructed when Stanza
+# ships a lemmatizer that no longer records it (see `extract_stanza_lexicon`).
+# Derived because a third hand-written copy of this fact had already appeared
+# and had already diverged on whether reflexives count.
+INFINITIVE_ENDINGS: tuple[str, ...] = tuple(
+    stem + suffix for stem in INFINITIVE_APOCOPE_ENDINGS for suffix in ("e", "si")
+)
+
 # The apocopated monosyllabic imperatives, and ONLY these, double the initial
 # consonant of the clitic that follows: *da'* + *mi* -> ``dammi``, *fa'* + *lo*
 # -> ``fallo``, *va'* + *ci* -> ``vacci``. Every other host concatenates plainly.
@@ -351,32 +361,57 @@ def is_clitic_cluster(word: str, proposed_split: Sequence[str]) -> bool:
     return is_valid_clitic_sequence(proposed_split)
 
 
-def split_reconstructs_word(word: str, proposed_split: Sequence[str]) -> bool:
-    """Does *proposed_split* account for every character of *word*?
+class Reconstruction(Enum):
+    """HOW a split rebuilds its surface, which is not the same as whether it does.
+
+    GEMINATED means the base was APOCOPATED (`da'` for `dare`). Collapsing that
+    into "yes it reconstructs" discarded the one fact a caller needs to reason
+    about the base the POS tagger will receive, which is why this is a variant
+    and not the bool it used to be.
+    """
+
+    #: The parts concatenate to the surface. `di` + `glie` + `lo` = `diglielo`.
+    PLAIN = "plain"
+    #: Reconstructing needed the doubled consonant: `da` + `me` + `la` = `dammela`.
+    GEMINATED = "geminated"
+
+
+def reconstruct_split(word: str, proposed_split: Sequence[str]) -> Reconstruction | None:
+    """How does *proposed_split* account for every character of *word*, if at all?
 
     An enclisis analysis that cannot rebuild the surface is malformed by
     definition, and acting on one corrupts the data: Stanza proposes
     ``pentolone`` -> *pento* + *lo*, which silently drops ``ne``, so emitting it
     would give a two-item ``%mor`` describing a word that is not the word on the
-    main tier.
+    main tier. That case is ``None``.
 
     Plain concatenation is the normal case. The one licensed departure is
     gemination after an apocopated monosyllabic imperative, which is why
     ``dammelo`` (*da* + *me* + *lo*) is accepted while ``hallo`` (*ha* + *lo*)
     and ``tagliatelle`` (*tagliate* + *le*) are not.
+
+    Note that a geminating HOST does not imply a geminated SPLIT: `gli` never
+    doubles, so ``diglielo`` is `di` + `glie` + `lo` by plain concatenation even
+    though `di` is in `GEMINATING_HOSTS`. Callers that care about the apocopated
+    base must ask about the RECONSTRUCTION, not about the host.
     """
     target = word.lower()
     if "".join(proposed_split).lower() == target:
-        return True
+        return Reconstruction.PLAIN
     if len(proposed_split) < 2:
-        return False
+        return None
     base, first_clitic = proposed_split[0].lower(), proposed_split[1].lower()
     if base not in GEMINATING_HOSTS or first_clitic == NON_GEMINATING_CLITIC:
-        return False
+        return None
     if not first_clitic:
-        return False
+        return None
     geminated = base + first_clitic[0] + "".join(proposed_split[1:]).lower()
-    return geminated == target
+    return Reconstruction.GEMINATED if geminated == target else None
+
+
+def split_reconstructs_word(word: str, proposed_split: Sequence[str]) -> bool:
+    """Whether *proposed_split* rebuilds *word* at all, by either route."""
+    return reconstruct_split(word, proposed_split) is not None
 
 
 def can_host_enclisis(base: str, lexicon: ItalianLexicon) -> bool:
@@ -395,17 +430,6 @@ def can_host_enclisis(base: str, lexicon: ItalianLexicon) -> bool:
     if lowered.endswith(INFINITIVE_APOCOPE_ENDINGS):
         return lexicon.is_attested_verb(lowered + "e")
     return False
-
-
-def is_single_word_utterance(original_words: Sequence[str]) -> bool:
-    """Does this utterance carry exactly one word besides punctuation?
-
-    CHAT carries the terminator as a token (``["macchine", "."]``), so a
-    one-word utterance has length 2 in the word list. Two or more real words
-    give Stanza enough context to parse correctly and are left alone.
-    """
-    content = [w for w in original_words if any(ch.isalnum() for ch in w)]
-    return len(content) == 1
 
 
 class MwtPattern(Enum):
@@ -494,4 +518,24 @@ def decide_expansion(
         return MwtExpansion.ALLOW
     if classify_split(word, proposed_split, lexicon) is None:
         return MwtExpansion.SUPPRESS
+    # `is_geminated_split` is deliberately NOT consulted here. Whether these
+    # should be suppressed is open, and it is recorded where this repo keeps
+    # such things: Defect 8, "Open residue", in
+    # `book/src/batchalign/reference/stanza-limitations.md`.
     return MwtExpansion.ALLOW
+
+
+def is_geminated_split(word: str, proposed_split: Sequence[str]) -> bool:
+    """Would splitting *word* leave an APOCOPATED base?
+
+    Defined and deliberately NOT called: whether `decide_expansion` should
+    suppress these is an open question recorded as Defect 8's residue in
+    `book/src/batchalign/reference/stanza-limitations.md`. Kept as real,
+    type-checked, tested code rather than a commented-out block, so that
+    enabling it is one call site and not a transcription.
+
+    Asks about the RECONSTRUCTION, not about the host, which is the trap the
+    `Reconstruction` variant exists to close: `di` is a geminating host but
+    `diglielo` reconstructs plainly, because `gli` never doubles.
+    """
+    return reconstruct_split(word, proposed_split) is Reconstruction.GEMINATED

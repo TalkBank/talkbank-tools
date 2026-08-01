@@ -11,11 +11,6 @@ expression: cfg
   "host": "0.0.0.0",
   "allow_mps": null,
   "job_ttl_days": 7,
-  "warmup_commands": [
-    "morphotag",
-    "align",
-    "transcribe"
-  ],
   "auto_daemon": true,
   "worker_health_interval_s": 30,
   "max_concurrent_worker_startups": 1,

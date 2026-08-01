@@ -59,6 +59,21 @@ use talkbank_parser::TreeSitterParser;
 /// via `?` so the harness reports it instead of panicking.
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
+fn parse_strict_file(
+    parser: &TreeSitterParser,
+    text: &str,
+) -> Result<talkbank_model::model::ChatFile, Box<dyn std::error::Error>> {
+    let product = parser.parse_chat_file(text);
+    if product.has_error_diagnostics() {
+        return Err(std::io::Error::other(format!(
+            "strict CHAT parse failed: {:?}",
+            product.diagnostics()
+        ))
+        .into());
+    }
+    Ok(product.expect_built())
+}
+
 /// Helper: parse a one-utterance CHAT fragment using the canonical
 /// tree-sitter parser. Mirrors the helper used in
 /// `crates/talkbank-transform/src/morphosyntax/tests.rs` so a future
@@ -77,7 +92,7 @@ fn parse_one_utterance(
          @End\n"
     );
     let parser = TreeSitterParser::new()?;
-    Ok(parser.parse_chat_file(&chat)?)
+    parse_strict_file(&parser, &chat)
 }
 
 // =====================================================================
@@ -299,7 +314,7 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() -> TestResult {
                 @End\n";
 
     let parser = TreeSitterParser::new()?;
-    let chat_file = parser.parse_chat_file(chat)?;
+    let chat_file = parse_strict_file(&parser, chat)?;
 
     let mut checked_utterances = 0;
     for utt in chat_file.utterances() {
@@ -375,7 +390,7 @@ fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() -> TestResult {
                 @End\n";
 
     let parser = TreeSitterParser::new()?;
-    let chat_file = parser.parse_chat_file(chat)?;
+    let chat_file = parse_strict_file(&parser, chat)?;
 
     for utt in chat_file.utterances() {
         let Some(mor) = utt.mor_tier() else { continue };

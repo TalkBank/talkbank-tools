@@ -6,7 +6,7 @@
 //!   In foreground mode (`--foreground`) the server runs in the current process,
 //!   blocking until shutdown. In background mode (the default) a detached child
 //!   process is spawned in a new session (`setsid`) so it survives CLI exit, and
-//!   a PID file is written for later cleanup. CLI flags (port, host, warmup,
+//!   a PID file is written for later cleanup. CLI flags (port, host,
 //!   Python path, test-echo) override values from `server.yaml`.
 //!
 //! - **`serve stop`** -- Shut down any running server and local daemon. Reads the
@@ -17,7 +17,7 @@
 //!   the server URL from `--server`, a local daemon info file, or falls back to
 //!   the configured local server URL.
 
-use crate::config::{self, RuntimeLayout, WARMUP_PRESET_FULL, WARMUP_PRESET_MINIMAL};
+use crate::config::{self, RuntimeLayout};
 use crate::host_facts::EffectiveConfig;
 use crate::host_memory::HostMemoryRuntimeConfig;
 use crate::host_policy::HostExecutionPolicy;
@@ -37,7 +37,6 @@ pub async fn start(
     verbose: u8,
     force_cpu: bool,
     allow_mps: bool,
-    engine_overrides: Option<&str>,
 ) -> Result<(), CliError> {
     let layout = RuntimeLayout::from_env();
     let mut cfg =
@@ -60,10 +59,6 @@ pub async fn start(
     }
     if let Some(timeout) = args.timeout {
         cfg.audio_task_timeout_s = timeout;
-    }
-
-    if let Some(ref warmup) = args.warmup {
-        apply_warmup_flag(warmup, &mut cfg);
     }
 
     let warnings = cfg.validate();
@@ -136,7 +131,6 @@ pub async fn start(
                 PoolConfig::default().health_check_interval_s
             },
             verbose,
-            engine_overrides: engine_overrides.unwrap_or("").to_string(),
             // Children inherit the SAME state dir this server resolved. Do not
             // infer it from `worker_registry_path`: that is a free-form file
             // path, and BATCHALIGN_STATE_DIR selects the whole runtime layout
@@ -204,10 +198,6 @@ pub async fn start(
             cmd.args(["--config", config_path]);
         }
         cmd.args(["--python", &worker_python]);
-        // Forward warmup configuration to the background server process.
-        if let Some(ref warmup) = args.warmup {
-            cmd.args(["--warmup", warmup]);
-        }
         if args.test_echo {
             cmd.arg("--test-echo");
         }
@@ -220,10 +210,6 @@ pub async fn start(
         // Forward verbosity to the background server process.
         for _ in 0..verbose {
             cmd.arg("-v");
-        }
-        // Forward engine overrides to the background server process.
-        if let Some(overrides) = engine_overrides {
-            cmd.args(["--engine-overrides", overrides]);
         }
         // Forward workers to the background server process.
         if let Some(workers) = args.workers {
@@ -418,30 +404,6 @@ fn is_process_alive(pid: u32) -> bool {
 #[cfg(not(unix))]
 fn is_process_alive(_pid: u32) -> bool {
     false
-}
-
-/// Parse the `--warmup` CLI flag value and apply it to the server config.
-///
-/// Accepts preset names (`off`, `minimal`, `full`) or a comma-separated list
-/// of command names (e.g. `align,morphotag`).  The resolved list is written
-/// to `warmup_commands`.
-fn apply_warmup_flag(value: &str, cfg: &mut crate::config::ServerConfig) {
-    cfg.warmup_commands = match value.to_ascii_lowercase().as_str() {
-        "off" => Vec::new(),
-        "minimal" => WARMUP_PRESET_MINIMAL
-            .iter()
-            .map(|s| (*s).to_string())
-            .collect(),
-        "full" => WARMUP_PRESET_FULL
-            .iter()
-            .map(|s| (*s).to_string())
-            .collect(),
-        _ => value
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect(),
-    };
 }
 
 /// Kill a server process: SIGTERM the process group, wait up to 3 seconds,

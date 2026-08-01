@@ -250,7 +250,7 @@ mod tests {
     use crate::options::{AsrEngineName, CommandOptions, CommonOptions, TranscribeOptions};
     use crate::types::traces::JobTraces;
     use crate::worker::pool::PoolConfig;
-    use crate::worker_setup::prepare_direct_workers;
+    use crate::worker_setup::{RegistryDiscovery, prepare_workers};
     use crate::{config::RuntimeLayout, config::ServerConfig};
 
     fn transcribe_submission(
@@ -308,12 +308,12 @@ mod tests {
             .expect("write input");
 
         let config = ServerConfig::default();
-        let workers = prepare_direct_workers(
-            &config,
+        let workers = prepare_workers(
             PoolConfig {
                 test_echo: true,
                 ..Default::default()
             },
+            RegistryDiscovery::Ignore,
         )
         .await
         .expect("prepare workers");
@@ -367,12 +367,12 @@ mod tests {
             .expect("write input");
 
         let config = ServerConfig::default();
-        let workers = prepare_direct_workers(
-            &config,
+        let workers = prepare_workers(
             PoolConfig {
                 test_echo: true,
                 ..Default::default()
             },
+            RegistryDiscovery::Ignore,
         )
         .await
         .expect("prepare workers");
@@ -423,12 +423,12 @@ mod tests {
             .expect("write input");
 
         let config = ServerConfig::default();
-        let workers = prepare_direct_workers(
-            &config,
+        let workers = prepare_workers(
             PoolConfig {
                 test_echo: true,
                 ..Default::default()
             },
+            RegistryDiscovery::Ignore,
         )
         .await
         .expect("prepare workers");
@@ -475,12 +475,12 @@ mod tests {
             .expect("write input");
 
         let config = ServerConfig::default();
-        let workers = prepare_direct_workers(
-            &config,
+        let workers = prepare_workers(
             PoolConfig {
                 test_echo: true,
                 ..Default::default()
             },
+            RegistryDiscovery::Ignore,
         )
         .await
         .expect("prepare workers");

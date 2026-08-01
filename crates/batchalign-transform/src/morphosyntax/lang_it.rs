@@ -365,9 +365,12 @@ pub(crate) struct CliticSpec {
 /// correct verb lemma, feats, and the clitic stack. Add entries
 /// when corpus scans surface new mis-classifications.
 ///
-/// See also `IT_COMPOUND_IMPERATIVE_GATE_POS`: the set of Stanza
-/// POS tags that signal a potential mis-classification and allow
-/// the gate to fire.
+/// The Stanza POS tags that signal a potential mis-classification,
+/// and so allow the gate to fire, are inlined in the `matches!` at
+/// the top of `check_italian_compound_imperative`. (This used to
+/// name a constant `IT_COMPOUND_IMPERATIVE_GATE_POS`, which does
+/// not exist anywhere in the workspace: a doc value that outlived
+/// the thing it described.)
 #[derive(Debug, Clone)]
 pub(crate) struct CompoundImperativeOverride {
     /// Surface form Stanza received, matched case-insensitively

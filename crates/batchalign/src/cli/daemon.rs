@@ -624,10 +624,6 @@ async fn start_daemon(
     let config_path = layout.config_path();
     if config_path.exists() {
         cmd.arg("--config").arg(config_path);
-    } else {
-        // Local profile default: optimize for low idle memory/cold startup.
-        // Deployments with explicit server.yaml keep their configured policy.
-        cmd.args(["--warmup", "off"]);
     }
     if flags.cli_force_cpu {
         cmd.arg("--force-cpu");

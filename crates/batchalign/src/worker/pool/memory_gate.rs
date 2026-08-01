@@ -176,46 +176,30 @@ pub(super) fn host_min_free_mb_threshold_for_tier(tier: &crate::types::runtime::
 /// engine of each kind, so taking the MAX across populated fields
 /// gives the correct worst-case projection for that worker.
 ///
-/// Production callers pass `group.engine_overrides` (the
-/// JSON-serialized [`crate::types::engines::EngineOverrides`] the
-/// pool stores on the group). Malformed JSON falls back to the
-/// profile baseline so a parse error never makes the gate more
-/// permissive than its prior behavior, and the failure is logged
-/// once at `warn` so operators can catch schema drift before a
-/// runtime OOM does.
+/// Production callers pass `group.engine_selection.overrides()` (the
+/// typed [`crate::types::engines::EngineOverrides`] the pool stores on
+/// the group.
 pub(super) fn engine_aware_startup_reservation_mb(
     profile: batchalign_types::worker_profile::WorkerProfile,
-    engine_overrides_json: &str,
+    engine_overrides: &crate::types::engines::EngineOverrides,
     tier: &crate::types::runtime::MemoryTier,
 ) -> batchalign_types::api::MemoryMb {
-    use crate::types::engines::EngineOverrides;
     let base = profile.startup_reservation_mb_for_tier(tier);
-    let engine_floor = match serde_json::from_str::<EngineOverrides>(engine_overrides_json) {
-        Ok(overrides) => [
-            overrides.translate.map(|e| e.resident_memory_mb()),
-            overrides.asr.map(|e| e.resident_memory_mb()),
-            overrides.fa.map(|e| e.resident_memory_mb()),
-        ]
-        .into_iter()
-        .flatten()
-        .max()
-        .unwrap_or(0),
-        Err(error) => {
-            // Empty string is the documented "no overrides" case used
-            // throughout the test infrastructure; never warn on it.
-            // For any other parse failure, warn once so an operator
-            // running with a malformed `engine_overrides` payload can
-            // catch the schema drift before workload OOM does.
-            if !engine_overrides_json.is_empty() {
-                tracing::warn!(
-                    engine_overrides_json,
-                    %error,
-                    "engine_aware_startup_reservation_mb: failed to parse engine_overrides JSON; falling back to profile baseline reservation"
-                );
-            }
-            0
-        }
-    };
+    let engine_floor = [
+        engine_overrides
+            .translate
+            .as_ref()
+            .map(|e| e.resident_memory_mb()),
+        engine_overrides
+            .asr
+            .as_ref()
+            .map(|e| e.resident_memory_mb()),
+        engine_overrides.fa.as_ref().map(|e| e.resident_memory_mb()),
+    ]
+    .into_iter()
+    .flatten()
+    .max()
+    .unwrap_or(0);
     batchalign_types::api::MemoryMb(base.0.max(engine_floor))
 }
 
@@ -295,6 +279,10 @@ mod tests {
 
     // ---- engine_aware_startup_reservation_mb ----
 
+    fn overrides(json: &str) -> crate::types::engines::EngineOverrides {
+        serde_json::from_str(json).expect("test override JSON is valid")
+    }
+
     /// A translate worker carrying no engine override falls back to
     /// the IO profile's static reservation. The new helper must not
     /// regress that baseline.
@@ -306,7 +294,7 @@ mod tests {
             .0;
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Io,
-            "{}",
+            &overrides("{}"),
             &medium,
         )
         .0;
@@ -326,7 +314,7 @@ mod tests {
             .0;
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Io,
-            r#"{"translate":"google"}"#,
+            &overrides(r#"{"translate":"google"}"#),
             &medium,
         )
         .0;
@@ -346,7 +334,7 @@ mod tests {
         let tier = crate::types::runtime::MemoryTier::from_total_mb(total_mb);
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Io,
-            r#"{"translate":"nllb"}"#,
+            &overrides(r#"{"translate":"nllb"}"#),
             &tier,
         )
         .0;
@@ -371,7 +359,7 @@ mod tests {
         let tier = crate::types::runtime::MemoryTier::from_total_mb(total_mb);
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Io,
-            r#"{"translate":"seamless"}"#,
+            &overrides(r#"{"translate":"seamless"}"#),
             &tier,
         )
         .0;
@@ -394,7 +382,7 @@ mod tests {
         let tier = crate::types::runtime::MemoryTier::from_total_mb(total_mb);
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Gpu,
-            r#"{"asr":"whisper"}"#,
+            &overrides(r#"{"asr":"whisper"}"#),
             &tier,
         )
         .0;
@@ -416,7 +404,7 @@ mod tests {
         let tier = crate::types::runtime::MemoryTier::from_total_mb(total_mb);
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Gpu,
-            r#"{"fa":"whisper_fa"}"#,
+            &overrides(r#"{"fa":"whisper_fa"}"#),
             &tier,
         )
         .0;
@@ -439,7 +427,7 @@ mod tests {
         let tier = crate::types::runtime::MemoryTier::from_total_mb(32_000);
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Gpu,
-            r#"{"asr":"whisper","translate":"nllb"}"#,
+            &overrides(r#"{"asr":"whisper","translate":"nllb"}"#),
             &tier,
         )
         .0;
@@ -467,26 +455,7 @@ mod tests {
             .0;
         let reservation = engine_aware_startup_reservation_mb(
             batchalign_types::worker_profile::WorkerProfile::Gpu,
-            r#"{"asr":"tencent"}"#,
-            &medium,
-        )
-        .0;
-        assert_eq!(reservation, baseline);
-    }
-
-    /// Malformed engine_overrides JSON must NOT make the admission
-    /// gate more permissive than the profile baseline. Failure to
-    /// parse falls back to the static reservation rather than
-    /// silently dropping the engine-aware floor.
-    #[test]
-    fn engine_aware_reservation_malformed_json_falls_back_to_baseline() {
-        let medium = crate::types::runtime::MemoryTier::from_total_mb(32_000);
-        let baseline = batchalign_types::worker_profile::WorkerProfile::Io
-            .startup_reservation_mb_for_tier(&medium)
-            .0;
-        let reservation = engine_aware_startup_reservation_mb(
-            batchalign_types::worker_profile::WorkerProfile::Io,
-            "this is not json",
+            &overrides(r#"{"asr":"tencent"}"#),
             &medium,
         )
         .0;

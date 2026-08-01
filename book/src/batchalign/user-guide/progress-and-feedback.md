@@ -1,7 +1,7 @@
 # Progress and Feedback
 
 **Status:** Current
-**Last updated:** 2026-05-11 10:31 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 Batchalign reports real-time progress during processing. This page explains what
 to expect for each command, what the progress indicators mean, and when to worry
@@ -151,7 +151,7 @@ format:
 - **Per-file elapsed timer** (`M:SS`) on processing files, computed from
   `started_at`. Helps spot stuck files during long align/transcribe jobs.
 - **Worker status line** between the header and file list: shows active worker
-  keys and warmup status.
+  keys.
 - **Memory gauge** below the worker line: 20-char bar with used/total GB and
   gate proximity indicator (safe/warn/danger). Warns explicitly when memory
   is near or below the gate threshold.

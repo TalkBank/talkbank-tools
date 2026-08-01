@@ -22,7 +22,7 @@ import pytest
 
 @pytest.mark.golden
 def test_retokenize_retrace_utterance_returns_correct_count() -> None:
-    """Stanza returns 6 MOR items for 6 words in the retrace utterance.
+    """Stanza preserves 6 words plus the utterance terminator.
 
     The words are: 呢 度 食飯 啦 飯 啦 (retrace <下次> [/] already removed
     by Rust before reaching Python).
@@ -65,7 +65,8 @@ def test_retokenize_retrace_utterance_returns_correct_count() -> None:
     assert len(sentences) == 1, f"Expected 1 sentence, got {len(sentences)}"
 
     ud_words = sentences[0]
-    assert len(ud_words) == 6, (
-        f"Stanza should return 6 UD words for 6 input tokens, got {len(ud_words)}: "
+    assert len(ud_words) == 7, (
+        f"Stanza should return 6 lexical words plus punctuation, got {len(ud_words)}: "
         f"{[w.get('text') for w in ud_words]}"
     )
+    assert ud_words[-1]["text"] == "."

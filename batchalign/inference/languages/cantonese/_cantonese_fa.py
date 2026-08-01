@@ -101,15 +101,27 @@ class CantoneseFaHost:
 def _hanzi_to_jyutping(pc: _PyCantonese, text: str) -> str:
     """Convert Cantonese hanzi token to MMS-alignment jyutping form.
 
-    - Uses ``pycantonese.characters_to_jyutping()`` to obtain per-character
-      romanization.
-    - Strips tone digits (0--9).
-    - Joins multiple character pronunciations with an apostrophe
-      (e.g. ``"nei'hou"`` for two characters).
+    - Uses ``pycantonese.characters_to_jyutping()`` to obtain romanization.
+    - Strips tone digits (0-9).
+    - Separates every SYLLABLE with an apostrophe (``"gwong'dung'waa"``).
     - Unknown characters (where pycantonese returns ``None``) pass through
       unchanged.
 
     Returns the original *text* unchanged if conversion produces nothing.
+
+    THE SYLLABLE GUARANTEE REQUIRES pycantonese >= 5, which is why the floor in
+    ``pyproject.toml`` is not decorative. Under 4.x this function claimed the
+    same guarantee and could not deliver it: ``characters_to_jyutping`` ran the
+    syllables of a single word together (``'gwong2dung1waa2'``) and separated
+    only what its own segmenter split, so an apostrophe marked a WORD boundary
+    that pycantonese happened to find, not a syllable. The result was
+    inconsistent in a way no caller could see or predict: ``你好`` segmented
+    into two words and romanized as ``nei'hou``, while ``廣東話`` stayed one
+    word and became ``gwongdungwaa``. Both are single CHAT words here, since
+    this is called once per word.
+
+    5.0.0 space-separates syllables within a word, so the whitespace collapse
+    below now marks exactly what this docstring always said it did.
     """
     pairs = pc.characters_to_jyutping(text)
     try:
@@ -304,18 +316,16 @@ def infer_cantonese_fa(
                 )
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as error:
             L.warning(
                 "Cantonese FA infer failed for item %d: %s",
                 item_idx,
-                e,
+                error,
                 exc_info=True,
             )
             results.append(
                 InferResponse(
-                    result=Wave2VecIndexedResponse(
-                        indexed_timings=[]
-                    ).model_dump(),
+                    error=f"Cantonese FA inference failed: {error}",
                     elapsed_s=0.0,
                 )
             )

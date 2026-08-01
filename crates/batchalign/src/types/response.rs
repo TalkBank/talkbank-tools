@@ -427,12 +427,6 @@ pub struct HealthResponse {
     /// detection during development.  Empty string from older servers.
     #[serde(default)]
     pub build_hash: String,
-    /// Background warmup lifecycle state: `"not_started"`, `"in_progress"`,
-    /// or `"complete"`.  Clients can poll this to know when the server is
-    /// fully ready for low-latency jobs.
-    #[serde(default)]
-    pub warmup_status: WarmupStatus,
-
     // ── System memory snapshot ──────────────────────────────────────────
     /// Total physical memory in MB.
     #[serde(default)]
@@ -502,63 +496,6 @@ mod tests {
             .expect("JobInfo must deserialize file_statuses with relative-path display names");
         assert_eq!(info.file_statuses.len(), 2);
         assert_eq!(&*info.file_statuses[0].filename, "PWA/TYO_a1.cha");
-    }
-}
-
-/// Background warmup lifecycle state for the worker pool.
-///
-/// The server pre-spawns workers at startup ("warmup") so the first job does
-/// not pay cold-start costs. This enum tracks that lifecycle for the health
-/// endpoint.
-///
-/// Declared here, beside [`HealthResponse`] which carries it, rather than in
-/// `worker/pool/`. It is a serde + `ToSchema` wire type whose only consumer
-/// outside the pool is the health API, and while it lived in the pool it was
-/// one of the three references that made `types` depend on `worker`, which in
-/// turn kept every module downstream of `types` out of the core crate. Its
-/// `AtomicU8` encoding stays in the pool, in an inherent impl beside the atomic
-/// it encodes for; Rust only requires that to be in the same crate.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum WarmupStatus {
-    /// No warmup has been requested yet (initial state).
-    #[default]
-    NotStarted,
-    /// Warmup is running: workers are being spawned in the background.
-    InProgress,
-    /// All requested warmup spawns have finished (or none were requested).
-    Complete,
-}
-
-/// The `AtomicU8` encoding used by `WorkerPool::warmup_status`.
-///
-/// Kept with the type rather than with the atomic. It briefly lived in
-/// `worker/pool/mod.rs` on the theory that it belonged "beside the atomic it
-/// encodes for", which does not survive reading it: it is a pure match over
-/// three associated consts and touches no atomic, no pool and no runtime. The
-/// cost of moving it here is that `pub(super)` becomes `pub(crate)`, a real if
-/// small widening, and the benefit is that the enum does not present as a type
-/// with no behaviour to anyone reading it or its rustdoc.
-impl WarmupStatus {
-    const NOT_STARTED: u8 = 0;
-    const IN_PROGRESS: u8 = 1;
-    const COMPLETE: u8 = 2;
-
-    pub(crate) fn from_u8(v: u8) -> Self {
-        match v {
-            Self::IN_PROGRESS => Self::InProgress,
-            Self::COMPLETE => Self::Complete,
-            _ => Self::NotStarted,
-        }
-    }
-
-    pub(crate) fn as_u8(self) -> u8 {
-        match self {
-            Self::NotStarted => Self::NOT_STARTED,
-            Self::InProgress => Self::IN_PROGRESS,
-            Self::Complete => Self::COMPLETE,
-        }
     }
 }
 

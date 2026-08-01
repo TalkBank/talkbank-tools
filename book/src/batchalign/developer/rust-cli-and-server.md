@@ -1,7 +1,7 @@
 # Rust CLI and Server
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This page covers the Rust control plane that powers `batchalign3`: the CLI
 client, the HTTP server, and how to extend them.
@@ -224,7 +224,7 @@ cargo check -p batchalign -p batchalign
 cargo test -p batchalign --lib -q
 cargo test -p batchalign --test json_compat -q
 cargo test -p batchalign --lib -q
-batchalign3 serve start --foreground --test-echo --warmup off
+batchalign3 serve start --foreground --test-echo
 batchalign3 jobs --server http://127.0.0.1:8111 <JOB_ID>
 curl -X POST http://127.0.0.1:8111/jobs/<JOB_ID>/restart
 curl -X DELETE http://127.0.0.1:8111/jobs/<JOB_ID>
@@ -336,8 +336,6 @@ before it trusts infer-task gating:
 - `WorkerPool::discover_from_registry()` now also publishes a detected snapshot
   when startup finds healthy TCP registry daemons, so registry-only deployments
   do not start with `infer_tasks = []`
-- warmup paths also publish detected capabilities so prepared worker backends
-  and reused app instances do not carry stale `infer_tasks = []` snapshots
 
 This split is deliberate. It avoids the old failure mode where lazy startup said
 "we will discover capabilities later" but the first real `morphotag` or
@@ -356,7 +354,7 @@ The registry layer now also carries explicit daemon ownership metadata:
 - discovery skips foreign live owners and reaps stale foreign owned daemons
 
 That ownership model is the durable fix for the old orphan-daemon/kill-all
-whackamole around warmup-spawned TCP workers.
+whackamole around server-spawned TCP workers.
 
 On the Python side, you must also add the `InferTask` to `_INFER_TASK_PROBES` in
 `batchalign/worker/_handlers.py`. See

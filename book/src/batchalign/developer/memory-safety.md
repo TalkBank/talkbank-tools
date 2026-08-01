@@ -1,12 +1,13 @@
 # Memory Safety: Preventing Kernel OOM Crashes
 
 **Status:** Current
-**Last updated:** 2026-05-23 22:00 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 ## The Problem
 
 Each Python ML worker loads 2-15 GB of models (Whisper, Stanza, etc.). When
-multiple workers spawn concurrently, from parallel test binaries, warmup, or
+multiple workers spawn concurrently, from parallel test binaries, per-job
+pre-scaling, or
 job dispatch, they collectively exceed physical RAM and trigger a **kernel-level
 OOM panic** that crashes the entire machine. This is not a process-level OOM
 kill; it is a Jetsam-triggered kernel panic that requires a hard reboot.
@@ -20,7 +21,7 @@ kill; it is a Jetsam-triggered kernel panic that requires a hard reboot.
 
 ```mermaid
 flowchart TD
-    A[Test / Job / Warmup<br>wants capacity] --> B{Host memory coordinator}
+    A[Test / Job / Pre-scale<br>wants capacity] --> B{Host memory coordinator}
     B -->|startup lease| C[One worker/model startup window]
     B -->|job execution lease| D[Clamp per-job file parallelism]
     B -->|ML test lock| E[Allow one real-model test owner]
@@ -116,7 +117,7 @@ across local `batchalign3` processes on the same host. This covers:
 
 - multiple server ports,
 - CLI auto-daemons,
-- warmup vs foreground jobs,
+- pre-scaled vs foreground jobs,
 - independent Rust test binaries.
 
 The coordinator tracks three lease types:

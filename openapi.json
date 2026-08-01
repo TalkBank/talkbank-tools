@@ -587,10 +587,6 @@
             "description": "Server software version (e.g. `\"0.6.0\"`).  Used by the CLI to\ndetect stale daemons and auto-restart them.",
             "type": "string"
           },
-          "warmup_status": {
-            "$ref": "#/components/schemas/WarmupStatus",
-            "description": "Background warmup lifecycle state: `\"not_started\"`, `\"in_progress\"`,\nor `\"complete\"`.  Clients can poll this to know when the server is\nfully ready for low-latency jobs."
-          },
           "worker_crashes": {
             "description": "Cumulative count of worker process crashes since server start.\nA high rate suggests resource exhaustion or buggy engine code.",
             "format": "int64",
@@ -612,7 +608,7 @@
         "type": "string"
       },
       "HostMemoryPressureLevel": {
-        "description": "Host-wide memory pressure level derived from the current memory snapshot and\nreserved headroom.",
+        "description": "Host-wide memory pressure level derived from the current memory snapshot and\nreserved headroom.\n\nDeclared here rather than in `host_memory`, where it lived until\n2026-07-30: it is a serde + `ToSchema` wire enum whose consumers are the\nhealth response and the health route, and while it lived there it was one of\nthe references keeping `types` dependent on an impure module, and so keeping\nevery module downstream of `types` out of the core crate.",
         "enum": [
           "healthy",
           "guarded",
@@ -1248,15 +1244,6 @@
         "description": "Unix timestamp as fractional seconds since epoch.",
         "format": "double",
         "type": "number"
-      },
-      "WarmupStatus": {
-        "description": "Lifecycle state of background model warmup.\nBackground warmup lifecycle state for the worker pool.\n\nThe server pre-spawns workers at startup (\"warmup\") so the first job\ndoes not pay cold-start costs. This enum tracks that lifecycle for\nthe health endpoint.",
-        "enum": [
-          "not_started",
-          "in_progress",
-          "complete"
-        ],
-        "type": "string"
       }
     }
   },

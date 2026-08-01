@@ -347,13 +347,12 @@ async fn run_hosted_job(
         && bootstrap_mode != crate::worker::WorkerBootstrapMode::LazyProfile
         && !is_per_file
     {
-        let job_engine_overrides = job.dispatch.options.dispatch_engine_overrides_json();
         let pre_scale_lang = job.dispatch.lang.to_worker_language();
-        pool.pre_scale_with_overrides(
+        pool.pre_scale_for_command_options(
             command,
             pre_scale_lang,
             num_workers.0,
-            &job_engine_overrides,
+            &job.dispatch.options,
         )
         .await;
     }

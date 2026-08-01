@@ -62,7 +62,8 @@ use batchalign::options::CommandOptions;
 use batchalign::worker::InferTask;
 use batchalign::worker::pool::PoolConfig;
 use batchalign::{
-    AppState, DirectHost, PreparedWorkers, create_app_with_prepared_workers, prepare_workers,
+    AppState, DirectHost, PreparedWorkers, RegistryDiscovery, create_app_with_prepared_workers,
+    prepare_workers,
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
@@ -81,10 +82,12 @@ impl LiveFixtureBackend {
         let session_config = live_fixture_server_config();
         let machine_lock = MachineMlTestLock::acquire("batchalign live fixture")
             .map_err(|error| format!("machine-wide ML test lock unavailable: {error}"))?;
-        let prepared_workers =
-            prepare_workers(&session_config, live_fixture_pool_config(&python_path))
-                .await
-                .map_err(|error| format!("could not prepare live workers: {error}"))?;
+        let prepared_workers = prepare_workers(
+            live_fixture_pool_config(&python_path),
+            RegistryDiscovery::Adopt,
+        )
+        .await
+        .map_err(|error| format!("could not prepare live workers: {error}"))?;
         Ok(Self {
             _machine_lock: machine_lock,
             prepared_workers,
@@ -1305,7 +1308,6 @@ fn live_fixture_server_config() -> ServerConfig {
         host: "127.0.0.1".into(),
         port: 0,
         job_ttl_days: 1,
-        warmup_commands: vec!["morphotag".into()],
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
     }
@@ -1328,7 +1330,6 @@ fn live_fixture_pool_config(python_path: &str) -> PoolConfig {
         // for a prior test's checked-out worker to be returned to the pool.
         max_workers_per_key: PerProfile::uniform(2),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     }
@@ -1349,4 +1350,32 @@ mod tests {
         let contents = "[ud]\nengine.rev.key = nope\n[asr]\nengine = whisper\n";
         assert_eq!(parse_legacy_revai_key(contents), None);
     }
+}
+
+/// Install an env-filtered tracing subscriber for a test binary, once.
+///
+/// Diagnostic `tracing` events in the worker pool go nowhere by default,
+/// because a test binary installs no subscriber. That is how the orphaned-worker
+/// question stayed open: real orphans were observed after a full-suite run on
+/// 2026-07-30, and the one place that could have said whether `WorkerPool::drop`
+/// even ran was silent. `integration.rs` had already hit this and solved it the
+/// same way for its audit warnings.
+///
+/// Off unless asked for, so ordinary runs stay quiet:
+/// `RUST_LOG=batchalign::worker::pool=debug cargo test -p batchalign --test gpu_concurrent_dispatch`
+pub fn init_test_tracing(fallback: tracing::Level) {
+    // RUST_LOG wins when set, so an investigation can turn any target up
+    // without editing a test. `fallback` is what the caller needs to see when
+    // it is NOT set: most callers want silence and pass ERROR, while a test
+    // whose evidence IS a swallowed warning passes WARN and gets it always.
+    //
+    // One install point matters more than the policy: `try_init` sets a
+    // PROCESS-global subscriber, so two tests installing different ones race,
+    // and whichever runs first silently decides what the other can see.
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(fallback.to_string()));
+    let _ = tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_env_filter(filter)
+        .try_init();
 }

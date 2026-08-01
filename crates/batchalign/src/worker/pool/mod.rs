@@ -1,6 +1,6 @@
 //! `WorkerPool`: manages multiple Python worker processes.
 //!
-//! Workers are keyed by `(bootstrap target, lang, engine overrides)`.
+//! Workers are keyed by bootstrap target, language, and typed engine selection.
 //! Large hosts may use shared profile targets such as `profile:gpu`, while
 //! constrained hosts use task targets such as `infer:asr` so one laptop does
 //! not hold unrelated models in memory.
@@ -29,7 +29,7 @@
 //! | `checkout.rs` | `CheckedOutWorker` RAII guard |
 //! | `dispatch.rs` | Checkout loop, batch infer, V2 execute, TCP routing |
 //! | `discovery.rs` | Registry-based TCP worker discovery |
-//! | `warmup.rs` | Pre-spawning workers and pre-scaling |
+//! | `pre_scale.rs` | Eager per-job worker pre-spawning |
 //! | `shutdown.rs` | Graceful shutdown and `Drop` cleanup |
 //! | `lifecycle.rs` | Background health checking, idle timeout, spawn helpers |
 //! | `execute_v2.rs` | V2 request key resolution helpers |
@@ -49,22 +49,24 @@ pub(crate) mod job_tracker;
 mod lifecycle;
 pub(crate) mod memory_gate;
 mod permit;
+mod pre_scale;
 pub(crate) mod reaper;
 mod rss_observer;
 pub(crate) mod shared_gpu;
 mod shutdown;
 pub mod status;
-mod warmup;
 
 pub use checkout::CheckedOutWorker;
 pub use status::{WorkerSummaryEntry, WorkerTransport};
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-use crate::api::{NumSpeakers, WorkerLanguage};
+use crate::api::{ReleasedCommand, WorkerLanguage};
 use crate::host_facts::PerProfile;
+use crate::options::CommandOptions;
+use crate::types::engines::EngineOverrides;
 use crate::worker::{WorkerBootstrapMode, WorkerCapabilities, WorkerProfile, WorkerTarget};
 use tokio::sync::{Mutex as AsyncMutex, Semaphore};
 use tokio_util::sync::CancellationToken;
@@ -73,7 +75,7 @@ use uuid::Uuid;
 
 use self::gpu_slot::GpuWorkerSlot;
 use crate::worker::error::WorkerError;
-use crate::worker::handle::{WorkerConfig, WorkerHandle, WorkerRuntimeConfig};
+use crate::worker::handle::{WorkerHandle, WorkerRuntimeConfig};
 use crate::worker::python::resolve_python_executable;
 use crate::worker::tcp_handle::TcpWorkerHandle;
 
@@ -98,10 +100,155 @@ pub(super) fn lock_recovered<T>(mutex: &std::sync::Mutex<T>) -> std::sync::Mutex
     })
 }
 
-/// Key for looking up workers: (bootstrap target, lang, engine overrides).
-pub(super) type WorkerKey = (WorkerTarget, WorkerLanguage, String);
+/// A typed engine selection for one worker process.
+///
+/// The pool never accepts arbitrary JSON as an identity. It derives this value
+/// from a typed execute request or command options, then serializes it only
+/// when crossing to a Python worker. Registry JSON is parsed at that external
+/// boundary before it reaches the pool map.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub(super) struct EngineSelection(EngineOverrides);
 
-pub use crate::types::response::WarmupStatus;
+impl EngineSelection {
+    /// No engine-specific worker configuration.
+    pub(super) fn none() -> Self {
+        Self::default()
+    }
+
+    /// Derive the selection a command's dispatch path will use.
+    pub(super) fn from_command_options(options: &CommandOptions) -> Self {
+        let mut overrides = options.common().engine_overrides.clone();
+        match options {
+            CommandOptions::Align(options) => {
+                overrides
+                    .fa
+                    .get_or_insert_with(|| options.effective_fa_engine());
+            }
+            CommandOptions::Transcribe(options) | CommandOptions::TranscribeS(options) => {
+                overrides
+                    .asr
+                    .get_or_insert_with(|| options.effective_asr_engine());
+            }
+            CommandOptions::Benchmark(options) => {
+                overrides
+                    .asr
+                    .get_or_insert_with(|| options.effective_asr_engine());
+            }
+            CommandOptions::Translate(options) => {
+                overrides
+                    .translate
+                    .get_or_insert_with(|| options.effective_translate_engine());
+            }
+            CommandOptions::Morphotag(_)
+            | CommandOptions::Coref(_)
+            | CommandOptions::Utseg(_)
+            | CommandOptions::Opensmile(_)
+            | CommandOptions::Compare(_)
+            | CommandOptions::Avqi(_)
+            | CommandOptions::Diarize(_) => {}
+        }
+        Self::from_overrides(overrides)
+    }
+
+    /// Parse the JSON held by an externally managed registry entry.
+    ///
+    /// This is ingress from the Python registry boundary, not another source
+    /// of pool-key derivation. Once admitted, equality is structural
+    /// [`EngineOverrides`] equality rather than spelling-sensitive JSON.
+    pub(super) fn from_registry_json(json: &str) -> Result<Self, serde_json::Error> {
+        if json.trim().is_empty() {
+            return Ok(Self::none());
+        }
+        serde_json::from_str(json).map(Self::from_overrides)
+    }
+
+    /// JSON for the Rust/Python worker configuration boundary.
+    pub(super) fn worker_config_json(&self) -> String {
+        self.0.to_dispatch_json_string()
+    }
+
+    /// Typed engine details consumed by Rust-side admission logic.
+    pub(super) fn overrides(&self) -> &EngineOverrides {
+        &self.0
+    }
+
+    pub(super) fn is_none(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Collapse engine choices that never reach a Python worker while
+    /// preserving extras, which may still configure another selected engine.
+    fn from_overrides(mut overrides: EngineOverrides) -> Self {
+        if overrides
+            .asr
+            .as_ref()
+            .is_some_and(|engine| engine.dispatch_override_name().is_none())
+        {
+            overrides.asr = None;
+        }
+        Self(overrides)
+    }
+}
+
+impl std::fmt::Display for EngineSelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.worker_config_json())
+    }
+}
+
+/// Identity of one worker group.
+///
+/// The three components are named so an engine selection cannot be confused
+/// with an anonymous third tuple field. Constructors derive the selection from
+/// typed inputs; no caller can key the pool with a raw JSON string.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(super) struct WorkerKey {
+    pub(super) target: WorkerTarget,
+    pub(super) language: WorkerLanguage,
+    pub(super) engine_selection: EngineSelection,
+}
+
+impl WorkerKey {
+    pub(super) fn without_engine_selection(target: WorkerTarget, language: WorkerLanguage) -> Self {
+        Self {
+            target,
+            language,
+            engine_selection: EngineSelection::none(),
+        }
+    }
+
+    pub(super) fn from_command_options(
+        command: ReleasedCommand,
+        language: WorkerLanguage,
+        options: &CommandOptions,
+        bootstrap_mode: WorkerBootstrapMode,
+    ) -> Self {
+        let target = WorkerTarget::for_command_with_mode(command, bootstrap_mode);
+        Self {
+            target: target.clone(),
+            language,
+            engine_selection: if bootstrap_mode == WorkerBootstrapMode::LazyProfile
+                && target.is_concurrent()
+            {
+                EngineSelection::none()
+            } else {
+                EngineSelection::from_command_options(options)
+            },
+        }
+    }
+
+    pub(super) fn from_registry_json(
+        target: WorkerTarget,
+        language: WorkerLanguage,
+        engine_overrides_json: &str,
+    ) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            target,
+            language,
+            engine_selection: EngineSelection::from_registry_json(engine_overrides_json)?,
+        })
+    }
+}
 
 /// Default per-profile `max_workers_per_key` for `PoolConfig::default()`
 /// test fixtures.
@@ -144,7 +291,7 @@ pub struct PoolConfig {
     /// fixtures get a uniform per-profile literal.
     pub max_workers_per_key: PerProfile<usize>,
     /// Hard ceiling on total workers across all keys. Prevents OOM when
-    /// many different `(profile, lang, engine_overrides)` keys are active
+    /// many different `(profile, lang, engine selection)` keys are active
     /// simultaneously (e.g. multi-language test suites, concurrent jobs).
     /// Production sets this from `EffectiveConfig::max_total_workers`
     /// (host-facts-derived); test fixtures get
@@ -157,9 +304,6 @@ pub struct PoolConfig {
     pub checkout_wait_timeout_s: u64,
     /// Verbosity level forwarded to Python workers (0=warn, 1=info, 2=debug).
     pub verbose: u8,
-    /// Engine overrides as a JSON string, passed to every spawned worker via
-    /// `--engine-overrides`. Empty string means no overrides.
-    pub engine_overrides: String,
     /// Runtime-owned worker launch inputs (device policy, injected creds).
     pub runtime: WorkerRuntimeConfig,
     /// Timeout override for audio-heavy tasks (ASR, FA, speaker).
@@ -216,7 +360,6 @@ impl Default for PoolConfig {
             max_total_workers: DEFAULT_MAX_TOTAL_WORKERS_FOR_TESTS,
             checkout_wait_timeout_s: 0, // 0 = use built-in default (300s)
             verbose: 0,
-            engine_overrides: String::new(),
             runtime: WorkerRuntimeConfig::default(),
             audio_task_timeout_s: 0,
             analysis_task_timeout_s: 0,
@@ -334,14 +477,13 @@ pub(super) struct WorkerGroup {
     /// the per-profile slot in `PoolConfig::max_workers_per_key`.
     pub(super) profile: WorkerProfile,
 
-    /// JSON-serialized engine overrides for this group's key. Mirrors
-    /// `WorkerKey.2`; stored on the group so admission control can
+    /// Typed engine selection for this group's key. Stored on the group so admission control can
     /// consult the engine selection without re-locating the key. Used
     /// by the engine-aware memory reservation
     /// ([`super::memory_gate::engine_aware_startup_reservation_mb`])
     /// to inflate the per-spawn reservation when the translate engine
     /// is a heavy local-model backend (NLLB, SeamlessM4T).
-    pub(super) engine_overrides: String,
+    pub(super) engine_selection: EngineSelection,
 }
 
 impl WorkerGroup {
@@ -349,7 +491,7 @@ impl WorkerGroup {
         worker_returned: Arc<tokio::sync::Notify>,
         spawn_permits: Arc<Semaphore>,
         profile: WorkerProfile,
-        engine_overrides: String,
+        engine_selection: EngineSelection,
     ) -> Self {
         Self {
             idle: std::sync::Mutex::new(VecDeque::new()),
@@ -361,7 +503,7 @@ impl WorkerGroup {
             worker_returned,
             spawn_permits,
             profile,
-            engine_overrides,
+            engine_selection,
         }
     }
 
@@ -401,9 +543,6 @@ pub(super) type GroupsMap = Arc<std::sync::Mutex<HashMap<WorkerKey, Arc<WorkerGr
 // WorkerPool
 // ---------------------------------------------------------------------------
 
-/// Key for shared GPU workers: (target, lang, engine_overrides).
-pub(super) type GpuWorkerKey = (WorkerTarget, WorkerLanguage, String);
-
 /// Manages a pool of Python worker processes.
 pub struct WorkerPool {
     pub(super) config: PoolConfig,
@@ -416,18 +555,16 @@ pub struct WorkerPool {
     /// lock is therefore never held across a spawn, so a cold key no longer
     /// stalls dispatches to warm keys or `/health`. Readers must state what an
     /// in-flight spawn means for them; see `gpu_slot.rs`.
-    pub(super) gpu_workers: Arc<tokio::sync::Mutex<HashMap<GpuWorkerKey, GpuWorkerSlot>>>,
+    pub(super) gpu_workers: Arc<tokio::sync::Mutex<HashMap<WorkerKey, GpuWorkerSlot>>>,
     /// Shared GPU workers discovered from registry (TCP transport).
     pub(super) gpu_tcp_workers:
-        Arc<tokio::sync::Mutex<HashMap<GpuWorkerKey, Arc<shared_gpu::SharedGpuTcpWorker>>>>,
+        Arc<tokio::sync::Mutex<HashMap<WorkerKey, Arc<shared_gpu::SharedGpuTcpWorker>>>>,
     /// Pulsed on every `CheckedOutWorker::drop`. Parks saturated
     /// checkouts that have no live worker for their key and no idle
     /// worker elsewhere to evict; wakes them to retry spawn + eviction
     /// when any worker anywhere in the pool becomes available.
     pub(super) worker_returned: Arc<tokio::sync::Notify>,
     pub(super) cancel: CancellationToken,
-    /// Background warmup lifecycle state.
-    pub(super) warmup_status: AtomicU8,
     /// Lazily detected worker capabilities (populated on first worker spawn).
     pub(super) lazy_capabilities: std::sync::OnceLock<WorkerCapabilities>,
     /// Per-language Stanza processor registry (populated from first worker's
@@ -595,7 +732,6 @@ impl WorkerPool {
             gpu_tcp_workers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             worker_returned: Arc::new(tokio::sync::Notify::new()),
             cancel: CancellationToken::new(),
-            warmup_status: AtomicU8::new(WarmupStatus::NotStarted.as_u8()),
             lazy_capabilities: std::sync::OnceLock::new(),
             stanza_registry: std::sync::OnceLock::new(),
             job_tracker: job_tracker::JobWorkerTracker::new(),
@@ -734,7 +870,7 @@ impl WorkerPool {
         let _ = self.lazy_capabilities.set(caps);
     }
 
-    /// Get or create a shared GPU worker for the given (lang, engine_overrides).
+    /// Get or create a shared GPU worker for a derived key.
     ///
     /// Coordination is PER KEY, not per map: the map lock is held only long
     /// enough to hand out this key's [`GpuWorkerSlot`], and the spawn runs with
@@ -748,42 +884,24 @@ impl WorkerPool {
     /// needing no spawn from queuing behind one. See `gpu_slot.rs`.
     #[instrument(
         skip_all,
-        fields(target = %target.label(), lang = %lang),
+        fields(target = %key.target.label(), lang = %key.language),
     )]
     pub(super) async fn get_or_create_gpu_worker(
         &self,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
+        key: &WorkerKey,
     ) -> Result<Arc<shared_gpu::SharedGpuWorker>, WorkerError> {
-        let key = (*target, lang.clone(), engine_overrides.to_owned());
-
         // The only time the map lock is held: long enough to hand out this
         // key's slot. Every caller for this key gets the SAME slot, which is
         // what still makes duplicate spawns impossible.
         let slot = {
             let mut gpu_workers = self.gpu_workers.lock().await;
             gpu_workers
-                .entry(key)
+                .entry(key.clone())
                 .or_insert_with(GpuWorkerSlot::pending)
                 .clone()
         };
 
-        let config = WorkerConfig {
-            python_path: self.config.python_path.clone(),
-            profile: target.profile_kind(),
-            task: target.task(),
-            lang: lang.clone(),
-            num_speakers: NumSpeakers(1),
-            engine_overrides: engine_overrides.to_owned(),
-            test_echo: self.config.test_echo,
-            ready_timeout_s: self.config.ready_timeout_s,
-            verbose: self.config.verbose,
-            runtime: self.config.runtime.clone(),
-            audio_task_timeout_s: self.config.audio_task_timeout_s,
-            analysis_task_timeout_s: self.config.analysis_task_timeout_s,
-            test_delay_ms: self.config.test_delay_ms,
-        };
+        let config = self.worker_config(key);
 
         let worker = slot
             .worker_or_init(|| async move {
@@ -794,8 +912,8 @@ impl WorkerPool {
                     tracing::warn!(error = %e, "Failed to detect capabilities from first GPU worker (continuing)");
                 }
                 info!(
-                    target = %target.label(),
-                    lang = %lang,
+                    target = %key.target.label(),
+                    lang = %key.language,
                     pid = %handle.pid(),
                     "GPU worker spawned (concurrent mode)"
                 );
@@ -814,8 +932,8 @@ impl WorkerPool {
         // both retiring it is harmless.
         if self.cancel.is_cancelled() {
             warn!(
-                target = %target.label(),
-                lang = %lang,
+                target = %key.target.label(),
+                lang = %key.language,
                 pid = %worker.pid(),
                 "GPU worker finished spawning during pool shutdown; retiring it"
             );
@@ -871,7 +989,15 @@ impl WorkerPool {
         }
     }
 
-    pub(super) fn current_server_instance_id(&self) -> &str {
+    /// This pool's registry ownership identity.
+    ///
+    /// Public because a caller that pre-starts a TCP daemon and expects THIS
+    /// pool to adopt and later reap it must stamp the daemon with this id: the
+    /// registry records ownership by instance, and `kill_owned_daemons` reaps
+    /// only its own. That is how `dropping_pool_reaps_owned_tcp_daemons`
+    /// constructs its subject, now that startup warmup (the former in-crate
+    /// spawner of server-owned daemons) is retired.
+    pub fn current_server_instance_id(&self) -> &str {
         // Constructor invariant: `WorkerPool::new` populates
         // `config.runtime.server_instance_id` unconditionally on
         // creation; the field is `Option<...>` only because
@@ -918,7 +1044,42 @@ mod default_pool_config_tests {
 
     use super::PerProfile;
     use crate::api::{LanguageCode3, WorkerLanguage};
+    use crate::types::engines::{AsrEngineName, EngineOverrides};
+    use crate::types::options::{AlignOptions, CommandOptions};
     use crate::worker::{InferTask, WorkerTarget};
+
+    #[test]
+    fn command_options_selection_normalizes_non_worker_asr_and_keeps_extras() {
+        let mut options = AlignOptions::default();
+        options.common.engine_overrides = EngineOverrides {
+            asr: Some(AsrEngineName::RevAi),
+            extras: [("provider_region".to_owned(), "us-east".to_owned())].into(),
+            ..EngineOverrides::default()
+        };
+
+        let selection = EngineSelection::from_command_options(&CommandOptions::Align(options));
+
+        assert_eq!(selection.overrides().asr, None);
+        assert_eq!(selection.overrides().extras["provider_region"], "us-east");
+        assert_eq!(
+            selection.worker_config_json(),
+            r#"{"fa":"whisper","provider_region":"us-east"}"#
+        );
+    }
+
+    #[test]
+    fn lazy_profile_command_options_key_drops_engine_selection() {
+        let options = CommandOptions::Align(AlignOptions::default());
+        let key = WorkerKey::from_command_options(
+            ReleasedCommand::Align,
+            WorkerLanguage::from(LanguageCode3::eng()),
+            &options,
+            WorkerBootstrapMode::LazyProfile,
+        );
+
+        assert!(key.target.is_concurrent());
+        assert!(key.engine_selection.is_none());
+    }
 
     #[tokio::test(flavor = "current_thread")]
     async fn metrics_snapshot_reflects_per_profile_active_counts() {
@@ -958,10 +1119,12 @@ mod default_pool_config_tests {
         // total to 2 (simulating spawned workers without going through
         // the real Python path).
         let stanza_target = WorkerTarget::infer_task(InferTask::Morphosyntax);
-        let stanza_group = pool.get_or_create_group(&stanza_target, &lang, "");
+        let stanza_key = WorkerKey::without_engine_selection(stanza_target, lang.clone());
+        let stanza_group = pool.get_or_create_group(&stanza_key);
         stanza_group.total.store(3, Ordering::Relaxed);
         let gpu_target = WorkerTarget::infer_task(InferTask::Asr);
-        let gpu_group = pool.get_or_create_group(&gpu_target, &lang, "");
+        let gpu_key = WorkerKey::without_engine_selection(gpu_target, lang.clone());
+        let gpu_group = pool.get_or_create_group(&gpu_key);
         gpu_group.total.store(2, Ordering::Relaxed);
 
         let m1 = pool.metrics_snapshot();
@@ -983,7 +1146,8 @@ mod default_pool_config_tests {
             .try_acquire_many_owned(16)
             .expect("drain all 16 global permits");
         let io_target = WorkerTarget::infer_task(InferTask::Translate);
-        let io_group = pool.get_or_create_group(&io_target, &lang, "");
+        let io_key = WorkerKey::without_engine_selection(io_target, lang);
+        let io_group = pool.get_or_create_group(&io_key);
         let _ = pool.try_claim_spawn_slot(&io_group);
 
         let m2 = pool.metrics_snapshot();
@@ -1017,9 +1181,10 @@ mod default_pool_config_tests {
         let baseline = pool.metrics_snapshot().permits_available;
         let lang = WorkerLanguage::from(LanguageCode3::eng());
         let target = WorkerTarget::infer_task(InferTask::Morphosyntax);
-        let group = pool.get_or_create_group(&target, &lang, "");
+        let key = WorkerKey::without_engine_selection(target, lang);
+        let group = pool.get_or_create_group(&key);
 
-        let result = pool.try_spawn_into_group(&group, &target, &lang, "").await;
+        let result = pool.try_spawn_into_group(&group, &key).await;
         assert!(result.is_err(), "expected spawn failure");
 
         let after = pool.metrics_snapshot().permits_available;
@@ -1057,11 +1222,11 @@ mod default_pool_config_tests {
         assert_eq!(pool.metrics_snapshot().permits_available, 3);
 
         let lang = WorkerLanguage::from(LanguageCode3::eng());
-        let group = pool.get_or_create_group(
-            &WorkerTarget::infer_task(InferTask::Morphosyntax),
-            &lang,
-            "",
+        let key = WorkerKey::without_engine_selection(
+            WorkerTarget::infer_task(InferTask::Morphosyntax),
+            lang,
         );
+        let group = pool.get_or_create_group(&key);
         group.total.store(5, Ordering::Relaxed);
 
         // Mirror what shutdown.rs's drain branch does: fetch_sub +
@@ -1087,7 +1252,8 @@ mod default_pool_config_tests {
         });
         let lang = WorkerLanguage::from(LanguageCode3::eng());
         let target = WorkerTarget::infer_task(InferTask::Morphosyntax);
-        let group = pool.get_or_create_group(&target, &lang, "");
+        let key = WorkerKey::without_engine_selection(target, lang);
+        let group = pool.get_or_create_group(&key);
 
         // Drain the only permit out-of-band to simulate "global cap
         // already saturated by other workers."
@@ -1122,7 +1288,8 @@ mod default_pool_config_tests {
         });
         let lang = WorkerLanguage::from(LanguageCode3::eng());
         let target = WorkerTarget::infer_task(InferTask::Morphosyntax);
-        let group = pool.get_or_create_group(&target, &lang, "");
+        let key = WorkerKey::without_engine_selection(target, lang);
+        let group = pool.get_or_create_group(&key);
 
         let permits_before = pool.metrics_snapshot().permits_available;
         // First claim succeeds. We immediately drop the returned guard
@@ -1194,7 +1361,8 @@ mod default_pool_config_tests {
             .iter()
             .map(|task| {
                 let target = WorkerTarget::infer_task(*task);
-                pool.get_or_create_group(&target, &lang, "")
+                let key = WorkerKey::without_engine_selection(target, lang.clone());
+                pool.get_or_create_group(&key)
             })
             .collect()
     }

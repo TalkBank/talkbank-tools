@@ -1,7 +1,7 @@
 # Tauri + React Dashboard
 
 **Status:** Current
-**Last updated:** 2026-05-20 00:57 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 ## Overview
 
@@ -357,7 +357,7 @@ data from the Zustand `healthMap`:
 
 | Component | File | Data Fields Used |
 |-----------|------|-----------------|
-| `WorkerProfilePanel` | `WorkerProfilePanel.tsx` | `live_worker_keys`, `live_workers`, `warmup_status` |
+| `WorkerProfilePanel` | `WorkerProfilePanel.tsx` | `live_worker_keys`, `live_workers` |
 | `MemoryPanel` | `MemoryPanel.tsx` | `system_memory_total_mb`, `system_memory_available_mb`, `system_memory_used_mb`, `memory_gate_threshold_mb`, `memory_gate_aborts` |
 | `VitalsRow` | `VitalsRow.tsx` | `worker_crashes`, `forced_terminal_errors`, `memory_gate_aborts`, `attempts_started`, `attempts_retried`, `deferred_work_units` |
 

@@ -616,10 +616,8 @@ impl EngineOverrides {
         }
     }
 
-    /// Serialize for the worker-facing boundary (pool worker keys,
-    /// capability-discovery spawns, and the worker's `--engine-overrides`
-    /// argv), using the DISPATCH override names the Python worker's
-    /// engine loaders accept (`dispatch_override_name()`), NOT the
+    /// Produce the worker-facing override map, using the DISPATCH names the
+    /// Python engine loaders accept (`dispatch_override_name()`), NOT the
     /// persistence wire names (`wire_name()`).
     ///
     /// The two schemes differ for every FA engine ("wav2vec_fa" /
@@ -634,12 +632,7 @@ impl EngineOverrides {
     /// round-trip verbatim, exactly as in [`Self::to_json_string`]
     /// (the 2026-05-27 `qwen_model` lesson).
     ///
-    /// Returns an empty string when no overrides are set, matching the
-    /// pool config's default key.
-    pub fn to_dispatch_json_string(&self) -> String {
-        if self.is_empty() {
-            return String::new();
-        }
+    pub fn dispatch_overrides(&self) -> std::collections::BTreeMap<String, String> {
         let mut map = std::collections::BTreeMap::new();
         if let Some(ref asr) = self.asr
             && let Some(name) = asr.dispatch_override_name()
@@ -657,6 +650,18 @@ impl EngineOverrides {
         }
         for (key, value) in &self.extras {
             map.insert(key.clone(), value.clone());
+        }
+        map
+    }
+
+    /// Serialize [`Self::dispatch_overrides`] at the Rust/Python worker
+    /// boundary.
+    ///
+    /// Returns an empty string when no overrides are set.
+    pub fn to_dispatch_json_string(&self) -> String {
+        let map = self.dispatch_overrides();
+        if map.is_empty() {
+            return String::new();
         }
         serde_json::to_string(&map).unwrap_or_else(|e| format!("<serialization failed: {e}>"))
     }

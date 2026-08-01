@@ -11,8 +11,8 @@
 //! Tests for concurrent worker routing (T080), cross-platform process management
 //! (T081), and platform-specific lifecycle/shutdown behavior (T089).
 //!
-//! T080: Multi-language dispatch creates separate groups; engine overrides create
-//!       distinct groups; concurrent dispatch across groups works correctly.
+//! T080: Multi-language dispatch creates separate groups; concurrent dispatch
+//!       across groups works correctly.
 //! T081: Worker spawn, health check, and shutdown work on the current platform.
 //! T089: Graceful shutdown sends SIGTERM (Unix); Drop reaps processes; checked-out
 //!       workers are warned during shutdown.
@@ -67,7 +67,6 @@ fn test_pool(python: String) -> WorkerPool {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     })
@@ -136,65 +135,6 @@ async fn concurrent_dispatch_to_different_languages() {
     );
 
     pool.shutdown().await;
-}
-
-/// Engine overrides create a distinct worker group even for the same task+language.
-#[tokio::test]
-async fn engine_overrides_create_distinct_worker_groups() {
-    let python = require_python!();
-
-    // Pool with engine overrides.
-    let pool_with_overrides = WorkerPool::new(PoolConfig {
-        python_path: python.clone(),
-        health_check_interval_s: 600,
-        ready_timeout_s: 30,
-        test_echo: true,
-        max_workers_per_key: PerProfile::uniform(8),
-        verbose: 0,
-        engine_overrides: r#"{"asr":"tencent"}"#.into(),
-        runtime: Default::default(),
-        ..Default::default()
-    });
-
-    // Pool without engine overrides.
-    let pool_default = test_pool(python);
-
-    // Dispatch to both.
-    let item = json!({"words": ["test"]});
-    pool_with_overrides
-        .dispatch_batch_infer(
-            &LanguageCode3::eng(),
-            &batch_request(
-                InferTask::Morphosyntax,
-                LanguageCode3::eng(),
-                vec![item.clone()],
-            ),
-        )
-        .await
-        .expect("override pool dispatch failed");
-
-    pool_default
-        .dispatch_batch_infer(
-            &LanguageCode3::eng(),
-            &batch_request(InferTask::Morphosyntax, LanguageCode3::eng(), vec![item]),
-        )
-        .await
-        .expect("default pool dispatch failed");
-
-    // Each pool should have its own worker.
-    assert_eq!(pool_with_overrides.worker_count().await, 1);
-    assert_eq!(pool_default.worker_count().await, 1);
-
-    // Workers should be distinct (different PIDs).
-    let summary_overrides = pool_with_overrides.worker_summary().await;
-    let summary_default = pool_default.worker_summary().await;
-    assert_ne!(
-        summary_overrides, summary_default,
-        "workers with different engine overrides should be distinct"
-    );
-
-    pool_with_overrides.shutdown().await;
-    pool_default.shutdown().await;
 }
 
 /// Concurrent dispatch to multiple task types (Morphosyntax, Translate, FA)

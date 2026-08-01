@@ -1,7 +1,7 @@
 # Server and Fleet Setup
 
 **Status:** Current
-**Last updated:** 2026-06-30 13:55 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 ## Overview
 
@@ -47,7 +47,6 @@ Create `~/.batchalign3/server.yaml`:
 port: 8001
 host: "0.0.0.0"
 max_concurrent_jobs: 4
-warmup_commands: [morphotag, align, transcribe]
 
 # Map data repository names to media file locations.
 media_mappings:

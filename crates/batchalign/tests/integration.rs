@@ -557,10 +557,7 @@ async fn cancel_twice_records_two_audit_rows() {
     // (`record_audit_row`, documented as best-effort). With no subscriber
     // installed, that warning went nowhere, so an intermittent failure here had
     // no evidence trail at all. Install one so the next failure explains itself.
-    let _ = tracing_subscriber::fmt()
-        .with_test_writer()
-        .with_max_level(tracing::Level::WARN)
-        .try_init();
+    common::init_test_tracing(tracing::Level::WARN);
 
     let Some(session) = acquire_test_server_session().await else {
         return;
@@ -1164,7 +1161,6 @@ async fn multi_file_job_uses_parallel_workers() {
     let config = ServerConfig {
         host: "127.0.0.1".into(),
         port: 0,
-        warmup_commands: vec![],
         max_workers_per_job: Some(3), // Force 3 parallel workers
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
@@ -1247,7 +1243,6 @@ async fn server_starts_with_real_worker_capability_gate() {
         host: "127.0.0.1".into(),
         port: 0,
         job_ttl_days: 7,
-        warmup_commands: vec![],
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
     };
@@ -1266,7 +1261,6 @@ async fn server_starts_with_real_worker_capability_gate() {
         ready_timeout_s: 30,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     };

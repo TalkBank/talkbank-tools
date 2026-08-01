@@ -59,8 +59,6 @@ pub(super) async fn dispatch_job_with_execution_context(
     let startup_infer_tasks = &execution.infer_tasks;
     let startup_engine_versions = &execution.engine_versions;
     let test_echo_mode = execution.test_echo_mode;
-    let job_engine_overrides = job.dispatch.options.common().engine_overrides_json();
-
     // Capability discovery is language-agnostic, the worker reports its
     // resources.json which lists every supported language regardless of
     // which lang the worker boots with. The job-level `LanguageSpec`
@@ -77,7 +75,7 @@ pub(super) async fn dispatch_job_with_execution_context(
         test_echo_mode,
         command,
         job.dispatch.lang.to_worker_language(),
-        &job_engine_overrides,
+        &job.dispatch.options,
     )
     .await
     {
@@ -208,7 +206,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             .ensure_command_capabilities(
                 command,
                 job.dispatch.lang.to_worker_language(),
-                &job_engine_overrides,
+                &job.dispatch.options,
             )
             .await
         {
@@ -256,7 +254,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             .ensure_command_capabilities(
                 command,
                 job.dispatch.lang.to_worker_language(),
-                &job_engine_overrides,
+                &job.dispatch.options,
             )
             .await
         {
@@ -291,7 +289,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             .ensure_command_capabilities(
                 command,
                 job.dispatch.lang.to_worker_language(),
-                &job_engine_overrides,
+                &job.dispatch.options,
             )
             .await
         {
@@ -331,7 +329,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             .ensure_command_capabilities(
                 command,
                 job.dispatch.lang.to_worker_language(),
-                &job_engine_overrides,
+                &job.dispatch.options,
             )
             .await
         {
@@ -364,7 +362,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             .ensure_command_capabilities(
                 command,
                 job.dispatch.lang.to_worker_language(),
-                &job_engine_overrides,
+                &job.dispatch.options,
             )
             .await
         {
@@ -595,13 +593,13 @@ async fn resolve_runtime_capability_snapshot(
     test_echo_mode: bool,
     command: ReleasedCommand,
     lang: impl Into<crate::api::WorkerLanguage>,
-    engine_overrides: &str,
+    options: &crate::options::CommandOptions,
 ) -> Result<crate::capability::WorkerCapabilitySnapshot, String> {
     // Every released command has an infer task, so the only questions left are
     // whether we are in test-echo mode and whether capabilities were already
     // probed.
     if !test_echo_mode && pool.detected_capabilities().is_none() {
-        pool.ensure_command_capabilities_with_overrides(command, lang, engine_overrides)
+        pool.ensure_command_capabilities(command, lang, options)
             .await
             .map_err(|error| {
                 format!(

@@ -359,6 +359,24 @@ fn serve_start_unknown_config_field_is_config_error() {
 }
 
 // ---------------------------------------------------------------------------
+
+/// Last few KB of a log file, for a failure message.
+///
+/// Returns why it could not be read rather than an empty string: "the log was
+/// absent" and "the log was empty" are different diagnoses, and a silent empty
+/// string would let a reader assume the second when it was the first.
+fn read_log_tail(path: &std::path::Path) -> String {
+    const TAIL_BYTES: usize = 4096;
+    match std::fs::read_to_string(path) {
+        Ok(text) if text.is_empty() => "(log exists but is empty)".to_string(),
+        Ok(text) => {
+            let start = text.len().saturating_sub(TAIL_BYTES);
+            text[start..].to_string()
+        }
+        Err(error) => format!("(could not read log: {error})"),
+    }
+}
+
 // Cache commands (HOME-isolated)
 // ---------------------------------------------------------------------------
 
@@ -621,7 +639,7 @@ fn cli_transcribe_explicit_server_falls_back_to_local_daemon() {
 
     let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
+        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
     ));
 
     // Release the port only now, immediately before the daemon binds it.
@@ -716,7 +734,7 @@ fn cli_align_explicit_server_uses_remote_content_mode() {
 
     let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: false\nwarmup_commands: []\nmedia_roots:\n  - {}\n",
+        "host: 127.0.0.1\nport: {port}\nauto_daemon: false\nmedia_roots:\n  - {}\n",
         media_dir.display()
     ));
 
@@ -803,7 +821,7 @@ fn cli_transcribe_in_place_mp4_succeeds_via_local_daemon() {
 
     let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
+        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
     ));
 
     // Release the port only now, immediately before the daemon binds it.
@@ -891,7 +909,7 @@ fn cli_transcribe_in_place_mp4_populates_injected_media_cache_live() {
 
     let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
+        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
     ));
 
     // Release the port only now, immediately before the daemon binds it.
@@ -931,7 +949,16 @@ fn cli_transcribe_in_place_mp4_populates_injected_media_cache_live() {
         stderr.contains(&format!(
             "Submitting to local daemon at http://127.0.0.1:{port}"
         )),
-        "CLI should use the isolated local daemon. stderr: {stderr}"
+        // The CLI's own advice on this failure is "check daemon.log", so read it
+        // here rather than telling a future reader to go and find a temp
+        // directory that the harness deletes on drop. Without this the panic
+        // says only "could not start local daemon", which is the symptom the
+        // CLI already printed and names no cause. Observed 2026-07-31 under
+        // full-suite load; the same test passes alone in ~125s.
+        "CLI should use the isolated local daemon. stderr: {stderr}\n\
+         --- daemon.log ({daemon_log}) ---\n{daemon_log_tail}",
+        daemon_log = harness.home_dir().join(".batchalign3/daemon.log").display(),
+        daemon_log_tail = read_log_tail(&harness.home_dir().join(".batchalign3/daemon.log")),
     );
     assert!(
         stderr.contains("All done! 1 file(s) written"),
@@ -1027,7 +1054,7 @@ fn cli_compare_failed_auto_daemon_job_returns_server_exit_code() {
 
     let (port, port_reservation) = reserve_ephemeral_port();
     harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\nwarmup_commands: []\n"
+        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
     ));
 
     // Release the port only now, immediately before the daemon binds it.

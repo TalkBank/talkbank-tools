@@ -342,7 +342,6 @@ pub async fn start_live_server(
     let config = ServerConfig {
         host: "127.0.0.1".into(),
         port: 0,
-        warmup_commands: vec![],
         media_roots,
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
@@ -354,7 +353,6 @@ pub async fn start_live_server(
         ready_timeout_s: 120,
         max_workers_per_key: PerProfile::uniform(2),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     };

@@ -1,7 +1,7 @@
 # Adding a New Command
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This guide walks through adding a new batchalign3 command end-to-end.
 
@@ -141,7 +141,7 @@ time. Declaring them means the compiler asks you the question.
 
 **`family` is the one field with reach.** It implies eight runtime policies
 (scheduling, model sharing, batching, parallelism, resource lane,
-constrained-host behaviour, warmup eligibility, and the workflow family) through
+constrained-host behaviour and the workflow family) through
 `const fn`s on `CommandFamily`. Pick the family whose implications you want, and
 read those methods in `recipe_runner/command_spec.rs` before choosing; do not
 pick by name resemblance.

@@ -46,7 +46,6 @@ fn stress_server_config() -> ServerConfig {
         host: "127.0.0.1".into(),
         port: 0,
         job_ttl_days: 7,
-        warmup_commands: vec![],
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
     }
@@ -64,7 +63,6 @@ async fn start_stress_server_with_config(mut config: ServerConfig) -> Option<Str
     config.host = "127.0.0.1".into();
     config.port = 0;
     config.job_ttl_days = 7;
-    config.warmup_commands = vec![];
     config.memory_gate_mb = Some(MemoryMb(0));
     let session = acquire_test_server_session_with_config(config).await?;
     Some(StressServer { session })

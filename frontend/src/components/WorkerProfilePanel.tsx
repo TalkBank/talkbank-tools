@@ -1,11 +1,11 @@
 /** Workers & Memory panel, profile-aware worker status display.
  *
- * Shows active worker profiles, model sharing status, and warmup progress.
+ * Shows active worker profiles and model sharing status.
  * The key insight this panel communicates: GPU profile workers share loaded
  * models (ASR + FA + Speaker) in one process via ThreadPoolExecutor, saving
  * ~3 GB compared to loading each model in a separate process.
  *
- * Data source: the `live_worker_keys` and `warmup_status` fields from the
+ * Data source: the `live_worker_keys` field from the
  * `/health` endpoint, stored in the Zustand `healthMap`.
  */
 
@@ -248,29 +248,6 @@ function ProfileRow({ summary }: { summary: ProfileSummary }) {
   );
 }
 
-/** Warmup progress indicator. */
-function WarmupStatus({
-  status,
-}: {
-  status: string | undefined;
-}) {
-  if (!status || status === "complete") return null;
-
-  const isInProgress = status === "in_progress";
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
-      {isInProgress && (
-        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      )}
-      <span className="text-xs text-blue-700 font-medium">
-        {isInProgress
-          ? "Warming up models..."
-          : "Warmup not started"}
-      </span>
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -287,7 +264,6 @@ interface WorkerProfilePanelProps {
  *
  * 1. Which worker profiles are active and how many processes each uses.
  * 2. That GPU models are shared (the key memory optimization).
- * 3. Whether warmup is still in progress.
  */
 export function WorkerProfilePanel({ health }: WorkerProfilePanelProps) {
   if (!health) return null;
@@ -334,7 +310,6 @@ export function WorkerProfilePanel({ health }: WorkerProfilePanelProps) {
 
       {/* Profile rows */}
       <div className="p-2 space-y-1.5">
-        <WarmupStatus status={health.warmup_status} />
         {sorted.map((summary) => (
           <ProfileRow key={summary.profile} summary={summary} />
         ))}

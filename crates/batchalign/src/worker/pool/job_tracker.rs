@@ -7,7 +7,7 @@
 //! the runner unwinds at the next iteration.
 //!
 //! Registration is opt-in: callers under a `CURRENT_JOB_ID` scope
-//! (set by the runner) get tracked; warmup / health / discovery
+//! (set by the runner) get tracked; health / discovery
 //! paths run without the scope and skip registration.
 
 use std::collections::HashSet;

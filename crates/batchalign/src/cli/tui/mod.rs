@@ -131,11 +131,6 @@ impl ProgressDisplay for TuiProgress {
     }
 
     fn update_health(&self, health: &HealthResponse) {
-        let warmup_label = serde_json::to_value(health.warmup_status)
-            .ok()
-            .and_then(|v| v.as_str().map(String::from))
-            .unwrap_or_else(|| "unknown".into());
-
         let pressure_label = serde_json::to_value(health.host_memory_pressure)
             .ok()
             .and_then(|v| v.as_str().map(String::from))
@@ -148,7 +143,6 @@ impl ProgressDisplay for TuiProgress {
             system_memory_available_mb: health.system_memory_available_mb,
             system_memory_used_mb: health.system_memory_used_mb,
             memory_gate_threshold_mb: health.memory_gate_threshold_mb,
-            warmup_status: warmup_label,
             host_memory_pressure: pressure_label,
             worker_crashes: health.worker_crashes,
             attempts_started: health.attempts_started,

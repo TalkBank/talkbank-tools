@@ -1,7 +1,7 @@
 # Performance
 
 **Status:** Current
-**Last updated:** 2026-05-01 22:47 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This page covers what to expect from Batchalign's processing times and how to
 improve throughput.
@@ -90,7 +90,7 @@ batchalign3 serve stop
 ```
 
 See [Server Mode](server-mode.md) for configuration details and
-[Worker Tuning](worker-tuning.md) for memory budgets and warmup configuration.
+[Worker Tuning](worker-tuning.md) for memory budgets and tuning.
 
 ## The `bench` command
 

@@ -64,8 +64,7 @@ async fn serve_start_workers_propagates_to_submitted_job_num_workers() {
     // running on the operator's machine. Range chosen to be high and
     // unlikely to overlap other tests.
     let port: u16 = 19500 + (std::process::id() as u16 % 500);
-    let config =
-        format!("host: 127.0.0.1\nport: {port}\nwarmup_commands: []\nauto_daemon: false\n");
+    let config = format!("host: 127.0.0.1\nport: {port}\nauto_daemon: false\n");
     std::fs::write(harness.server_config_path(), &config).expect("write server.yaml");
 
     // Explicit background-mode `serve start --workers 4`. NOT

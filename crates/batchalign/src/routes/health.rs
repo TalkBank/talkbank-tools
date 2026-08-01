@@ -94,7 +94,6 @@ pub(crate) async fn health(State(state): State<Arc<AppState>>) -> Json<HealthRes
         forced_terminal_errors: control_plane.forced_terminal_errors,
         memory_gate_aborts: control_plane.memory_gate_aborts,
         build_hash: state.build.build_hash.clone(),
-        warmup_status: state.workers.pool.warmup_status(),
         system_memory_total_mb: total_mb,
         system_memory_available_mb: available_mb,
         system_memory_used_mb: used_mb,

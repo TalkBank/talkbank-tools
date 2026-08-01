@@ -802,7 +802,7 @@ mod tests {
 @End
 ";
         let parser = TreeSitterParser::new().unwrap();
-        let mut chat = parser.parse_chat_file(chat_text).unwrap();
+        let mut chat = parser.parse_chat_file(chat_text).expect_built();
 
         // ASR tokens: PAR's words + "ja" appears far from predecessor window.
         // The global DP can match "ja" because it sees the full stream.
@@ -905,7 +905,7 @@ mod tests {
 @End
 ";
         let parser = TreeSitterParser::new().unwrap();
-        let mut chat = parser.parse_chat_file(chat_text).unwrap();
+        let mut chat = parser.parse_chat_file(chat_text).expect_built();
 
         // ASR tokens: "ja" far from predecessor → two-pass can't find it,
         // global can. This means two-pass leaves "ja" untimed, which changes
@@ -1002,7 +1002,7 @@ mod tests {
 @End
 ";
         let parser = TreeSitterParser::new().unwrap();
-        let mut chat = parser.parse_chat_file(chat_text).unwrap();
+        let mut chat = parser.parse_chat_file(chat_text).expect_built();
 
         // "mhm" close to predecessor → two-pass windowed recovery succeeds.
         // Both strategies should create the same groups.

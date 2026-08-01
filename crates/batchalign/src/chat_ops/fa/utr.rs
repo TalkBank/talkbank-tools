@@ -779,7 +779,7 @@ mod tests {
 
     fn parse_chat(text: &str) -> ChatFile {
         let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(text).unwrap()
+        parser.parse_chat_file(text).expect_built()
     }
 
     fn make_asr_tokens(words_with_times: &[(&str, u64, u64)]) -> Vec<AsrTimingToken> {

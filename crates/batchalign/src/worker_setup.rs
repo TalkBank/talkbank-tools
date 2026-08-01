@@ -1,8 +1,8 @@
 //! Worker pool preparation for both direct and server execution hosts.
 //!
-//! This module owns the capability probing, warmup, and pool construction
-//! logic that is shared between direct-mode CLI execution and the HTTP
-//! server. It does NOT depend on axum, sqlx, or any server-specific crate.
+//! This module owns the capability probing and pool construction logic that
+//! is shared between direct-mode CLI execution and the HTTP server. It does
+//! NOT depend on axum, sqlx, or any server-specific crate.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -14,9 +14,7 @@ use crate::capability::{
     WorkerCapabilitySnapshot, resolve_worker_capability_snapshot, validate_infer_capability_gate,
 };
 use crate::command_model::command_specs;
-use crate::config::ServerConfig;
 use crate::error;
-use crate::host_policy::HostExecutionPolicy;
 use crate::runner::{ExecutionEngine, RunnerExecutionContext};
 use crate::worker::InferTask;
 use crate::worker::pool::{PoolConfig, WorkerPool};
@@ -27,9 +25,9 @@ use crate::worker::pool::{PoolConfig, WorkerPool};
 
 /// Prepared worker subsystem that can be reused across multiple app instances.
 ///
-/// Tests use this seam to amortize capability probing and model warmup while
-/// still creating a fresh control plane and runtime-owned filesystem layout
-/// for each isolated session.
+/// Tests use this seam to amortize capability probing while still creating a
+/// fresh control plane and runtime-owned filesystem layout for each isolated
+/// session.
 #[derive(Clone)]
 pub struct PreparedWorkers {
     pool: Arc<WorkerPool>,
@@ -43,18 +41,6 @@ pub struct PreparedWorkers {
 pub(crate) struct ResolvedExecutionRuntime {
     pub capability_snapshot: WorkerCapabilitySnapshot,
     pub engine: ExecutionEngine,
-}
-
-/// A command + language pair to pre-warm at server startup.
-///
-/// Both fields are already validated at construction time so downstream
-/// consumers do not need to re-parse or handle invalid values.
-#[derive(Debug, Clone)]
-pub struct WarmupTarget {
-    /// Released command to warm (validated from config at construction).
-    pub command: crate::api::ReleasedCommand,
-    /// Language to warm the command for (validated from config at construction).
-    pub lang: crate::api::WorkerLanguage,
 }
 
 impl PreparedWorkers {
@@ -120,89 +106,51 @@ impl PreparedWorkers {
 // Worker probing and preparation
 // ---------------------------------------------------------------------------
 
-/// Probe, validate, and optionally warm a worker pool for reuse.
+/// Whether pool preparation adopts TCP workers already listed in the registry.
+///
+/// A named choice rather than a `bool` parameter: the two call sites differ on
+/// a real policy question, not on a flag. Server preparation adopts
+/// pre-started daemons; direct inline execution deliberately does not, so a
+/// one-shot CLI run never inherits a detached daemon it did not start and will
+/// not retire.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegistryDiscovery {
+    /// Adopt TCP workers found in the registry file.
+    Adopt,
+    /// Ignore the registry; use only workers this process creates.
+    Ignore,
+}
+
+/// Build the worker pool and resolve its capability surface.
 ///
 /// The returned [`PreparedWorkers`] value owns a live [`WorkerPool`] plus the
 /// capability metadata derived from it. Callers can share that value across
 /// multiple app instances to keep expensive model loads hot while still
 /// rebuilding the server control plane and runtime-owned temp directories.
 ///
-/// Warmup runs synchronously (all commands spawn concurrently within the call).
-/// For non-blocking startup, use [`prepare_workers_background`] which returns
-/// immediately after capability probing and spawns warmup in a background task.
+/// Returns as soon as capabilities are resolved; no worker is spawned here.
+/// Workers arrive either from the registry (a pre-started TCP daemon, adopted
+/// when `discovery` is [`RegistryDiscovery::Adopt`]) or from the job runner's
+/// per-job `pre_scale_for_command_options`.
+///
+/// Capabilities are detected lazily on the first real worker spawn rather than
+/// at startup, which avoids a 10-30 second delay and a 2-3 GB peak from a probe
+/// worker on small machines. In test-echo mode they are synthesized instead.
+///
+/// This used to be three functions: `prepare_workers`, a
+/// `prepare_workers_background` that differed only by spawning startup warmup
+/// off-thread, and a `prepare_direct_workers`. With warmup retired (2026-07-30)
+/// the first two became identical and the third became this one plus an
+/// argument.
 pub async fn prepare_workers(
-    config: &ServerConfig,
     pool_config: PoolConfig,
+    discovery: RegistryDiscovery,
 ) -> Result<PreparedWorkers, error::ServerError> {
-    let (prepared, targets) = probe_workers(config, pool_config, true).await?;
-
-    if !targets.is_empty() {
-        prepared.pool.warmup(&targets).await;
-    }
-    prepared.pool.mark_warmup_complete();
-
-    Ok(prepared)
-}
-
-/// Like [`prepare_workers`] but warmup runs as a background `tokio::spawn`
-/// task.  The HTTP server can bind its port immediately while models load.
-///
-/// The returned [`PreparedWorkers`] is ready for use, jobs that arrive
-/// before warmup finishes will block on checkout until their required worker
-/// spawns, which is correct (no duplicate spawns).
-pub async fn prepare_workers_background(
-    config: &ServerConfig,
-    pool_config: PoolConfig,
-) -> Result<PreparedWorkers, error::ServerError> {
-    let (prepared, targets) = probe_workers(config, pool_config, true).await?;
-
-    if !targets.is_empty() {
-        prepared.pool.mark_warmup_started();
-        let warmup_pool = prepared.pool.clone();
-        tokio::spawn(async move {
-            warmup_pool.warmup(&targets).await;
-            warmup_pool.mark_warmup_complete();
-            info!("Background warmup complete");
-        });
-    } else {
-        prepared.pool.mark_warmup_complete();
-    }
-
-    Ok(prepared)
-}
-
-/// Probe and validate one worker pool for direct inline execution.
-///
-/// Unlike server preparation, this path intentionally skips registry discovery
-/// and host-wide warmup so direct mode does not adopt detached daemon behavior.
-pub async fn prepare_direct_workers(
-    config: &ServerConfig,
-    pool_config: PoolConfig,
-) -> Result<PreparedWorkers, error::ServerError> {
-    let (prepared, _targets) = probe_workers(config, pool_config, false).await?;
-    prepared.pool.mark_warmup_complete();
-    Ok(prepared)
-}
-
-/// Build the worker pool with optimistic capabilities (no Python probe).
-///
-/// Capabilities are detected lazily on the first real worker spawn, not at
-/// server startup. This eliminates the 10-30 second startup delay and 2-3 GB
-/// peak memory spike from the probe worker on small machines.
-///
-/// For test-echo mode, capabilities are synthesized from `cmd2task()`.
-async fn probe_workers(
-    config: &ServerConfig,
-    pool_config: PoolConfig,
-    discover_registry_workers: bool,
-) -> Result<(PreparedWorkers, Vec<WarmupTarget>), error::ServerError> {
     let test_echo_mode = pool_config.test_echo;
-    let host_policy = HostExecutionPolicy::from_server_config(config);
     let pool = Arc::new(WorkerPool::new(pool_config));
     pool.start_background_tasks();
 
-    if discover_registry_workers {
-        // Discover pre-started TCP workers from the registry file.
+    if discovery == RegistryDiscovery::Adopt {
         let discovered = pool.discover_from_registry().await;
         if discovered > 0 {
             info!(discovered, "Pre-started TCP workers integrated into pool");
@@ -246,49 +194,13 @@ async fn probe_workers(
         (caps, all_tasks, BTreeMap::new())
     };
 
-    // No warmup targets: workers spawn on demand.
-    let warmup_cmds = config.resolved_warmup_commands();
-    let targets = if warmup_cmds.is_empty() {
-        // Skip warmup in production, workers spawn lazily.
-        // Test-echo mode can still warmup if configured.
-        Vec::new()
-    } else {
-        let default_lang = crate::api::WorkerLanguage::from(config.default_lang.clone());
-        warmup_cmds
-            .iter()
-            .filter(|cmd| capabilities.contains(cmd))
-            .filter_map(|cmd| {
-                crate::api::ReleasedCommand::try_from(cmd.as_str())
-                    .ok()
-                    .and_then(|command| {
-                        let family = crate::command_model::command_spec(command).family;
-                        host_policy
-                            .allows_command_warmup(family.warmup_policy(), test_echo_mode)
-                            .then(|| WarmupTarget {
-                                command,
-                                lang: default_lang.clone(),
-                            })
-                    })
-            })
-            .collect()
-    };
-
-    if targets.is_empty() {
-        info!("Worker warmup disabled (lazy start)");
-    } else {
-        info!(commands = ?targets, "Warmup commands resolved");
-    }
-
-    Ok((
-        PreparedWorkers {
-            pool,
-            capabilities,
-            infer_tasks,
-            engine_versions,
-            test_echo_mode,
-        },
-        targets,
-    ))
+    Ok(PreparedWorkers {
+        pool,
+        capabilities,
+        infer_tasks,
+        engine_versions,
+        test_echo_mode,
+    })
 }
 
 /// All released commands: used as the optimistic capability set before

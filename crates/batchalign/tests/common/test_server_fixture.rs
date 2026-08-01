@@ -43,7 +43,8 @@ use batchalign::api::MemoryMb;
 use batchalign::config::{RuntimeLayout, ServerConfig};
 use batchalign::worker::pool::PoolConfig;
 use batchalign::{
-    AppState, PreparedWorkers, create_test_app_with_prepared_workers, prepare_workers,
+    AppState, PreparedWorkers, RegistryDiscovery, create_test_app_with_prepared_workers,
+    prepare_workers,
 };
 use tokio::sync::oneshot;
 
@@ -94,10 +95,12 @@ impl TestEchoBackend {
         let python_path = resolve_python()
             .ok_or_else(|| "Python 3 with batchalign is not available".to_string())?;
         let session_config = test_echo_server_config();
-        let prepared_workers =
-            prepare_workers(&session_config, test_echo_pool_config(&python_path))
-                .await
-                .map_err(|error| format!("could not prepare test-echo workers: {error}"))?;
+        let prepared_workers = prepare_workers(
+            test_echo_pool_config(&python_path),
+            RegistryDiscovery::Adopt,
+        )
+        .await
+        .map_err(|error| format!("could not prepare test-echo workers: {error}"))?;
         Ok(Self {
             prepared_workers,
             session_config,
@@ -471,7 +474,6 @@ fn test_echo_pool_config(python_path: &str) -> PoolConfig {
         ready_timeout_s: 30,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     }

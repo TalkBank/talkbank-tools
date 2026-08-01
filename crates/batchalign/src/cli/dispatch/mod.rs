@@ -20,7 +20,7 @@ use crate::host_policy::HostExecutionPolicy;
 use crate::options::CommandOptions;
 use crate::worker::handle::WorkerRuntimeConfig;
 use crate::worker::pool::PoolConfig;
-use crate::{DirectHost, ReleasedCommand, prepare_direct_workers};
+use crate::{DirectHost, RegistryDiscovery, ReleasedCommand, prepare_workers};
 use crate::{api::JobInfo, api::JobStatus, config::ServerConfig};
 
 use crate::cli::client::{self, BatchalignClient, server_label};
@@ -415,9 +415,9 @@ async fn dispatch_direct_mode(
     eprintln!("Found {} file(s) to process.\n", prepared.total_files);
     eprintln!("Running locally (direct mode)...\n");
 
-    let direct_workers = prepare_direct_workers(
-        &cfg,
+    let direct_workers = prepare_workers(
         build_direct_pool_config(&cfg, force_cpu, allow_mps, layout.state_dir()),
+        RegistryDiscovery::Ignore,
     )
     .await
     .map_err(CliError::from)?;
@@ -541,7 +541,6 @@ fn build_direct_pool_config(
             PoolConfig::default().health_check_interval_s
         },
         verbose: 0,
-        engine_overrides: String::new(),
         // See serve_cmd: the state dir comes from the resolved RuntimeLayout,
         // never inferred from worker_registry_path.
         runtime: worker_runtime.with_state_dir(state_dir.to_path_buf()),

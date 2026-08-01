@@ -256,12 +256,17 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
         #[cfg(feature = "server")]
         Commands::Serve(args) => match &args.action {
             args::ServeAction::Start(start_args) => {
+                if cli.global.engine_overrides.is_some() {
+                    return Err(error::CliError::InvalidArgument(
+                        "--engine-overrides selects engines for a processing command, not a server"
+                            .to_owned(),
+                    ));
+                }
                 serve_cmd::start(
                     start_args,
                     cli.global.verbose,
                     cli.global.force_cpu,
                     cli.global.allow_mps,
-                    cli.global.engine_overrides.as_deref(),
                 )
                 .await
             }
@@ -437,5 +442,30 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
             })
             .await
         }
+    }
+}
+
+#[cfg(all(test, feature = "server"))]
+mod tests {
+    use clap::Parser;
+
+    use super::{args::Cli, error::CliError, run_command};
+
+    #[tokio::test]
+    async fn serve_rejects_global_engine_overrides() {
+        let cli = Cli::try_parse_from([
+            "batchalign3",
+            "--engine-overrides",
+            r#"{"asr":"qwen"}"#,
+            "serve",
+            "start",
+            "--foreground",
+        ])
+        .unwrap();
+
+        let error = run_command(cli).await.unwrap_err();
+        assert!(
+            matches!(error, CliError::InvalidArgument(message) if message.contains("--engine-overrides"))
+        );
     }
 }

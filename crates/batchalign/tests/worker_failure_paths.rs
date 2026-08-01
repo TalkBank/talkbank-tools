@@ -73,7 +73,6 @@ fn test_pool(python: String) -> WorkerPool {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     })
@@ -336,7 +335,6 @@ async fn fast_health_check_interval_does_not_break_dispatch() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     });
@@ -396,7 +394,6 @@ async fn multi_file_job_produces_per_file_results() {
         host: "127.0.0.1".into(),
         port: 0,
         job_ttl_days: 7,
-        warmup_commands: vec![],
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
     };
@@ -407,7 +404,6 @@ async fn multi_file_job_produces_per_file_results() {
         ready_timeout_s: 30,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         ..Default::default()
     };

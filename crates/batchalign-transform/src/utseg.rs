@@ -781,7 +781,7 @@ mod tests {
 
     fn parse_chat(text: &str) -> ChatFile {
         let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(text).unwrap()
+        parser.parse_chat_file(text).expect_built()
     }
 
     fn get_utterance(chat: &ChatFile, idx: usize) -> &Utterance {

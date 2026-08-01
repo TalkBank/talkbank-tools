@@ -19,6 +19,10 @@ impl CompareMetricsCsvTable {
                 CompareMetricValue::Decimal(metrics.wer),
             ),
             CompareMetricsCsvRow::new(
+                CompareMetricName::Cwer,
+                CompareMetricValue::Decimal(metrics.cwer),
+            ),
+            CompareMetricsCsvRow::new(
                 CompareMetricName::Accuracy,
                 CompareMetricValue::Decimal(metrics.accuracy),
             ),
@@ -136,6 +140,8 @@ impl CompareCsvHeader {
 pub enum CompareMetricName {
     /// Aggregate word error rate.
     Wer,
+    /// Aggregate order-insensitive word error rate.
+    Cwer,
     /// Aggregate token accuracy.
     Accuracy,
     /// Aggregate exact-match token count.
@@ -161,6 +167,7 @@ impl CompareMetricName {
     fn to_csv_field(&self) -> String {
         match self {
             Self::Wer => "wer".to_string(),
+            Self::Cwer => "cwer".to_string(),
             Self::Accuracy => "accuracy".to_string(),
             Self::Matches => "matches".to_string(),
             Self::Insertions => "insertions".to_string(),
@@ -219,6 +226,13 @@ pub(in crate::compare) struct MetricAccumulator {
     matches: usize,
     insertions: usize,
     deletions: usize,
+    /// Accumulated `cwer` edit distance (see [`Self::finish_utterance`]).
+    displacement_insensitive_edits: usize,
+    /// Unmatched tokens of the utterance currently being recorded, drained by
+    /// [`Self::finish_utterance`]. Filled by [`Self::record`] so there is one
+    /// notion of "unmatched" rather than a parallel caller-side one.
+    pending_extra_main: Vec<String>,
+    pending_extra_gold: Vec<String>,
     pos_counts: BTreeMap<String, PosErrorCounts>,
 }
 
@@ -238,6 +252,7 @@ impl MetricAccumulator {
             }
             CompareStatus::ExtraMain => {
                 self.insertions += 1;
+                self.pending_extra_main.push(token.text.clone());
                 self.pos_counts
                     .entry(metric_pos_label(token.pos.as_deref()))
                     .or_default()
@@ -245,12 +260,58 @@ impl MetricAccumulator {
             }
             CompareStatus::ExtraGold => {
                 self.deletions += 1;
+                self.pending_extra_gold.push(token.text.clone());
                 self.pos_counts
                     .entry(metric_pos_label(token.pos.as_deref()))
                     .or_default()
                     .deletions += 1;
             }
         }
+    }
+
+    /// Close the current utterance and fold its unmatched tokens into `cwer`.
+    ///
+    /// `cwer` is an order-insensitive error rate: a word the system recognised
+    /// correctly but placed in the wrong position cancels out instead of being
+    /// charged twice, once as a deletion and once as an insertion. Plain WER
+    /// conflates two failure modes that want separating, getting the word
+    /// wrong and getting the word right but placing it wrong, and for diarized
+    /// ASR the placement half is the merge pipeline's problem while the
+    /// recognition half is the engine's.
+    ///
+    /// Cancellation is within ONE utterance, not across the file, so a word
+    /// that reappears in a distant utterance is still charged. Matching uses
+    /// the same case-insensitive rule as the aligner, so the two cannot
+    /// disagree about what counts as the same word.
+    ///
+    /// The pending tokens are collected by [`Self::record`] rather than
+    /// assembled by the caller, so there is no second, caller-side notion of
+    /// "this utterance's unmatched tokens" that could disagree with the one the
+    /// counters are built from. Callers just say when an utterance ends.
+    ///
+    /// The name `cwer` and this algorithm are taken from an upstream fork of
+    /// this repository, which introduced the metric first.
+    pub(in crate::compare) fn finish_utterance(&mut self) {
+        let mut unmatched_main = 0usize;
+
+        for main_text in self.pending_extra_main.drain(..) {
+            match self
+                .pending_extra_gold
+                .iter()
+                .position(|gold_text| gold_text.eq_ignore_ascii_case(&main_text))
+            {
+                // `swap_remove`: cancellation is a set operation, so which
+                // surviving entry moves is irrelevant and the order of
+                // `pending_extra_gold` is never observed.
+                Some(position) => {
+                    self.pending_extra_gold.swap_remove(position);
+                }
+                None => unmatched_main += 1,
+            }
+        }
+
+        self.displacement_insensitive_edits += unmatched_main + self.pending_extra_gold.len();
+        self.pending_extra_gold.clear();
     }
 
     pub(in crate::compare) fn finish(self) -> CompareMetrics {
@@ -261,10 +322,16 @@ impl MetricAccumulator {
         } else {
             0.0
         };
+        let cwer = if total_gold > 0 {
+            self.displacement_insensitive_edits as f64 / total_gold as f64
+        } else {
+            0.0
+        };
         let accuracy = (1.0 - wer).clamp(0.0, 1.0);
 
         CompareMetrics {
             wer,
+            cwer,
             accuracy,
             matches: self.matches,
             insertions: self.insertions,

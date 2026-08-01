@@ -1,7 +1,7 @@
 # Release Checklist
 
 **Status:** Current
-**Last updated:** 2026-05-20 00:47 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This checklist must be completed in full before any git tag or PyPI publish
 of batchalign3. No gate may be skipped. If a gate cannot be satisfied,
@@ -37,7 +37,7 @@ the release is blocked until it is resolved.
   export BATCHALIGN_STATE_DIR="$PWD/.release-smoke/batchalign-state"
   rm -rf "$BATCHALIGN_STATE_DIR"
   mkdir -p "$BATCHALIGN_STATE_DIR"
-  batchalign3 serve start --host 127.0.0.1 --port 18080 --test-echo --warmup off
+  batchalign3 serve start --host 127.0.0.1 --port 18080 --test-echo
   batchalign3 serve status --server http://127.0.0.1:18080
   curl --fail http://127.0.0.1:18080/health
   batchalign3 serve stop

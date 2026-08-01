@@ -35,7 +35,7 @@ dependencies = [
     "transformers>=4.38.2",
     "tokenizers>=0.14.1",
     "numpy>=1.26",
-    "stanza[transformers]>=1.13.0,<1.14",
+    "stanza[transformers]>=1.14.0,<1.15",
     "pycountry>=22.3",
     "soundfile>=0.12.0",
     "librosa>=0.11",
@@ -77,7 +77,7 @@ dependencies = [
     # Bounded pin so PyCantonese major-version bumps (which can change
     # transitive Rust dependencies) are deliberate decisions, not
     # accidental upgrades.
-    "pycantonese>=4.2,<5",
+    "pycantonese>=5.0.0,<6",
 ]
 
 [project.optional-dependencies]

@@ -1,7 +1,7 @@
 # Server Model Loading and Caching
 
 **Status:** Current
-**Last updated:** 2026-05-19 20:22 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This document describes every ML model loaded by batchalign3 workers,
 when each model is loaded into memory, and how results are cached.
@@ -19,8 +19,10 @@ by a **WorkerPool** (`crates/batchalign/src/worker/pool/`) with a
 configurable idle timeout (default 10 minutes) and automatic crash
 restart.
 
-**Warmup** (`warmup: [morphotag, align]` in `server.yaml`) pre-spawns workers
-at startup so the first request does not pay the model-loading cost.
+For a multi-file job the runner **pre-scales** its workers before file
+dispatch begins, so the batch pays one cold start rather than one per file. A
+startup `warmup` of a configured command list existed until 2026-07-30; it had
+been inert on real servers since 2026-03-26 and was removed.
 
 ---
 

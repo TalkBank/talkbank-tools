@@ -1,7 +1,7 @@
 # Server Mode
 
 **Status:** Current
-**Last updated:** 2026-06-30 13:55 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 Batchalign includes a built-in HTTP server managed by `batchalign3 serve ...`.
 Ordinary local processing commands can still run inline, but when
@@ -44,7 +44,6 @@ Useful flags:
 ```bash
 batchalign3 serve start --foreground --port 8000
 batchalign3 serve start --foreground --config ~/server.yaml
-batchalign3 serve start --foreground --warmup minimal
 batchalign3 serve start --foreground --test-echo
 ```
 
@@ -78,14 +77,9 @@ default_lang: eng
 port: 8000
 max_concurrent_jobs: 8
 auto_daemon: true
-warmup_commands: [morphotag, align, transcribe]
 media_roots: []
 media_mappings: {}
 ```
-
-`warmup_commands` marks commands that are *eligible* for warmup. The current
-production startup path remains lazy by default, so this key is not a promise
-that those workers will preload on every boot.
 
 Important keys:
 
@@ -93,7 +87,6 @@ Important keys:
 - `host`: bind address (defaults to `0.0.0.0`)
 - `max_concurrent_jobs`: `0` means auto-tune
 - `auto_daemon`: reuse or start a loopback daemon for ordinary CLI processing
-- `warmup_commands`: list of commands eligible for warmup
 - `media_roots`: local execution-host media lookup roots
 - `media_mappings`: local execution-host root mappings from corpus paths to mounted media paths
 - `memory_tier`: override auto-detected tier: `small`, `medium`, `large`, `fleet`

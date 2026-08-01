@@ -1,7 +1,7 @@
 # Developer Architecture Migration (batchalign2 -> batchalign3)
 
 **Status:** Current
-**Last updated:** 2026-05-19 17:18 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 Comparison anchors for this page:
 
@@ -182,7 +182,7 @@ Key differences from BA2:
 | **CPU parallelism** | ProcessPoolExecutor (N copies) | Stanza profile: N persistent subprocesses, two-level parallelism (cross-language + intra-language chunking) |
 | **Concurrency control** | Adaptive RSS monitoring | Auto-tuned + memory gate + per-profile limits |
 | **Worker health** | None | Health checks every 30s, auto-restart |
-| **Warmup** | None (cold start every job) | Concurrent background warmup at server start |
+| **Worker pre-spawn** | None (cold start every file) | Per-job pre-scaling before file dispatch |
 | **File ordering** | Largest-first sorting | Submission order (largest-first planned) |
 
 Memory comparison (mixed English workload, align + morphotag):

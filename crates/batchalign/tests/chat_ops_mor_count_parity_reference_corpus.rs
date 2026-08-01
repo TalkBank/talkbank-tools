@@ -70,7 +70,8 @@ fn collect_cha_files(root: &PathBuf) -> Vec<PathBuf> {
 
 fn parse_file(parser: &TreeSitterParser, path: &PathBuf) -> Option<ChatFile> {
     let contents = std::fs::read_to_string(path).ok()?;
-    parser.parse_chat_file(&contents).ok()
+    let product = parser.parse_chat_file(&contents);
+    (!product.has_error_diagnostics()).then(|| product.expect_built())
 }
 
 /// One row per mismatch: enough information to investigate without

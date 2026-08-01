@@ -11,7 +11,7 @@ use tracing::{info, warn};
 use crate::worker::tcp_handle::{TcpWorkerHandle, TcpWorkerInfo};
 use crate::worker::{WorkerPid, WorkerTarget, registry};
 
-use super::{WorkerPool, lock_recovered, shared_gpu};
+use super::{WorkerKey, WorkerPool, lock_recovered, shared_gpu};
 
 impl WorkerPool {
     /// Discover pre-started TCP workers from the registry file.
@@ -45,6 +45,23 @@ impl WorkerPool {
         // Non-GPU TCP workers are tracked in a separate TCP worker map.
         for worker in &discovered {
             let target = WorkerTarget::profile(worker.profile);
+            let key = match WorkerKey::from_registry_json(
+                target,
+                worker.lang.clone(),
+                &worker.entry.engine_overrides,
+            ) {
+                Ok(key) => key,
+                Err(error) => {
+                    warn!(
+                        profile = %worker.entry.profile,
+                        lang = %worker.entry.lang,
+                        engine_overrides = %worker.entry.engine_overrides,
+                        %error,
+                        "Skipping registry worker with invalid engine override JSON"
+                    );
+                    continue;
+                }
+            };
             if target.is_concurrent() {
                 let info = TcpWorkerInfo {
                     host: worker.entry.host.clone(),
@@ -60,11 +77,6 @@ impl WorkerPool {
 
                 match shared_gpu::SharedGpuTcpWorker::connect(info).await {
                     Ok(shared) => {
-                        let key = (
-                            target,
-                            worker.lang.clone(),
-                            worker.entry.engine_overrides.clone(),
-                        );
                         self.gpu_tcp_workers
                             .lock()
                             .await
@@ -103,16 +115,7 @@ impl WorkerPool {
 
                 match TcpWorkerHandle::connect(info).await {
                     Ok(handle) => {
-                        let key = (
-                            target,
-                            worker.lang.clone(),
-                            worker.entry.engine_overrides.clone(),
-                        );
-                        let group = self.get_or_create_group(
-                            &target,
-                            &worker.lang,
-                            &worker.entry.engine_overrides,
-                        );
+                        let group = self.get_or_create_group(&key);
                         // Acquire a global-cap permit for the
                         // discovered worker. If the pool is full,
                         // skip rather than exceed the cap; a future

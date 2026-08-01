@@ -21,13 +21,14 @@ use crate::api::LanguageCode3;
 ///
 /// # History
 ///
-/// batchalign2/batchalign-next used `pycountry.languages.get(alpha_3=lang).alpha_2`
-/// for this conversion. The batchalign3 Rust rewrite initially replaced it with
-/// a 13-entry hardcoded match and an `&other[..2]` truncation fallback. That
-/// fallback was a regression bug: ISO 639-3 first-two-characters do NOT reliably
-/// match ISO 639-1 codes (e.g., `pol` → `po` instead of `pl`, `hak` → `ha`
-/// which doesn't exist). Fixed 2026-03-19 with a comprehensive mapping table
-/// covering all Rev.AI-supported languages.
+/// Earlier Python implementations used
+/// `pycountry.languages.get(alpha_3=lang).alpha_2` for this conversion. The
+/// Rust rewrite initially replaced it with a 13-entry hardcoded match and an
+/// `&other[..2]` truncation fallback. That fallback was a regression bug: ISO
+/// 639-3 first-two-characters do NOT reliably match ISO 639-1 codes (e.g.,
+/// `pol` → `po` instead of `pl`, `hak` → `ha` which doesn't exist). Fixed
+/// 2026-03-19 with a comprehensive mapping table covering all
+/// Rev.AI-supported languages.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RevAiLanguageHint(String);
 

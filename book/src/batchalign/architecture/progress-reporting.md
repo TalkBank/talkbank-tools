@@ -1,7 +1,7 @@
 # Progress Reporting
 
 **Status:** Current
-**Last updated:** 2026-05-19 20:22 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 The server reports per-file progress to all connected clients (CLI, TUI, React
 dashboard) in real time. This chapter covers the data model, data flow, and how
@@ -177,7 +177,7 @@ with a per-file counter as results are saved to disk.
 
 ```text
   morphotag: 3/50 files  3✓ 2⠋ 1✗ 44·  [00:42]  ~03:15
-  Workers: infer:asr:eng · infer:morphosyntax:eng    Warmup: complete
+  Workers: infer:asr:eng · infer:morphosyntax:eng
   Memory: [████████████░░░░░░░░] 148/256 GB   Gate: 2 GB ● safe
 
   ⠋ corpus001.cha              ●●●○○  Aligning  5/12  1:23
@@ -215,7 +215,7 @@ gray. Dots only appear when the server reports a typed `progress_stage`.
 than the job status poll) and renders two rows between the header gauge and
 the directory groups:
 
-- **Worker line**: lists active `live_worker_keys` and warmup status.
+- **Worker line**: lists active `live_worker_keys`.
 - **Memory gauge**: 20-character bar with used/total GB and gate proximity
   coloring (green >4×, yellow 2-4×, red <2× headroom above gate threshold).
 
@@ -255,8 +255,7 @@ column stacks three system-health panels:
 - **WorkerProfilePanel** (`frontend/src/components/WorkerProfilePanel.tsx`),
   parses `live_worker_keys` strings from the health endpoint into profile
   summaries (GPU/Stanza/IO). Shows active/idle counts, languages, engine
-  overrides, and a model-sharing callout for the GPU profile. Also shows
-  warmup status.
+  overrides, and a model-sharing callout for the GPU profile.
 
 - **MemoryPanel** (`frontend/src/components/MemoryPanel.tsx`), displays system
   RAM usage from the health endpoint fields `system_memory_total_mb`,

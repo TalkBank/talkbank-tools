@@ -32,7 +32,7 @@ mod utr_and_monotonicity;
 
 pub(super) fn parse_chat(text: &str) -> talkbank_model::model::ChatFile {
     let parser = TreeSitterParser::new().unwrap();
-    parser.parse_chat_file(text).unwrap()
+    parser.parse_chat_file(text).expect_built()
 }
 
 pub(super) fn get_test_utterance(

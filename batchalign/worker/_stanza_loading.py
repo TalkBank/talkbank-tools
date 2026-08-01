@@ -14,9 +14,15 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Sequence
+from typing import Any, Protocol
 
 from batchalign.inference._domain_types import LanguageCode, LanguageCode2
-from batchalign.inference._italian_mwt import ItalianLexicon, ItalianMwtPolicy
+from batchalign.inference.types import StanzaNLP
+from batchalign.inference._italian_mwt import (
+    INFINITIVE_ENDINGS,
+    ItalianLexicon,
+    ItalianMwtPolicy,
+)
 from batchalign.worker._stanza_capabilities import (
     _ISO3_OVERRIDES,
     StanzaCapabilityTable,
@@ -25,6 +31,13 @@ from batchalign.worker._stanza_capabilities import (
 from batchalign.worker._types import _state
 
 L = logging.getLogger("batchalign.worker")
+
+# Stanza's key for pos-independent lemmatizer entries (`_POS_INDEPENDENT` in
+# `stanza/models/lemma/trainer.py`). Mirrored rather than imported because it is
+# private there; a rename upstream surfaces as the empty-lexicon raise below,
+# which is the fail-closed path, not a silent shrink.
+_STANZA_POS_INDEPENDENT = "*"
+
 
 
 class StanzaLexiconUnavailableError(RuntimeError):
@@ -331,12 +344,78 @@ def load_stanza_retokenize_model(lang: LanguageCode) -> None:
     L.info("Loaded Stanza retokenize pipeline for %s (key=%s)", lang, retok_key)
 
 
+# The POS tags that can host an Italian enclitic. AUX counts because Italian
+# auxiliaries take them too (`avercelo`, `esserci`).
+_ENCLISIS_HOSTING_POS = ("VERB", "AUX")
+
+
+def _lexicon_from_legacy(
+    *,
+    word_dict: dict[str, str],
+    composite_dict: dict[tuple[str, str], str],
+) -> ItalianLexicon:
+    """Read a pre-1.14 lemmatizer, which records verb attestation COMPLETELY.
+
+    `composite_dict` lists every (surface, upos) pair the lemmatizer knows, so
+    the answer is a filter and nothing needs reconstructing. Doing so anyway is
+    not harmless: the heuristic the 1.14 reader needs admits ~400 non-verbs
+    whose lemma merely ends in `-are`, and adding those to data that was already
+    right stopped `dammela` expanding under 1.13.0 on 2026-07-31.
+    """
+    return ItalianLexicon(
+        surface_forms=frozenset(word_dict),
+        verb_forms=frozenset(
+            surface
+            for (surface, upos) in composite_dict
+            if upos in _ENCLISIS_HOSTING_POS
+        ),
+    )
+
+
+def _lexicon_from_pos_dict(pos_dict: dict[str, dict[str, str]]) -> ItalianLexicon:
+    """Read a 1.14+ lemmatizer, which records verb attestation PARTIALLY.
+
+    The repack keeps a POS entry only where its lemma differs from the
+    pos-independent one, so Italian VERB+AUX holds 547 surfaces where 1.13.0
+    held 13,248 (both measured). Taking the POS keys alone silently stops
+    `giralo` and `chiamalo` expanding.
+
+    What the repack dropped is recoverable without the discarded data: a word
+    whose pos-independent lemma is an Italian infinitive is a form of that verb,
+    and that lemma survives. `gira` is absent from the POS keys but maps to
+    `girare`. A heuristic, and measurably imprecise against 1.13.0's complete
+    data, which is why it lives HERE and never runs on the legacy reader.
+    """
+    surface_forms = pos_dict.get(_STANZA_POS_INDEPENDENT, {})
+    return ItalianLexicon(
+        surface_forms=frozenset(surface_forms),
+        verb_forms=frozenset(
+            {
+                surface
+                for upos in _ENCLISIS_HOSTING_POS
+                for surface in pos_dict.get(upos, {})
+            }
+            | {
+                surface
+                for surface, lemma in surface_forms.items()
+                if isinstance(lemma, str) and lemma.endswith(INFINITIVE_ENDINGS)
+            }
+        ),
+    )
+
+
 def extract_stanza_lexicon(nlp: object) -> ItalianLexicon:
     """Read Stanza's shipped lexicon off a loaded pipeline's lemmatizer.
 
-    Returns the two questions the Italian MWT decision asks of it: is this
-    surface form a known word, and is it attested as a verb. On stanza 1.13.0
-    the Italian model carries about 50k surface forms and 13k verb forms.
+    Answers the two questions the Italian MWT decision asks: is this surface
+    form a known word, and is it attested as a verb.
+
+    Two readers, because the supported Stanza range spans the 1.14 lemmatizer
+    repack and the two layouts record verb attestation to DIFFERENT
+    completeness. Reading whichever is present also keeps the version
+    constraint and this code independent: a version-brittle reader forces them
+    to move together, and a constraint change then disables the policy through
+    the provider's resolve-to-None path instead of failing.
 
     Raises ``StanzaLexiconUnavailableError`` rather than returning an empty
     lexicon, because an empty one would silently answer "no" to every question
@@ -345,33 +424,30 @@ def extract_stanza_lexicon(nlp: object) -> ItalianLexicon:
     try:
         lemma_processor = nlp.processors["lemma"]  # type: ignore[attr-defined]
         trainer = lemma_processor._trainer
-        word_dict = trainer.word_dict
-        composite_dict = trainer.composite_dict
+        if hasattr(trainer, "pos_dict"):
+            lexicon = _lexicon_from_pos_dict(trainer.pos_dict)
+        else:
+            lexicon = _lexicon_from_legacy(
+                word_dict=trainer.word_dict,
+                composite_dict=trainer.composite_dict,
+            )
     except (AttributeError, KeyError, TypeError) as exc:
         raise StanzaLexiconUnavailableError(
-            "Stanza's lemmatizer no longer exposes word_dict/composite_dict at "
-            "processors['lemma']._trainer. The Italian single-word MWT policy "
-            "depends on that lexicon; find its new home or the policy must be "
-            "disabled deliberately, not by accident."
+            "Stanza's lemmatizer exposes neither pos_dict nor "
+            "word_dict/composite_dict at processors['lemma']._trainer. The "
+            "Italian single-word MWT policy depends on that lexicon; find its "
+            "new home or the policy must be disabled deliberately, not by "
+            "accident."
         ) from exc
 
-    if not word_dict or not composite_dict:
+    if not lexicon.surface_forms or not lexicon.verb_forms:
         raise StanzaLexiconUnavailableError(
             f"Stanza's lemmatizer dictionaries are empty "
-            f"(word_dict={len(word_dict)}, composite_dict={len(composite_dict)}); "
-            "an empty lexicon would silently suppress every multi-word token."
+            f"(surface_forms={len(lexicon.surface_forms)}, "
+            f"verb_forms={len(lexicon.verb_forms)}); an empty lexicon would "
+            "silently suppress every multi-word token."
         )
-
-    return ItalianLexicon(
-        surface_forms=frozenset(word_dict.keys()),
-        # composite_dict is keyed by (surface, upos); AUX counts because Italian
-        # auxiliaries host enclitics too (`avercelo`, `esserci`).
-        verb_forms=frozenset(
-            surface
-            for (surface, upos) in composite_dict.keys()
-            if upos in ("VERB", "AUX")
-        ),
-    )
+    return lexicon
 
 
 class ItalianMwtPolicyProvider:
@@ -396,7 +472,7 @@ class ItalianMwtPolicyProvider:
         self._forcing = threading.local()
         self._lexicon: ItalianLexicon | None = None
         self._lexicon_resolved = False
-        self._probe: object | None = None
+        self._probe: StanzaNLP | None = None
         self._probe_resolved = False
 
     def lexicon(self) -> ItalianLexicon | None:
@@ -492,7 +568,7 @@ class ItalianMwtPolicyProvider:
         told. Keeping the two separate is what lets a forced split be inspected
         and rejected without ever reaching the output.
         """
-        targets = getattr(self._forcing, "targets", set())
+        targets: set[str] = getattr(self._forcing, "targets", set())
         if not targets:
             return batch
         forced: list[list[str | tuple[str, bool]]] = []
@@ -504,7 +580,7 @@ class ItalianMwtPolicyProvider:
             forced.append(row)
         return forced
 
-    def _probe_pipeline(self) -> object | None:
+    def _probe_pipeline(self) -> StanzaNLP | None:
         if self._probe_resolved:
             return self._probe
         self._probe_resolved = True
@@ -520,7 +596,7 @@ class ItalianMwtPolicyProvider:
 
 def load_stanza_mwt_probe_model(
     lang: LanguageCode, postprocessor: object | None = None
-) -> object:
+) -> StanzaNLP:
     """Load a minimal tokenize+mwt pipeline used to preview MWT proposals.
 
     Stored under ``"{lang}:mwtprobe"`` in worker state, alongside the standard
@@ -554,7 +630,13 @@ def load_stanza_mwt_probe_model(
     existing_pipelines[probe_key] = nlp
     _state.stanza_pipelines = existing_pipelines
     L.info("Loaded Stanza MWT probe pipeline for %s (key=%s)", lang, probe_key)
-    return nlp
+    # `stanza.Pipeline` is untyped (no stubs ship with it, and
+    # `ignore_missing_imports` makes it `Any`), so this is the boundary where an
+    # `Any` becomes a typed value. Narrowed explicitly rather than returned
+    # bare: a bare return would silently re-infect every caller with `Any`,
+    # which is exactly how the untyped probe seam went unnoticed.
+    probe: StanzaNLP = nlp
+    return probe
 
 
 def load_utseg_builder(lang: LanguageCode) -> None:

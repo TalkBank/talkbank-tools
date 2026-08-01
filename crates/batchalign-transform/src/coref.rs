@@ -546,7 +546,7 @@ mod tests {
 
     fn parse_chat(text: &str) -> ChatFile {
         let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(text).unwrap()
+        parser.parse_chat_file(text).expect_built()
     }
 
     fn get_utterance_mut(chat: &mut ChatFile, idx: usize) -> &mut talkbank_model::model::Utterance {
@@ -948,7 +948,7 @@ mod tests {
 
     fn parse_chat_for_outcome(text: &str) -> ChatFile {
         let parser = crate::parse::TreeSitterParser::new().expect("parser init");
-        parser.parse_chat_file(text).expect("parse")
+        parser.parse_chat_file(text).expect_built()
     }
 
     fn three_utt_chat() -> String {

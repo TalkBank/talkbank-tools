@@ -39,7 +39,7 @@ pub(crate) trait WorkerGateway: Send + Sync {
         &self,
         command: ReleasedCommand,
         lang: WorkerLanguage,
-        engine_overrides: &str,
+        options: &crate::options::CommandOptions,
     ) -> Result<crate::capability::WorkerCapabilitySnapshot, String>;
 
     /// Run the compare command's morphosyntax stage on one CHAT input.
@@ -125,10 +125,10 @@ impl WorkerGateway for PooledWorkerGateway {
         &self,
         command: ReleasedCommand,
         lang: WorkerLanguage,
-        engine_overrides: &str,
+        options: &crate::options::CommandOptions,
     ) -> Result<crate::capability::WorkerCapabilitySnapshot, String> {
         self.pool
-            .ensure_command_capabilities_with_overrides(command, lang, engine_overrides)
+            .ensure_command_capabilities(command, lang, options)
             .await
             .map_err(|error| error.to_string())?;
         let detected = self.pool.detected_capabilities().ok_or_else(|| {

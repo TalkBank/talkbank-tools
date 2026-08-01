@@ -60,7 +60,7 @@ mod tests {
             &self,
             _command: ReleasedCommand,
             _lang: WorkerLanguage,
-            _engine_overrides: &str,
+            _options: &crate::options::CommandOptions,
         ) -> Result<WorkerCapabilitySnapshot, String> {
             unreachable!()
         }

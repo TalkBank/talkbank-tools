@@ -566,8 +566,8 @@ mod tests {
         // mockable). The plan's `worker_bootstrap` is derived from
         // the resolved tier; without pinning, this assertion shifts
         // between dev machines (Large/Fleet → Profile) and small CI
-        // runners (Small → Task). Large matches the test-only
-        // CommandKernelPlan::for_command default below.
+        // runners (Small → Task). The expected kernel plan derives from this
+        // same explicit configuration.
         let cfg = ServerConfig {
             memory_tier: Some(crate::types::runtime::MemoryTierKind::Large),
             ..Default::default()
@@ -578,7 +578,11 @@ mod tests {
         assert_eq!(
             plan,
             MediaAnalysisDispatchPlan::Opensmile {
-                kernel_plan: CommandKernelPlan::for_command(ReleasedCommand::Opensmile, 1),
+                kernel_plan: CommandKernelPlan::for_command_with_policy(
+                    ReleasedCommand::Opensmile,
+                    1,
+                    &crate::host_policy::HostExecutionPolicy::from_server_config(&cfg),
+                ),
                 feature_set: "ComParE_2016".into(),
             }
         );

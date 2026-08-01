@@ -1,10 +1,10 @@
 # Worker Tuning
 
 **Status:** Current
-**Last updated:** 2026-05-10 12:12 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This page explains how the server decides how many workers to run, how memory
-budgets work, and how to configure warmup and tuning for your hardware.
+budgets work, and how to tune the server for your hardware.
 
 ## The `--workers` flag
 
@@ -134,67 +134,36 @@ a mixed job (e.g., `align` + `transcribe`) is roughly the sum of their models
 loaded once, not separately. The GPU profile typically uses ~5 GB total for all
 its models (ASR + FA + Speaker), regardless of how many commands run.
 
-## Warmup configuration
+## Worker pre-spawning
 
-### The `--warmup` flag
+There is no startup warmup. Workers are created on demand, by two paths:
 
-Control which models are pre-loaded at server startup:
+**Per-job pre-scaling.** When a job runs more than one file concurrently, the
+runner pre-spawns its workers before file dispatch begins, so a batch pays one
+cold start rather than one per file. The pre-spawned worker is keyed on the
+job's own engine selection, so the dispatches that follow reuse it rather than
+spawning a second process.
 
-```bash
-# Presets
-batchalign3 serve start --warmup off           # No warmup, workers spawn on first job
-batchalign3 serve start --warmup minimal        # Morphotag only
-batchalign3 serve start --warmup full           # Morphotag + align + transcribe (default)
+**Registry adoption.** A TCP worker daemon started outside the server registers
+itself in `workers.json`; the server adopts it at startup and routes to it like
+any other worker.
 
-# Explicit command list
-batchalign3 serve start --warmup align          # Only forced alignment
-batchalign3 serve start --warmup morphotag,align  # Both morphotag and align
-```
+Idle workers are then reclaimed by memory-pressure eviction (largest resident
+set first) rather than by a fixed timeout.
 
-`warmup_commands` still describes which commands are *eligible* for warmup.
-However, the current production startup path stays lazy by default: real worker
-warmup is normally skipped unless you are using a test-echo or test harness
-path. That matches the current resource-first architecture, small and medium
-machines should not speculatively preload models at process start.
-
-### server.yaml warmup key
-
-```yaml
-# List of commands to pre-warm at startup.
-# Default: [morphotag, align, transcribe] (the "full" preset)
-# Empty list = no warmup.
-warmup_commands:
-  - morphotag
-  - align
-```
-
-The `--warmup` CLI flag overrides this config key.
-
-### Background warmup
-
-When warmup is actually enabled, it runs in the background, the HTTP port binds
-immediately. While models are loading:
-
-- The `/health` endpoint reports `"warmup_status": "in_progress"`
-- Jobs that need a model still loading will wait for the warmup to finish
-  (no duplicate worker spawns, the job reuses the in-progress warmup)
-- Once complete, `/health` reports `"warmup_status": "complete"`
-
-Warmup still fans out across commands, but each heavy worker startup must now
-acquire a host-wide startup lease. Host policy may also suppress warmup
-entirely, and constrained hosts keep warmup off so background preload cannot
-stampede the machine.
+> **Retired:** a `--warmup` flag and a `warmup_commands` config key used to
+> pre-load a list of commands' models when the server started. They were
+> disabled on every real server from 2026-03-26 (following the 2026-03-11
+> finding that warmed models stay resident for the server's whole lifetime) and
+> removed on 2026-07-30. Passing `--warmup` is now an unrecognised-argument
+> error, and `warmup_commands` in a `server.yaml` is rejected as an unknown
+> field; delete the key. Nothing else changes: neither had any effect on a real
+> server for the four months before removal.
 
 ### On-demand loading
 
-With `--warmup off`, no workers are pre-loaded. Workers spawn lazily on the
-first job that needs them. This is ideal for:
-
-- Testing and development
-- Users who only run one command type
-- Memory-constrained machines where you don't want idle model overhead
-
-Lazy startup does **not** mean the first real command is allowed to run against
+No workers are pre-loaded at startup; they spawn lazily on the first job that
+needs them. Lazy startup does **not** mean the first real command is allowed to run against
 unknown infer-task metadata. The current server resolves that by forcing a live
 capability probe from the worker it is actually about to use. In practice:
 
@@ -242,14 +211,6 @@ memory_gate_mb: 4000
 # when available memory drops below the eviction threshold); there is
 # no fixed idle timeout. Health checks run every `worker_health_interval_s`.
 worker_health_interval_s: 30    # Health check frequency
-
-# Warmup: list of commands to pre-load at startup
-# Default: [morphotag, align, transcribe]
-# Empty list disables warmup entirely.
-warmup_commands:
-  - morphotag
-  - align
-  - transcribe
 ```
 
 ## Scenarios
@@ -266,7 +227,6 @@ stanza_startup_mb: 3000         # Actual Stanza RSS is ~2-3 GB
 gpu_startup_mb: 6000            # Whisper float32 is ~4-5 GB
 max_concurrent_worker_startups: 1
 gpu_thread_pool_size: 1
-warmup_commands: []             # No warmup, workers spawn on demand
 ```
 
 The Small tier now also switches local workers to **task bootstrap** and clamps
@@ -275,16 +235,9 @@ shape honest for 16 GB laptops: no speculative profile preload, no multi-file
 GPU stampede, and no assumption that the machine can afford idle models it is
 not about to use.
 
-Or start with no warmup:
-
-```bash
-batchalign3 serve start --warmup off
-```
-
 ### 32 GB desktop
 
-Default settings usually work well, but keep warmup conservative if the machine
-also runs other inference tools. The coordinator will clamp jobs as host
+Default settings usually work well. The coordinator will clamp jobs as host
 pressure changes.
 
 ### 256 GB server (production)
@@ -294,10 +247,6 @@ max_workers_per_job: 0          # Coordinator-backed auto planning
 max_concurrent_jobs: 8
 max_concurrent_worker_startups: 1
 memory_gate_mb: 8000            # Operator override; the default is 2048 MB (MIN_FREE_MEMORY_MB)
-warmup_commands:
-  - morphotag
-  - align
-  - transcribe
 ```
 
 With this much RAM, worker profiles let the server run multiple concurrent jobs
@@ -305,12 +254,12 @@ efficiently. A GPU worker handling an `align` job and a Stanza worker handling a
 `morphotag` job run in parallel without duplicating models, leaving plenty of
 headroom for additional jobs.
 
-### Testing with --warmup off
+### Testing with test-echo workers
 
 For quick iteration during development:
 
 ```bash
-batchalign3 serve start --warmup off --foreground --test-echo
+batchalign3 serve start --foreground --test-echo
 ```
 
 Workers start instantly (no ML models loaded). Useful for testing server
@@ -347,11 +296,11 @@ The coordinator decided that only 1 worker currently fits. Check:
 
 Override with `max_workers_per_job` if you know your system can handle more.
 
-### Startup takes too long
+### The first job takes too long
 
-Warmup loads ML models from disk (or downloads them on first run). To speed up:
+The first job of a given kind loads its ML models from disk, or downloads them
+on first run. To speed up:
 
-- Use `--warmup minimal` or `--warmup off` if you don't need all commands
 - The first run after installation is slowest (model downloads)
 - Subsequent starts load from the model cache (~5-20 seconds per model)
 - Keep the daemon running (`batchalign3 serve start`) to avoid repeated

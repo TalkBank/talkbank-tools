@@ -89,8 +89,6 @@ pub struct ServerHealth {
     pub system_memory_used_mb: MemoryMb,
     /// Memory gate threshold in MB from server config (0 = disabled).
     pub memory_gate_threshold_mb: MemoryMb,
-    /// Background warmup lifecycle label.
-    pub warmup_status: String,
     /// Host-wide memory pressure classification (healthy/guarded/constrained/critical).
     pub host_memory_pressure: String,
     /// Number of worker crashes since server start.
@@ -709,7 +707,6 @@ mod tests {
             system_memory_available_mb: MemoryMb(100000),
             system_memory_used_mb: MemoryMb(162144),
             memory_gate_threshold_mb: MemoryMb(2048),
-            warmup_status: "complete".into(),
             host_memory_pressure: "healthy".into(),
             worker_crashes: 0,
             attempts_started: 5,

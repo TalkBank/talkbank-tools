@@ -136,23 +136,6 @@ pub struct CommonOptions {
     // ignored rather than rejected.
 }
 
-impl CommonOptions {
-    /// Serialize `engine_overrides` to a JSON string for pool worker keying
-    /// and capability-discovery spawns.
-    ///
-    /// Returns an empty string when no overrides are set (matching the pool
-    /// config's default). This ensures `pre_scale_with_overrides` produces
-    /// the same key that `dispatch_execute_v2` will look up.
-    ///
-    /// Worker-facing, so this MUST use the dispatch override names, not
-    /// the persistence wire names; see
-    /// `EngineOverrides::to_dispatch_json_string` for the rationale and
-    /// the 2026-06-11 incident.
-    pub fn engine_overrides_json(&self) -> String {
-        self.engine_overrides.to_dispatch_json_string()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Per-command option structs
 // ---------------------------------------------------------------------------
@@ -623,60 +606,6 @@ impl CommandOptions {
         }
     }
 
-    /// Compute the engine overrides string that worker dispatch will actually
-    /// use for this command's primary GPU task.
-    ///
-    /// For align commands, FA dispatch always sets `{"fa":"<engine>"}` in the
-    /// request payload (see `execute_v2_engine_overrides` in `execute_v2.rs`),
-    /// so the pre-scaled worker must use the same key. Without this, pre-scale
-    /// creates a worker with key `""` but FA dispatch looks for `{"fa":"wave2vec"}`,
-    /// causing a second worker spawn that the memory guard may block on small
-    /// machines (32 GB). See a user incident 2026-04-02.
-    ///
-    /// The override names here MUST match those in `fa_backend_override_name()`
-    /// and `asr_backend_override_name()` in `worker/pool/execute_v2.rs`.
-    pub fn dispatch_engine_overrides_json(&self) -> String {
-        // If the user explicitly set engine overrides, those take
-        // precedence, serialized with dispatch names; see
-        // `EngineOverrides::to_dispatch_json_string`.
-        let user = &self.common().engine_overrides;
-        if !user.is_empty() {
-            return user.to_dispatch_json_string();
-        }
-
-        // Otherwise, derive from the command-specific engine field using the
-        // same override names that execute_v2_engine_overrides() produces.
-        // Build a typed map and serialize via serde_json to avoid format!-based
-        // JSON construction.
-        let mut overrides = std::collections::BTreeMap::new();
-        match self {
-            Self::Align(o) => {
-                overrides.insert("fa", o.fa_engine.dispatch_override_name());
-            }
-            Self::Transcribe(o) | Self::TranscribeS(o) => {
-                if let Some(name) = o.effective_asr_engine().dispatch_override_name() {
-                    overrides.insert("asr", name);
-                }
-            }
-            Self::Benchmark(o) => {
-                if let Some(name) = o.effective_asr_engine().dispatch_override_name() {
-                    overrides.insert("asr", name);
-                }
-            }
-            Self::Translate(o) => {
-                // Google and Seamless workers are different pool keys
-                // (different models loaded), so always emit a value.
-                overrides.insert("translate", o.translate_engine.dispatch_override_name());
-            }
-            _ => {}
-        }
-        if overrides.is_empty() {
-            String::new()
-        } else {
-            serde_json::to_string(&overrides).unwrap_or_default()
-        }
-    }
-
     /// Get the command name as a string (matches the serde tag value).
     pub fn command_name(&self) -> &'static str {
         match self {
@@ -1021,28 +950,6 @@ mod tests {
     }
 
     #[test]
-    fn translate_dispatch_engine_overrides_json_emits_seamless() {
-        let opts = CommandOptions::Translate(TranslateOptions {
-            common: CommonOptions::default(),
-            translate_engine: TranslateEngineName::Seamless,
-            merge_abbrev: false.into(),
-        });
-        assert_eq!(
-            opts.dispatch_engine_overrides_json(),
-            "{\"translate\":\"seamless\"}",
-        );
-    }
-
-    #[test]
-    fn translate_dispatch_engine_overrides_json_emits_google_by_default() {
-        let opts = CommandOptions::Translate(TranslateOptions::default());
-        assert_eq!(
-            opts.dispatch_engine_overrides_json(),
-            "{\"translate\":\"google\"}",
-        );
-    }
-
-    #[test]
     fn translate_options_serializes_seamless_engine() {
         let opts = TranslateOptions {
             common: CommonOptions::default(),
@@ -1172,118 +1079,6 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<AsrEngineName>(&custom_json).unwrap(),
             AsrEngineName::HkTencent
-        );
-    }
-
-    // -----------------------------------------------------------------------
-    // dispatch_engine_overrides_json: pre-scale key must match dispatch key
-    // -----------------------------------------------------------------------
-
-    /// Build a `CommandOptions::Align` with the given FA engine and defaults
-    /// for all other fields. Uses `AlignOptions::default()` + struct update.
-    fn align_opts(fa: FaEngineName) -> CommandOptions {
-        CommandOptions::Align(AlignOptions {
-            fa_engine: fa,
-            ..AlignOptions::default()
-        })
-    }
-
-    /// Build a `CommandOptions::Align` with the given FA engine and common opts.
-    fn align_opts_with(fa: FaEngineName, common: CommonOptions) -> CommandOptions {
-        CommandOptions::Align(AlignOptions {
-            fa_engine: fa,
-            common,
-            ..AlignOptions::default()
-        })
-    }
-
-    #[test]
-    fn default_align_dispatch_overrides_include_fa_engine() {
-        // A default align job (no user --engine-overrides) uses Wave2Vec FA.
-        // The dispatch override must be {"fa":"wave2vec"}, NOT empty string.
-        // Empty string was the old bug that caused pre-scale/dispatch key mismatch
-        // and memory guard deadlock on 32 GB machines (a user 2026-04-02).
-        let opts = align_opts(FaEngineName::Wave2Vec);
-        assert_eq!(
-            opts.dispatch_engine_overrides_json(),
-            r#"{"fa":"wave2vec"}"#,
-            "pre-scale key must match FA dispatch key"
-        );
-    }
-
-    #[test]
-    fn whisper_fa_align_dispatch_overrides() {
-        let opts = align_opts(FaEngineName::Whisper);
-        assert_eq!(opts.dispatch_engine_overrides_json(), r#"{"fa":"whisper"}"#,);
-    }
-
-    #[test]
-    fn user_engine_override_takes_precedence_over_command_default() {
-        // When user sets --engine-overrides '{"fa":"whisper"}', that wins
-        // over the command's default fa_engine.
-        let opts = align_opts_with(
-            FaEngineName::Wave2Vec,
-            CommonOptions {
-                engine_overrides: EngineOverrides {
-                    asr: None,
-                    fa: Some(FaEngineName::Whisper),
-                    translate: None,
-                    ..Default::default()
-                },
-                ..CommonOptions::default()
-            },
-        );
-
-        let json = opts.dispatch_engine_overrides_json();
-        assert!(
-            json.contains("whisper"),
-            "user override should take precedence: {json}"
-        );
-    }
-
-    #[test]
-    fn morphotag_dispatch_overrides_empty() {
-        // Text-only commands have no command-level engine override.
-        let opts = CommandOptions::Morphotag(MorphotagOptions {
-            common: CommonOptions::default(),
-
-            ..Default::default()
-        });
-
-        assert_eq!(opts.dispatch_engine_overrides_json(), "");
-    }
-
-    #[test]
-    fn transcribe_revai_dispatch_overrides_empty() {
-        // Rev.AI is cloud-only, no local worker override needed.
-        let opts = CommandOptions::Transcribe(TranscribeOptions {
-            common: CommonOptions::default(),
-            asr_engine: AsrEngineName::RevAi,
-            diarize: false,
-            wor: false.into(),
-            merge_abbrev: false.into(),
-            utseg_fallback: false.into(),
-            batch_size: 8,
-        });
-
-        assert_eq!(opts.dispatch_engine_overrides_json(), "");
-    }
-
-    #[test]
-    fn transcribe_whisper_dispatch_overrides_include_asr() {
-        let opts = CommandOptions::Transcribe(TranscribeOptions {
-            common: CommonOptions::default(),
-            asr_engine: AsrEngineName::Whisper,
-            diarize: false,
-            wor: false.into(),
-            merge_abbrev: false.into(),
-            utseg_fallback: false.into(),
-            batch_size: 8,
-        });
-
-        assert_eq!(
-            opts.dispatch_engine_overrides_json(),
-            r#"{"asr":"whisper"}"#,
         );
     }
 

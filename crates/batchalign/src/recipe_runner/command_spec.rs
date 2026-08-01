@@ -85,17 +85,6 @@ pub(crate) enum ConstrainedHostPolicy {
     DelegatedToSubcommands,
 }
 
-/// Whether the command should participate in optional background warmup.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum WarmupPolicy {
-    /// The command should stay lazy/on-demand by default.
-    LazyOnDemand,
-    /// The host may warm this command in the background when capacity allows.
-    BackgroundEligible,
-    /// Let composed child commands own warmup behavior.
-    DelegatedToSubcommands,
-}
-
 /// Dominant resource lane for the command's hot path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ResourceLane {
@@ -203,17 +192,6 @@ impl CommandFamily {
             | Self::ReferenceProjection
             | Self::AudioSequential
             | Self::MediaAnalysis => ConstrainedHostPolicy::SequentialFallback,
-        }
-    }
-
-    /// Warmup behavior implied by this command family.
-    pub const fn warmup_policy(self) -> WarmupPolicy {
-        match self {
-            Self::MediaAnalysis => WarmupPolicy::LazyOnDemand,
-            Self::Composite => WarmupPolicy::DelegatedToSubcommands,
-            Self::BatchedText | Self::ReferenceProjection | Self::AudioSequential => {
-                WarmupPolicy::BackgroundEligible
-            }
         }
     }
 

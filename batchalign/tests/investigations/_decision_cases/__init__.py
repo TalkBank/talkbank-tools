@@ -12,13 +12,14 @@ same type, no parallel language-key system.
 
 from __future__ import annotations
 
-from .._cases import ENG, LanguageKey
+from .._cases import ENG, ITA, LanguageKey
 from .._decision_probe_types import DecisionProbeCase
-from . import english
+from . import english, italian
 
 
 DECISION_LANGUAGE_MATRIX: dict[LanguageKey, tuple[DecisionProbeCase, ...]] = {
     ENG: english.CASES,
+    ITA: italian.CASES,
 }
 
 

@@ -16,7 +16,15 @@ Thumbs.db
 /target/
 **/target/
 **/*.rs.bk
-Cargo.lock
+
+# Cargo.lock IS TRACKED, deliberately. It was ignored from the root commit
+# onward, listed above under "build artifacts", which it is not: it is the
+# record of which dependency versions a build actually used. This workspace
+# ships a binary (batchalign3, installed across the fleet from GitHub
+# Releases), and Cargo's guidance is to commit the lockfile for anything that
+# produces one. Without it, the same source commit resolves a different
+# dependency graph on different days, so `batchalign3 version` identifies the
+# source and not the binary.
 
 # Python
 __pycache__/

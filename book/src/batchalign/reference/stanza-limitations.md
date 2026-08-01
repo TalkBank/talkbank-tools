@@ -1,8 +1,8 @@
 # Stanza Limitations: Observed Defects with Version Pinning
 
 **Status:** Reference (living document, update when Stanza behavior changes)
-**Last updated:** 2026-06-19 18:31 EDT
-**Current Stanza pin:** `stanza[transformers]>=1.13.0,<1.14` (see `pyproject.toml`)
+**Last updated:** 2026-07-31 21:40 EDT
+**Current Stanza pin:** `stanza[transformers]>=1.14.0,<1.15` (see `pyproject.toml`)
 **Current English MWT package:** `gum`
 
 > **2026-05-14, Stanza 1.12.0 upgrade:** every defect below was
@@ -35,6 +35,14 @@
 > stopped MWT-expanding as of the 1.12.1 Spanish updates (verified
 > identical on 1.12.2 and 1.13.0), with zero production impact since
 > downstream Range reassembly is 1-to-1 either way.
+
+> **2026-07-31, Stanza 1.14.0 upgrade:** the 1.13.0 and 1.14.0 golden
+> suites have identical outcomes, including the same two pre-existing
+> failures. The Italian lexicon adaptation is compatible with the new
+> lemmatizer layout, and the confirmed-version map records each
+> individually rechecked defect. Dependency-parse repair is now enabled
+> by default; a typed-AST corpus review remains separate from the golden
+> suite and must not be replaced by a serialized-tier survey.
 
 > **See also:**
 > [Stanza Defect Mitigation Map](../architecture/stanza-defect-mitigation-map.md)
@@ -1095,6 +1103,62 @@ for `dammela` wherever it appears), the Defect 8 allowlist entries
 become redundant. Remove them and let the Defect-6/7 Range branch
 handle the case uniformly. Tracked by the unit-test RED signal
 when the reconciler is disabled and Stanza is re-observed.
+
+---
+
+### Open residue (2026-07-31): the allowlist's one-UD-word precondition
+
+`check_italian_compound_imperative` matches `IT_COMPOUND_IMPERATIVES` rows
+against a whole `UdWord.text`, so a row can only fire when the surface reaches
+Stage 3 as ONE UD word. The Italian MWT policy in
+`batchalign/inference/_italian_mwt.py` now force-splits enclisis candidates, so
+for most of those rows the precondition no longer holds.
+
+On the nine rows with a non-geminated base (`prendilo`, `aprila`, `leggila`,
+...) this is benign and arguably better: the base (`prendi`, `apri`, `leggi`) is
+unambiguous, so the general split reaches the same analysis the hand-written row
+did, from a rule rather than a list.
+
+`dammela` and `dammelo` are the two geminated rows, and there the observed
+output was `adp|da~pron|me-Prs-S1~pron|la-Prs-S3` with a prepositional parse
+(`%gra` had `favore` as ROOT and `da` as CASE). Note this is a DIFFERENT shape
+from the ADJ mis-tag above, and the deprels were wrong as well as the head, so
+any repair that rewrote POS and lemma in place would have left the parse behind.
+
+**RESOLVED (2026-07-31): the utterance was reaching Stanza without its
+terminator.** The worker built Stanza's input by joining the CHAT words, and
+dropped the terminator the Rust side had supplied. Stanza's Italian model uses
+sentence-final punctuation as evidence, so it was analysing a fragment.
+
+Measured across four conditions with one variable, all through the
+with-postprocessor production pipeline:
+
+| input | analysis of `dammela` |
+|---|---|
+| `per favore dammela` | ADJ, lemma `dammelo`, `amod`; no MWT expansion at all |
+| `per favore dammela .` | VERB `dare` root + PRON `me` + PRON `la` |
+| `per favore da me la` | `da` ADP, `case` (the prepositional parse) |
+| `per favore da me la .` | VERB `dare` root + PRON + PRON |
+
+The last two rows are the control that retires the standing hypothesis
+"splitting hands the tagger a homograph base": presented already split, the host
+is still ADP without the terminator and VERB with it, so the enclisis split was
+never what caused the prepositional reading. `MorphosyntaxBatchItem.terminator`
+had existed all along, with a `"."` default, and nothing read it. A field that
+is supplied, defaulted and unused is invisible to every test, which is why this
+survived three rounds of investigation.
+
+The fix is that the worker passes the terminator it is given, in both the text
+and the realignment word list, which must move together. Locked as
+`ita__sentence_period__dammela_needs_its_terminator` and its pre-split control
+in the decision-probe matrix, so a Stanza upgrade that changes this surfaces as
+a test failure rather than as corpus drift.
+
+The question for whoever resolves it is NOT "extend the allowlist over the five
+apocopated hosts". It is whether this table should be REDUCED to the geminated
+cases with its one-UD-word precondition stated, since the general rule already
+covers the rest. `is_geminated_split` in `_italian_mwt.py` is defined, tested
+and uncalled against that decision.
 
 ---
 

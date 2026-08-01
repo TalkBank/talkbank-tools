@@ -2,8 +2,7 @@
 //!
 //! The main configuration type deserialized from `server.yaml`. All fields
 //! have sensible defaults so an empty YAML file (or a missing file) produces
-//! a working configuration. Warmup presets and the `FleetTarget` sub-struct
-//! also live here.
+//! a working configuration. The `FleetTarget` sub-struct also lives here.
 
 use std::collections::BTreeMap;
 
@@ -11,17 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use super::serde_helpers::zero_as_none;
 use crate::api::{LanguageCode3, MemoryMb};
-
-/// Minimal warmup preset: morphotag only.
-///
-/// The CLI `--warmup minimal` expands to this list.
-pub const WARMUP_PRESET_MINIMAL: &[&str] = &["morphotag"];
-
-/// Full warmup preset: morphotag, align, transcribe.
-///
-/// The CLI `--warmup full` expands to this list. This is also the default
-/// when no `--warmup` flag or `warmup_commands` config is given.
-pub const WARMUP_PRESET_FULL: &[&str] = &["morphotag", "align", "transcribe"];
 
 /// Configuration for the Batchalign processing server.
 ///
@@ -120,12 +108,6 @@ pub struct ServerConfig {
     /// by `validate()`.  Default: 7.
     #[serde(default = "default_job_ttl_days")]
     pub job_ttl_days: i32,
-    /// Commands to pre-warm at startup (e.g. `["morphotag", "align"]`).
-    /// When empty (default), the server uses the `full` preset
-    /// (`morphotag`, `align`, `transcribe`), filtered by actual worker
-    /// capabilities.  The CLI `--warmup` flag sets this field.
-    #[serde(default = "default_warmup_commands")]
-    pub warmup_commands: Vec<String>,
     /// Whether the CLI should auto-spawn a local daemon when no explicit
     /// `--server` is configured. Default: `true`.
     #[serde(default = "default_true")]
@@ -341,13 +323,6 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
-pub(crate) fn default_warmup_commands() -> Vec<String> {
-    WARMUP_PRESET_FULL
-        .iter()
-        .map(|s| (*s).to_string())
-        .collect()
-}
-
 pub(crate) fn default_job_ttl_days() -> i32 {
     7
 }
@@ -403,7 +378,6 @@ impl Default for ServerConfig {
             allow_mps: None,
             max_workers_per_job: None,
             job_ttl_days: 7,
-            warmup_commands: default_warmup_commands(),
             auto_daemon: true,
             memory_gate_mb: None,
             worker_health_interval_s: default_worker_health_interval_s(),

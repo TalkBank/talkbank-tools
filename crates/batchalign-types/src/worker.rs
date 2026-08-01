@@ -115,8 +115,7 @@ pub struct WorkerHealthResponse {
 ///
 /// Returned when the server sends `{"op":"capabilities"}` during startup
 /// probing.  Determines which commands the server advertises in its health
-/// endpoint, which warmup workers to spawn, and whether to use thread-based
-/// or process-based concurrency.
+/// endpoint and whether to use thread-based or process-based concurrency.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WorkerCapabilities {
     /// Compatibility-only command list reported by the worker.

@@ -40,13 +40,8 @@ impl WorkerPool {
     /// 2. If none available, try to spawn a new worker (if under capacity).
     /// 3. If at capacity, wait for a permit (async suspend).
     /// 4. Pop from the idle queue and wrap in `CheckedOutWorker` (RAII guard).
-    pub(super) async fn checkout(
-        &self,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
-    ) -> Result<CheckedOutWorker, WorkerError> {
-        let group = self.get_or_create_group(target, lang, engine_overrides);
+    pub(super) async fn checkout(&self, key: &WorkerKey) -> Result<CheckedOutWorker, WorkerError> {
+        let group = self.get_or_create_group(key);
 
         // Deadline for the saturation branch (no workers for this key,
         // global cap reached, no idle worker to evict). Bounds how long
@@ -81,10 +76,7 @@ impl WorkerPool {
             }
 
             // Slow path: try to spawn a new worker (if under cap).
-            match self
-                .try_spawn_into_group(&group, target, lang, engine_overrides)
-                .await
-            {
+            match self.try_spawn_into_group(&group, key).await {
                 Ok(true) => {
                     // Spawned: loop back: the new permit is backed by
                     // a real enqueued worker, so the fast path will hit.
@@ -99,8 +91,6 @@ impl WorkerPool {
                     // pool-wide `worker_returned` Notify with a
                     // bounded deadline.
                     if group.is_empty() {
-                        let key: WorkerKey = (*target, lang.clone(), engine_overrides.to_owned());
-
                         // Register on `worker_returned` BEFORE the
                         // eviction probe. `Notified::enable()` puts
                         // this task on the wait list without polling
@@ -117,7 +107,7 @@ impl WorkerPool {
                         tokio::pin!(notified);
                         notified.as_mut().enable();
 
-                        if let EvictionOutcome::Evicted = self.try_evict_idle_from_other_group(&key)
+                        if let EvictionOutcome::Evicted = self.try_evict_idle_from_other_group(key)
                         {
                             continue;
                         }
@@ -127,8 +117,8 @@ impl WorkerPool {
                             .is_err()
                         {
                             return Err(saturation_timeout_err(
-                                target,
-                                lang,
+                                &key.target,
+                                &key.language,
                                 self.config.checkout_wait_timeout().as_secs(),
                             ));
                         }
@@ -148,8 +138,8 @@ impl WorkerPool {
                 .await
                 .map_err(|_| {
                     saturation_timeout_err(
-                        target,
-                        lang,
+                        &key.target,
+                        &key.language,
                         self.config.checkout_wait_timeout().as_secs(),
                     )
                 })?
@@ -182,25 +172,22 @@ impl WorkerPool {
     ) -> Result<BatchInferResponse, WorkerError> {
         let target =
             WorkerTarget::from_infer_task(request.task, self.config.runtime.bootstrap_mode);
-        let engine_overrides = &self.config.engine_overrides;
         let worker_lang = WorkerLanguage::from(lang);
+        let key = WorkerKey::without_engine_selection(target, worker_lang);
 
         // Try TCP worker first.
-        if matches!(target, WorkerTarget::Profile(_))
-            && let Some(mut tcp_handle) =
-                self.try_checkout_tcp(&target, &worker_lang, engine_overrides)
+        if matches!(key.target, WorkerTarget::Profile(_))
+            && let Some(mut tcp_handle) = self.try_checkout_tcp(&key)
         {
             let result = tcp_handle.batch_infer(request).await;
-            self.return_tcp_worker(tcp_handle, &target, &worker_lang, engine_overrides);
+            self.return_tcp_worker(tcp_handle, &key);
             return result;
         }
 
         // Fall back to stdio worker. TrackerGuard registers this
         // worker against the current job for cancel-driven shutdown;
         // auto-unregisters on drop.
-        let mut worker = self
-            .checkout(&target, &worker_lang, engine_overrides)
-            .await?;
+        let mut worker = self.checkout(&key).await?;
         let _job_guard = TrackerGuard::new(&self.job_tracker, worker.pid());
         let result = worker.batch_infer(request).await;
 
@@ -223,9 +210,7 @@ impl WorkerPool {
                 );
                 worker.take(); // decrement total, do NOT return to idle queue
                 drop(worker); // Drop now sees None handle, does nothing
-                let mut fresh = self
-                    .checkout(&target, &worker_lang, engine_overrides)
-                    .await?;
+                let mut fresh = self.checkout(&key).await?;
                 fresh.batch_infer(request).await
             }
             Err(ref e @ WorkerError::Protocol(_)) => {
@@ -239,13 +224,7 @@ impl WorkerPool {
     }
 
     /// Try to check out a TCP worker handle (non-blocking).
-    pub(super) fn try_checkout_tcp(
-        &self,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
-    ) -> Option<TcpWorkerHandle> {
-        let key: WorkerKey = (*target, lang.clone(), engine_overrides.to_owned());
+    pub(super) fn try_checkout_tcp(&self, key: &WorkerKey) -> Option<TcpWorkerHandle> {
         let groups = lock_recovered(&self.groups);
         let group = groups.get(&key)?;
         match group.tcp_available.try_acquire() {
@@ -258,14 +237,7 @@ impl WorkerPool {
     }
 
     /// Return a TCP worker handle to the pool.
-    pub(super) fn return_tcp_worker(
-        &self,
-        handle: TcpWorkerHandle,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
-    ) {
-        let key: WorkerKey = (*target, lang.clone(), engine_overrides.to_owned());
+    pub(super) fn return_tcp_worker(&self, handle: TcpWorkerHandle, key: &WorkerKey) {
         let groups = lock_recovered(&self.groups);
         if let Some(group) = groups.get(&key) {
             lock_recovered(&group.tcp_workers).push_back(handle);
@@ -300,36 +272,26 @@ impl WorkerPool {
         progress_tx: Option<&tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
     ) -> Result<ExecuteResponseV2, WorkerError> {
         let lang = lang.into();
-        let (target, worker_lang, engine_overrides) = execute_v2_worker_key(
-            lang,
-            request,
-            &self.config.engine_overrides,
-            self.config.runtime.bootstrap_mode,
-        )?;
+        let key = execute_v2_worker_key(lang, request, self.config.runtime.bootstrap_mode)?;
 
-        if target.is_concurrent() {
+        if key.target.is_concurrent() {
             // GPU workers don't support progress forwarding yet.
-            return self
-                .dispatch_gpu_execute_v2(&target, &worker_lang, &engine_overrides, request)
-                .await;
+            return self.dispatch_gpu_execute_v2(&key, request).await;
         }
 
         // Try TCP worker first.
-        if matches!(target, WorkerTarget::Profile(_))
-            && let Some(mut tcp_handle) =
-                self.try_checkout_tcp(&target, &worker_lang, &engine_overrides)
+        if matches!(key.target, WorkerTarget::Profile(_))
+            && let Some(mut tcp_handle) = self.try_checkout_tcp(&key)
         {
             let result = tcp_handle
                 .execute_v2_with_progress(request, progress_tx)
                 .await;
-            self.return_tcp_worker(tcp_handle, &target, &worker_lang, &engine_overrides);
+            self.return_tcp_worker(tcp_handle, &key);
             return result;
         }
 
         // Fall back to stdio worker.
-        let mut worker = self
-            .checkout(&target, &worker_lang, &engine_overrides)
-            .await?;
+        let mut worker = self.checkout(&key).await?;
         let _job_guard = TrackerGuard::new(&self.job_tracker, worker.pid());
 
         // In LazyProfile mode, ensure the task's models are loaded before
@@ -355,32 +317,27 @@ impl WorkerPool {
     #[instrument(
         skip_all,
         fields(
-            target = %target.label(),
-            lang = %lang,
+            target = %key.target.label(),
+            lang = %key.language,
             request_id = %request.request_id,
         ),
     )]
     async fn dispatch_gpu_execute_v2(
         &self,
-        target: &WorkerTarget,
-        lang: &WorkerLanguage,
-        engine_overrides: &str,
+        key: &WorkerKey,
         request: &ExecuteRequestV2,
     ) -> Result<ExecuteResponseV2, WorkerError> {
         // Try TCP worker first (discovered from registry).
-        let tcp_key = (*target, lang.clone(), engine_overrides.to_owned());
-        if matches!(target, WorkerTarget::Profile(_)) {
+        if matches!(key.target, WorkerTarget::Profile(_)) {
             let tcp_workers = self.gpu_tcp_workers.lock().await;
-            if let Some(tcp_worker) = tcp_workers.get(&tcp_key) {
+            if let Some(tcp_worker) = tcp_workers.get(key) {
                 let _job_guard = TrackerGuard::new(&self.job_tracker, tcp_worker.pid());
                 return tcp_worker.execute_v2(request).await;
             }
         }
 
         // Fall back to stdio worker.
-        let gpu_worker = self
-            .get_or_create_gpu_worker(target, lang, engine_overrides)
-            .await?;
+        let gpu_worker = self.get_or_create_gpu_worker(key).await?;
         let _job_guard = TrackerGuard::new(&self.job_tracker, gpu_worker.pid());
 
         if self.config.runtime.bootstrap_mode == WorkerBootstrapMode::LazyProfile {
@@ -399,29 +356,30 @@ impl WorkerPool {
     /// Startup may only have an optimistic command list with no infer-task
     /// metadata yet. Execution paths that need authoritative infer-task data
     /// call this to force one real worker bootstrap/probe before gating.
-    pub async fn ensure_command_capabilities_with_overrides(
+    pub async fn ensure_command_capabilities(
         &self,
         command: ReleasedCommand,
         lang: impl Into<WorkerLanguage>,
-        engine_overrides: &str,
+        options: &crate::options::CommandOptions,
     ) -> Result<(), WorkerError> {
         if self.config.test_echo || self.lazy_capabilities.get().is_some() {
             return Ok(());
         }
 
-        let lang = lang.into();
-        let target =
-            WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode);
+        let key = WorkerKey::from_command_options(
+            command,
+            lang.into(),
+            options,
+            self.config.runtime.bootstrap_mode,
+        );
 
-        if target.is_concurrent() {
-            let _ = self
-                .get_or_create_gpu_worker(&target, &lang, engine_overrides)
-                .await?;
+        if key.target.is_concurrent() {
+            let _ = self.get_or_create_gpu_worker(&key).await?;
             return Ok(());
         }
 
-        if matches!(target, WorkerTarget::Profile(_))
-            && let Some(mut tcp_handle) = self.try_checkout_tcp(&target, &lang, engine_overrides)
+        if matches!(key.target, WorkerTarget::Profile(_))
+            && let Some(mut tcp_handle) = self.try_checkout_tcp(&key)
         {
             if self.lazy_capabilities.get().is_none() {
                 let caps = tcp_handle.capabilities().await?;
@@ -433,11 +391,11 @@ impl WorkerPool {
                 );
                 self.record_capabilities(caps);
             }
-            self.return_tcp_worker(tcp_handle, &target, &lang, engine_overrides);
+            self.return_tcp_worker(tcp_handle, &key);
             return Ok(());
         }
 
-        let mut worker = self.checkout(&target, &lang, engine_overrides).await?;
+        let mut worker = self.checkout(&key).await?;
         if self.lazy_capabilities.get().is_none() {
             self.detect_capabilities_from_worker(&mut worker).await?;
         }
@@ -474,17 +432,17 @@ mod tests {
         });
         let target = WorkerTarget::infer_task(InferTask::Morphosyntax);
         let lang = WorkerLanguage::from(LanguageCode3::eng());
-        let group = pool.get_or_create_group(&target, &lang, "");
+        let key = WorkerKey::without_engine_selection(target, lang);
+        let group = pool.get_or_create_group(&key);
 
         // Simulate the wedged state seen in the live morphotag job:
         // the pool believes one worker exists for this key, but no idle
         // handle or semaphore permit can ever be returned.
         group.total.store(1, Ordering::Relaxed);
 
-        let result =
-            tokio::time::timeout(Duration::from_secs(2), pool.checkout(&target, &lang, ""))
-                .await
-                .expect("checkout should resolve via its own timeout, not hang forever");
+        let result = tokio::time::timeout(Duration::from_secs(2), pool.checkout(&key))
+            .await
+            .expect("checkout should resolve via its own timeout, not hang forever");
 
         match result {
             Err(WorkerError::SpawnFailed(message)) => {
@@ -527,7 +485,8 @@ mod tests {
             stanza_target.profile_kind(),
             crate::worker::WorkerProfile::Stanza
         );
-        let stanza_group = pool.get_or_create_group(&stanza_target, &lang, "");
+        let stanza_key = WorkerKey::without_engine_selection(stanza_target, lang.clone());
+        let stanza_group = pool.get_or_create_group(&stanza_key);
         stanza_group.total.store(3, Ordering::Relaxed);
         assert!(
             pool.try_claim_spawn_slot(&stanza_group).is_ok(),
@@ -544,7 +503,8 @@ mod tests {
         // by stanza saturation.
         let gpu_target = WorkerTarget::infer_task(InferTask::Asr);
         assert_eq!(gpu_target.profile_kind(), crate::worker::WorkerProfile::Gpu);
-        let gpu_group = pool.get_or_create_group(&gpu_target, &lang, "");
+        let gpu_key = WorkerKey::without_engine_selection(gpu_target, lang.clone());
+        let gpu_group = pool.get_or_create_group(&gpu_key);
         gpu_group.total.store(1, Ordering::Relaxed);
         assert!(
             pool.try_claim_spawn_slot(&gpu_group).is_ok(),
@@ -558,7 +518,8 @@ mod tests {
         // IO profile: cap 1 (smallest). At cap, rejects.
         let io_target = WorkerTarget::infer_task(InferTask::Translate);
         assert_eq!(io_target.profile_kind(), crate::worker::WorkerProfile::Io);
-        let io_group = pool.get_or_create_group(&io_target, &lang, "");
+        let io_key = WorkerKey::without_engine_selection(io_target, lang);
+        let io_group = pool.get_or_create_group(&io_key);
         io_group.total.store(1, Ordering::Relaxed);
         assert!(
             pool.try_claim_spawn_slot(&io_group).is_err(),

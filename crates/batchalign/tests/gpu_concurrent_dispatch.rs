@@ -49,6 +49,7 @@ use serde_json::json;
 
 macro_rules! require_python {
     () => {{
+        common::init_test_tracing(tracing::Level::ERROR);
         common::test_server_fixture::isolate_host_memory_ledger();
         let available_mb = batchalign::worker::memory_guard::available_memory_mb();
         if available_mb < 4096 {
@@ -73,8 +74,8 @@ fn gpu_execute_request(request_id: &str) -> ExecuteRequestV2 {
 /// Build a GPU execute_v2 request with a unique request_id, for a given language.
 ///
 /// The language matters to callers that need two DIFFERENT worker keys: a shared
-/// GPU worker is keyed on `(target, lang, engine_overrides)`, so two dispatches
-/// that differ only in language resolve to two separate workers.
+/// GPU workers are keyed on target, language, and typed engine selection, so
+/// two dispatches that differ only in language resolve to separate workers.
 fn gpu_execute_request_for_lang(request_id: &str, lang: LanguageCode3) -> ExecuteRequestV2 {
     ExecuteRequestV2 {
         request_id: WorkerRequestIdV2::from(request_id),
@@ -118,7 +119,6 @@ fn test_pool(python: String) -> WorkerPool {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         worker_registry_path: test_state_dir().join("workers.json").display().to_string(),
         runtime: WorkerRuntimeConfig {
             state_dir: Some(test_state_dir().to_path_buf()),
@@ -148,41 +148,74 @@ async fn wait_for_process_exit(pid: u32) {
 /// Dropping a pool must retire the TCP daemons it spawned, not just its stdio
 /// workers.
 ///
-/// `warmup()` spawns a DETACHED Python process per target with `--transport
-/// tcp`, registered in `workers.json` as owned by this server instance. Stdio
-/// workers die with their `WorkerHandle`, so ordinary field drop reaps them
-/// (`gpu_stdio_shared_worker_drop_reaps_process` pins that). A TCP daemon has no
-/// such handle: it is retired only by `kill_owned_daemons`, which
-/// `WorkerPool::shutdown()` calls and `Drop` did not, even though `Drop`'s own
-/// doc comment says it exists to "catch test code and panic unwinds where the
-/// pool goes out of scope without a graceful shutdown() call".
+/// A server-owned TCP daemon is a DETACHED Python process launched with
+/// `--transport tcp` and registered in `workers.json` under this server
+/// instance's id. Stdio workers die with their `WorkerHandle`, so ordinary field
+/// drop reaps them (`gpu_stdio_shared_worker_drop_reaps_process` pins that). A
+/// TCP daemon has no such handle: it is retired only by `kill_owned_daemons`,
+/// which `WorkerPool::shutdown()` calls and `Drop` did not, even though `Drop`'s
+/// own doc comment says it exists to "catch test code and panic unwinds where
+/// the pool goes out of scope without a graceful shutdown() call".
 ///
 /// The consequence was measured, not theorised: on 2026-07-29 this suite had
 /// left 11 `--test-echo` daemons running on the development machine, two of them
 /// for over ten hours, holding ports and burning cores. On a real host the same
 /// gap orphans multi-gigabyte model processes on any panic unwind.
+///
+/// The subject used to be built by `pool.warmup(..)`, which spawned the daemon
+/// in-crate. With warmup retired (2026-07-30) this constructs it the way
+/// production now does: an externally-spawned daemon stamped with this pool's
+/// instance id, adopted through `discover_from_registry`. Same subject, and it
+/// exercises the adoption path rather than a spawner only tests could reach.
 #[tokio::test]
 async fn dropping_pool_reaps_owned_tcp_daemons() {
     let python = require_python!();
+    use batchalign::worker::WorkerProfile;
+    use batchalign::worker::handle::{WorkerConfig, spawn_tcp_daemon};
     use batchalign::worker::pool::status::WorkerTransport;
 
     let registry_path = test_state_dir().join("workers.json");
 
     let pid = {
-        let pool = test_pool(python);
-        pool.warmup(&[batchalign::server::WarmupTarget {
-            command: ReleasedCommand::Transcribe,
+        let pool = test_pool(python.clone());
+
+        // Stamped with THIS pool's instance id, so the registry records it as
+        // owned here and `kill_owned_daemons` is entitled to reap it. Without
+        // the stamp the daemon is a foreign worker the pool must leave alone.
+        //
+        // BOTH halves of the stamp are required. Ownership is the pair
+        // (instance id, owner pid): `discovery_disposition` reads the id to
+        // decide the daemon is ours and the pid to decide the owner is still
+        // alive, and an entry carrying an id but no pid is classified
+        // `ReapStaleOwned` and killed instead of adopted. Setting only the id
+        // here made this test discover zero workers.
+        let daemon_config = WorkerConfig {
+            python_path: python,
+            test_echo: true,
+            profile: WorkerProfile::Gpu,
             lang: WorkerLanguage::from(LanguageCode3::eng()),
-        }])
-        .await;
-        pool.mark_warmup_complete();
+            ready_timeout_s: 30,
+            runtime: WorkerRuntimeConfig {
+                state_dir: Some(test_state_dir().to_path_buf()),
+                server_instance_id: Some(pool.current_server_instance_id().to_string()),
+                server_process_id: Some(std::process::id()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        spawn_tcp_daemon(&daemon_config, 0)
+            .await
+            .expect("spawn a server-owned TCP daemon");
+
+        let discovered = pool.discover_from_registry().await;
+        assert_eq!(discovered, 1, "the pool must adopt its own daemon");
 
         let entry = pool
             .worker_summary_entries()
             .await
             .into_iter()
             .find(|entry| entry.transport == WorkerTransport::Tcp)
-            .expect("warmup must have spawned a TCP daemon");
+            .expect("the adopted worker must be a TCP daemon");
         assert!(
             process_alive(entry.pid.0),
             "the spawned TCP daemon should be alive before the pool is dropped"
@@ -212,13 +245,15 @@ async fn gpu_concurrent_dispatch_all_responses_arrive() {
     let python = require_python!();
     let pool = test_pool(python);
 
-    // Warmup to create the SharedGpuWorker.
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    // Pre-scale to create the SharedGpuWorker.
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     let n = 8;
     let mut handles = Vec::new();
@@ -276,19 +311,21 @@ async fn gpu_concurrent_dispatch_shares_same_pid() {
     let python = require_python!();
     let pool = test_pool(python);
 
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     // Get the GPU worker info from the pool summary.
     let summary = pool.worker_summary().await;
     let gpu_entry = summary
         .iter()
         .find(|s| s.contains("profile:gpu"))
-        .expect("expected a GPU worker in summary after warmup");
+        .expect("expected a GPU worker in summary after pre-scale");
 
     // Extract PID segment from summary entry (format varies by transport).
     let pid_str = gpu_entry
@@ -325,7 +362,7 @@ async fn gpu_concurrent_dispatch_shares_same_pid() {
         "expected at least 1 GPU worker after concurrent dispatch"
     );
 
-    // The warmup GPU worker should still be present.
+    // The pre-scaled GPU worker should still be present.
     assert!(
         gpu_entries.iter().any(|e| e.contains(pid_str)),
         "original GPU worker (with {pid_str}) should still be present after concurrent dispatch; got: {gpu_entries:?}"
@@ -342,12 +379,14 @@ async fn gpu_sequential_after_concurrent_works() {
     let python = require_python!();
     let pool = test_pool(python);
 
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     // Phase 1: concurrent dispatch (4 requests).
     let mut handles = Vec::new();
@@ -392,12 +431,14 @@ async fn gpu_health_check_works_after_concurrent_dispatch() {
     let python = require_python!();
     let pool = test_pool(python);
 
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     // Dispatch 4 concurrent requests.
     let mut handles = Vec::new();
@@ -439,12 +480,14 @@ async fn gpu_stdio_shared_worker_drop_reaps_process() {
     let pid = {
         use batchalign::worker::pool::status::WorkerTransport;
         let pool = test_pool(python);
-        pool.pre_scale(
+        pool.pre_scale_for_request(
             ReleasedCommand::Transcribe,
             WorkerLanguage::from(LanguageCode3::eng()),
             1,
+            &gpu_execute_request("pre-scale-key"),
         )
-        .await;
+        .await
+        .expect("ASR is a dispatchable task");
 
         let entry = pool
             .worker_summary_entries()
@@ -469,19 +512,21 @@ async fn gpu_stdio_shared_worker_drop_reaps_process() {
 // ---------------------------------------------------------------------------
 
 /// A single GPU execute_v2 request dispatched through the pool completes
-/// successfully. This exercises the warmup → discover TCP worker →
+/// successfully. This exercises the pre-scale → discover TCP worker →
 /// dispatch_execute_v2 → SharedGpuTcpWorker → Python execute_v2 → echo chain.
 #[tokio::test]
 async fn gpu_single_execute_v2_through_pool() {
     let python = require_python!();
     let pool = test_pool(python);
 
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     let request = gpu_execute_request("single-dispatch-test");
     let response = pool
@@ -504,12 +549,14 @@ async fn gpu_repeated_execute_v2_through_pool() {
     let python = require_python!();
     let pool = test_pool(python);
 
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     for i in 0..5 {
         let request = gpu_execute_request(&format!("repeat-{i}"));
@@ -532,21 +579,43 @@ async fn gpu_repeated_execute_v2_through_pool() {
 // Worker recovery after errors
 // ---------------------------------------------------------------------------
 
+/// How long a post-shutdown dispatch may take before we call it hung.
+///
+/// This is a LIVENESS bound, not a latency one: the property under test is that
+/// the pool answers at all, so the only job of this number is to tell "never"
+/// apart from "eventually". It must therefore sit far above the slowest honest
+/// path, which is a COLD spawn of a fresh Python fallback worker, including
+/// interpreter startup and imports.
+///
+/// It was an unnamed `from_secs(30)`, and on 2026-07-31 a full `cargo test
+/// --workspace` run failed here while the same test passed alone in 4.6s. Thirty
+/// seconds is ample for a cold spawn on an idle box and not ample when a dozen
+/// test binaries are spawning interpreters at once, so crossing it meant "this
+/// machine is busy" at least as often as it meant "the pool deadlocked". Every
+/// other bound in this file is chosen so that exceeding it can only mean one
+/// thing; this one was not, which is why it reported load as a defect.
+///
+/// A deadlock never completes, so a generous bound costs nothing when the code
+/// is correct and stays diagnostic when it is not.
+const POST_SHUTDOWN_LIVENESS_BOUND: Duration = Duration::from_secs(180);
+
 /// After a GPU worker process is killed, the pool should handle the next
 /// dispatch gracefully: either by reconnecting to a new worker or returning
 /// a clear error.
 #[tokio::test]
-async fn gpu_dispatch_after_warmup_shutdown_spawns_fallback() {
+async fn gpu_dispatch_after_pre_scale_shutdown_spawns_fallback() {
     let python = require_python!();
     let pool = test_pool(python);
 
-    // Warmup creates a TCP daemon worker.
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    // Pre-scale creates the shared GPU worker.
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     // First dispatch should work.
     let request = gpu_execute_request("before-shutdown");
@@ -565,14 +634,17 @@ async fn gpu_dispatch_after_warmup_shutdown_spawns_fallback() {
     // The critical property: it must NOT hang forever.
     let request = gpu_execute_request("after-shutdown");
     let result = tokio::time::timeout(
-        std::time::Duration::from_secs(30),
+        POST_SHUTDOWN_LIVENESS_BOUND,
         pool.dispatch_execute_v2(&LanguageCode3::eng(), &request),
     )
     .await;
 
     assert!(
         result.is_ok(),
-        "dispatch after shutdown must not hang (timed out after 30s)"
+        "dispatch after shutdown must not hang (no answer within {:?}, \
+         which is far longer than a cold Python fallback spawn even under \
+         full-suite contention, so the pool is not merely slow here)",
+        POST_SHUTDOWN_LIVENESS_BOUND
     );
     // Whether the inner result is Ok or Err, both are acceptable; the point
     // is that the pool responded within the timeout instead of hanging.
@@ -635,28 +707,29 @@ async fn gpu_request_with_short_timeout_fails_cleanly() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: Default::default(),
         audio_task_timeout_s: 2, // 2-second timeout
         ..Default::default()
     });
 
-    // Warmup with delay: worker will sleep 5s before each response.
-    // We need to set the delay on the WorkerConfig used during warmup.
-    // Since warmup uses the pool's config, we need a different approach:
+    // Pre-scale with delay: worker will sleep 5s before each response.
+    // The delay lives on the WorkerConfig the pool spawns with, and pre-scale
+    // uses the pool's own config, so it needs a different approach:
     // spawn the worker manually with the delay, then dispatch to it.
     //
     // For now, test the simpler property: a request to a pool with a very
     // short timeout that the worker can't meet should fail with a timeout
     // error, not hang.
 
-    // Warmup without delay (so the worker starts).
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    // Pre-scale without delay (so the worker starts).
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     // The execute_v2 timeout for ASR tasks uses audio_task_timeout_s (2s).
     // The test-echo worker responds instantly, so this should succeed.
@@ -799,7 +872,6 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig {
             gpu_thread_pool_size: 1,
             ..Default::default()
@@ -809,12 +881,14 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
         ..Default::default()
     });
 
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     let n = 8;
     let mut handles = Vec::new();
@@ -933,7 +1007,6 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
         test_delay_ms: 60_000,
         max_workers_per_key: PerProfile::uniform(1),
         verbose: 0,
-        engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig {
             gpu_thread_pool_size: 1,
             ..Default::default()
@@ -942,12 +1015,14 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
         ..Default::default()
     }));
 
-    pool.warmup(&[batchalign::server::WarmupTarget {
-        command: ReleasedCommand::Transcribe,
-        lang: WorkerLanguage::from(LanguageCode3::eng()),
-    }])
-    .await;
-    pool.mark_warmup_complete();
+    pool.pre_scale_for_request(
+        ReleasedCommand::Transcribe,
+        WorkerLanguage::from(LanguageCode3::eng()),
+        1,
+        &gpu_execute_request("pre-scale-key"),
+    )
+    .await
+    .expect("ASR is a dispatchable task");
 
     let job_id = JobId::from("kill-in-flight-test".to_string());
     let request = gpu_execute_request("slow-call");
@@ -962,7 +1037,7 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     let pre_dispatch_workers = pool.worker_summary_entries().await;
     assert!(
         !pre_dispatch_workers.is_empty(),
-        "warmup must have spawned at least one worker for the dispatch to use"
+        "pre-scale must have spawned at least one worker for the dispatch to use"
     );
 
     // Spawn the slow dispatch under a CURRENT_JOB_ID scope so the
@@ -1001,8 +1076,8 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // `get_or_create_gpu_worker(...).await` returns. So a long wait here means
     // one of:
     //
-    //   (a) the dispatch resolved a DIFFERENT worker key than warmup did, so it
-    //       is spawning a Python worker from scratch, and this is a
+    //   (a) the dispatch resolved a DIFFERENT worker key than pre-scale used,
+    //       so it is spawning a Python worker from scratch, and this is a
     //       spawn-under-load wait, not a wiring bug;
     //   (b) registration genuinely never happens (a real wiring bug); or
     //   (c) the spawn has not started a process at all, because it is queued at
@@ -1024,12 +1099,16 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // (one permit, held until a worker reports ready) alongside every other
     // test binary running under full-suite load, and then paying Python
     // startup. Per-key coordination leaves that serialization untouched by
-    // design. So if this fails again, the honest next questions are why warmup
-    // warms a key this dispatch does not resolve to, and whether a 30s
-    // registration bound can coexist with a 30s ready timeout on a saturated
-    // host, NOT the pool's locking, which has now been fixed for its own
-    // (real, separate) reasons.
-    let max_wait = Duration::from_secs(30);
+    // design.
+    //
+    // RESOLVED, 2026-07-30: cause (a) was real and is now fixed at its source.
+    // This test pre-scales via `pre_scale_for_request`, which derives the
+    // engine-override key from the request itself rather than from the pool's
+    // empty default, so the pre-spawned worker is the one dispatch resolves to
+    // and there is no spawn to wait on. The binary went green and got faster.
+    // Cause (a) is now unreachable by construction here, so if this fails
+    // again it is (b) or (c), and never the bound.
+    let max_wait = WARM_WORKER_APPEARS;
     loop {
         if !pool.workers_for_job(&job_id).is_empty() {
             break;
@@ -1055,11 +1134,12 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
                  \x20 dispatch task finished: {dispatch_finished}\n\
                  \x20 free global spawn permits: {free_spawn_permits}\n\
                  A pid appearing means cause (a): the dispatch resolved a key \
-                 warmup had not warmed, and spent the wait spawning that \
+                 pre-scale did not spawn, and spent the wait spawning that \
                  worker, queued behind the process-global spawn semaphore. \
                  That is NOT the pool's map locking (already fixed, and this \
-                 test is the map's only user here); ask why warmup warmed a \
-                 key this dispatch does not resolve to. Not this bound.\n\
+                 test is the map's only user here); these tests pre-scale via \
+                 pre_scale_for_request, so the two keys come from one \
+                 derivation and cannot differ. Not this bound.\n\
                  No new pid AND zero free spawn permits means cause (c), the \
                  one this note originally missed: the spawn is queued at \
                  memory_guard's process-global permit (one, held until a worker \
@@ -1082,7 +1162,7 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // Fire the cancel-driven worker kill.
     //
     // Time the property FROM HERE. The assertion below is about kill-to-unwind
-    // latency, and `dispatch_start` predates the spawn, the warmup handshake
+    // latency, and `dispatch_start` predates the spawn, the worker handshake
     // and the registration poll loop, which is itself allowed a deliberately
     // generous 30s. Measuring from `dispatch_start` therefore folded up to a
     // full CANCEL_UNWIND_BOUND of unrelated setup into a CANCEL_UNWIND_BOUND
@@ -1153,6 +1233,25 @@ const SLOW_INTERPRETER_HANG: Duration = Duration::from_secs(60);
 /// The pool's ready timeout for the test below: how long the cold key's spawn
 /// occupies the pool before failing.
 const SLOW_KEY_READY_TIMEOUT_S: u64 = 20;
+
+/// How long the pre-spawned warm worker may take to become visible.
+///
+/// Named for consistency with every other bound in this file. The panic it
+/// guards already enumerates its causes and says outright that (c) is "the
+/// machine is the bottleneck", so this one met the convention through its
+/// message before it had a name.
+const WARM_WORKER_APPEARS: Duration = Duration::from_secs(30);
+
+/// How long to let the cold dispatch run before asserting it has reached the
+/// spawn and is holding the permit.
+///
+/// SETUP, not the property: it decides whether the race under test is actually
+/// happening. That makes it the load-sensitive one to watch, because the cold
+/// dispatch queues behind a process-global spawn semaphore with a single
+/// permit, so under full-suite load it can still be waiting here. If the
+/// assertion below it starts passing for the wrong reason, this is the number
+/// that let it.
+const COLD_DISPATCH_REACHES_SPAWN: Duration = Duration::from_millis(1_500);
 
 /// How long a dispatch to an ALREADY-WARM key may take while another key is
 /// cold-spawning. Generously above the ~milliseconds a test-echo round trip
@@ -1235,7 +1334,6 @@ async fn a_cold_spawn_for_one_key_does_not_block_dispatch_to_a_warm_key() {
         test_echo: true,
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
-        engine_overrides: String::new(),
         worker_registry_path: test_state_dir().join("workers.json").display().to_string(),
         runtime: WorkerRuntimeConfig {
             state_dir: Some(test_state_dir().to_path_buf()),
@@ -1243,7 +1341,6 @@ async fn a_cold_spawn_for_one_key_does_not_block_dispatch_to_a_warm_key() {
         },
         ..Default::default()
     }));
-    pool.mark_warmup_complete();
 
     // Warm the English key by using it. The shim is the real interpreter for
     // every language but the cold one, so this is an ordinary test-echo worker.
@@ -1264,7 +1361,7 @@ async fn a_cold_spawn_for_one_key_does_not_block_dispatch_to_a_warm_key() {
 
     // Give the cold dispatch time to reach the spawn. Anything it does before
     // that point is irrelevant to the property.
-    tokio::time::sleep(Duration::from_millis(1_500)).await;
+    tokio::time::sleep(COLD_DISPATCH_REACHES_SPAWN).await;
     assert!(
         !cold.is_finished(),
         "the cold spawn must still be in flight for this test to mean anything; \
@@ -1341,7 +1438,6 @@ async fn concurrent_callers_at_a_cold_key_spawn_exactly_one_worker() {
     // sees only this test's workers.
     let lang = LanguageCode3::deu();
     let pool = std::sync::Arc::new(test_pool(python));
-    pool.mark_warmup_complete();
 
     assert_eq!(
         worker_children_for_lang(&lang),

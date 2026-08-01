@@ -550,41 +550,6 @@ fn parse_serve_start_python() {
             assert!(args.port.is_none());
             assert!(args.host.is_none());
             assert!(!args.test_echo);
-            assert!(args.warmup.is_none());
-        } else {
-            panic!("expected Start");
-        }
-    } else {
-        panic!("expected Serve");
-    }
-}
-
-#[test]
-fn parse_serve_start_warmup_preset() {
-    let cli = Cli::parse_from(["batchalign3", "serve", "start", "--warmup", "minimal"]);
-    if let Commands::Serve(s) = &cli.command {
-        if let ServeAction::Start(args) = &s.action {
-            assert_eq!(args.warmup.as_deref(), Some("minimal"));
-        } else {
-            panic!("expected Start");
-        }
-    } else {
-        panic!("expected Serve");
-    }
-}
-
-#[test]
-fn parse_serve_start_warmup_explicit_commands() {
-    let cli = Cli::parse_from([
-        "batchalign3",
-        "serve",
-        "start",
-        "--warmup",
-        "align,morphotag",
-    ]);
-    if let Commands::Serve(s) = &cli.command {
-        if let ServeAction::Start(args) = &s.action {
-            assert_eq!(args.warmup.as_deref(), Some("align,morphotag"));
         } else {
             panic!("expected Start");
         }
@@ -1832,11 +1797,9 @@ fn build_options_engine_overrides_multiple_commands() {
     }
 }
 
-// CLI → typed options → worker-JSON round-trip for engine-override
-// extras (per-engine knobs like ``qwen_model`` / ``qwen_device``).
-// The Python worker reads these by name from the engine_overrides
-// dict; if the Rust schema drops them at deserialize time, the worker
-// never sees the operator's choice.
+// CLI parsing retains per-engine extras (for example, `qwen_model` and
+// `qwen_device`) in the typed command options. The pool serializes that typed
+// value only at the Python worker boundary.
 
 #[test]
 fn engine_overrides_accept_qwen_model_and_device_extras() {
@@ -1852,19 +1815,13 @@ fn engine_overrides_accept_qwen_model_and_device_extras() {
 
     assert_eq!(overrides.asr, Some(AsrEngineName::HkQwen));
 
-    // The wire format the Python worker sees MUST preserve the
-    // extras: load_qwen_asr reads qwen_model / qwen_device out of
-    // the engine_overrides dict by name.
-    let json = overrides.to_json_string();
-    assert!(
-        json.contains("\"qwen_model\":\"Qwen/Qwen3-ASR-0.6B\""),
-        "qwen_model lost on round-trip; worker won't see it. \
-         engine_overrides JSON was: {json}"
+    assert_eq!(
+        overrides.extras.get("qwen_model").map(String::as_str),
+        Some("Qwen/Qwen3-ASR-0.6B")
     );
-    assert!(
-        json.contains("\"qwen_device\":\"cuda\""),
-        "qwen_device lost on round-trip; worker won't see it. \
-         engine_overrides JSON was: {json}"
+    assert_eq!(
+        overrides.extras.get("qwen_device").map(String::as_str),
+        Some("cuda")
     );
 }
 
@@ -1875,19 +1832,18 @@ fn engine_overrides_accept_qwen_model_and_device_extras() {
 // "whisper_fa" / "cantonese_fa"), which the Python worker's
 // `resolve_fa_engine()` rejects. Every worker spawned for capability
 // discovery died before its ready signal and the job failed with
-// "Failed to bootstrap live worker capabilities". Both worker-facing
-// serializations, capability discovery (`engine_overrides_json`) and
-// pre-scale (`dispatch_engine_overrides_json`), must emit the dispatch
-// override names the worker accepts, for every accepted user spelling.
+// "Failed to bootstrap live worker capabilities". CLI parsing must normalize
+// every accepted spelling into the one typed FA selection; the pool owns the
+// sole worker-boundary serialization.
 #[test]
-fn user_fa_override_reaches_worker_under_dispatch_name() {
-    for (user_spelling, dispatch_name) in [
-        ("wav2vec_canto", "wav2vec_canto"),
-        ("cantonese_fa", "wav2vec_canto"),
-        ("wav2vec_fa_canto", "wav2vec_canto"),
-        ("wave2vec", "wave2vec"),
-        ("wav2vec_fa", "wave2vec"),
-        ("whisper_fa", "whisper"),
+fn user_fa_override_normalizes_to_typed_selection() {
+    for (user_spelling, expected_engine) in [
+        ("wav2vec_canto", FaEngineName::Wav2vecCanto),
+        ("cantonese_fa", FaEngineName::Wav2vecCanto),
+        ("wav2vec_fa_canto", FaEngineName::Wav2vecCanto),
+        ("wave2vec", FaEngineName::Wave2Vec),
+        ("wav2vec_fa", FaEngineName::Wave2Vec),
+        ("whisper_fa", FaEngineName::Whisper),
     ] {
         let overrides_arg = format!(r#"{{"fa": "{user_spelling}"}}"#);
         let cli = Cli::parse_from([
@@ -1898,42 +1854,10 @@ fn user_fa_override_reaches_worker_under_dispatch_name() {
             "corpus/",
         ]);
         let opts = build_typed_options(&cli.command, &cli.global).unwrap();
-        let expected = format!(r#"{{"fa":"{dispatch_name}"}}"#);
         assert_eq!(
-            opts.dispatch_engine_overrides_json(),
-            expected,
-            "pre-scale dispatch JSON for user spelling {user_spelling:?}"
-        );
-        assert_eq!(
-            opts.common().engine_overrides_json(),
-            expected,
-            "capability-discovery JSON for user spelling {user_spelling:?}"
-        );
-    }
-}
-
-// Companion to the FA regression above: user-supplied ASR overrides with
-// per-engine extras must keep both the engine name and the extras when
-// serialized for the worker boundary (the 2026-05-27 `qwen_model` lesson),
-// under the dispatch naming scheme.
-#[test]
-fn user_asr_override_with_extras_reaches_worker_intact() {
-    let cli = Cli::parse_from([
-        "batchalign3",
-        "--engine-overrides",
-        r#"{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B"}"#,
-        "transcribe",
-        "audio/",
-    ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
-    for json in [
-        opts.dispatch_engine_overrides_json(),
-        opts.common().engine_overrides_json(),
-    ] {
-        assert!(json.contains(r#""asr":"qwen""#), "engine name lost: {json}");
-        assert!(
-            json.contains(r#""qwen_model":"Qwen/Qwen3-ASR-0.6B""#),
-            "extras lost: {json}"
+            opts.common().engine_overrides.fa,
+            Some(expected_engine),
+            "typed FA selection for user spelling {user_spelling:?}"
         );
     }
 }
@@ -1954,10 +1878,9 @@ fn engine_overrides_extras_survive_without_asr_field() {
 
     assert_eq!(overrides.asr, None);
     assert!(!overrides.is_empty(), "extras alone count as non-empty");
-    let json = overrides.to_json_string();
     assert!(
-        json.contains("\"qwen_model\":\"Qwen/Qwen3-ASR-0.6B\""),
-        "qwen_model lost on round-trip. engine_overrides JSON was: {json}"
+        overrides.extras.contains_key("qwen_model"),
+        "qwen_model extra was dropped at the typed CLI boundary"
     );
 }
 

@@ -54,9 +54,6 @@ media_mappings:
 default_lang: spa
 port: 9000
 max_concurrent_jobs: 4
-warmup_commands:
-  - morphotag
-  - align
 auto_daemon: true
 "#;
     let cfg: ServerConfig = serde_yaml::from_str(yaml).unwrap();
@@ -69,7 +66,6 @@ auto_daemon: true
     assert_eq!(cfg.default_lang, "spa");
     assert_eq!(cfg.port, 9000);
     assert_eq!(cfg.max_concurrent_jobs, Some(4));
-    assert_eq!(cfg.warmup_commands, vec!["morphotag", "align"]);
     assert!(cfg.auto_daemon);
 }
 

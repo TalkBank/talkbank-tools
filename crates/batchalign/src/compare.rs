@@ -23,8 +23,8 @@ use crate::error::ServerError;
 use crate::params::MorphosyntaxParams;
 use crate::text_batch::TextBatchFileInput;
 use batchalign_transform::compare::{
-    ComparisonBundle, clear_comparison, compare, format_metrics_csv, inject_comparison,
-    project_gold_structurally,
+    ComparisonBundle, GoldCoverage, clear_comparison, compare, format_metrics_csv,
+    inject_comparison, project_gold_structurally,
 };
 use batchalign_transform::parse::parse_lenient;
 use batchalign_transform::serialize::to_chat_string;
@@ -72,13 +72,16 @@ fn build_comparison_artifacts_from_morphotagged_main(
         );
     }
 
-    let bundle = compare(&main_file, &gold_file);
+    // A `FILE.gold.cha` companion is a re-transcription of the same recording,
+    // so main material it does not account for is genuinely unmatched output.
+    let bundle = compare(&main_file, &gold_file, GoldCoverage::Complete);
 
     info!(
         matches = bundle.metrics.matches,
         insertions = bundle.metrics.insertions,
         deletions = bundle.metrics.deletions,
         wer = %format!("{:.4}", bundle.metrics.wer),
+        cwer = %format!("{:.4}", bundle.metrics.cwer),
         "Compare alignment complete"
     );
 
@@ -385,7 +388,7 @@ mod tests {
         let gold = make_chat(&[("PAR", "hello world today .")]);
         let (main_file, _) = parse_lenient(&parser, &main);
         let (gold_file, _) = parse_lenient(&parser, &gold);
-        let bundle = compare(&main_file, &gold_file);
+        let bundle = compare(&main_file, &gold_file, GoldCoverage::Complete);
 
         let output = materialize_released(ComparisonArtifacts {
             main_file,
@@ -409,7 +412,7 @@ mod tests {
         let gold = make_chat(&[("PAR", "hello world today .")]);
         let (main_file, _) = parse_lenient(&parser, &main);
         let (gold_file, _) = parse_lenient(&parser, &gold);
-        let bundle = compare(&main_file, &gold_file);
+        let bundle = compare(&main_file, &gold_file, GoldCoverage::Complete);
 
         let output = materialize_main_annotated(ComparisonArtifacts {
             main_file,
@@ -437,7 +440,7 @@ mod tests {
         let gold = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tPAR Participant\n@ID:\teng|test|PAR|||||Participant|||\n*PAR:\thello world .\n@End\n";
         let (main_file, _) = parse_lenient(&parser, main);
         let (gold_file, _) = parse_lenient(&parser, gold);
-        let bundle = compare(&main_file, &gold_file);
+        let bundle = compare(&main_file, &gold_file, GoldCoverage::Complete);
 
         let output = materialize_released(ComparisonArtifacts {
             main_file,
@@ -459,7 +462,7 @@ mod tests {
         let gold = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tPAR Participant\n@ID:\teng|test|PAR|||||Participant|||\n*PAR:\thello world .\n@End\n";
         let (main_file, _) = parse_lenient(&parser, main);
         let (gold_file, _) = parse_lenient(&parser, gold);
-        let bundle = compare(&main_file, &gold_file);
+        let bundle = compare(&main_file, &gold_file, GoldCoverage::Complete);
 
         let output = materialize_released(ComparisonArtifacts {
             main_file,

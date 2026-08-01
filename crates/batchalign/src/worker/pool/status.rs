@@ -12,13 +12,14 @@
 use std::sync::atomic::Ordering;
 
 use crate::api::{ReleasedCommand, WorkerLanguage};
-use crate::worker::WorkerTarget;
+use crate::options::CommandOptions;
 
 use super::gpu_slot::GpuSlotState;
-use super::{WorkerPool, lock_recovered};
+use super::{WorkerKey, WorkerPool, lock_recovered};
 
 impl WorkerPool {
-    /// Check if there are idle workers for a given `(command, lang)` key.
+    /// Check if an idle worker exists for the exact key derived from command
+    /// options.
     ///
     /// Used by the memory gate to skip the system memory check when reusable
     /// workers already exist -- those workers are already loaded, so no new
@@ -27,19 +28,21 @@ impl WorkerPool {
         &self,
         command: ReleasedCommand,
         lang: impl Into<WorkerLanguage>,
+        options: &CommandOptions,
     ) -> bool {
-        let lang = lang.into();
-        let target =
-            WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode);
+        let key = WorkerKey::from_command_options(
+            command,
+            lang.into(),
+            options,
+            self.config.runtime.bootstrap_mode,
+        );
 
         // GPU profile workers are always "available" (shared, concurrent).
-        if target.is_concurrent() {
+        if key.target.is_concurrent() {
             // Check TCP GPU workers first.
             {
                 let tcp_gpu_workers = self.gpu_tcp_workers.lock().await;
-                if tcp_gpu_workers.keys().any(|(group_target, group_lang, _)| {
-                    group_target == &target && group_lang == &lang
-                }) {
+                if tcp_gpu_workers.contains_key(&key) {
                     return true;
                 }
             }
@@ -50,21 +53,14 @@ impl WorkerPool {
             // deliberately.
             let gpu_workers = self.gpu_workers.lock().await;
             return gpu_workers
-                .iter()
-                .any(|((group_target, group_lang, _), slot)| {
-                    group_target == &target
-                        && group_lang == &lang
-                        && matches!(slot.state(), GpuSlotState::Ready(_))
-                });
+                .get(&key)
+                .is_some_and(|slot| matches!(slot.state(), GpuSlotState::Ready(_)));
         }
 
         // Sequential groups use std::sync::Mutex, scope the guard so it
         // does not live across any .await (MutexGuard is !Send).
         let groups = lock_recovered(&self.groups);
-        groups.iter().any(|((group_target, group_lang, _), group)| {
-            if *group_target != target || group_lang != &lang {
-                return false;
-            }
+        groups.get(&key).is_some_and(|group| {
             !lock_recovered(&group.idle).is_empty()
                 || !lock_recovered(&group.tcp_workers).is_empty()
         })
@@ -107,17 +103,18 @@ impl WorkerPool {
             let groups = lock_recovered(&self.groups);
             groups
                 .iter()
-                .map(|((target, lang, engine_overrides), group)| {
+                .map(|(key, group)| {
                     let total = group.total.load(Ordering::Relaxed);
                     let idle = lock_recovered(&group.idle).len();
-                    let suffix = if engine_overrides.is_empty() {
+                    let suffix = if key.engine_selection.is_none() {
                         String::new()
                     } else {
-                        format!(":{}", engine_overrides)
+                        format!(":{}", key.engine_selection)
                     };
                     format!(
-                        "{}:{lang}{suffix} ({total} total, {idle} idle)",
-                        target.label()
+                        "{}:{}{suffix} ({total} total, {idle} idle)",
+                        key.target.label(),
+                        key.language,
                     )
                 })
                 .collect()
@@ -130,31 +127,36 @@ impl WorkerPool {
             // wants to see; a key that silently appears minutes later reads as
             // the server having done nothing.
             let gpu_workers = self.gpu_workers.lock().await;
-            for ((target, lang, engine_overrides), slot) in gpu_workers.iter() {
-                let suffix = if engine_overrides.is_empty() {
+            for (key, slot) in gpu_workers.iter() {
+                let suffix = if key.engine_selection.is_none() {
                     String::new()
                 } else {
-                    format!(":{}", engine_overrides)
+                    format!(":{}", key.engine_selection)
                 };
                 let state = match slot.state() {
                     GpuSlotState::Ready(_) => "1 total, shared",
                     GpuSlotState::Spawning => "spawning",
                 };
-                keys.push(format!("{}:{lang}{suffix} ({state})", target.label()));
+                keys.push(format!(
+                    "{}:{}{suffix} ({state})",
+                    key.target.label(),
+                    key.language,
+                ));
             }
         }
 
         {
             let tcp_gpu_workers = self.gpu_tcp_workers.lock().await;
-            for (target, lang, engine_overrides) in tcp_gpu_workers.keys() {
-                let suffix = if engine_overrides.is_empty() {
+            for key in tcp_gpu_workers.keys() {
+                let suffix = if key.engine_selection.is_none() {
                     String::new()
                 } else {
-                    format!(":{}", engine_overrides)
+                    format!(":{}", key.engine_selection)
                 };
                 keys.push(format!(
-                    "{}:{lang}{suffix} (1 total, tcp-shared)",
-                    target.label()
+                    "{}:{}{suffix} (1 total, tcp-shared)",
+                    key.target.label(),
+                    key.language,
                 ));
             }
         }
@@ -229,10 +231,10 @@ impl WorkerPool {
 
         {
             let tcp_gpu_workers = self.gpu_tcp_workers.lock().await;
-            for ((target, lang, _engine_overrides), worker) in tcp_gpu_workers.iter() {
+            for (key, worker) in tcp_gpu_workers.iter() {
                 entries.push(WorkerSummaryEntry {
-                    profile: target.label().to_string().to_string(),
-                    lang: lang.to_string(),
+                    profile: key.target.label().to_string(),
+                    lang: key.language.to_string(),
                     pid: worker.pid(),
                     transport: WorkerTransport::Tcp,
                     concurrent: true,

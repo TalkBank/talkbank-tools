@@ -450,11 +450,6 @@ fn draw_metrics(f: &mut Frame, state: &AppState, area: Rect) {
         }
     }
 
-    worker_spans.push(Span::styled(
-        format!("    Warmup: {}", health.warmup_status),
-        Style::default().fg(Color::DarkGray),
-    ));
-
     // Show operational counters when nonzero
     if health.worker_crashes > 0 {
         worker_spans.push(Span::styled(
@@ -777,7 +772,6 @@ mod tests {
             system_memory_available_mb: MemoryMb(100000),
             system_memory_used_mb: MemoryMb(162144),
             memory_gate_threshold_mb: MemoryMb(2048),
-            warmup_status: "complete".into(),
             host_memory_pressure: "healthy".into(),
             worker_crashes: 0,
             attempts_started: 0,
@@ -801,7 +795,6 @@ mod tests {
             system_memory_available_mb: MemoryMb(30000),
             system_memory_used_mb: MemoryMb(35536),
             memory_gate_threshold_mb: MemoryMb(2048),
-            warmup_status: "in_progress".into(),
             host_memory_pressure: "guarded".into(),
             worker_crashes: 0,
             attempts_started: 0,

@@ -29,7 +29,7 @@ mod tests {
     use super::*;
     use crate::command_model::{
         BatchingPolicy, CommandCapabilityKind, ConstrainedHostPolicy, ModelSharingPolicy,
-        ParallelismPolicy, ResourceLane, RunnerDispatchKind, SchedulingPolicy, WarmupPolicy,
+        ParallelismPolicy, ResourceLane, RunnerDispatchKind, SchedulingPolicy,
     };
     // Straight from their real home: production reaches these two only through a
     // `CatalogEntry` field or a method on it, so `command_model` has no reason to
@@ -277,7 +277,6 @@ mod tests {
         parallelism: ParallelismPolicy,
         resource_lane: ResourceLane,
         constrained_host: ConstrainedHostPolicy,
-        warmup: WarmupPolicy,
     }
 
     /// The policy vocabulary a command family implies, pinned family by family.
@@ -302,7 +301,6 @@ mod tests {
                     parallelism: ParallelismPolicy::SingleDispatchPerJob,
                     resource_lane: ResourceLane::CpuBound,
                     constrained_host: ConstrainedHostPolicy::SequentialFallback,
-                    warmup: WarmupPolicy::BackgroundEligible,
                 },
                 CommandFamily::ReferenceProjection => FamilyPolicyPin {
                     scheduling: SchedulingPolicy::ReferenceProjection,
@@ -311,7 +309,6 @@ mod tests {
                     parallelism: ParallelismPolicy::SingleDispatchPerJob,
                     resource_lane: ResourceLane::Mixed,
                     constrained_host: ConstrainedHostPolicy::SequentialFallback,
-                    warmup: WarmupPolicy::BackgroundEligible,
                 },
                 CommandFamily::AudioSequential => FamilyPolicyPin {
                     scheduling: SchedulingPolicy::PerFileAudio,
@@ -320,7 +317,6 @@ mod tests {
                     parallelism: ParallelismPolicy::BoundedFileWorkers,
                     resource_lane: ResourceLane::GpuHeavy,
                     constrained_host: ConstrainedHostPolicy::SequentialFallback,
-                    warmup: WarmupPolicy::BackgroundEligible,
                 },
                 CommandFamily::MediaAnalysis => FamilyPolicyPin {
                     scheduling: SchedulingPolicy::PerFileMediaAnalysis,
@@ -329,7 +325,6 @@ mod tests {
                     parallelism: ParallelismPolicy::BoundedFileWorkers,
                     resource_lane: ResourceLane::IoBound,
                     constrained_host: ConstrainedHostPolicy::SequentialFallback,
-                    warmup: WarmupPolicy::LazyOnDemand,
                 },
                 CommandFamily::Composite => FamilyPolicyPin {
                     scheduling: SchedulingPolicy::Composite,
@@ -338,7 +333,6 @@ mod tests {
                     parallelism: ParallelismPolicy::DelegatedToSubcommands,
                     resource_lane: ResourceLane::Mixed,
                     constrained_host: ConstrainedHostPolicy::DelegatedToSubcommands,
-                    warmup: WarmupPolicy::DelegatedToSubcommands,
                 },
             };
             let actual = FamilyPolicyPin {
@@ -348,7 +342,6 @@ mod tests {
                 parallelism: family.parallelism_policy(),
                 resource_lane: family.resource_lane(),
                 constrained_host: family.constrained_host_policy(),
-                warmup: family.warmup_policy(),
             };
             assert_eq!(actual, expected, "policy derivation for {family:?}");
             assert!(

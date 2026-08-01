@@ -1,5 +1,6 @@
 use std::cmp::Reverse;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::ops::Range;
 
 use talkbank_model::WriteChat;
 use talkbank_model::alignment::helpers::TierDomain;
@@ -11,8 +12,44 @@ use crate::wer_conform;
 
 use super::metrics::MetricAccumulator;
 use super::model::{
-    CompareStatus, CompareToken, ComparisonBundle, GoldWordMatch, UtteranceComparison,
+    CompareStatus, CompareToken, ComparisonBundle, GoldCoverage, GoldWordMatch, UtteranceComparison,
 };
+
+/// Where one token of the concatenated gold came from.
+///
+/// Named rather than a `(usize, usize)`: two same-typed indices in positional
+/// order is the shape that lets a silent swap survive review, which the
+/// workspace charter rules out at domain seams.
+#[derive(Debug, Clone, Copy)]
+struct GoldSource {
+    /// Gold utterance the token belongs to.
+    utterance: usize,
+    /// Index into the flattened gold word list.
+    word: usize,
+}
+
+/// One alignment: a main utterance, the gold utterances that mapped to it, or
+/// either one alone.
+///
+/// Phase 2 aligns units, not utterances, so that the three situations it has to
+/// cover are one situation with different inputs:
+///
+/// - both sides present: the ordinary stitch;
+/// - main alone (`gold` empty): a main utterance nothing mapped to, which
+///   `dp_align` renders as all-insertions against an empty reference;
+/// - gold alone (`main` `None`): a gold utterance phase 1 could not place,
+///   which `dp_align` renders as all-deletions against an empty hypothesis.
+///
+/// Writing the last two as their own emission loops is what let them drift
+/// apart from the first, and from each other, on the anchor rule and on the
+/// `cwer` bookkeeping.
+#[derive(Debug, Clone)]
+struct AlignmentUnit {
+    /// Main utterance being aligned, or `None` for unplaced gold.
+    main: Option<usize>,
+    /// Gold utterances concatenated into this alignment, in gold order.
+    gold: Vec<usize>,
+}
 
 #[derive(Debug, Clone)]
 struct FlattenedWordInfo {
@@ -138,31 +175,14 @@ pub(in crate::compare) fn find_best_segment(
 /// Trim a candidate window down to its majority-utterance subrange.
 ///
 /// Mirrors BA2's `Counter(window_utts).most_common(1)` followed by
-/// leading/trailing non-majority-token trim. Tiebreaker for the majority
-/// itself is **first-seen** (matches Python's `Counter`, which is
-/// insertion-ordered: `Iterator::max_by_key` would pick last-seen, the
-/// opposite). Returns `None` if the projected window is empty.
+/// leading/trailing non-majority-token trim. Returns `None` if the projected
+/// window is empty.
 fn majority_project(main_utts: &[usize], start: usize, end: usize) -> Option<(usize, usize)> {
     if start >= end {
         return None;
     }
 
-    let mut counts: Vec<(usize, usize)> = Vec::new();
-    for &utt in &main_utts[start..end] {
-        match counts.iter_mut().find(|(idx, _)| *idx == utt) {
-            Some(entry) => entry.1 += 1,
-            None => counts.push((utt, 1)),
-        }
-    }
-
-    // Strict `>` keeps first-seen as the winning utterance index on ties.
-    let majority = counts
-        .iter()
-        .fold(None::<(usize, usize)>, |best, &cur| match best {
-            Some(b) if b.1 >= cur.1 => Some(b),
-            _ => Some(cur),
-        })?
-        .0;
+    let majority = majority_utterance(&main_utts[start..end])?;
 
     let mut ts = start;
     while ts < end && main_utts[ts] != majority {
@@ -178,33 +198,37 @@ fn majority_project(main_utts: &[usize], start: usize, end: usize) -> Option<(us
     Some((ts, te))
 }
 
+/// The utterance index holding the most tokens in `utts`, first-seen on ties.
+///
+/// The single owner of BA2's majority rule, used both by [`majority_project`]
+/// (which then trims to that utterance's subrange) and by phase 1 (which turns
+/// a chosen window into the one main utterance a gold utterance maps to).
+///
+/// Ties resolve to **first-seen** because BA2's `Counter.most_common` is
+/// insertion-ordered; `Iterator::max_by_key` would pick last-seen, the
+/// opposite. Stated once, here, so the two callers cannot drift apart on it.
+fn majority_utterance(utts: &[usize]) -> Option<usize> {
+    let mut counts: Vec<(usize, usize)> = Vec::new();
+    for &utt in utts {
+        match counts.iter_mut().find(|(idx, _)| *idx == utt) {
+            Some(entry) => entry.1 += 1,
+            None => counts.push((utt, 1)),
+        }
+    }
+    counts
+        .iter()
+        .fold(None::<(usize, usize)>, |best, &cur| match best {
+            Some(b) if b.1 >= cur.1 => Some(b),
+            _ => Some(cur),
+        })
+        .map(|(utt, _)| utt)
+}
+
 fn count_alignment_matches(window: &[String], gold_tokens: &[String]) -> usize {
     dp_align::align(window, gold_tokens, MatchMode::CaseInsensitive)
         .into_iter()
         .filter(|item| matches!(item, AlignResult::Match { .. }))
         .count()
-}
-
-fn best_rotation(window_tokens: &[String], gold_tokens: &[String]) -> usize {
-    if window_tokens.len() <= 1 {
-        return 0;
-    }
-
-    let mut best_rotation = 0usize;
-    let mut best_matches = 0usize;
-    for rotation in 0..window_tokens.len() {
-        let rotated: Vec<String> = window_tokens[rotation..]
-            .iter()
-            .chain(window_tokens[..rotation].iter())
-            .cloned()
-            .collect();
-        let matches = count_alignment_matches(&rotated, gold_tokens);
-        if matches > best_matches {
-            best_matches = matches;
-            best_rotation = rotation;
-        }
-    }
-    best_rotation
 }
 
 fn token_counts(tokens: &[String]) -> HashMap<&str, usize> {
@@ -234,7 +258,11 @@ fn token_overlap(window: &[String], gold_counts: &HashMap<&str, usize>) -> usize
 /// `conform_words`, then aligned with the Hirschberg DP aligner.
 ///
 /// Returns per-utterance comparison annotations and aggregate metrics.
-pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
+pub fn compare(
+    main_file: &ChatFile,
+    gold_file: &ChatFile,
+    gold_coverage: GoldCoverage,
+) -> ComparisonBundle {
     // 1. Extract words from both files
     let main_utts = extract::extract_words(main_file, TierDomain::Mor);
     let gold_utts = extract::extract_words(gold_file, TierDomain::Mor);
@@ -267,21 +295,23 @@ pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
         gold_utt_maps[gold_utt_idx].push(orig_gold_idx);
     }
 
-    // 5. Align each gold utterance against the best local main window.
+    // 5. PHASE 1, the mapping pass.
     //
-    // Matching batchalign2-master matters more here than "fixing" its
-    // semantics: compare only aligns inside the selected window and does not
-    // surface skipped main tokens that fall outside that window as insertions.
-    let mut main_positioned: Vec<Vec<(f64, CompareToken)>> = vec![Vec::new(); main_utts.len()];
-    let mut gold_positioned: Vec<Vec<(f64, CompareToken)>> = vec![Vec::new(); gold_utts.len()];
-    let mut gold_word_matches = Vec::new();
-    let mut metrics = MetricAccumulator::default();
+    // Run the window search for each gold utterance, but use its answer ONLY
+    // to decide which main utterance that gold utterance corresponds to. The
+    // window is a bag-of-words heuristic for locating material; it is not a
+    // decision about what deserves to be scored.
+    //
+    // This is the half that used to do everything. It aligned inside the
+    // chosen window and advanced past it, so any main token the window did not
+    // select was never emitted in any status: not a match, not an insertion,
+    // not anything. Reported WER was therefore systematically lower than the
+    // truth by however many hypothesis words the windows happened to miss.
+    let mut gold_to_main: Vec<Option<usize>> = vec![None; gold_utts.len()];
     let mut search_start = 0usize;
-    let mut last_global_main_anchor: Option<(usize, usize)> = None;
 
     for gold_utt_idx in 0..gold_utts.len() {
         let g_tokens = &gold_utt_tokens[gold_utt_idx];
-        let g_maps = &gold_utt_maps[gold_utt_idx];
         if g_tokens.is_empty() {
             continue;
         }
@@ -292,37 +322,142 @@ pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
         let abs_start = search_start + win_start;
         let abs_end = search_start + win_end;
 
-        let window_main = &conformed_main[abs_start..abs_end];
-        let window_len = window_main.len();
-        let rotation = best_rotation(window_main, g_tokens);
-        let rotated_window: Vec<String> = if rotation == 0 {
-            window_main.to_vec()
-        } else {
-            window_main[rotation..]
-                .iter()
-                .chain(window_main[..rotation].iter())
-                .cloned()
-                .collect()
+        if abs_end > abs_start {
+            gold_to_main[gold_utt_idx] =
+                majority_utterance(&conformed_main_utts[abs_start..abs_end]);
+        }
+
+        // Advance past the window so a later gold utterance cannot re-consume
+        // main tokens an earlier one already claimed. The cursor still matters
+        // for MAPPING even though it no longer bounds what gets aligned.
+        search_start = abs_end;
+    }
+
+    // 6. PHASE 2, the stitch.
+    //
+    // One alignment per main utterance, over that utterance's FULL conformed
+    // token span, against the concatenated gold tokens of every gold utterance
+    // that mapped to it. Every main token now sits inside exactly one such
+    // span, so a token the window missed surfaces as an insertion instead of
+    // disappearing.
+    //
+    // No rotation here. Rotation existed to re-phase a window that had been
+    // cut at an arbitrary offset; aligning a whole utterance has no such
+    // offset, and rotating one would scramble real token order.
+    let mut main_to_gold: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for (gold_utt_idx, mapped) in gold_to_main.iter().enumerate() {
+        if let Some(main_idx) = mapped {
+            main_to_gold
+                .entry(*main_idx)
+                .or_default()
+                .push(gold_utt_idx);
+        }
+    }
+
+    // Each main utterance's conformed tokens as a contiguous span.
+    //
+    // `flatten_words` walks utterances in order and `conform_with_mapping`
+    // expands each word in place, so `conformed_main_utts` is non-decreasing
+    // and one utterance's tokens are always adjacent. That makes a span of two
+    // indices enough, where a per-utterance index vector would be a heap
+    // allocation per utterance holding what `start..end` already says. The
+    // invariant is asserted rather than assumed, in the style
+    // `find_best_segment` uses for its own parallel-array precondition.
+    let mut main_utt_spans: Vec<Range<usize>> = vec![0..0; main_utts.len()];
+    for (conformed_idx, &utt_idx) in conformed_main_utts.iter().enumerate() {
+        let Some(span) = main_utt_spans.get_mut(utt_idx) else {
+            continue;
         };
-        let default_main_anchor = (window_len > 0)
-            .then(|| main_map[abs_start + rotation % window_len])
-            .map(|orig_idx| {
-                let info = &main_info[orig_idx];
-                (info.utterance_index, info.word_position)
-            });
-        let utt_alignment = dp_align::align(&rotated_window, g_tokens, MatchMode::CaseInsensitive);
+        if span.start == span.end {
+            *span = conformed_idx..conformed_idx + 1;
+        } else {
+            debug_assert_eq!(
+                span.end, conformed_idx,
+                "conformed main tokens of one utterance must be contiguous",
+            );
+            span.end = conformed_idx + 1;
+        }
+    }
+
+    let mut main_positioned: Vec<Vec<(f64, CompareToken)>> = vec![Vec::new(); main_utts.len()];
+    let mut gold_positioned: Vec<Vec<(f64, CompareToken)>> = vec![Vec::new(); gold_utts.len()];
+    let mut gold_word_matches = Vec::new();
+    let mut metrics = MetricAccumulator::default();
+    let mut last_global_main_anchor: Option<(usize, usize)> = None;
+
+    // Every alignment the file needs, in one list.
+    //
+    // Main utterances in index order (each with the gold that mapped to it,
+    // possibly none), then the gold utterances nothing could place. Under
+    // `GoldCoverage::Partial` a main utterance with no gold is dropped here,
+    // which is the whole of what `Partial` means: a filter on the unit list
+    // rather than a branch wrapped around a duplicated emission block.
+    let mut units: Vec<AlignmentUnit> = Vec::new();
+    for main_idx in 0..main_utts.len() {
+        let gold = main_to_gold.get(&main_idx).cloned().unwrap_or_default();
+        if gold.is_empty() && gold_coverage == GoldCoverage::Partial {
+            continue;
+        }
+        units.push(AlignmentUnit {
+            main: Some(main_idx),
+            gold,
+        });
+    }
+    units.extend(
+        gold_to_main
+            .iter()
+            .enumerate()
+            .filter(|(_, mapped)| mapped.is_none())
+            .map(|(gold_utt_idx, _)| AlignmentUnit {
+                main: None,
+                gold: vec![gold_utt_idx],
+            }),
+    );
+
+    for unit in &units {
+        let main_span = unit
+            .main
+            .map_or(0..0, |main_idx| main_utt_spans[main_idx].clone());
+        let main_tokens = &conformed_main[main_span.clone()];
+
+        // Concatenated gold, with a parallel map back to the gold utterance and
+        // word each token came from, so an aligned gold token still knows its
+        // origin once several utterances have been joined. Parallel rather than
+        // one vector of pairs because `dp_align::align` wants a `&[String]`.
+        let mut gold_tokens: Vec<String> = Vec::new();
+        let mut gold_sources: Vec<GoldSource> = Vec::new();
+        for &gold_utt_idx in &unit.gold {
+            for (within, token) in gold_utt_tokens[gold_utt_idx].iter().enumerate() {
+                gold_tokens.push(token.clone());
+                gold_sources.push(GoldSource {
+                    utterance: gold_utt_idx,
+                    word: gold_utt_maps[gold_utt_idx][within],
+                });
+            }
+        }
+
+        // `Some` for any unit with a main utterance; `None` for a gold-only
+        // unit, which is why the anchor chain below still needs its last arm.
+        let default_main_anchor = main_tokens.first().map(|_| {
+            let info = &main_info[main_map[main_span.start]];
+            (info.utterance_index, info.word_position)
+        });
+
+        let alignment = dp_align::align(main_tokens, &gold_tokens, MatchMode::CaseInsensitive);
         let mut local_main_cursor = 0usize;
         let mut local_gold_cursor = 0usize;
         let mut last_gold_word_position: Option<usize> = None;
         let mut local_main_anchor: Option<(usize, usize)> = None;
 
-        for item in utt_alignment {
+        for item in alignment {
             match item {
                 AlignResult::Match { key, .. } => {
-                    let global_main_idx = abs_start + ((local_main_cursor + rotation) % window_len);
-                    let orig_main_idx = main_map[global_main_idx];
+                    let orig_main_idx = main_map[main_span.start + local_main_cursor];
                     let main_word = &main_info[orig_main_idx];
-                    let orig_gold_idx = g_maps[local_gold_cursor];
+                    let GoldSource {
+                        utterance: gold_utt_idx,
+                        word: orig_gold_idx,
+                    } = gold_sources[local_gold_cursor];
                     let gold_word = &gold_info[orig_gold_idx];
 
                     // BA2 (compare.py:540-550) attributes the gold form's
@@ -355,8 +490,7 @@ pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
                     local_gold_cursor += 1;
                 }
                 AlignResult::ExtraPayload { key, .. } => {
-                    let global_main_idx = abs_start + ((local_main_cursor + rotation) % window_len);
-                    let orig_main_idx = main_map[global_main_idx];
+                    let orig_main_idx = main_map[main_span.start + local_main_cursor];
                     let main_word = &main_info[orig_main_idx];
 
                     let token = CompareToken {
@@ -367,17 +501,29 @@ pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
                     metrics.record(&token);
                     main_positioned[main_word.utterance_index]
                         .push((main_word.word_position as f64, token.clone()));
-                    gold_positioned[gold_utt_idx].push((
-                        last_gold_word_position.map_or(-0.5, |pos| pos as f64 + 0.5),
-                        token,
-                    ));
+                    // Attribute the insertion to the gold utterance the
+                    // alignment had reached, falling back to the first one
+                    // mapped here when it precedes every gold token.
+                    let owning_gold = gold_sources
+                        .get(local_gold_cursor)
+                        .or_else(|| gold_sources.last())
+                        .map(|source| source.utterance);
+                    if let Some(gold_utt_idx) = owning_gold {
+                        gold_positioned[gold_utt_idx].push((
+                            last_gold_word_position.map_or(-0.5, |pos| pos as f64 + 0.5),
+                            token,
+                        ));
+                    }
 
                     local_main_anchor = Some((main_word.utterance_index, main_word.word_position));
                     last_global_main_anchor = local_main_anchor;
                     local_main_cursor += 1;
                 }
                 AlignResult::ExtraReference { key, .. } => {
-                    let orig_gold_idx = g_maps[local_gold_cursor];
+                    let GoldSource {
+                        utterance: gold_utt_idx,
+                        word: orig_gold_idx,
+                    } = gold_sources[local_gold_cursor];
                     let gold_word = &gold_info[orig_gold_idx];
 
                     let token = CompareToken {
@@ -403,10 +549,10 @@ pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
             }
         }
 
-        search_start = abs_end;
+        metrics.finish_utterance();
     }
 
-    // 6. Append the gold utterance terminator as a PUNCT token so gold-projected
+    // 7. Append the gold utterance terminator as a PUNCT token so gold-projected
     // `%xsrep` / `%xsmor` lines match batchalign2-master output shape.
     for (gold_utt_idx, terminator) in collect_utterance_terminators(gold_file)
         .into_iter()
@@ -425,7 +571,7 @@ pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
         ));
     }
 
-    // 7. Stabilize per-utterance token order.
+    // 8. Stabilize per-utterance token order.
     for tokens in &mut main_positioned {
         tokens.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
     }

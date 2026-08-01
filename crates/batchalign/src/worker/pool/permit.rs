@@ -83,9 +83,9 @@ impl SpawnPermitGuard {
 
     /// Acquire-or-skip helper for paths that *create* a worker outside
     /// `try_claim_spawn_slot` (the reaper restart, registry
-    /// discovery, warmup TCP integration). Returns `Some(guard)` to
-    /// proceed with the spawn/integration; returns `None` after
-    /// invoking `on_skip` for telemetry. The three call sites
+    /// discovery). Returns `Some(guard)` to proceed with the
+    /// spawn/integration; returns `None` after invoking `on_skip`
+    /// for telemetry. The call sites
     /// previously open-coded a near-identical match block; this
     /// consolidates the rejection handling so the "what to do when
     /// the global cap is reached" policy lives in one place.

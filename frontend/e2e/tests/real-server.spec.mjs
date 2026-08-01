@@ -157,7 +157,6 @@ async function startRealServer() {
     [
       "host: 127.0.0.1",
       `port: ${port}`,
-      "warmup_commands: []",
     ].join("\n"),
     "utf8"
   );

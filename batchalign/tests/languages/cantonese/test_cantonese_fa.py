@@ -35,6 +35,33 @@ class TestHanziToJyutping:
     def test_multi_char(self, pc_real) -> None:  # type: ignore[no-untyped-def]
         assert _hanzi_to_jyutping(pc_real, "你好") == "nei'hou"
 
+    def test_multisyllable_single_word_separates_every_syllable(self, pc_real) -> None:  # type: ignore[no-untyped-def]
+        """The case that had no test, and the one that was silently wrong.
+
+        `你好` above passes under BOTH pycantonese 4.x and 5.x, because its
+        segmenter splits it into two words and the apostrophe then falls out of
+        the word join either way. So the existing coverage could not see the
+        difference between separating syllables and separating whatever the
+        segmenter happened to split.
+
+        These words are kept as ONE word by the segmenter, so under 4.x their
+        syllables ran together (`gwongdungwaa`) despite the function promising
+        syllable separation. Pinned here because the guarantee is what the
+        aligner is handed, and it must not depend on segmenter behaviour.
+        """
+        assert _hanzi_to_jyutping(pc_real, "廣東話") == "gwong'dung'waa"
+        assert _hanzi_to_jyutping(pc_real, "香港") == "hoeng'gong"
+        assert _hanzi_to_jyutping(pc_real, "唔該") == "m'goi"
+
+    def test_separation_does_not_depend_on_segmentation(self, pc_real) -> None:  # type: ignore[no-untyped-def]
+        """Two-syllable input separates the same whether or not it is one word.
+
+        `我哋` is one segmented word and `一個` is two, and the aligner should
+        not be able to tell. This is the invariant the 4.x behaviour broke.
+        """
+        assert _hanzi_to_jyutping(pc_real, "我哋") == "ngo'dei"
+        assert _hanzi_to_jyutping(pc_real, "一個") == "jat'go"
+
     def test_unknown_char_passthrough(self, pc_real) -> None:  # type: ignore[no-untyped-def]
         assert _hanzi_to_jyutping(pc_real, "xyz") == "xyz"
 
@@ -160,7 +187,7 @@ class TestInferCantoneseFa:
 
         assert resp.results[0].error == "Invalid FaInferItem"
 
-    def test_runtime_failures_fall_back_to_empty_timings(self) -> None:
+    def test_runtime_failures_are_reported_as_item_errors(self) -> None:
         class _FakeAudioFile:
             def chunk(self, _start_ms: int, _end_ms: int):
                 return object()
@@ -189,8 +216,8 @@ class TestInferCantoneseFa:
             host=host,
         )
 
-        assert resp.results[0].error is None
-        assert resp.results[0].result["indexed_timings"] == []
+        assert resp.results[0].result is None
+        assert resp.results[0].error == "Cantonese FA inference failed: alignment failed"
 
 
 def test_load_cantonese_fa_reports_missing_dependency(monkeypatch) -> None:

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-07-30 10:37 EDT
+**Last modified:** 2026-07-31 07:52 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -83,6 +83,43 @@ never semver. Releases are GitHub Releases (uv-bootstrap installer +
 abi3 wheels), **never PyPI**. Release workflow:
 `.github/workflows/batchalign-release.yml` (tag push or
 workflow_dispatch with dry_run).
+
+## Type-Oriented Design Is Mandatory
+
+**Every change to this workspace follows type-oriented design: make illegal
+states unrepresentable, and make transitions between well-defined states
+explicit.** This governs new code, changes to existing code, and the design
+notes that precede either. The cross-cutting rules in the next section are
+instances of it, not alternatives to it.
+
+**The principle behind the principle: an affordance beats a rule.** A
+prohibition written in a guidance file loses to a type signature that makes the
+forbidden thing the natural thing to write. Worked example from this workspace:
+"judge staleness by build identity, never semver" was documented in two places
+and still mis-applied, because the type carried a version field beside the build
+id and made the wrong comparison easy. The fix was not a louder warning; it was
+a type that carries a commit and no version, so the wrong comparison has no
+signature to travel through.
+
+**Four shapes to recognise before writing the bug:**
+
+- **A value proxies for a richer fact, and the two drift.** Cure: derive it from
+  the fact rather than mirroring the fact.
+- **A sentinel is also a legal value** (a zero that means "unset" but is also a
+  real measurement; a `Default` that fabricates a fact only the caller knows).
+  Cure: a variant, an `Option`, or no `Default` at all.
+- **A total function silently discards information** (a parse that throws away
+  the model it built; a traversal that skips what its map does not mention).
+  Cure: return the information; make the lossy path the explicit one.
+- **Knowledge duplicated with no owner**, held together by a contract test. Cure:
+  one owner, then delete the test that existed only to detect the drift.
+
+**Decision test, before writing any type:** name a wrong value it permits, and
+ask what would notice. If the answer is a reviewer, a comment or a doc, the type
+is wrong. If the answer is the compiler, it is right.
+
+This is not a licence to rewrite. Apply it to what you touch and to new design;
+existing violations get fixed when work brings you to them.
 
 ## Cross-Cutting Design Rules
 

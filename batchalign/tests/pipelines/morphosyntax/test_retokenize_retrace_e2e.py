@@ -47,7 +47,6 @@ def test_morphotag_retokenize_with_retrace_succeeds() -> None:
                 "morphotag", "--retokenize",
                 str(input_path),
                 "-o", str(output_dir),
-                "--lang", "yue",
             ],
             capture_output=True,
             text=True,

@@ -1,7 +1,7 @@
 # Web Dashboard
 
 **Status:** Current
-**Last updated:** 2026-05-11 10:55 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 The batchalign3 web dashboard is a real-time monitoring interface for watching
 job progress, inspecting worker state, and tracking system resource usage.
@@ -144,10 +144,6 @@ Shows the three worker profiles and their current state:
 - Lightweight API/library calls (translation, audio analysis)
 - Usually 1 process per language
 - Commands served: translate, opensmile, avqi
-
-### Warmup Status
-If the server is still loading models on startup, a blue spinner shows
-"Warming up models..." until complete.
 
 ## Memory Panel
 

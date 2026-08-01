@@ -112,7 +112,12 @@ def test_infer_funaudio_asr_requires_loaded_recognizer(monkeypatch) -> None:
 
     response = funaudio_asr.infer_funaudio_asr(_valid_request())
 
-    assert response.results[0].error == "FunAudio ASR not loaded, call load_funaudio_asr first"
+    # Compared against the module's own constant, not a second copy of the
+    # sentence. What this test is for is that the not-loaded path reports THAT
+    # error rather than some other one; the wording is not the behaviour, and
+    # pinning it here is what let a punctuation edit fail a test about model
+    # loading.
+    assert response.results[0].error == funaudio_asr.NOT_LOADED_ERROR
 
 
 def test_infer_funaudio_asr_rejects_invalid_items(monkeypatch) -> None:

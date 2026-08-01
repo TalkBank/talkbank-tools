@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-07-30 07:34 EDT
+**Last updated:** 2026-07-30 18:21 EDT
 
 This page documents the current public `batchalign3` CLI surface. For anything
 you are scripting against, confirm with `batchalign3 <command> --help`.
@@ -223,7 +223,6 @@ batchalign3 serve stop
 | `--python PATH` | Worker Python executable |
 | `--foreground` | Do not daemonize |
 | `--test-echo` | Start test-echo workers |
-| `--warmup VALUE` | Warmup preset (`off`, `minimal`, `full`) or comma-separated command list (e.g. `align,morphotag`) |
 
 ### `jobs`
 

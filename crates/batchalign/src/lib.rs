@@ -216,10 +216,7 @@ pub(crate) mod websocket;
 pub use direct::{DirectHost, DirectRunOutcome};
 
 // Engine-level exports (no server deps required).
-pub use worker_setup::{
-    PreparedWorkers, WarmupTarget, prepare_direct_workers, prepare_workers,
-    prepare_workers_background,
-};
+pub use worker_setup::{PreparedWorkers, RegistryDiscovery, prepare_workers};
 
 // Server-level exports (require axum and sqlx).
 #[cfg(feature = "server")]

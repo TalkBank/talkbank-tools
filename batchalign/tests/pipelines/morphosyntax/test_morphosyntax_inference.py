@@ -174,9 +174,12 @@ def test_batch_infer_morphosyntax_groups_by_language_and_uses_lock(monkeypatch) 
 
     assert lock.enter_count == 2
     assert eng_nlp.calls == [
-        ("hello world\n\ngoodbye moon", [["hello", "world"], ["goodbye", "moon"]])
+        (
+            "hello world .\n\ngoodbye moon .",
+            [["hello", "world", "."], ["goodbye", "moon", "."]],
+        )
     ]
-    assert fra_nlp.calls == [("salut", [["salut"]])]
+    assert fra_nlp.calls == [("salut .", [["salut", "."]])]
     assert eng_ctx.original_words == []
     assert fra_ctx.original_words == []
     assert response.results[0].result == {"raw_sentences": [_raw_sentence(["hello", "world"])]}
@@ -185,6 +188,28 @@ def test_batch_infer_morphosyntax_groups_by_language_and_uses_lock(monkeypatch) 
     assert response.results[2].result == {"raw_sentences": [_raw_sentence(["salut"])]}
     assert response.results[3].result == {"sentences": []}
     assert response.results[4].error == "Invalid batch item"
+
+
+def test_batch_infer_morphosyntax_preserves_legacy_terminal_word() -> None:
+    """A legacy payload that includes its terminator must not duplicate it."""
+
+    lock = _RecordingLock()
+    ctx = SimpleNamespace(original_words=[])
+    nlp = _RecordingNlp(ctx, [_raw_sentence(["hello", "."])])
+
+    batch_infer_morphosyntax(
+        BatchInferRequest(
+            task="morphosyntax",
+            lang="eng",
+            items=[{"words": ["hello", "."]}],
+        ),
+        {"eng": nlp},
+        {"eng": ctx},
+        lock,
+        free_threaded=False,
+    )
+
+    assert nlp.calls == [("hello .", [["hello", "."]])]
 
 
 def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure(monkeypatch) -> None:
@@ -217,7 +242,7 @@ def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure
     )
 
     assert lock.enter_count == 0
-    assert fra_nlp.calls == [("salut toi", [["salut", "toi"]])]
+    assert fra_nlp.calls == [("salut toi .", [["salut", "toi", "."]])]
     assert fallback_ctx.original_words == []
     assert response.results[0].result == {"sentences": []}
     assert response.results[0].elapsed_s == 1.0
@@ -256,7 +281,10 @@ def test_batch_infer_morphosyntax_leaves_defaults_for_missing_pipelines_and_mism
     )
 
     assert mismatch_nlp.calls == [
-        ("hello world\n\ngoodbye moon", [["hello", "world"], ["goodbye", "moon"]])
+        (
+            "hello world .\n\ngoodbye moon .",
+            [["hello", "world", "."], ["goodbye", "moon", "."]],
+        )
     ]
     assert response.results[0].result == {"sentences": []}
     assert response.results[1].result == {"sentences": []}
@@ -322,7 +350,7 @@ def test_batch_infer_morphosyntax_normalizes_deprels_on_the_production_path() ->
         BatchInferRequest(
             task="morphosyntax",
             lang="ita",
-            items=[{"words": ["attenzione", "."]}],
+            items=[{"words": ["attenzione"]}],
         ),
         {"ita": nlp},
         {"ita": ctx},
