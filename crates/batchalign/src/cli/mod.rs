@@ -165,6 +165,7 @@ pub mod args;
 pub mod bench_cmd;
 pub mod cache_cmd;
 pub mod client;
+mod compare_runs_cmd;
 pub mod daemon;
 pub mod discover;
 pub mod dispatch;
@@ -286,6 +287,7 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
         },
         Commands::Bench(a) => bench_cmd::run(&cli.global, a).await,
         Commands::Setup(a) => setup_cmd::run(a),
+        Commands::CompareRuns(a) => compare_runs_cmd::run(a),
         Commands::Openapi(a) => {
             #[cfg(feature = "server")]
             {

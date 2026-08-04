@@ -132,12 +132,12 @@ batchalign-transform = { path = "crates/batchalign-transform" }
 # ../chatter/crates/...; never commit a path override here. Adopt a newer chatter
 # by bumping the tag. talkbank-transform is the GENERIC transform;
 # batchalign-transform (above) holds the ML accretion.
-talkbank-transform = { git = "https://github.com/TalkBank/chatter", tag = "v0.6.0", default-features = false }
+talkbank-transform = { git = "https://github.com/TalkBank/chatter", tag = "v0.8.0", default-features = false }
 # Stage 1 dedup: talkbank-tools no longer carries its own copies of these.
-talkbank-model = { git = "https://github.com/TalkBank/chatter", tag = "v0.6.0" }
-talkbank-parser = { git = "https://github.com/TalkBank/chatter", tag = "v0.6.0" }
-talkbank-parser-re2c = { git = "https://github.com/TalkBank/chatter", tag = "v0.6.0" }
-talkbank-parser-tests = { git = "https://github.com/TalkBank/chatter", tag = "v0.6.0" }
+talkbank-model = { git = "https://github.com/TalkBank/chatter", tag = "v0.8.0" }
+talkbank-parser = { git = "https://github.com/TalkBank/chatter", tag = "v0.8.0" }
+talkbank-parser-re2c = { git = "https://github.com/TalkBank/chatter", tag = "v0.8.0" }
+talkbank-parser-tests = { git = "https://github.com/TalkBank/chatter", tag = "v0.8.0" }
 
 phf = { version = "0.14", features = ["macros"] }
 phf_codegen = "0.14"
@@ -199,6 +199,15 @@ symphonia = { version = "0.6", default-features = false, features = ["mp3", "wav
 # rubato 4.0's synchronous FFT resampler (Fft) is behind the fft_resampler
 # feature; its buffer adapters come from the companion audioadapter_buffers crate.
 rubato = { version = "4.0", features = ["fft_resampler"] }
+# PINNED TO RUBATO'S OWN MAJOR, AND NOT A STALE VERSION. We hand these buffers
+# straight to rubato, so the two must resolve to ONE major or the trait impls
+# live on different types and the default Whisper build fails to compile with
+# "multiple different versions of crate audioadapter_buffers". rubato 4.0.0 is
+# the LATEST published rubato (verified against the crates.io sparse index
+# 2026-08-04) and it requires audioadapter-buffers ^4.0, so 5.0 has nothing in
+# this graph that can consume it. Bump this only together with rubato, after
+# checking rubato's own requirement. A currency sweep raised it to 5.0 on
+# 2026-08-04 and broke the build; that is what this comment exists to prevent.
 audioadapter-buffers = "4.0"
 byteorder = "1.5"
 anyhow = "1"

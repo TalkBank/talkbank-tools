@@ -49,12 +49,6 @@
 //! consume permits; they refuse the spawn outright and let the
 //! caller retry once the host frees up.
 
-/// Minimum free memory in MB that must remain available for the OS
-/// and non-batchalign processes on Medium-tier hosts (24-48 GB).
-/// Used as the base for tier-scaled floors via
-/// [`host_min_free_mb_threshold_for_tier`].
-///
-
 /// Whether the worker pool currently has any workers for the
 /// (profile, lang, engine) class the admission check is for.
 ///

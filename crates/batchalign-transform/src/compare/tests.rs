@@ -58,8 +58,8 @@ fn identical_transcripts() {
 /// While it was, every hypothesis word the window missed went uncounted, so the
 /// reported WER was systematically friendlier than the truth, in an amount that
 /// varied with how ragged the transcript was. That makes the metric unusable as
-/// a headline accuracy number, which is how it was rediscovered (2026-07-30,
-/// designing the IISRP adult-accuracy measurement).
+/// a headline accuracy number, which is how it was rediscovered: someone tried
+/// to use it as one.
 #[test]
 fn main_tokens_outside_the_window_are_insertions_not_silently_dropped() {
     let parser = TreeSitterParser::new().unwrap();

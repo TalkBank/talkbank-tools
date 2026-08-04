@@ -39,6 +39,7 @@
   - [translate](batchalign/user-guide/commands/translate.md)
   - [coref](batchalign/user-guide/commands/coref.md)
   - [compare](batchalign/user-guide/commands/compare.md)
+  - [compare-runs](batchalign/user-guide/commands/compare-runs.md)
   - [benchmark](batchalign/user-guide/commands/benchmark.md)
   - [opensmile](batchalign/user-guide/commands/opensmile.md)
   - [avqi](batchalign/user-guide/commands/avqi.md)

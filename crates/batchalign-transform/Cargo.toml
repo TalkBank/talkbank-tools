@@ -12,10 +12,12 @@ readme = "README.md"
 
 [dependencies]
 aho-corasick = { workspace = true }
+blake3 = { workspace = true }
 csv = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 smallvec = { workspace = true }
 strsim = { workspace = true }
 talkbank-model = { workspace = true }

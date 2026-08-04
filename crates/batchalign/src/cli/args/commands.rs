@@ -856,6 +856,126 @@ pub struct SetupArgs {
     pub prefetch_whisper_rs: bool,
 }
 
+/// Arguments for the offline `compare-runs` utility family.
+#[derive(Args, Debug, Clone)]
+pub struct CompareRunsArgs {
+    /// Offline comparison action.
+    #[command(subcommand)]
+    pub action: CompareRunsAction,
+}
+
+/// Offline manifest authoring and comparison actions.
+#[derive(Subcommand, Debug, Clone)]
+pub enum CompareRunsAction {
+    /// Create a canonical immutable run manifest.
+    Manifest(CompareRunsManifestArgs),
+    /// Compare transcription agreement (never labeled accuracy).
+    Transcribe(CompareRunsExecuteArgs),
+    /// Compare structured morphology and dependency annotations.
+    Morphotag(CompareRunsExecuteArgs),
+    /// Compare `%wor` timings for identical normalized tokens.
+    Align(CompareRunsExecuteArgs),
+}
+
+/// Identity-specific manifest authoring action.
+#[derive(Args, Debug, Clone)]
+pub struct CompareRunsManifestArgs {
+    /// Producer identity kind.
+    #[command(subcommand)]
+    pub identity: CompareRunsManifestIdentity,
+}
+
+/// Typed producer identity used to author a manifest.
+#[derive(Subcommand, Debug, Clone)]
+pub enum CompareRunsManifestIdentity {
+    /// Artifacts produced by an executable implementation.
+    Machine(MachineManifestArgs),
+    /// Artifacts produced under a human review protocol.
+    Human(HumanManifestArgs),
+}
+
+/// Shared manifest fields.
+#[derive(Args, Debug, Clone)]
+pub struct ManifestCommonArgs {
+    /// Directory containing immutable artifacts to inventory.
+    #[arg(long)]
+    pub artifacts: std::path::PathBuf,
+    /// Manifest JSON destination; must be outside the artifact root.
+    #[arg(long)]
+    pub output: std::path::PathBuf,
+    /// Stable identity for this produced run.
+    #[arg(long)]
+    pub run_id: String,
+    /// Stable source media or source CHAT identity.
+    #[arg(long)]
+    pub source_id: String,
+    /// Normalized producer argument as KEY=VALUE; repeat as needed.
+    #[arg(long = "argument", value_name = "KEY=VALUE")]
+    pub arguments: Vec<String>,
+}
+
+/// Machine-producer manifest fields.
+#[derive(Args, Debug, Clone)]
+pub struct MachineManifestArgs {
+    /// Shared manifest fields.
+    #[command(flatten)]
+    pub common: ManifestCommonArgs,
+    /// Stable implementation label.
+    #[arg(long)]
+    pub implementation: String,
+    /// Command family that produced these artifacts.
+    #[arg(long)]
+    pub command: String,
+    /// Reproducible source/build identity.
+    #[arg(long)]
+    pub build: String,
+}
+
+/// Human-producer manifest fields.
+#[derive(Args, Debug, Clone)]
+pub struct HumanManifestArgs {
+    /// Shared manifest fields.
+    #[command(flatten)]
+    pub common: ManifestCommonArgs,
+    /// Review protocol version.
+    #[arg(long)]
+    pub protocol: String,
+    /// Reviewer cohort label.
+    #[arg(long)]
+    pub cohort: String,
+}
+
+/// Shared execution arguments for all three offline comparison modes.
+#[derive(Args, Debug, Clone)]
+pub struct CompareRunsExecuteArgs {
+    /// TOML comparison plan.
+    #[arg(long)]
+    pub plan: std::path::PathBuf,
+    /// Bypass content-addressed pair caches and regenerate them atomically.
+    #[arg(long)]
+    pub recompute: bool,
+}
+
+/// Cache behavior for an offline comparison execution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompareRunsCachePolicy {
+    /// Reuse an exact content-addressed pair result when available.
+    Reuse,
+    /// Recompute pair results even when an exact cache entry exists.
+    Recompute,
+}
+
+impl CompareRunsExecuteArgs {
+    /// Convert the CLI compatibility flag into a typed cache policy at the boundary.
+    pub fn cache_policy(&self) -> CompareRunsCachePolicy {
+        if self.recompute {
+            CompareRunsCachePolicy::Recompute
+        } else {
+            CompareRunsCachePolicy::Reuse
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Utility commands
 // ---------------------------------------------------------------------------

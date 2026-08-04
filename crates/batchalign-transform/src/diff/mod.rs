@@ -9,15 +9,23 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use talkbank_parser::TreeSitterParser;
 //! use batchalign_transform::diff::{DiffSummary, diff_chat};
+//! use talkbank_parser::{ParseProduct, TreeSitterParser};
 //!
-//! let parser = TreeSitterParser::new().unwrap();
-//! let before_text = std::fs::read_to_string("before.cha").unwrap();
-//! let after_text = std::fs::read_to_string("after.cha").unwrap();
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let parser = TreeSitterParser::new()?;
+//! let before_text = std::fs::read_to_string("before.cha")?;
+//! let after_text = std::fs::read_to_string("after.cha")?;
 //!
-//! let before = parser.parse_chat_file(&before_text).unwrap();
-//! let after = parser.parse_chat_file(&after_text).unwrap();
+//! // Parsing yields a model even when the document needed recovery, so
+//! // diagnostics are the caller's to judge and the file is never lost on the
+//! // way. `Unbuildable` is the only case with nothing to diff.
+//! let ParseProduct::Built { file: before, .. } = parser.parse_chat_file(&before_text) else {
+//!     return Ok(());
+//! };
+//! let ParseProduct::Built { file: after, .. } = parser.parse_chat_file(&after_text) else {
+//!     return Ok(());
+//! };
 //!
 //! let deltas = diff_chat(&before, &after);
 //! let summary = DiffSummary::from_deltas(&deltas);
@@ -27,6 +35,8 @@
 //!     summary.unchanged,
 //!     summary.needs_reprocessing(),
 //! );
+//! # Ok(())
+//! # }
 //! ```
 
 mod classify;

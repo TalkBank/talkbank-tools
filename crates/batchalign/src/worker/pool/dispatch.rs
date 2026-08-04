@@ -226,7 +226,7 @@ impl WorkerPool {
     /// Try to check out a TCP worker handle (non-blocking).
     pub(super) fn try_checkout_tcp(&self, key: &WorkerKey) -> Option<TcpWorkerHandle> {
         let groups = lock_recovered(&self.groups);
-        let group = groups.get(&key)?;
+        let group = groups.get(key)?;
         match group.tcp_available.try_acquire() {
             Ok(permit) => {
                 permit.forget();
@@ -239,7 +239,7 @@ impl WorkerPool {
     /// Return a TCP worker handle to the pool.
     pub(super) fn return_tcp_worker(&self, handle: TcpWorkerHandle, key: &WorkerKey) {
         let groups = lock_recovered(&self.groups);
-        if let Some(group) = groups.get(&key) {
+        if let Some(group) = groups.get(key) {
             lock_recovered(&group.tcp_workers).push_back(handle);
             group.tcp_available.add_permits(1);
         }

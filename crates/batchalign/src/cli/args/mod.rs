@@ -97,6 +97,9 @@ pub enum Commands {
     Opensmile(OpensmileArgs),
     /// Compare transcripts against gold-standard references.
     Compare(CompareArgs),
+    /// Compare two immutable, already-produced runs without a gold side.
+    #[command(name = "compare-runs")]
+    CompareRuns(CompareRunsArgs),
     /// Calculate AVQI from paired .cs/.sv audio files.
     Avqi(AvqiArgs),
     /// Detect speaker turns in audio (speaker diarization).

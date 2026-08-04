@@ -225,7 +225,7 @@ impl WorkerKey {
     ) -> Self {
         let target = WorkerTarget::for_command_with_mode(command, bootstrap_mode);
         Self {
-            target: target.clone(),
+            target,
             language,
             engine_selection: if bootstrap_mode == WorkerBootstrapMode::LazyProfile
                 && target.is_concurrent()

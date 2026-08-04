@@ -1335,23 +1335,6 @@ fn live_fixture_pool_config(python_path: &str) -> PoolConfig {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse_legacy_revai_key;
-
-    #[test]
-    fn parse_legacy_revai_key_reads_asr_section_value() {
-        let contents = "[asr]\nengine = rev\nengine.rev.key = secret\n";
-        assert_eq!(parse_legacy_revai_key(contents).as_deref(), Some("secret"));
-    }
-
-    #[test]
-    fn parse_legacy_revai_key_ignores_other_sections() {
-        let contents = "[ud]\nengine.rev.key = nope\n[asr]\nengine = whisper\n";
-        assert_eq!(parse_legacy_revai_key(contents), None);
-    }
-}
-
 /// Install an env-filtered tracing subscriber for a test binary, once.
 ///
 /// Diagnostic `tracing` events in the worker pool go nowhere by default,
@@ -1378,4 +1361,21 @@ pub fn init_test_tracing(fallback: tracing::Level) {
         .with_test_writer()
         .with_env_filter(filter)
         .try_init();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_legacy_revai_key;
+
+    #[test]
+    fn parse_legacy_revai_key_reads_asr_section_value() {
+        let contents = "[asr]\nengine = rev\nengine.rev.key = secret\n";
+        assert_eq!(parse_legacy_revai_key(contents).as_deref(), Some("secret"));
+    }
+
+    #[test]
+    fn parse_legacy_revai_key_ignores_other_sections() {
+        let contents = "[ud]\nengine.rev.key = nope\n[asr]\nengine = whisper\n";
+        assert_eq!(parse_legacy_revai_key(contents), None);
+    }
 }
