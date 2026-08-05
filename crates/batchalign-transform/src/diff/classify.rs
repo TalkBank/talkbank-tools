@@ -137,8 +137,8 @@ pub fn diff_chat(before: &ChatFile, after: &ChatFile) -> Vec<UtteranceDelta> {
                 reference_idx,
                 ..
             } => {
-                let after_idx = UtteranceIdx(*payload_idx);
-                let before_idx = UtteranceIdx(*reference_idx);
+                let after_idx = UtteranceIdx::new(*payload_idx);
+                let before_idx = UtteranceIdx::new(*reference_idx);
                 deltas.push(classify_same_words(before, before_idx, after, after_idx));
                 i += 1;
             }
@@ -147,8 +147,8 @@ pub fn diff_chat(before: &ChatFile, after: &ChatFile) -> Vec<UtteranceDelta> {
                 if let Some(AlignResult::ExtraReference { reference_idx, .. }) =
                     alignment.get(i + 1)
                 {
-                    let after_idx = UtteranceIdx(*payload_idx);
-                    let before_idx = UtteranceIdx(*reference_idx);
+                    let after_idx = UtteranceIdx::new(*payload_idx);
+                    let before_idx = UtteranceIdx::new(*reference_idx);
                     let tc = timing_differs(before, before_idx, after, after_idx);
                     deltas.push(UtteranceDelta::WordsChanged {
                         before_idx,
@@ -159,7 +159,7 @@ pub fn diff_chat(before: &ChatFile, after: &ChatFile) -> Vec<UtteranceDelta> {
                 } else {
                     // Pure insertion
                     deltas.push(UtteranceDelta::Inserted {
-                        after_idx: UtteranceIdx(*payload_idx),
+                        after_idx: UtteranceIdx::new(*payload_idx),
                     });
                     i += 1;
                 }
@@ -167,8 +167,8 @@ pub fn diff_chat(before: &ChatFile, after: &ChatFile) -> Vec<UtteranceDelta> {
             AlignResult::ExtraReference { reference_idx, .. } => {
                 // Check if the next item is ExtraPayload, reversed substitution pair
                 if let Some(AlignResult::ExtraPayload { payload_idx, .. }) = alignment.get(i + 1) {
-                    let after_idx = UtteranceIdx(*payload_idx);
-                    let before_idx = UtteranceIdx(*reference_idx);
+                    let after_idx = UtteranceIdx::new(*payload_idx);
+                    let before_idx = UtteranceIdx::new(*reference_idx);
                     let tc = timing_differs(before, before_idx, after, after_idx);
                     deltas.push(UtteranceDelta::WordsChanged {
                         before_idx,
@@ -179,7 +179,7 @@ pub fn diff_chat(before: &ChatFile, after: &ChatFile) -> Vec<UtteranceDelta> {
                 } else {
                     // Pure deletion
                     deltas.push(UtteranceDelta::Deleted {
-                        before_idx: UtteranceIdx(*reference_idx),
+                        before_idx: UtteranceIdx::new(*reference_idx),
                     });
                     i += 1;
                 }

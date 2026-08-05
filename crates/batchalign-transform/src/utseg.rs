@@ -24,11 +24,13 @@
 //! `words`. A mismatch is always a worker-contract bug, not an expected
 //! divergence class.
 
+use crate::decisions::LineIdx;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use talkbank_model::Span;
 use talkbank_model::alignment::helpers::TierDomain;
+use talkbank_model::model::ChatFileLines;
 use talkbank_model::model::dependent_tier::wor::WorItem;
 use talkbank_model::model::{
     ChatFile, DependentTier, Line, MainTier, Terminator, Utterance, UtteranceContent, WorTier,
@@ -159,14 +161,14 @@ impl UtsegOutcome {
         match &self.kind {
             UtsegOutcomeKind::Aligned { .. } => None,
             UtsegOutcomeKind::NotApplicable { reason } => Some(DecisionRecord {
-                line_idx,
+                line_idx: LineIdx::new(line_idx),
                 speaker: self.speaker.as_str().to_string(),
                 strategy: DecisionStrategy::Utseg(UtsegStrategy::NotApplicable),
                 reason: format!("reason={}", reason.as_str()),
                 needs_review: false,
             }),
             UtsegOutcomeKind::MisalignmentBug(diag) => Some(DecisionRecord {
-                line_idx,
+                line_idx: LineIdx::new(line_idx),
                 speaker: self.speaker.as_str().to_string(),
                 strategy: DecisionStrategy::Utseg(UtsegStrategy::MisalignmentBug),
                 reason: format!(
@@ -313,7 +315,7 @@ pub fn apply_utseg_results(chat_file: &mut ChatFile, assignment_map: &HashMap<us
         return;
     }
 
-    let old_lines = std::mem::take(&mut chat_file.lines.0);
+    let old_lines = chat_file.lines.take();
     let mut new_lines: Vec<Line> = Vec::with_capacity(old_lines.len());
     let mut utt_ordinal = 0usize;
 
@@ -338,7 +340,7 @@ pub fn apply_utseg_results(chat_file: &mut ChatFile, assignment_map: &HashMap<us
         utt_ordinal += 1;
     }
 
-    chat_file.lines.0 = new_lines;
+    chat_file.lines = ChatFileLines::new(new_lines);
 }
 
 /// Build a mapping from extracted-word index to top-level content item index.
@@ -786,10 +788,10 @@ mod tests {
 
     fn get_utterance(chat: &ChatFile, idx: usize) -> &Utterance {
         let mut utt_idx = 0;
-        for line in &chat.lines.0 {
+        for line in chat.lines.as_slice() {
             if let Line::Utterance(utt) = line {
                 if utt_idx == idx {
-                    return utt;
+                    return utt.as_ref();
                 }
                 utt_idx += 1;
             }
@@ -1284,14 +1286,14 @@ mod tests {
             !parent.main.content.linkers.is_empty(),
             "fixture sanity: parent must carry at least one linker"
         );
-        let parent_linkers_len = parent.main.content.linkers.0.len();
+        let parent_linkers_len = parent.main.content.linkers.len();
         assert!(parent_linkers_len > 0);
 
         let result = split_utterance(parent, &[0, 0, 0, 1, 1, 1, 1]);
         assert_eq!(result.len(), 2, "expected 2 children");
 
         assert_eq!(
-            result[0].main.content.linkers.0.len(),
+            result[0].main.content.linkers.len(),
             parent_linkers_len,
             "FIRST child must inherit the parent's linkers"
         );
@@ -1347,7 +1349,7 @@ mod tests {
         let chat = parse_chat(chat_text);
         let parent = get_utterance(&chat, 0).clone();
 
-        let parent_postcode_len = parent.main.content.postcodes.0.len();
+        let parent_postcode_len = parent.main.content.postcodes.len();
         assert!(
             parent_postcode_len > 0,
             "fixture sanity: parent must carry at least one postcode"
@@ -1361,7 +1363,7 @@ mod tests {
             "non-last child must have no postcodes"
         );
         assert_eq!(
-            result[1].main.content.postcodes.0.len(),
+            result[1].main.content.postcodes.len(),
             parent_postcode_len,
             "LAST child must inherit the parent's postcodes"
         );

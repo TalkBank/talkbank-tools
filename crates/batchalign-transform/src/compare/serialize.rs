@@ -83,12 +83,12 @@ impl CompareSurfaceToken {
         utterance_index: usize,
         token_index: usize,
     ) -> Result<Self, CompareSerializationError> {
-        NonEmptyString::new(text)
-            .map(Self)
-            .ok_or(CompareSerializationError::EmptyXsrepToken {
+        NonEmptyString::new(text).map(Self).map_err(|_| {
+            CompareSerializationError::EmptyXsrepToken {
                 utterance_index,
                 token_index,
-            })
+            }
+        })
     }
 }
 
@@ -111,7 +111,7 @@ impl ComparePosLabel {
         let raw = pos.unwrap_or("?");
         NonEmptyString::new(raw)
             .map(Self)
-            .ok_or(CompareSerializationError::EmptyXsmorToken {
+            .map_err(|_| CompareSerializationError::EmptyXsmorToken {
                 utterance_index,
                 token_index,
             })
@@ -120,7 +120,7 @@ impl ComparePosLabel {
     pub(in crate::compare) fn for_metrics(raw: &str) -> Result<Self, CompareSerializationError> {
         NonEmptyString::new(raw)
             .map(Self)
-            .ok_or(CompareSerializationError::EmptyMetricsPosLabel)
+            .map_err(|_| CompareSerializationError::EmptyMetricsPosLabel)
     }
 
     pub(in crate::compare) fn as_str(&self) -> &str {
@@ -281,13 +281,13 @@ impl<T: WriteChat> CompareUserDefinedTier<T> {
         self,
     ) -> Result<DependentTier, CompareSerializationError> {
         let content_text = self.content.to_chat_string();
-        let Some(content) = NonEmptyString::new(&content_text) else {
+        let Ok(content) = NonEmptyString::new(&content_text) else {
             return Err(CompareSerializationError::EmptyTierContent { label: self.label });
         };
 
         Ok(DependentTier::UserDefined(UserDefinedDependentTier {
             label: self.label.into_inner(),
-            content,
+            content: Some(content),
             span: Span::DUMMY,
         }))
     }

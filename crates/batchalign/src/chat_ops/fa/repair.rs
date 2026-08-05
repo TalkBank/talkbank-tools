@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use talkbank_model::model::{ChatFile, Line, Utterance};
 
-use super::orchestrate::strip_timing_from_content;
+use super::orchestrate::strip_utterance_timing;
 
 /// Maximum overlap (ms) eligible for boundary averaging (Strategy 1).
 /// Beyond this, the overlap is either genuine or a real alignment failure.
@@ -393,30 +393,17 @@ fn longest_increasing_subsequence(values: &[u64]) -> Vec<usize> {
 
 /// Get a mutable reference to an utterance by its line index.
 fn get_utterance_mut(chat_file: &mut ChatFile, line_idx: usize) -> Option<&mut Utterance> {
-    if let Some(Line::Utterance(utt)) = chat_file.lines.get_mut(line_idx) {
+    if let Some(Line::Utterance(utt)) = chat_file.lines.as_mut_slice().get_mut(line_idx) {
         Some(utt)
     } else {
         None
     }
 }
 
-/// Strip all timing from an utterance: bullet, inline word bullets, %wor tier.
-fn strip_utterance_timing(utt: &mut Utterance) {
-    // Remove utterance-level bullet.
-    utt.main.content.bullet = None;
-
-    // Remove inline word bullets (reuses the existing orchestrate helper).
-    strip_timing_from_content(&mut utt.main.content.content.0);
-
-    // Remove %wor tier.
-    utt.dependent_tiers
-        .retain(|tier| !matches!(tier.tier, talkbank_model::model::DependentTier::Wor { .. }));
-}
-
 impl From<&RepairDecision> for batchalign_transform::decisions::DecisionRecord {
     fn from(d: &RepairDecision) -> Self {
         Self {
-            line_idx: d.line_idx,
+            line_idx: batchalign_transform::decisions::LineIdx::new(d.line_idx),
             speaker: d.speaker.clone(),
             strategy: batchalign_transform::decisions::DecisionStrategy::Fa(d.strategy),
             reason: d.reason.clone(),

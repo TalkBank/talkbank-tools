@@ -220,7 +220,7 @@ fn always_enabled(_: &MorphosyntaxPipelineContext<'_>) -> bool {
 /// shortcut was a known correctness hazard, see the 2026-05-03 incident.
 /// We deliberately diverge.
 pub(crate) fn resolve_per_file_lang(chat_file: &ChatFile) -> Result<LanguageCode3, ServerError> {
-    let raw = chat_file.languages.0.first().ok_or_else(|| {
+    let raw = chat_file.languages.first().ok_or_else(|| {
         ServerError::Validation(
             "morphotag: file has no `@Languages:` header. Add the header (e.g. \
              `@Languages: eng`) and re-run; per-file language is required for \
@@ -255,7 +255,7 @@ pub(crate) fn resolve_per_file_lang(chat_file: &ChatFile) -> Result<LanguageCode
 /// separate flag); that is a legitimate "morphotag not applicable to
 /// this transcript convention" case, not a typo to surface.
 pub(crate) fn unsupported_primary_language_error(chat_file: &ChatFile) -> Option<String> {
-    if let Some(primary) = chat_file.languages.0.first()
+    if let Some(primary) = chat_file.languages.first()
         && !crate::chat_ops::morphosyntax_ops::is_stanza_supported(primary)
     {
         return Some(format!(

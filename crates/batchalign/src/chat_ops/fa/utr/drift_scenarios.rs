@@ -671,10 +671,9 @@ fn check_utterance_monotonicity(chat: &ChatFile, violations: &mut Vec<String>) {
             .main
             .content
             .linkers
-            .0
             .iter()
             .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes)
-            || overlap_markers::extract_overlap_info(&utt.main.content.content.0)
+            || overlap_markers::extract_overlap_info(&utt.main.content.content)
                 .has_bottom_overlap();
         if is_overlap {
             continue;
@@ -744,7 +743,7 @@ mod helper_self_tests {
             "helper self-test CHAT parse errors: {errs:?}"
         );
         let mut utt_i = 0;
-        for line in chat.lines.iter_mut() {
+        for line in chat.lines.as_mut_slice().iter_mut() {
             if let Line::Utterance(utt) = line {
                 if let Some((s, e)) = bullets[utt_i] {
                     utt.main.content.bullet = Some(Bullet::new(s, e));

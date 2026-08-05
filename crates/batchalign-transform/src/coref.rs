@@ -23,6 +23,7 @@
 //! - Happy path (`ChainsInjected`)
 //! - True anomalies (`SentenceIndexOutOfBounds`, `InjectionFailed`)
 
+use crate::decisions::LineIdx;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -262,7 +263,7 @@ impl CorefOutcome {
                 sentence_idx,
                 resolved_line_idx,
             } => Some(DecisionRecord {
-                line_idx: self.line_idx,
+                line_idx: LineIdx::new(self.line_idx),
                 speaker: self.speaker.as_str().to_string(),
                 strategy: DecisionStrategy::Coref(CorefStrategy::SentenceIndexOutOfBounds),
                 reason: format!(
@@ -271,7 +272,7 @@ impl CorefOutcome {
                 needs_review: true,
             }),
             CorefOutcomeKind::InjectionFailed { error } => Some(DecisionRecord {
-                line_idx: self.line_idx,
+                line_idx: LineIdx::new(self.line_idx),
                 speaker: self.speaker.as_str().to_string(),
                 strategy: DecisionStrategy::Coref(CorefStrategy::InjectionFailed),
                 reason: format!("error={error}"),
@@ -362,13 +363,13 @@ pub fn inject_coref(
     }
 
     let label = NonEmptyString::new("xcoref")
-        .ok_or_else(|| "Failed to create NonEmptyString for 'xcoref'".to_string())?;
+        .map_err(|_| "Failed to create NonEmptyString for 'xcoref'".to_string())?;
     let content = NonEmptyString::new(annotation_text)
-        .ok_or_else(|| "Failed to create NonEmptyString for coref content".to_string())?;
+        .map_err(|_| "Failed to create NonEmptyString for coref content".to_string())?;
 
     let new_tier = DependentTier::UserDefined(UserDefinedDependentTier {
         label,
-        content,
+        content: Some(content),
         span: Span::DUMMY,
     });
 
@@ -437,7 +438,7 @@ pub fn apply_coref_results_with_outcomes(
         match results.get(&line_idx) {
             Some(annotation) => {
                 handled_in_results.insert(line_idx);
-                let outcome_kind = match chat_file.lines.get_mut(line_idx) {
+                let outcome_kind = match chat_file.lines.as_mut_slice().get_mut(line_idx) {
                     Some(Line::Utterance(utt)) => match inject_coref(utt, annotation) {
                         Ok(()) => CorefOutcomeKind::ChainsInjected {
                             annotation: annotation.clone(),
@@ -478,7 +479,7 @@ pub fn apply_coref_results_with_outcomes(
         };
         // Try injection (the legacy behavior), but record the anomaly:
         // the worker returned an annotation for an undispatched line.
-        if let Some(Line::Utterance(utt)) = chat_file.lines.get_mut(line_idx) {
+        if let Some(Line::Utterance(utt)) = chat_file.lines.as_mut_slice().get_mut(line_idx) {
             match inject_coref(utt, annotation) {
                 Ok(()) => {
                     outcomes.push(CorefOutcome {

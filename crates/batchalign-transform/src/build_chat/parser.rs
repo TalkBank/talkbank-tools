@@ -1,3 +1,4 @@
+use super::BuildChatError;
 use talkbank_model::LanguageCode;
 use talkbank_parser::TreeSitterParser;
 
@@ -12,9 +13,9 @@ pub(super) struct BuildChatContext {
 
 impl BuildChatContext {
     /// Create the parser and normalize transcript-level language defaults once.
-    pub(super) fn new(desc: &TranscriptDescription) -> Result<Self, String> {
+    pub(super) fn new(desc: &TranscriptDescription) -> Result<Self, BuildChatError> {
         let parser =
-            TreeSitterParser::new().map_err(|e| format!("Failed to create parser: {e}"))?;
+            TreeSitterParser::new().map_err(|e| BuildChatError::ParserInit(e.to_string()))?;
         let raw_langs = if desc.langs.is_empty() {
             vec!["eng".to_string()]
         } else {
@@ -26,14 +27,16 @@ impl BuildChatContext {
         let langs = raw_langs
             .iter()
             .map(|l| {
-                LanguageCode::new(l)
-                    .map_err(|e| format!("invalid @Languages language code {l:?}: {e}"))
+                LanguageCode::new(l).map_err(|source| BuildChatError::LanguageCode {
+                    code: l.clone(),
+                    source,
+                })
             })
-            .collect::<Result<Vec<_>, String>>()?;
+            .collect::<Result<Vec<_>, BuildChatError>>()?;
         let primary_lang = langs
             .first()
             .cloned()
-            .ok_or_else(|| "at least one language code is required".to_string())?;
+            .ok_or(BuildChatError::NoParticipants)?;
 
         Ok(Self {
             parser,

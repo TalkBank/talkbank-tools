@@ -322,7 +322,7 @@ pub fn declared_languages(
     if chat_file.languages.is_empty() {
         vec![primary_lang.clone()]
     } else {
-        chat_file.languages.0.clone()
+        chat_file.languages.to_vec()
     }
 }
 
@@ -341,7 +341,7 @@ pub fn clear_morphosyntax(chat_file: &mut talkbank_model::model::ChatFile) {
         return;
     }
 
-    for line in chat_file.lines.iter_mut() {
+    for line in chat_file.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(utt) = line {
             reset_mor_gra_in_place(utt);
         }
@@ -380,7 +380,7 @@ fn reset_mor_gra_in_place(utterance: &mut talkbank_model::model::Utterance) {
 pub fn remove_empty_morphosyntax_placeholders(chat_file: &mut talkbank_model::model::ChatFile) {
     use talkbank_model::model::DependentTier;
 
-    for line in chat_file.lines.iter_mut() {
+    for line in chat_file.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(utt) = line {
             utt.dependent_tiers.retain(|tier| match &tier.tier {
                 DependentTier::Mor(m) => !m.items().is_empty(),
@@ -397,7 +397,7 @@ pub fn clear_morphosyntax_selective(
     utterance_ordinals: &std::collections::HashSet<usize>,
 ) {
     let mut utt_idx = 0usize;
-    for line in chat_file.lines.iter_mut() {
+    for line in chat_file.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(utt) = line {
             if utterance_ordinals.contains(&utt_idx) {
                 reset_mor_gra_in_place(utt);

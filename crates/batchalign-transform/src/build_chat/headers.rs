@@ -2,16 +2,18 @@ use std::path::Path;
 
 use indexmap::IndexMap;
 use talkbank_model::model::{
-    Header, IDHeader, LanguageCode, LanguageCodes, Line, MediaHeader, MediaType, Participant,
-    ParticipantEntries, ParticipantEntry, ParticipantName, ParticipantRole, SpeakerCode,
+    Header, IDHeader, LanguageCode, LanguageCodes, Line, MediaFilename, MediaHeader, MediaType,
+    Participant, ParticipantEntries, ParticipantEntry, ParticipantName, ParticipantRole,
+    SpeakerCode,
 };
 
+use super::BuildChatError;
 use super::TranscriptDescription;
 
 pub(super) fn build_header_lines(
     desc: &TranscriptDescription,
     langs: &[LanguageCode],
-) -> Vec<Line> {
+) -> Result<Vec<Line>, BuildChatError> {
     let participant_entries = build_participant_entries(desc);
     let id_headers = build_id_headers(desc, langs);
     let mut lines: Vec<Line> = vec![
@@ -29,11 +31,11 @@ pub(super) fn build_header_lines(
         lines.push(Line::header(Header::ID(id)));
     }
 
-    if let Some(media_header) = build_media_header(desc) {
+    if let Some(media_header) = build_media_header(desc)? {
         lines.push(Line::header(Header::Media(media_header)));
     }
 
-    lines
+    Ok(lines)
 }
 
 /// Assemble the typed participant map the built [`ChatFile`] must carry.
@@ -93,8 +95,19 @@ fn build_id_headers(desc: &TranscriptDescription, langs: &[LanguageCode]) -> Vec
         .collect()
 }
 
-fn build_media_header(desc: &TranscriptDescription) -> Option<MediaHeader> {
-    let media_name = desc.media_name.as_ref()?;
+/// Builds the `@Media` header, if the description names any media.
+///
+/// FALLIBLE, and the `Result` is the point. The media name is external input
+/// (a file stem the operator chose), and `@Media` cannot represent every
+/// string: the comma separates the filename from the media type. Swallowing
+/// that with `.ok()` produced a transcript with NO `@Media` line and no
+/// diagnostic, so a job on `interview,part2.mp3` reported success and silently
+/// lost its audio link. `Ok(None)` means "the description named no media";
+/// an unusable name is an error, and the two must not share a signature.
+fn build_media_header(desc: &TranscriptDescription) -> Result<Option<MediaHeader>, BuildChatError> {
+    let Some(media_name) = desc.media_name.as_ref() else {
+        return Ok(None);
+    };
     let normalized_media_name = normalize_media_name(media_name);
     let media_type = match desc.media_type.as_deref() {
         Some("video") => MediaType::Video,
@@ -105,7 +118,8 @@ fn build_media_header(desc: &TranscriptDescription) -> Option<MediaHeader> {
         }
     };
 
-    Some(MediaHeader::new(normalized_media_name.as_str(), media_type))
+    let filename = MediaFilename::parse(&normalized_media_name)?;
+    Ok(Some(MediaHeader::new(filename, media_type)))
 }
 
 fn normalize_media_name(raw: &str) -> String {

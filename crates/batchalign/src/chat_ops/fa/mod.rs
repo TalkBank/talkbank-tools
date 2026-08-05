@@ -526,6 +526,30 @@ pub fn collect_existing_fa_word_timings(utterance: &Utterance) -> Vec<Option<Wor
 // Helpers shared across submodules
 // ---------------------------------------------------------------------------
 
+/// The LINE index of the nth utterance, or `None` if there is no nth utterance.
+///
+/// `UtteranceIdx` counts only utterances; `LineIdx` counts every line, headers
+/// included. The two never coincide, because a CHAT file always opens with
+/// headers, so converting between them requires walking the file. That is why
+/// this is a function taking the file rather than a cast: a producer holding
+/// an ordinal cannot fabricate a line index without looking.
+pub(super) fn utterance_line_idx(
+    chat_file: &talkbank_model::model::ChatFile,
+    utt_idx: UtteranceIdx,
+) -> Option<batchalign_transform::decisions::LineIdx> {
+    use talkbank_model::model::Line;
+    let mut seen = 0;
+    for (line_idx, line) in chat_file.lines.as_slice().iter().enumerate() {
+        if matches!(line, Line::Utterance(_)) {
+            if seen == utt_idx.raw() {
+                return Some(batchalign_transform::decisions::LineIdx::new(line_idx));
+            }
+            seen += 1;
+        }
+    }
+    None
+}
+
 /// Get a mutable reference to the nth utterance in the file.
 pub(super) fn get_utterance_mut(
     chat_file: &mut talkbank_model::model::ChatFile,
@@ -609,4 +633,44 @@ pub fn cache_key(
         audio_identity.0
     );
     crate::chat_ops::CacheKey::from_content(&input)
+}
+
+#[cfg(test)]
+mod utterance_line_idx_tests {
+    use super::*;
+
+    /// The conversion must SKIP headers, which is the whole reason it exists.
+    ///
+    /// `orchestrate` previously stored an utterance ordinal in a field that
+    /// indexes lines. It compiled because both were `usize`, and the effect was
+    /// invisible: the decision either vanished or attached to the wrong
+    /// utterance. `LineIdx` now rejects the assignment, and this pins the
+    /// conversion that replaced it.
+    #[test]
+    fn converts_an_utterance_ordinal_to_a_line_index() {
+        let chat_text = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tCHI Target_Child
+@ID:\teng|test|CHI|2;0.0||||Target_Child|||
+*CHI:\thello .
+*CHI:\tworld .
+@End
+";
+        let parser = talkbank_parser::TreeSitterParser::new().expect("parser init");
+        let chat = parser.parse_chat_file(chat_text).expect_built();
+
+        // Five headers precede the first utterance, so the spaces differ.
+        assert_eq!(
+            utterance_line_idx(&chat, UtteranceIdx::new(0)).map(|l| l.raw()),
+            Some(5)
+        );
+        assert_eq!(
+            utterance_line_idx(&chat, UtteranceIdx::new(1)).map(|l| l.raw()),
+            Some(6)
+        );
+        // Past the end is None, not a fabricated index.
+        assert_eq!(utterance_line_idx(&chat, UtteranceIdx::new(2)), None);
+    }
 }

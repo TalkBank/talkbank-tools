@@ -107,7 +107,7 @@ pub fn apply_pos_hints(chat_file: &mut talkbank_model::model::ChatFile) -> HintO
             continue;
         }
 
-        let utt = match &mut chat_file.lines[line_idx] {
+        let utt = match &mut chat_file.lines.as_mut_slice()[line_idx] {
             Line::Utterance(u) => u,
             _ => continue,
         };

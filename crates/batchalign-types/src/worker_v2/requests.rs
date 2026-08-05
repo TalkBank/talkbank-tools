@@ -670,6 +670,10 @@ pub struct WhisperChunkSpanV2 {
 }
 
 #[cfg(test)]
+// Test code: the panic-family lints are relaxed in source by house policy;
+// the workspace [lints] table holds production code to deny. This module was
+// missing the header its siblings carry, so it warned on every clippy run.
+#[allow(clippy::panic, clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     #[test]
     fn asr_request_extras_accepts_null_missing_and_map() {

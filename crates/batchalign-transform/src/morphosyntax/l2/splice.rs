@@ -466,7 +466,7 @@ pub fn splice_l2_into_chat(
         // Multi-position span: aggregate per-position mors+gras and
         // splice atomically.
         let line_idx = deferred[span_indices.start].line_idx;
-        let utt = match &mut chat_file.lines[line_idx] {
+        let utt = match &mut chat_file.lines.as_mut_slice()[line_idx] {
             Line::Utterance(u) => u,
             _ => {
                 outcome.fallback += span_size;
@@ -660,7 +660,7 @@ fn splice_one_position(
     use talkbank_model::model::DependentTier;
     use talkbank_model::model::Line;
 
-    let utt = match &mut chat_file.lines[def.line_idx] {
+    let utt = match &mut chat_file.lines.as_mut_slice()[def.line_idx] {
         Line::Utterance(u) => u,
         _ => {
             outcome.fallback += 1;
@@ -779,7 +779,7 @@ pub fn apply_l2_fallback(
     use talkbank_model::model::Line;
 
     for def in deferred {
-        let utt = match &mut chat_file.lines[def.line_idx] {
+        let utt = match &mut chat_file.lines.as_mut_slice()[def.line_idx] {
             Line::Utterance(u) => u,
             _ => continue,
         };

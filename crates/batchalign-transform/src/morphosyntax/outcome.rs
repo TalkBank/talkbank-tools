@@ -10,6 +10,7 @@
 //! "outcome reporting" boundary that callers consume independently of
 //! the payload-collection or UD-typing layers.
 
+use crate::decisions::LineIdx;
 use talkbank_model::alignment::helpers::{TierDomain, WordItem, walk_words};
 use talkbank_model::model::{SpeakerCode, Utterance, WordCategory};
 
@@ -237,7 +238,7 @@ impl MorOutcome {
         match &self.kind {
             MorOutcomeKind::Aligned { .. } => None,
             MorOutcomeKind::NotApplicable { reason } => Some(DecisionRecord {
-                line_idx: self.line_idx,
+                line_idx: LineIdx::new(self.line_idx),
                 speaker: self.speaker.as_str().to_string(),
                 strategy: DecisionStrategy::Morphosyntax(MorphosyntaxStrategy::NotApplicable),
                 reason: format!("reason={}", reason.as_str()),
@@ -246,7 +247,7 @@ impl MorOutcome {
                 needs_review: false,
             }),
             MorOutcomeKind::MisalignmentBug(diag) => Some(DecisionRecord {
-                line_idx: self.line_idx,
+                line_idx: LineIdx::new(self.line_idx),
                 speaker: self.speaker.as_str().to_string(),
                 strategy: DecisionStrategy::Morphosyntax(MorphosyntaxStrategy::MisalignmentBug),
                 reason: format!(

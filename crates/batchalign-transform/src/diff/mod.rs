@@ -467,14 +467,14 @@ mod tests {
     fn diff_summary_total() {
         let deltas = vec![
             UtteranceDelta::Unchanged {
-                before_idx: UtteranceIdx(0),
-                after_idx: UtteranceIdx(0),
+                before_idx: UtteranceIdx::new(0),
+                after_idx: UtteranceIdx::new(0),
             },
             UtteranceDelta::Inserted {
-                after_idx: UtteranceIdx(1),
+                after_idx: UtteranceIdx::new(1),
             },
             UtteranceDelta::Deleted {
-                before_idx: UtteranceIdx(1),
+                before_idx: UtteranceIdx::new(1),
             },
         ];
         let summary = DiffSummary::from_deltas(&deltas);
@@ -489,26 +489,26 @@ mod tests {
     #[test]
     fn delta_needs_nlp_reprocessing() {
         let unchanged = UtteranceDelta::Unchanged {
-            before_idx: UtteranceIdx(0),
-            after_idx: UtteranceIdx(0),
+            before_idx: UtteranceIdx::new(0),
+            after_idx: UtteranceIdx::new(0),
         };
         assert!(!unchanged.needs_nlp_reprocessing());
 
         let words_changed = UtteranceDelta::WordsChanged {
-            before_idx: UtteranceIdx(0),
-            after_idx: UtteranceIdx(0),
+            before_idx: UtteranceIdx::new(0),
+            after_idx: UtteranceIdx::new(0),
             timing_changed: false,
         };
         assert!(words_changed.needs_nlp_reprocessing());
 
         let inserted = UtteranceDelta::Inserted {
-            after_idx: UtteranceIdx(1),
+            after_idx: UtteranceIdx::new(1),
         };
         assert!(inserted.needs_nlp_reprocessing());
 
         let speaker = UtteranceDelta::SpeakerChanged {
-            before_idx: UtteranceIdx(0),
-            after_idx: UtteranceIdx(0),
+            before_idx: UtteranceIdx::new(0),
+            after_idx: UtteranceIdx::new(0),
         };
         assert!(!speaker.needs_nlp_reprocessing());
     }
@@ -516,27 +516,27 @@ mod tests {
     #[test]
     fn delta_affects_timing() {
         let timing_only = UtteranceDelta::TimingOnly {
-            before_idx: UtteranceIdx(0),
-            after_idx: UtteranceIdx(0),
+            before_idx: UtteranceIdx::new(0),
+            after_idx: UtteranceIdx::new(0),
         };
         assert!(timing_only.affects_timing());
 
         let words_no_timing = UtteranceDelta::WordsChanged {
-            before_idx: UtteranceIdx(0),
-            after_idx: UtteranceIdx(0),
+            before_idx: UtteranceIdx::new(0),
+            after_idx: UtteranceIdx::new(0),
             timing_changed: false,
         };
         assert!(!words_no_timing.affects_timing());
 
         let words_with_timing = UtteranceDelta::WordsChanged {
-            before_idx: UtteranceIdx(0),
-            after_idx: UtteranceIdx(0),
+            before_idx: UtteranceIdx::new(0),
+            after_idx: UtteranceIdx::new(0),
             timing_changed: true,
         };
         assert!(words_with_timing.affects_timing());
 
         let deleted = UtteranceDelta::Deleted {
-            before_idx: UtteranceIdx(0),
+            before_idx: UtteranceIdx::new(0),
         };
         assert!(deleted.affects_timing());
     }

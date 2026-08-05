@@ -76,7 +76,7 @@ fn apply_fa_produces_no_double_bullets_after_utr() {
                     let mut count = 0;
                     for (i, line) in chat.lines.iter().enumerate() {
                         if let Line::Utterance(u) = line
-                            && UtteranceIdx(i) == idx
+                            && UtteranceIdx::new(i) == idx
                         {
                             count = count_alignable_main_words(u);
                         }

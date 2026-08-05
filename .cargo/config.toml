@@ -8,3 +8,4 @@
 # so this file must NOT be committed.
 [build]
 rustc-wrapper = ""
+

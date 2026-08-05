@@ -82,11 +82,11 @@ pub fn analyze_file(path: &Path, pair_key: PairKey) -> Result<FileAnalysis, Anal
 /// Split from [`analyze_file`] so unit tests can feed in hand-built
 /// `ChatFile` values without round-tripping through the parser.
 pub fn analyze_chat_file(chat: &ChatFile, path: PathBuf, pair_key: PairKey) -> FileAnalysis {
-    let languages: Vec<LanguageCode> = chat.languages.0.clone();
+    let languages: Vec<LanguageCode> = chat.languages.to_vec();
     let mut analyses = Vec::new();
     let mut utterance_outcomes: Vec<UtteranceOutcome> = Vec::new();
 
-    for line in &chat.lines.0 {
+    for line in chat.lines.as_slice() {
         let utt = match line {
             Line::Utterance(u) => u,
             _ => continue,

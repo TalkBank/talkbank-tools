@@ -104,8 +104,8 @@ pub(super) fn make_fa_words(texts: &[&str]) -> Vec<FaWord> {
         .iter()
         .enumerate()
         .map(|(i, t)| FaWord {
-            utterance_index: UtteranceIdx(0),
-            utterance_word_index: WordIdx(i),
+            utterance_index: UtteranceIdx::new(0),
+            utterance_word_index: WordIdx::new(i),
             text: t.to_string(),
         })
         .collect()
@@ -147,7 +147,7 @@ pub(super) fn count_internal_bullets(chat: &talkbank_model::model::ChatFile) -> 
     let mut count = 0;
     for line in &chat.lines {
         if let Line::Utterance(utt) = line {
-            for item in &utt.main.content.content.0 {
+            for item in utt.main.content.content.as_slice() {
                 if matches!(item, UtteranceContent::InternalBullet(_)) {
                     count += 1;
                 }

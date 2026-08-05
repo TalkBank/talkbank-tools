@@ -80,38 +80,38 @@ pub(super) fn rebuild_content(
                 }
             }
             UtteranceContent::Group(mut group) => {
-                let old_bracketed = std::mem::take(&mut group.content.content.0);
+                let old_bracketed = group.content.content.take();
                 let mut new_bracketed = Vec::with_capacity(old_bracketed.len());
                 rebuild_bracketed_content(old_bracketed, ctx, &mut new_bracketed);
-                group.content.content = BracketedItems(new_bracketed);
+                group.content.content = BracketedItems::new(new_bracketed);
                 new_content.push(UtteranceContent::Group(group));
             }
             UtteranceContent::AnnotatedGroup(mut annotated) => {
-                let old_bracketed = std::mem::take(&mut annotated.inner.content.content.0);
+                let old_bracketed = annotated.inner.content.content.take();
                 let mut new_bracketed = Vec::with_capacity(old_bracketed.len());
                 rebuild_bracketed_content(old_bracketed, ctx, &mut new_bracketed);
-                annotated.inner.content.content = BracketedItems(new_bracketed);
+                annotated.inner.content.content = BracketedItems::new(new_bracketed);
                 new_content.push(UtteranceContent::AnnotatedGroup(annotated));
             }
             UtteranceContent::PhoGroup(mut pho) => {
-                let old_bracketed = std::mem::take(&mut pho.content.content.0);
+                let old_bracketed = pho.content.content.take();
                 let mut new_bracketed = Vec::with_capacity(old_bracketed.len());
                 rebuild_bracketed_content(old_bracketed, ctx, &mut new_bracketed);
-                pho.content.content = BracketedItems(new_bracketed);
+                pho.content.content = BracketedItems::new(new_bracketed);
                 new_content.push(UtteranceContent::PhoGroup(pho));
             }
             UtteranceContent::SinGroup(mut sin) => {
-                let old_bracketed = std::mem::take(&mut sin.content.content.0);
+                let old_bracketed = sin.content.content.take();
                 let mut new_bracketed = Vec::with_capacity(old_bracketed.len());
                 rebuild_bracketed_content(old_bracketed, ctx, &mut new_bracketed);
-                sin.content.content = BracketedItems(new_bracketed);
+                sin.content.content = BracketedItems::new(new_bracketed);
                 new_content.push(UtteranceContent::SinGroup(sin));
             }
             UtteranceContent::Quotation(mut quot) => {
-                let old_bracketed = std::mem::take(&mut quot.content.content.0);
+                let old_bracketed = quot.content.content.take();
                 let mut new_bracketed = Vec::with_capacity(old_bracketed.len());
                 rebuild_bracketed_content(old_bracketed, ctx, &mut new_bracketed);
-                quot.content.content = BracketedItems(new_bracketed);
+                quot.content.content = BracketedItems::new(new_bracketed);
                 new_content.push(UtteranceContent::Quotation(quot));
             }
             UtteranceContent::Separator(ref sep) if is_tag_marker_separator(sep) => {
@@ -273,37 +273,31 @@ fn rebuild_bracketed_content(
                 new_items.push(BracketedItem::ReplacedWord(replaced));
             }
             BracketedItem::AnnotatedGroup(mut annotated) => {
-                let old_bracketed = std::mem::replace(
-                    &mut annotated.inner.content.content,
-                    BracketedItems(Vec::new()),
-                );
-                let mut sub_items = Vec::with_capacity(old_bracketed.0.len());
-                rebuild_bracketed_content(old_bracketed.0, ctx, &mut sub_items);
-                annotated.inner.content.content = BracketedItems(sub_items);
+                let old_bracketed = BracketedItems::new(annotated.inner.content.content.take());
+                let mut sub_items = Vec::with_capacity(old_bracketed.len());
+                rebuild_bracketed_content(old_bracketed.into_vec(), ctx, &mut sub_items);
+                annotated.inner.content.content = BracketedItems::new(sub_items);
                 new_items.push(BracketedItem::AnnotatedGroup(annotated));
             }
             BracketedItem::PhoGroup(mut pho) => {
-                let old_bracketed =
-                    std::mem::replace(&mut pho.content.content, BracketedItems(Vec::new()));
-                let mut sub_items = Vec::with_capacity(old_bracketed.0.len());
-                rebuild_bracketed_content(old_bracketed.0, ctx, &mut sub_items);
-                pho.content.content = BracketedItems(sub_items);
+                let old_bracketed = BracketedItems::new(pho.content.content.take());
+                let mut sub_items = Vec::with_capacity(old_bracketed.len());
+                rebuild_bracketed_content(old_bracketed.into_vec(), ctx, &mut sub_items);
+                pho.content.content = BracketedItems::new(sub_items);
                 new_items.push(BracketedItem::PhoGroup(pho));
             }
             BracketedItem::SinGroup(mut sin) => {
-                let old_bracketed =
-                    std::mem::replace(&mut sin.content.content, BracketedItems(Vec::new()));
-                let mut sub_items = Vec::with_capacity(old_bracketed.0.len());
-                rebuild_bracketed_content(old_bracketed.0, ctx, &mut sub_items);
-                sin.content.content = BracketedItems(sub_items);
+                let old_bracketed = BracketedItems::new(sin.content.content.take());
+                let mut sub_items = Vec::with_capacity(old_bracketed.len());
+                rebuild_bracketed_content(old_bracketed.into_vec(), ctx, &mut sub_items);
+                sin.content.content = BracketedItems::new(sub_items);
                 new_items.push(BracketedItem::SinGroup(sin));
             }
             BracketedItem::Quotation(mut quot) => {
-                let old_bracketed =
-                    std::mem::replace(&mut quot.content.content, BracketedItems(Vec::new()));
-                let mut sub_items = Vec::with_capacity(old_bracketed.0.len());
-                rebuild_bracketed_content(old_bracketed.0, ctx, &mut sub_items);
-                quot.content.content = BracketedItems(sub_items);
+                let old_bracketed = BracketedItems::new(quot.content.content.take());
+                let mut sub_items = Vec::with_capacity(old_bracketed.len());
+                rebuild_bracketed_content(old_bracketed.into_vec(), ctx, &mut sub_items);
+                quot.content.content = BracketedItems::new(sub_items);
                 new_items.push(BracketedItem::Quotation(quot));
             }
             BracketedItem::Separator(ref sep) if is_tag_marker_separator(sep) => {

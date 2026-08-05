@@ -6,6 +6,7 @@
 //! that decides when and with what payloads to invoke this transform.
 
 use smallvec::SmallVec;
+use talkbank_model::model::TierContentItems;
 use talkbank_model::model::{GrammaticalRelation, Mor, ParseHealthTier, Utterance};
 
 use crate::extract::ExtractedWord;
@@ -224,11 +225,11 @@ pub fn retokenize_utterance(
         emitted_tokens: std::collections::HashSet::new(),
     };
 
-    let old_content = std::mem::take(&mut utterance.main.content.content.0);
+    let old_content = utterance.main.content.content.take();
     let mut new_content = Vec::with_capacity(old_content.len());
 
     rebuild_content(old_content, &mut ctx, &mut new_content);
-    utterance.main.content.content.0 = new_content;
+    utterance.main.content.content = TierContentItems::new(new_content);
 
     if !ctx.diagnostics.is_empty() {
         utterance.mark_parse_taint(ParseHealthTier::Main);
@@ -264,7 +265,7 @@ mod tests {
             .map(|(idx, word)| ExtractedWord {
                 text: ChatCleanedText::test_unchecked(*word),
                 raw_text: ChatRawText::test_unchecked(*word),
-                utterance_word_index: WordIdx(idx),
+                utterance_word_index: WordIdx::new(idx),
                 form_type: None,
                 lang: None,
             })

@@ -79,7 +79,6 @@ impl ProvenanceComment {
 /// so we scan for the last of all four header kinds.
 fn insert_pos_after_constant_headers(file: &ChatFile) -> usize {
     file.lines
-        .0
         .iter()
         .enumerate()
         .rev()
@@ -110,7 +109,7 @@ pub fn inject_provenance(file: &mut ChatFile, comment: &ProvenanceComment) {
     let new_content = comment.format();
 
     // Remove existing provenance comment for this command.
-    file.lines.0.retain(|line| {
+    file.lines.retain(|line| {
         if let Line::Header { header, .. } = line
             && let Header::Comment { content } = header.as_ref()
         {
@@ -126,7 +125,7 @@ pub fn inject_provenance(file: &mut ChatFile, comment: &ProvenanceComment) {
 
     let bullet_content = crate::chat_ops::BulletContent::from_text(new_content);
 
-    file.lines.0.insert(
+    file.lines.insert(
         insert_pos,
         Line::header(Header::Comment {
             content: bullet_content,
@@ -211,7 +210,7 @@ pub fn inject_unchecked_warning(file: &mut ChatFile, asr_engine: &str) {
     let marker = "Unchecked output of ASR model";
 
     // Remove existing unchecked warning (if re-transcribing).
-    file.lines.0.retain(|line| {
+    file.lines.retain(|line| {
         if let Line::Header { header, .. } = line
             && let Header::Comment { content } = header.as_ref()
         {
@@ -227,7 +226,7 @@ pub fn inject_unchecked_warning(file: &mut ChatFile, asr_engine: &str) {
 
     let bullet_content = crate::chat_ops::BulletContent::from_text(warning_text);
 
-    file.lines.0.insert(
+    file.lines.insert(
         insert_pos,
         Line::header(Header::Comment {
             content: bullet_content,

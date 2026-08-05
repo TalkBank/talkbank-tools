@@ -208,7 +208,11 @@ pub fn postprocess_utterance_timings(
 
     // Write timings back to the AST
     let mut idx = 0;
-    set_word_timings(&mut utterance.main.content.content, &word_timings, &mut idx);
+    set_word_timings(
+        utterance.main.content.content.as_mut_slice(),
+        &word_timings,
+        &mut idx,
+    );
 
     words_dropped
 }

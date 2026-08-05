@@ -364,7 +364,7 @@ pub(crate) async fn process_fa_incremental(
         .map(|g| FaGroupTrace {
             audio_start_ms: DurationMs(g.audio_start_ms()),
             audio_end_ms: DurationMs(g.audio_end_ms()),
-            utterance_indices: g.utterance_indices.iter().map(|idx| idx.0).collect(),
+            utterance_indices: g.utterance_indices.iter().map(|idx| idx.raw()).collect(),
             words: g.words.iter().map(|w| w.text.clone()).collect(),
         })
         .collect();
@@ -610,20 +610,20 @@ mod tests {
             FaGroup {
                 audio_span: TimeSpan::new(731000, 734000),
                 words: vec![FaWord {
-                    utterance_index: UtteranceIdx(0),
-                    utterance_word_index: WordIdx(0),
+                    utterance_index: UtteranceIdx::new(0),
+                    utterance_word_index: WordIdx::new(0),
                     text: "alright".into(),
                 }],
-                utterance_indices: vec![UtteranceIdx(0)],
+                utterance_indices: vec![UtteranceIdx::new(0)],
             },
             FaGroup {
                 audio_span: TimeSpan::new(639000, 641000),
                 words: vec![FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(0),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(0),
                     text: "look".into(),
                 }],
-                utterance_indices: vec![UtteranceIdx(1)],
+                utterance_indices: vec![UtteranceIdx::new(1)],
             },
         ];
 

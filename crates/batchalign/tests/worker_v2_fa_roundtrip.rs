@@ -77,8 +77,8 @@ fn make_words(texts: &[&str]) -> Vec<FaWord> {
         .iter()
         .enumerate()
         .map(|(index, text)| FaWord {
-            utterance_index: UtteranceIdx(0),
-            utterance_word_index: WordIdx(index),
+            utterance_index: UtteranceIdx::new(0),
+            utterance_word_index: WordIdx::new(index),
             text: (*text).into(),
         })
         .collect()

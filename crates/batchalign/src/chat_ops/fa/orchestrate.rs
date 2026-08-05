@@ -7,6 +7,7 @@ use talkbank_model::alignment::resolve_wor_timing_sidecar;
 use talkbank_model::model::{
     BracketedItem, ChatFile, DependentTier, Line, Utterance, UtteranceContent,
 };
+use talkbank_model::model::{BracketedItems, TierContentItems};
 
 use super::FaTimingMode;
 use super::injection::inject_timings_for_utterance;
@@ -50,7 +51,7 @@ pub fn apply_fa_results(
     for (group, _) in groups.iter().zip(responses.iter()) {
         for &utt_idx in &group.utterance_indices {
             if let Some(utt) = get_utterance_mut(chat_file, utt_idx) {
-                strip_internal_bullet_tokens(&mut utt.main.content.content.0);
+                strip_internal_bullet_tokens(&mut utt.main.content.content);
             }
         }
     }
@@ -75,11 +76,18 @@ pub fn apply_fa_results(
         .collect();
 
     for &utt_idx in &all_utt_indices {
+        // Resolve the LINE index before the mutable borrow. `utt_idx` is an
+        // utterance ordinal and `DecisionRecord.line_idx` indexes lines; they
+        // never coincide, because every CHAT file opens with headers. This
+        // used to pass the ordinal straight through, which silently dropped
+        // the decision (the consumer found a header at that index and skipped
+        // it) or attached it to the wrong utterance.
+        let line_idx = super::utterance_line_idx(chat_file, utt_idx);
         if let Some(utt) = get_utterance_mut(chat_file, utt_idx) {
             let words_dropped = postprocess_utterance_timings(utt, timing_mode);
-            if words_dropped > 0 {
+            if let (true, Some(line_idx)) = (words_dropped > 0, line_idx) {
                 decisions.push(batchalign_transform::decisions::DecisionRecord {
-                    line_idx: utt_idx.0,
+                    line_idx,
                     speaker: utt.main.speaker.as_str().to_string(),
                     strategy: batchalign_transform::decisions::DecisionStrategy::Fa(
                         batchalign_transform::decisions::FaStrategy::WordsTimingDropped,
@@ -159,7 +167,7 @@ pub fn refresh_existing_alignment_for_utterance(
         return false;
     };
 
-    strip_internal_bullet_tokens(&mut utterance.main.content.content.0);
+    strip_internal_bullet_tokens(&mut utterance.main.content.content);
     let mut offset = 0usize;
     inject_timings_for_utterance(utterance, &timings, &mut offset);
     update_utterance_bullet(utterance);
@@ -219,7 +227,7 @@ pub fn enforce_monotonicity(
 
     // Pass 1: strip utterances with non-monotonic start times.
     let mut last_start_ms: u64 = 0;
-    for (line_idx, line) in chat_file.lines.iter_mut().enumerate() {
+    for (line_idx, line) in chat_file.lines.as_mut_slice().iter_mut().enumerate() {
         let utt = match line {
             Line::Utterance(u) => u,
             _ => continue,
@@ -260,7 +268,7 @@ pub fn enforce_monotonicity(
         let (prev_idx, _prev_start) = pair[0];
         let (_next_idx, next_start) = pair[1];
 
-        if let Line::Utterance(prev_utt) = &mut chat_file.lines[prev_idx]
+        if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
             && let Some(bullet) = prev_utt.main.content.bullet.as_ref()
             && bullet.timing.end_ms > next_start
         {
@@ -370,14 +378,14 @@ pub fn strip_wor_from_monotonicity_stripped_utterances(
                 DecisionStrategy::Monotonicity(MonotonicityStrategy::TimingStripped)
             )
         })
-        .map(|d| d.line_idx)
+        .map(|d| d.line_idx.raw())
         .collect();
 
     if stripped.is_empty() {
         return;
     }
 
-    for (line_idx, line) in chat_file.lines.iter_mut().enumerate() {
+    for (line_idx, line) in chat_file.lines.as_mut_slice().iter_mut().enumerate() {
         if !stripped.contains(&line_idx) {
             continue;
         }
@@ -423,7 +431,7 @@ pub fn strip_e704_same_speaker_overlaps(chat_file: &mut ChatFile) {
     }
 
     for idx in to_strip {
-        if let Line::Utterance(utt) = &mut chat_file.lines[idx] {
+        if let Line::Utterance(utt) = &mut chat_file.lines.as_mut_slice()[idx] {
             strip_utterance_timing(utt);
         }
     }
@@ -436,10 +444,10 @@ pub fn strip_e704_same_speaker_overlaps(chat_file: &mut ChatFile) {
 /// Strip all timing information from utterance content items.
 ///
 /// Removes `InternalBullet` items and clears `inline_bullet` from all words.
-pub fn strip_timing_from_content(items: &mut Vec<UtteranceContent>) {
+pub fn strip_timing_from_content(items: &mut TierContentItems) {
     items.retain(|item| !matches!(item, UtteranceContent::InternalBullet(_)));
 
-    for item in items.iter_mut() {
+    for item in items.as_mut_slice().iter_mut() {
         match item {
             UtteranceContent::Word(w) => {
                 w.inline_bullet = None;
@@ -451,10 +459,10 @@ pub fn strip_timing_from_content(items: &mut Vec<UtteranceContent>) {
                 rw.word.inline_bullet = None;
             }
             UtteranceContent::Group(g) => {
-                strip_timing_from_bracketed(&mut g.content.content.0);
+                strip_timing_from_bracketed(&mut g.content.content);
             }
             UtteranceContent::AnnotatedGroup(ag) => {
-                strip_timing_from_bracketed(&mut ag.inner.content.content.0);
+                strip_timing_from_bracketed(&mut ag.inner.content.content);
             }
             _ => {}
         }
@@ -466,48 +474,48 @@ pub fn strip_timing_from_content(items: &mut Vec<UtteranceContent>) {
 /// This is used by the cheap rerun path after `%wor` timing is copied back to
 /// main-tier words. Without this cleanup the serializer would emit both the
 /// old parsed bullet tokens and the refreshed word-level bullets.
-fn strip_internal_bullet_tokens(items: &mut Vec<UtteranceContent>) {
+fn strip_internal_bullet_tokens(items: &mut TierContentItems) {
     items.retain(|item| !matches!(item, UtteranceContent::InternalBullet(_)));
 
-    for item in items.iter_mut() {
+    for item in items.as_mut_slice().iter_mut() {
         match item {
             UtteranceContent::Group(group) => {
-                strip_internal_bullet_tokens_bracketed(&mut group.content.content.0);
+                strip_internal_bullet_tokens_bracketed(&mut group.content.content);
             }
             UtteranceContent::AnnotatedGroup(group) => {
-                strip_internal_bullet_tokens_bracketed(&mut group.inner.content.content.0);
+                strip_internal_bullet_tokens_bracketed(&mut group.inner.content.content);
             }
             _ => {}
         }
     }
 }
 
-fn strip_internal_bullet_tokens_bracketed(items: &mut Vec<BracketedItem>) {
+fn strip_internal_bullet_tokens_bracketed(items: &mut BracketedItems) {
     items.retain(|item| !matches!(item, BracketedItem::InternalBullet(_)));
 
-    for item in items.iter_mut() {
+    for item in items.as_mut_slice().iter_mut() {
         match item {
             BracketedItem::AnnotatedGroup(group) => {
-                strip_internal_bullet_tokens_bracketed(&mut group.inner.content.content.0);
+                strip_internal_bullet_tokens_bracketed(&mut group.inner.content.content);
             }
             BracketedItem::PhoGroup(group) => {
-                strip_internal_bullet_tokens_bracketed(&mut group.content.content.0);
+                strip_internal_bullet_tokens_bracketed(&mut group.content.content);
             }
             BracketedItem::SinGroup(group) => {
-                strip_internal_bullet_tokens_bracketed(&mut group.content.content.0);
+                strip_internal_bullet_tokens_bracketed(&mut group.content.content);
             }
             BracketedItem::Quotation(group) => {
-                strip_internal_bullet_tokens_bracketed(&mut group.content.content.0);
+                strip_internal_bullet_tokens_bracketed(&mut group.content.content);
             }
             _ => {}
         }
     }
 }
 
-fn strip_timing_from_bracketed(items: &mut Vec<BracketedItem>) {
+fn strip_timing_from_bracketed(items: &mut BracketedItems) {
     items.retain(|item| !matches!(item, BracketedItem::InternalBullet(_)));
 
-    for item in items.iter_mut() {
+    for item in items.as_mut_slice().iter_mut() {
         match item {
             BracketedItem::Word(w) => {
                 w.inline_bullet = None;
@@ -516,7 +524,7 @@ fn strip_timing_from_bracketed(items: &mut Vec<BracketedItem>) {
                 aw.inner.inline_bullet = None;
             }
             BracketedItem::AnnotatedGroup(ag) => {
-                strip_timing_from_bracketed(&mut ag.inner.content.content.0);
+                strip_timing_from_bracketed(&mut ag.inner.content.content);
             }
             _ => {}
         }
@@ -602,7 +610,7 @@ pub(super) fn collect_wor_backed_span(utterance: &Utterance) -> Option<WordTimin
 /// Strip timing and %wor from a single utterance.
 pub(super) fn strip_utterance_timing(utt: &mut Utterance) {
     utt.main.content.bullet = None;
-    strip_timing_from_content(&mut utt.main.content.content.0);
+    strip_timing_from_content(&mut utt.main.content.content);
     // Remove %wor tiers.
     utt.dependent_tiers
         .retain(|t| !matches!(t.tier, DependentTier::Wor(_)));

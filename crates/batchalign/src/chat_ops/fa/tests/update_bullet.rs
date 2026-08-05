@@ -116,22 +116,22 @@ fn test_apply_fa_results_preserves_pretimed_bullet() {
         audio_span: TimeSpan::new(37397, 42983),
         words: vec![
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "I".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(1),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(1),
                 text: "went".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(2),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(2),
                 text: "home".into(),
             },
         ],
-        utterance_indices: vec![UtteranceIdx(0)],
+        utterance_indices: vec![UtteranceIdx::new(0)],
     }];
 
     let responses = vec![vec![

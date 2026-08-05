@@ -110,7 +110,6 @@ fn main() {
 mod tests {
     use std::fs;
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
 
@@ -120,13 +119,20 @@ mod tests {
 
     impl TempDirGuard {
         fn new() -> Self {
+            // A process-wide counter, NOT a timestamp: `SystemTime::now()`
+            // has microsecond-or-worse effective granularity here (measured:
+            // 19,584 of 20,000 consecutive samples were IDENTICAL), and the
+            // pid is constant across every test in one binary, so "pid +
+            // nanos" collides routinely between tests running in parallel.
+            // Two guards then share a directory and the first `Drop` deletes
+            // the other's file, which is what made
+            // `config_roundtrip_preserves_engine_and_key` fail only under a
+            // full workspace run.
+            static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
             let unique = format!(
                 "batchalign-dashboard-desktop-main-{}-{}",
                 std::process::id(),
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("system time before unix epoch")
-                    .as_nanos()
+                COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             );
             let path = std::env::temp_dir().join(unique);
             fs::create_dir_all(&path).expect("create temp dir");

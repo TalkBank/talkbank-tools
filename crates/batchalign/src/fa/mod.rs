@@ -559,7 +559,7 @@ pub(crate) async fn run_fa_from_ast(
         .map(|g| FaGroupTrace {
             audio_start_ms: DurationMs(g.audio_start_ms()),
             audio_end_ms: DurationMs(g.audio_end_ms()),
-            utterance_indices: g.utterance_indices.iter().map(|idx| idx.0).collect(),
+            utterance_indices: g.utterance_indices.iter().map(|idx| idx.raw()).collect(),
             words: g.words.iter().map(|w| w.text.clone()).collect(),
         })
         .collect();

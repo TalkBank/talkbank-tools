@@ -7,6 +7,7 @@
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
+use talkbank_model::model::TierContentItems;
 use talkbank_model::model::{ChatFile, Line, UtteranceContent, Word};
 use talkbank_parser::TreeSitterParser;
 
@@ -22,7 +23,9 @@ static ABBREV: LazyLock<HashSet<String>> = LazyLock::new(|| {
 pub fn merge_abbreviations(chat_file: &mut ChatFile) {
     for line in &mut chat_file.lines {
         if let Line::Utterance(utt) = line {
-            merge_in_content_items(&mut utt.main.content.content.0);
+            let mut items = utt.main.content.content.take();
+            merge_in_content_items(&mut items);
+            utt.main.content.content = TierContentItems::new(items);
         }
     }
 }

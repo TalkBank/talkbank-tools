@@ -1,3 +1,4 @@
+use super::BuildChatError;
 use talkbank_model::Span;
 use talkbank_model::model::{
     BracketedContent, BracketedItem, Bullet, DependentTier, LanguageCode, Line, Retrace,
@@ -14,7 +15,7 @@ pub(super) fn build_utterance_lines(
     parser: &TreeSitterParser,
     langs: &[LanguageCode],
     primary_lang: &LanguageCode,
-) -> Result<Vec<Line>, String> {
+) -> Result<Vec<Line>, BuildChatError> {
     let mut lines = Vec::with_capacity(desc.utterances.len());
 
     for utterance in &desc.utterances {
@@ -55,13 +56,16 @@ fn apply_utterance_language_override(
     line: &mut Line,
     utterance_lang: Option<&str>,
     primary_lang: &LanguageCode,
-) -> Result<(), String> {
+) -> Result<(), BuildChatError> {
     if let Some(utterance_lang) = utterance_lang
         && utterance_lang != primary_lang.as_str()
         && let Line::Utterance(utterance) = line
     {
-        let code = LanguageCode::new(utterance_lang)
-            .map_err(|e| format!("invalid utterance language code {utterance_lang:?}: {e}"))?;
+        let code =
+            LanguageCode::new(utterance_lang).map_err(|source| BuildChatError::LanguageCode {
+                code: utterance_lang.to_string(),
+                source,
+            })?;
         utterance.main.content.language_code = Some(code);
     }
     Ok(())
@@ -98,7 +102,7 @@ fn build_text_utterance(
     start_ms: Option<u64>,
     end_ms: Option<u64>,
     langs: &[LanguageCode],
-) -> Result<Option<Line>, String> {
+) -> Result<Option<Line>, BuildChatError> {
     let text = text.trim();
     if text.is_empty() {
         return Ok(None);
@@ -120,7 +124,10 @@ fn build_text_utterance(
     );
 
     let parsed = crate::parse::parse_strict(parser, &mini_chat).map_err(|error| {
-        format!("Failed to parse text utterance for speaker {speaker}: {error}")
+        BuildChatError::Utterance {
+            speaker: speaker.to_string(),
+            message: error.to_string(),
+        }
     })?;
 
     for parsed_line in parsed.lines.into_iter() {
@@ -192,7 +199,7 @@ fn build_word_utterance(
     speaker: &str,
     words: &[WordDesc],
     write_wor: bool,
-) -> Result<Option<Line>, String> {
+) -> Result<Option<Line>, BuildChatError> {
     let mut content: Vec<UtteranceContent> = Vec::new();
     let mut utt_start_ms: Option<u64> = None;
     let mut utt_end_ms: Option<u64> = None;

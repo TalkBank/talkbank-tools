@@ -88,22 +88,22 @@ fn test_apply_fa_results() {
         audio_span: TimeSpan::new(0, 10000),
         words: vec![
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "hello".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(1),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(1),
                 text: "world".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(1),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(1),
+                utterance_word_index: WordIdx::new(0),
                 text: "goodbye".into(),
             },
         ],
-        utterance_indices: vec![UtteranceIdx(0), UtteranceIdx(1)],
+        utterance_indices: vec![UtteranceIdx::new(0), UtteranceIdx::new(1)],
     }];
 
     let responses = vec![vec![
@@ -411,33 +411,33 @@ fn test_apply_fa_results_excludes_xxx_from_wor_tier() {
         audio_span: TimeSpan::new(27602, 28323),
         words: vec![
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "last".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(1),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(1),
                 text: "time".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(2),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(2),
                 text: "I".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(3),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(3),
                 text: "saw".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(4),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(4),
                 text: "you".into(),
             },
             // xxx is NOT in the FA group, not sent to the aligner.
         ],
-        utterance_indices: vec![UtteranceIdx(0)],
+        utterance_indices: vec![UtteranceIdx::new(0)],
     }];
 
     // FA response: 5 timings for the 5 real words.

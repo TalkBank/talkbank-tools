@@ -29,17 +29,17 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
         audio_span: TimeSpan::new(0, 5000),
         words: vec![
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "hello".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(1),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(1),
                 text: "world".into(),
             },
         ],
-        utterance_indices: vec![UtteranceIdx(0)],
+        utterance_indices: vec![UtteranceIdx::new(0)],
     }];
     let responses = vec![vec![
         Some(WordTiming {
@@ -122,17 +122,17 @@ fn test_fa_bullet_overwrites_utr_hint_with_word_derived_timing() {
         audio_span: TimeSpan::new(800, 3000),
         words: vec![
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "hello".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(1),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(1),
                 text: "world".into(),
             },
         ],
-        utterance_indices: vec![UtteranceIdx(0)],
+        utterance_indices: vec![UtteranceIdx::new(0)],
     }];
 
     let responses = vec![vec![
@@ -193,17 +193,17 @@ fn test_fa_preserves_utr_hint_when_all_words_untimed() {
         audio_span: TimeSpan::new(1000, 3000),
         words: vec![
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "hello".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(1),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(1),
                 text: "world".into(),
             },
         ],
-        utterance_indices: vec![UtteranceIdx(0)],
+        utterance_indices: vec![UtteranceIdx::new(0)],
     }];
 
     // FA total failure: all words return None.
@@ -299,17 +299,17 @@ fn test_fa_sets_bullet_from_word_span_when_no_prior_bullet() {
         audio_span: TimeSpan::new(0, 5000),
         words: vec![
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "hello".into(),
             },
             FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(1),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(1),
                 text: "world".into(),
             },
         ],
-        utterance_indices: vec![UtteranceIdx(0)],
+        utterance_indices: vec![UtteranceIdx::new(0)],
     }];
 
     let responses = vec![vec![
@@ -359,11 +359,11 @@ fn test_fa_clears_zero_duration_authoritative_bullet_when_fa_produces_no_word_ti
     let groups = vec![FaGroup {
         audio_span: TimeSpan::new(245000, 247000),
         words: vec![FaWord {
-            utterance_index: UtteranceIdx(0),
-            utterance_word_index: WordIdx(0),
+            utterance_index: UtteranceIdx::new(0),
+            utterance_word_index: WordIdx::new(0),
             text: "z".into(),
         }],
-        utterance_indices: vec![UtteranceIdx(0)],
+        utterance_indices: vec![UtteranceIdx::new(0)],
     }];
     let responses = vec![vec![None]];
 
@@ -412,57 +412,57 @@ fn test_fa_backward_timestamp_from_wrong_audio_window_is_stripped() {
         FaGroup {
             audio_span: TimeSpan::new(731000, 735000),
             words: vec![FaWord {
-                utterance_index: UtteranceIdx(0),
-                utterance_word_index: WordIdx(0),
+                utterance_index: UtteranceIdx::new(0),
+                utterance_word_index: WordIdx::new(0),
                 text: "alright".into(),
             }],
-            utterance_indices: vec![UtteranceIdx(0)],
+            utterance_indices: vec![UtteranceIdx::new(0)],
         },
         FaGroup {
             audio_span: TimeSpan::new(637000, 645000),
             words: vec![
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(0),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(0),
                     text: "so".into(),
                 },
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(1),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(1),
                     text: "take".into(),
                 },
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(2),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(2),
                     text: "a".into(),
                 },
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(3),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(3),
                     text: "look".into(),
                 },
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(4),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(4),
                     text: "at".into(),
                 },
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(5),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(5),
                     text: "all".into(),
                 },
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(6),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(6),
                     text: "of".into(),
                 },
                 FaWord {
-                    utterance_index: UtteranceIdx(1),
-                    utterance_word_index: WordIdx(7),
+                    utterance_index: UtteranceIdx::new(1),
+                    utterance_word_index: WordIdx::new(7),
                     text: "them".into(),
                 },
             ],
-            utterance_indices: vec![UtteranceIdx(1)],
+            utterance_indices: vec![UtteranceIdx::new(1)],
         },
     ];
 

@@ -294,7 +294,7 @@ mod tests {
         // Add %xtra
         let xtra1 = DependentTier::UserDefined(UserDefinedDependentTier {
             label: NonEmptyString::new("xtra").unwrap(),
-            content: NonEmptyString::new("first").unwrap(),
+            content: Some(NonEmptyString::new("first").unwrap()),
             span: talkbank_model::Span::DUMMY,
         });
         replace_or_add_tier(&mut tiers, xtra1);
@@ -303,7 +303,7 @@ mod tests {
         // Replace %xtra with new content
         let xtra2 = DependentTier::UserDefined(UserDefinedDependentTier {
             label: NonEmptyString::new("xtra").unwrap(),
-            content: NonEmptyString::new("second").unwrap(),
+            content: Some(NonEmptyString::new("second").unwrap()),
             span: talkbank_model::Span::DUMMY,
         });
         replace_or_add_tier(&mut tiers, xtra2);
@@ -311,7 +311,7 @@ mod tests {
 
         // Verify content was replaced
         if let DependentTier::UserDefined(ud) = &tiers[0].tier {
-            assert_eq!(ud.content.as_ref(), "second");
+            assert_eq!(ud.content.as_ref().map(|c| c.as_str()), Some("second"));
         } else {
             panic!("Expected UserDefined tier");
         }
@@ -319,7 +319,7 @@ mod tests {
         // Add %xcod (different label), should NOT replace %xtra
         let xcod = DependentTier::UserDefined(UserDefinedDependentTier {
             label: NonEmptyString::new("xcod").unwrap(),
-            content: NonEmptyString::new("code").unwrap(),
+            content: Some(NonEmptyString::new("code").unwrap()),
             span: talkbank_model::Span::DUMMY,
         });
         replace_or_add_tier(&mut tiers, xcod);

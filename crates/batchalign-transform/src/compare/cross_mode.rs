@@ -334,7 +334,7 @@ fn morph_tokens(file: &ChatFile) -> BTreeMap<String, Vec<Vec<MorToken>>> {
     let utterances: Vec<_> = file.utterances().collect();
     let mut per_speaker: BTreeMap<String, Vec<Vec<MorToken>>> = BTreeMap::new();
     for entry in extracted {
-        let Some(utterance) = utterances.get(entry.utterance_index.0) else {
+        let Some(utterance) = utterances.get(entry.utterance_index.raw()) else {
             continue;
         };
         let mors = utterance.mor_tier().map(|tier| tier.items()).unwrap_or(&[]);
@@ -501,7 +501,7 @@ fn alignment_tokens(
         let utterance_index = *ordinal;
         *ordinal += 1;
         let timed_words: Vec<_> = utterances
-            .get(entry.utterance_index.0)
+            .get(entry.utterance_index.raw())
             .and_then(|utterance| utterance.wor_tier())
             .map(|tier| tier.words().collect())
             .unwrap_or_default();

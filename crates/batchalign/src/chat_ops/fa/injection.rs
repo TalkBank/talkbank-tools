@@ -67,7 +67,7 @@ pub fn inject_timings_for_utterance(
     let mut cursor = TimingCursor::with_offset(timings, *timing_offset);
     // domain=None: recurse into all groups unconditionally (FA needs all words)
     walk_words_mut(
-        &mut utterance.main.content.content,
+        utterance.main.content.content.as_mut_slice(),
         None,
         &mut |leaf| match leaf {
             WordItemMut::Word(word) => {

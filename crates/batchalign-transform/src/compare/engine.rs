@@ -626,8 +626,8 @@ fn flatten_words(
         for extracted in &utt.words {
             let text = extracted.text.as_str();
             let pos = mor_positions
-                .get(utt.utterance_index.0)
-                .and_then(|positions| positions.get(extracted.utterance_word_index.0))
+                .get(utt.utterance_index.raw())
+                .and_then(|positions| positions.get(extracted.utterance_word_index.raw()))
                 .cloned()
                 .flatten();
             if is_punct_or_filler(text) || is_punct_pos(pos.as_deref()) {
@@ -635,8 +635,8 @@ fn flatten_words(
             }
             words.push(text.to_string());
             info.push(FlattenedWordInfo {
-                utterance_index: utt.utterance_index.0,
-                word_position: extracted.utterance_word_index.0,
+                utterance_index: utt.utterance_index.raw(),
+                word_position: extracted.utterance_word_index.raw(),
                 compare_position,
                 pos,
             });

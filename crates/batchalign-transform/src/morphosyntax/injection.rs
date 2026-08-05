@@ -157,7 +157,7 @@ fn synthesize_all_special_form_utterance(
     }
     synth_gras.push(GrammaticalRelation::new(chunk_count + 1, 1, labels.punct));
 
-    let utt = match &mut chat_file.lines[line_idx] {
+    let utt = match &mut chat_file.lines.as_mut_slice()[line_idx] {
         Line::Utterance(u) => u,
         _ => return false,
     };
@@ -259,7 +259,7 @@ pub fn inject_results(
         }
 
         if let Some(ud_sentence) = ud_resp.sentences.first() {
-            let utt = match &mut chat_file.lines[line_idx] {
+            let utt = match &mut chat_file.lines.as_mut_slice()[line_idx] {
                 Line::Utterance(u) => u,
                 _ => {
                     return Err(format!(

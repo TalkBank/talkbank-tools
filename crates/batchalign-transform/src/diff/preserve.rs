@@ -73,7 +73,7 @@ pub fn copy_dependent_tiers(
 
     // Then inject them into the "after" file.
     let mut utt_count = 0usize;
-    for line in after.lines.iter_mut() {
+    for line in after.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(utt) = line {
             if utt_count == after_idx.raw() {
                 for tier in tiers_to_copy {

@@ -190,7 +190,7 @@ fn build_projected_mor_tier(
 
 fn replace_or_add_mor_tier(chat_file: &mut ChatFile, utterance_index: usize, mor: MorTier) {
     let mut utterance_count = 0usize;
-    for line in chat_file.lines.iter_mut() {
+    for line in chat_file.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(utt) = line {
             if utterance_count == utterance_index {
                 replace_or_add_tier(&mut utt.dependent_tiers, DependentTier::Mor(mor));
@@ -233,9 +233,9 @@ pub fn project_gold_structurally(
         ) {
             copy_dependent_tiers(
                 main_file,
-                UtteranceIdx(main_utterance_index),
+                UtteranceIdx::new(main_utterance_index),
                 &mut projected,
-                UtteranceIdx(gold_utterance_index),
+                UtteranceIdx::new(gold_utterance_index),
                 &[TierKind::Mor, TierKind::Gra, TierKind::Wor],
             );
             continue;
@@ -299,7 +299,7 @@ pub fn inject_comparison(
             content: XsmorTierContent::try_from(utt_comparison)?,
         };
 
-        if let Some(Line::Utterance(utt)) = chat_file.lines.get_mut(line_idx) {
+        if let Some(Line::Utterance(utt)) = chat_file.lines.as_mut_slice().get_mut(line_idx) {
             replace_or_add_user_defined_tier(utt, xsrep_tier)?;
             replace_or_add_user_defined_tier(utt, xsmor_tier)?;
         }
@@ -319,7 +319,7 @@ fn replace_or_add_user_defined_tier<T: WriteChat>(
 
 /// Remove existing `%xsrep` and `%xsmor` tiers from all utterances.
 pub fn clear_comparison(chat_file: &mut ChatFile) {
-    for line in chat_file.lines.iter_mut() {
+    for line in chat_file.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(utt) = line {
             utt.dependent_tiers.retain(|tier| {
                 !matches!(

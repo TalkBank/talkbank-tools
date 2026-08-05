@@ -10,7 +10,9 @@ use super::{ParticipantDesc, TranscriptDescription, UtteranceDesc, WordDesc};
 pub fn build_chat_from_json(json: &str) -> Result<ChatFile, String> {
     let desc: TranscriptDescription =
         serde_json::from_str(json).map_err(|e| format!("Invalid JSON: {e}"))?;
-    super::build_chat(&desc)
+    // The PyO3 edge speaks strings; the typed error is flattened HERE, at the
+    // boundary, rather than by everything upstream of it.
+    super::build_chat(&desc).map_err(|e| e.to_string())
 }
 
 /// Domain errors from building a `TranscriptDescription`.

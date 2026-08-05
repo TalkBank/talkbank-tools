@@ -1586,7 +1586,7 @@ fn first_utterance_mut(
     chat: &mut talkbank_model::model::ChatFile,
 ) -> &mut talkbank_model::model::Utterance {
     use talkbank_model::model::Line;
-    for line in chat.lines.iter_mut() {
+    for line in chat.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(u) = line {
             return u;
         }

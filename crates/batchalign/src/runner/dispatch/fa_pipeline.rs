@@ -752,8 +752,8 @@ async fn process_one_fa_file(
     // the file's header is absent AND the job has no resolved lang
     // (`--lang auto`), surface a typed error rather than silently
     // tagging this file as English.
-    let file_lang: LanguageCode3 = match chat_file.languages.0.first() {
-        Some(lc) => match LanguageCode3::try_new(lc.0.as_ref()) {
+    let file_lang: LanguageCode3 = match chat_file.languages.first() {
+        Some(lc) => match LanguageCode3::try_new(lc.as_str()) {
             Ok(code) => code,
             Err(_) => match lang_fallback {
                 Some(fallback) => fallback.clone(),
@@ -763,7 +763,7 @@ async fn process_one_fa_file(
                          ISO 639-3 code, and the job was submitted with `--lang auto` so \
                          there is no fallback. Fix the file's @Languages or pass \
                          `--lang <iso3>`.",
-                        filename, lc.0
+                        filename, lc
                     );
                     lifecycle
                         .fail(&msg, FailureCategory::Validation, unix_now())

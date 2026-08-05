@@ -523,8 +523,8 @@ mod tests {
     /// Build a small FA word for transport unit tests.
     fn make_word(index: usize, text: &str) -> FaWord {
         FaWord {
-            utterance_index: UtteranceIdx(0),
-            utterance_word_index: WordIdx(index),
+            utterance_index: UtteranceIdx::new(0),
+            utterance_word_index: WordIdx::new(index),
             text: text.into(),
         }
     }
@@ -535,7 +535,7 @@ mod tests {
         let groups = vec![FaGroup {
             audio_span: TimeSpan::new(100, 900),
             words: vec![make_word(0, "hello"), make_word(1, "world")],
-            utterance_indices: vec![UtteranceIdx(0)],
+            utterance_indices: vec![UtteranceIdx::new(0)],
         }];
         let batch = FaWorkerBatch {
             word_texts: &word_texts,
@@ -584,7 +584,7 @@ mod tests {
         let group = FaGroup {
             audio_span: TimeSpan::new(100, 900),
             words: vec![make_word(0, "hello")],
-            utterance_indices: vec![UtteranceIdx(0)],
+            utterance_indices: vec![UtteranceIdx::new(0)],
         };
         let response = ExecuteResponseV2 {
             request_id: WorkerRequestIdV2::from("req-fa-v2-bad"),
@@ -855,7 +855,7 @@ mod tests {
         let group = FaGroup {
             audio_span: TimeSpan::new(175_765, 176_365),
             words: vec![make_word(0, "hello")],
-            utterance_indices: vec![UtteranceIdx(0)],
+            utterance_indices: vec![UtteranceIdx::new(0)],
         };
 
         let event = build_fallback_event(

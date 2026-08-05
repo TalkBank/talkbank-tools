@@ -103,13 +103,13 @@ pub fn inject_translation(
     }
 
     let label = NonEmptyString::new("xtra")
-        .ok_or_else(|| "Failed to create NonEmptyString for 'xtra'".to_string())?;
+        .map_err(|_| "Failed to create NonEmptyString for 'xtra'".to_string())?;
     let content = NonEmptyString::new(translation_text)
-        .ok_or_else(|| "Failed to create NonEmptyString for translation content".to_string())?;
+        .map_err(|_| "Failed to create NonEmptyString for translation content".to_string())?;
 
     let new_tier = DependentTier::UserDefined(UserDefinedDependentTier {
         label,
-        content,
+        content: Some(content),
         span: Span::DUMMY,
     });
 
@@ -131,7 +131,7 @@ pub fn apply_translate_results(chat_file: &mut ChatFile, results: &HashMap<usize
     }
 
     for (&line_idx, translation) in results {
-        if let Some(Line::Utterance(utt)) = chat_file.lines.get_mut(line_idx)
+        if let Some(Line::Utterance(utt)) = chat_file.lines.as_mut_slice().get_mut(line_idx)
             && let Err(e) = inject_translation(utt, translation)
         {
             tracing::warn!(
@@ -177,7 +177,7 @@ pub fn extract_translation_strings(
             {
                 results.push(TranslationStringsEntry {
                     line_idx,
-                    translation: ud.content.as_ref().to_string(),
+                    translation: ud.content.as_deref().unwrap_or_default().to_string(),
                 });
                 break;
             }

@@ -272,6 +272,34 @@ impl DecisionStrategy {
     }
 }
 
+/// Index of a LINE in `ChatFile.lines`, counting headers.
+///
+/// Distinct from `UtteranceIdx`, which counts only utterances, because the two
+/// never coincide: every CHAT file opens with headers, so utterance 0 is line 5
+/// or later. They were both bare `usize` and a producer assigned one to the
+/// other, which silently dropped a decision (the consumer looked at a header
+/// line and skipped it) or attached it to the wrong utterance. Nothing noticed,
+/// because nothing could: `usize` accepts either.
+///
+/// Converting between the spaces genuinely requires the file, so the
+/// conversion is a function that takes one, not a cast.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+pub struct LineIdx(usize);
+
+impl LineIdx {
+    /// Wraps a 0-based index into `ChatFile.lines`.
+    pub fn new(index: usize) -> Self {
+        Self(index)
+    }
+
+    /// The wrapped index.
+    pub fn raw(self) -> usize {
+        self.0
+    }
+}
+
 /// A machine decision that altered the output and should be reviewable.
 ///
 /// Every silent clamp, skip, default, or normalization that changes the
@@ -280,7 +308,7 @@ impl DecisionStrategy {
 #[derive(Debug, Clone)]
 pub struct DecisionRecord {
     /// Index into `ChatFile.lines` (the affected utterance).
-    pub line_idx: usize,
+    pub line_idx: LineIdx,
     /// Speaker code for the affected utterance.
     pub speaker: String,
     /// Typed module + strategy. Replaces the prior separate `module` /
@@ -316,10 +344,10 @@ impl DecisionRecord {
         let strategy = self.strategy.strategy_name();
         if self.needs_review {
             tracing::warn!(
+                line_idx = self.line_idx.raw(),
                 module,
                 strategy,
                 speaker = %self.speaker,
-                line_idx = self.line_idx,
                 reason = %self.reason,
                 "pipeline decision (needs review)"
             );
@@ -328,7 +356,7 @@ impl DecisionRecord {
                 module,
                 strategy,
                 speaker = %self.speaker,
-                line_idx = self.line_idx,
+                line_idx = self.line_idx.raw(),
                 reason = %self.reason,
                 "pipeline decision"
             );
@@ -349,7 +377,7 @@ impl DecisionRecord {
         needs_review: bool,
     ) -> Self {
         let record = Self {
-            line_idx,
+            line_idx: LineIdx::new(line_idx),
             speaker,
             strategy,
             reason,
@@ -406,10 +434,10 @@ pub fn inject_decision_tiers(
     let mut decision_map: std::collections::HashMap<usize, Vec<&DecisionRecord>> =
         std::collections::HashMap::new();
     for d in decisions {
-        decision_map.entry(d.line_idx).or_default().push(d);
+        decision_map.entry(d.line_idx.raw()).or_default().push(d);
     }
 
-    for (line_idx, line) in chat_file.lines.iter_mut().enumerate() {
+    for (line_idx, line) in chat_file.lines.as_mut_slice().iter_mut().enumerate() {
         let Line::Utterance(utt) = line else {
             continue;
         };
@@ -472,7 +500,7 @@ pub fn strip_decision_tiers(chat_file: &mut ChatFile) {
 fn make_user_tier(label: &str, content: &str) -> DependentTier {
     DependentTier::UserDefined(UserDefinedDependentTier {
         label: NonEmptyString::new(label).expect("tier label must be non-empty"),
-        content: NonEmptyString::new(content).expect("tier content must be non-empty"),
+        content: Some(NonEmptyString::new(content).expect("tier content must be non-empty")),
         span: Span::default(),
     })
 }
@@ -491,7 +519,7 @@ mod tests {
     #[test]
     fn decision_record_xalign_content_format() {
         let d = DecisionRecord {
-            line_idx: 5,
+            line_idx: LineIdx::new(5),
             speaker: "CHI".into(),
             strategy: DecisionStrategy::Monotonicity(MonotonicityStrategy::EndClamped),
             reason: "overlap=1200ms prev_end=5000 next_start=3800".into(),
@@ -518,7 +546,7 @@ mod tests {
         let mut chat = parse_chat(chat_text);
 
         let decisions = vec![DecisionRecord {
-            line_idx: 5,
+            line_idx: LineIdx::new(5),
             speaker: "CHI".into(),
             strategy: DecisionStrategy::Monotonicity(MonotonicityStrategy::EndClamped),
             reason: "overlap=500ms".into(),
@@ -549,7 +577,7 @@ mod tests {
         let mut chat = parse_chat(chat_text);
 
         let decisions = vec![DecisionRecord {
-            line_idx: 5,
+            line_idx: LineIdx::new(5),
             speaker: "CHI".into(),
             // Arbitrary FA strategy: this test only checks the
             // None-review-level gate, not the specific strategy.
@@ -590,7 +618,7 @@ mod tests {
         // A decision that WOULD emit %xalign (and %xrev, since it is flagged
         // for review) at LowConfidence/All. Default level must suppress both.
         let decisions = vec![DecisionRecord {
-            line_idx: 5,
+            line_idx: LineIdx::new(5),
             speaker: "CHI".into(),
             strategy: DecisionStrategy::Fa(FaStrategy::GapFilled),
             reason: "gap=500ms".into(),
@@ -613,7 +641,7 @@ mod tests {
     #[test]
     fn fa_decision_record_carries_strategy_metadata() {
         let decision = DecisionRecord {
-            line_idx: 3,
+            line_idx: LineIdx::new(3),
             speaker: "MOT".into(),
             strategy: DecisionStrategy::Fa(FaStrategy::GapFilled),
             reason: "gap=500ms".into(),
@@ -646,7 +674,7 @@ mod tests {
         let mut chat = parse_chat(chat_text);
 
         let decisions = vec![DecisionRecord {
-            line_idx: 5,
+            line_idx: LineIdx::new(5),
             speaker: "CHI".into(),
             strategy: DecisionStrategy::Fa(FaStrategy::TimingStripped),
             reason: "count=1".into(),
@@ -700,14 +728,14 @@ mod tests {
         // Two decisions on the same utterance, one FA, one Monotonicity.
         let decisions = vec![
             DecisionRecord {
-                line_idx: 5,
+                line_idx: LineIdx::new(5),
                 speaker: "CHI".into(),
                 strategy: DecisionStrategy::Fa(FaStrategy::WordsTimingDropped),
                 reason: "count=1 reason=clamped_to_utterance_boundary".into(),
                 needs_review: true,
             },
             DecisionRecord {
-                line_idx: 5,
+                line_idx: LineIdx::new(5),
                 speaker: "CHI".into(),
                 strategy: DecisionStrategy::Monotonicity(MonotonicityStrategy::TimingStripped),
                 reason: "non_monotonic start_ms=47646 previous_start_ms=49506".into(),
@@ -737,6 +765,55 @@ mod tests {
         assert!(
             output.contains("monotonicity:timing_stripped"),
             "Monotonicity decision must be in merged %xalign:\n{output}"
+        );
+    }
+
+    /// `line_idx` indexes `ChatFile.lines`, headers included, and a value from
+    /// the wrong index space is dropped in silence.
+    ///
+    /// Utterance 1 of this file is LINE 6, because five headers precede it.
+    /// Passing 1 makes the consumer look at `@Begin`, skip it as a
+    /// non-utterance, and discard the decision with no diagnostic.
+    /// `chat_ops::fa::orchestrate` did exactly that, because both spaces were
+    /// bare `usize`. `LineIdx` now makes that assignment fail to compile; this
+    /// test pins the consumer contract the newtype encodes, so the reason for
+    /// the type survives even if someone reaches for `LineIdx::new` on an
+    /// ordinal.
+    #[test]
+    fn line_idx_is_a_line_index_not_an_utterance_ordinal() {
+        let chat_text = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tCHI Target_Child
+@ID:\teng|test|CHI|2;0.0||||Target_Child|||
+*CHI:\thello . \u{0015}1000_2000\u{0015}
+*CHI:\tworld . \u{0015}4000_5000\u{0015}
+@End
+";
+        let record = |idx: usize| DecisionRecord {
+            line_idx: LineIdx::new(idx),
+            speaker: "CHI".into(),
+            strategy: DecisionStrategy::Fa(FaStrategy::WordsTimingDropped),
+            reason: "count=1 reason=clamped_to_utterance_boundary".into(),
+            needs_review: true,
+        };
+
+        // Line 6 is the second utterance: the tier lands.
+        let mut by_line = parse_chat(chat_text);
+        inject_decision_tiers(&mut by_line, &[record(6)], ReviewLevel::LowConfidence);
+        assert!(
+            by_line.to_chat_string().contains("%xalign:"),
+            "a real line index must produce the tier"
+        );
+
+        // Ordinal 1 is `@Begin`: nothing lands, and nothing complains. That
+        // silence is why the producer must convert rather than cast.
+        let mut by_ordinal = parse_chat(chat_text);
+        inject_decision_tiers(&mut by_ordinal, &[record(1)], ReviewLevel::LowConfidence);
+        assert!(
+            !by_ordinal.to_chat_string().contains("%xalign:"),
+            "an index pointing at a header must not silently attach anywhere else"
         );
     }
 }

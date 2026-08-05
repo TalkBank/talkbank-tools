@@ -47,7 +47,7 @@ pub fn inject_review_tiers(
         map
     };
 
-    for (line_idx, line) in chat_file.lines.iter_mut().enumerate() {
+    for (line_idx, line) in chat_file.lines.as_mut_slice().iter_mut().enumerate() {
         let Line::Utterance(utt) = line else {
             continue;
         };
@@ -83,7 +83,7 @@ pub fn inject_review_tiers(
 fn make_user_tier(label: &str, content: &str) -> DependentTier {
     DependentTier::UserDefined(UserDefinedDependentTier {
         label: NonEmptyString::new(label).expect("tier label must be non-empty"),
-        content: NonEmptyString::new(content).expect("tier content must be non-empty"),
+        content: Some(NonEmptyString::new(content).expect("tier content must be non-empty")),
         span: Span::default(),
     })
 }

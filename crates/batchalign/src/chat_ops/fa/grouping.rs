@@ -119,13 +119,13 @@ pub fn group_utterances(
 
         for (word_idx, w) in extracted.drain(..).enumerate() {
             current_words.push(FaWord {
-                utterance_index: UtteranceIdx(utt_idx),
-                utterance_word_index: WordIdx(word_idx),
+                utterance_index: UtteranceIdx::new(utt_idx),
+                utterance_word_index: WordIdx::new(word_idx),
                 text: w,
             });
         }
 
-        current_utt_indices.push(UtteranceIdx(utt_idx));
+        current_utt_indices.push(UtteranceIdx::new(utt_idx));
         utt_idx += 1;
     }
 

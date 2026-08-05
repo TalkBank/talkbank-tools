@@ -246,7 +246,8 @@ pub fn rescue_narrow_bullets(chat_file: &mut ChatFile) -> Vec<DecisionRecord> {
         };
 
         // Apply the expansion.
-        let Some(Line::Utterance(utt)) = chat_file.lines.get_mut(obs.line_idx) else {
+        let Some(Line::Utterance(utt)) = chat_file.lines.as_mut_slice().get_mut(obs.line_idx)
+        else {
             continue;
         };
         let Some(bullet) = utt.main.content.bullet.as_mut() else {

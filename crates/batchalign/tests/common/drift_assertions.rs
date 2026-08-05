@@ -63,8 +63,19 @@ pub fn check_no_fa_group_invalid_audio_window(parsed: &ChatFile) -> Result<(), S
         .enumerate()
         .flat_map(|(i, utt)| {
             user_defined_tiers_with_label(utt, "xrev")
-                .filter(|t| t.content.as_str().contains("fa_group_invalid_audio_window"))
-                .map(move |t| format!("utterance #{}: %xrev: {}", i, t.content.as_str()))
+                .filter(|t| {
+                    t.content
+                        .as_deref()
+                        .unwrap_or("")
+                        .contains("fa_group_invalid_audio_window")
+                })
+                .map(move |t| {
+                    format!(
+                        "utterance #{}: %xrev: {}",
+                        i,
+                        t.content.as_deref().unwrap_or("")
+                    )
+                })
         })
         .take(5)
         .collect();
@@ -88,8 +99,14 @@ pub fn check_no_monotonicity_rescue_emitted(parsed: &ChatFile) -> Result<(), Str
         .enumerate()
         .flat_map(|(i, utt)| {
             user_defined_tiers_with_label(utt, "xalign")
-                .filter(|t| t.content.as_str().contains("monotonicity:"))
-                .map(move |t| format!("utterance #{}: %xalign: {}", i, t.content.as_str()))
+                .filter(|t| t.content.as_deref().unwrap_or("").contains("monotonicity:"))
+                .map(move |t| {
+                    format!(
+                        "utterance #{}: %xalign: {}",
+                        i,
+                        t.content.as_deref().unwrap_or("")
+                    )
+                })
         })
         .take(5)
         .collect();
@@ -126,10 +143,9 @@ pub fn check_utterance_bullet_monotonicity_preserved(parsed: &ChatFile) -> Resul
             .main
             .content
             .linkers
-            .0
             .iter()
             .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes)
-            || overlap_markers::extract_overlap_info(&utt.main.content.content.0)
+            || overlap_markers::extract_overlap_info(&utt.main.content.content)
                 .has_bottom_overlap();
         if is_overlap_continuation {
             // Do not compare against prev_start, and do not update prev_start
@@ -165,12 +181,12 @@ pub fn check_no_silent_timing_strip(parsed: &ChatFile) -> Result<(), String> {
         .filter(|(_, utt)| utt.main.content.bullet.is_none())
         .flat_map(|(i, utt)| {
             user_defined_tiers_with_label(utt, "xrev")
-                .filter(|t| t.content.as_str().contains("[?]"))
+                .filter(|t| t.content.as_deref().unwrap_or("").contains("[?]"))
                 .map(move |t| {
                     format!(
                         "utterance #{}: bulletless main tier paired with %xrev: {}",
                         i,
-                        t.content.as_str(),
+                        t.content.as_deref().unwrap_or(""),
                     )
                 })
         })

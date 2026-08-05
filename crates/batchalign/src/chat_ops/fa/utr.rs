@@ -124,14 +124,13 @@ pub fn select_strategy(
                 .main
                 .content
                 .linkers
-                .0
                 .iter()
                 .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes)
             {
                 return true;
             }
             // Check for ⌊ CA overlap markers (bottom overlap = overlapping speaker)
-            let info = overlap_markers::extract_overlap_info(&utt.main.content.content.0);
+            let info = overlap_markers::extract_overlap_info(&utt.main.content.content);
             info.has_bottom_overlap()
         } else {
             false
@@ -321,7 +320,7 @@ pub(super) fn run_global_utr(
                         result
                             .decisions
                             .push(batchalign_transform::decisions::DecisionRecord {
-                            line_idx,
+                            line_idx: batchalign_transform::decisions::LineIdx::new(line_idx),
                             speaker: utt.main.speaker.as_str().to_string(),
                             strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
                                 batchalign_transform::decisions::UtrStrategy::ZeroDurationSkipped,
@@ -346,7 +345,7 @@ pub(super) fn run_global_utr(
                     result
                         .decisions
                         .push(batchalign_transform::decisions::DecisionRecord {
-                            line_idx,
+                            line_idx: batchalign_transform::decisions::LineIdx::new(line_idx),
                             speaker: utt.main.speaker.as_str().to_string(),
                             strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
                                 batchalign_transform::decisions::UtrStrategy::Unmatched,
@@ -452,10 +451,9 @@ pub(super) fn collect_utr_utterance_info(chat_file: &ChatFile) -> Vec<UtrUtteran
                 .main
                 .content
                 .linkers
-                .0
                 .iter()
                 .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes);
-            let overlap_info = overlap_markers::extract_overlap_info(&utt.main.content.content.0);
+            let overlap_info = overlap_markers::extract_overlap_info(&utt.main.content.content);
 
             // Collect bottom region indices for index-aware matching.
             let bottom_indices: Vec<_> = overlap_info
