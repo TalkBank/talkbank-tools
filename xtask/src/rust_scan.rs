@@ -49,6 +49,22 @@ pub fn walkdir(dir: &Path) -> Vec<PathBuf> {
     result
 }
 
+/// Net change in `[`/`]` nesting across a line.
+///
+/// The sibling of [`brace_delta`], for following a multi-line attribute to its
+/// end: an attribute opens with `#[` and closes with the matching `]`, whatever
+/// parentheses it contains along the way. Lives beside `brace_delta` so the two
+/// share a return type and so the other audits can reach it; `dead_variant_audit`
+/// still has its own `paren_delta` for the same job with a different delimiter,
+/// which is a merge worth doing separately.
+pub fn bracket_delta(line: &str) -> isize {
+    line.chars().fold(0, |acc, c| match c {
+        '[' => acc + 1,
+        ']' => acc - 1,
+        _ => acc,
+    })
+}
+
 /// Net change in `{`/`}` count on one line. Positive = opens more than
 /// it closes; negative = closes more than it opens. Brace-counting is
 /// fragile inside string literals, but the convention across this

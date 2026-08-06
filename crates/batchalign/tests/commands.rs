@@ -251,47 +251,50 @@ async fn dispatch_no_server() {
     )
     .unwrap();
 
-    // Isolate from real daemon state and config.
-    // SAFETY: acceptable in tests; this test doesn't run in parallel with
-    // other tests that depend on this env var.
-    unsafe {
-        std::env::set_var("BATCHALIGN_STATE_DIR", &state_dir);
-    }
-
+    // Isolate from real daemon state and config by passing the layout, not by
+    // mutating this process's environment.
+    //
+    // The previous form set `BATCHALIGN_STATE_DIR` on the test process and
+    // removed it afterwards, with a comment asserting that no sibling test
+    // depended on the var. That was true when written, and nothing enforced
+    // it: cargo runs the seven tests in this binary on parallel threads of one
+    // process, so the moment any sibling read the layout it would see this
+    // test's directory, or see it vanish mid-run at the `remove_var`. An
+    // unenforced claim in a comment is exactly the shape the type mandate
+    // exists to remove, so `dispatch` now takes the layout.
     let inputs: Vec<std::path::PathBuf> = vec![input_dir.to_path_buf()];
 
     // Direct mode with no worker: dispatch runs the pipeline inline, which
     // will fail at pre-validation (invalid CHAT) or worker spawn (no Python).
     // Either way, dispatch should return without panicking, the result
     // contains job-level error reports, not a crash.
-    let result = batchalign::cli::dispatch::dispatch(batchalign::cli::dispatch::DispatchRequest {
-        command: batchalign::ReleasedCommand::Morphotag,
-        lang: "eng",
-        num_speakers: 1,
-        extensions: &["cha"],
-        server_arg: None,
-        inputs: &inputs,
-        out_dir: None,
-        options: None,
-        bank: None,
-        subdir: None,
-        lexicon: None,
-        use_tui: false,
-        open_dashboard: false,
-        force_cpu: false,
-        allow_mps: false,
-        no_server: false,
-        before: None,
-        workers: None,
-        timeout: None,
-        sequential: false,
-        memory_tier: None,
-    })
+    let result = batchalign::cli::dispatch::dispatch(
+        batchalign::cli::dispatch::DispatchRequest {
+            command: batchalign::ReleasedCommand::Morphotag,
+            lang: "eng",
+            num_speakers: 1,
+            extensions: &["cha"],
+            server_arg: None,
+            inputs: &inputs,
+            out_dir: None,
+            options: None,
+            bank: None,
+            subdir: None,
+            lexicon: None,
+            use_tui: false,
+            open_dashboard: false,
+            force_cpu: false,
+            allow_mps: false,
+            no_server: false,
+            before: None,
+            workers: None,
+            timeout: None,
+            sequential: false,
+            memory_tier: None,
+        },
+        &batchalign::config::RuntimeLayout::from_state_dir(state_dir),
+    )
     .await;
-
-    unsafe {
-        std::env::remove_var("BATCHALIGN_STATE_DIR");
-    }
 
     // dispatch returns Ok even when individual files fail, failures are
     // reported in the job results, not as a top-level Err. If dispatch

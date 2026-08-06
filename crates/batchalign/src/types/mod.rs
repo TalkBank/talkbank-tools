@@ -96,7 +96,7 @@
 //! Loading server configuration from a YAML string:
 //!
 //! ```
-//! use batchalign::config::ServerConfig;
+//! use batchalign::config::{PortRequest, ServerConfig};
 //!
 //! let yaml = r#"
 //! port: 9000
@@ -105,7 +105,9 @@
 //! "#;
 //!
 //! let config: ServerConfig = serde_yaml::from_str(yaml).unwrap();
-//! assert_eq!(config.port, 9000);
+//! // `port` is a REQUEST, not the port the server will end up on: the wire
+//! // form stays a bare integer, and 0 asks the OS to choose.
+//! assert_eq!(config.port, PortRequest::from_u16(9000));
 //! assert_eq!(config.default_lang, "spa");
 //! ```
 

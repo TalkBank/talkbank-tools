@@ -151,7 +151,7 @@ must update when adding a new variant. Use the `whisper_hub` addition
 | `AsrWorkerMode::from_engine_name()` | `transcribe/types.rs` | Wire-string → worker-mode variant. |
 | `AsrWorkerMode::as_v2_backend()` | `transcribe/types.rs` | Worker-mode → IPC backend. |
 | `AsrBackend::comment_engine_name()` | `transcribe/types.rs` (test-only) | Canonical wire string for tests. |
-| `asr_backend_override_name()` | `crates/batchalign/src/worker/pool/execute_v2.rs` | Pool-key string; must match `dispatch_override_name()`. |
+| `asr_backend_engine()` | `crates/batchalign/src/worker/pool/execute_v2.rs` | Maps the wire backend to an `AsrEngineName`; the pool-key string then comes from `dispatch_override_name()`, so there is no second table to keep in step. |
 | *(input-source routing)* | `crates/batchalign/src/transcribe/infer.rs` | Match on `AsrWorkerMode` picks `PreparedAudio` (local model) vs `ProviderMedia` (external service). |
 
 Worker-side enum (matches Rust wire name one-to-one):

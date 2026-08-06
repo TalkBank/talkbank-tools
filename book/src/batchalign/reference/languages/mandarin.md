@@ -1,17 +1,16 @@
 # Mandarin Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-20 20:16 EDT
+**Last updated:** 2026-08-05 20:38 EDT
 
 Mandarin (`cmn`/`zho`) shares the Stanza `zh` model and Chinese number
-expansion system with Cantonese, but has distinct word segmentation behavior
-and no alternative ASR engines.
+expansion system with Cantonese, but has distinct word segmentation behavior.
 
 ## Quick Reference
 
 | Pipeline Stage | Mandarin-Specific Behavior |
 |---------------|---------------------------|
-| ASR | Whisper (default), no Mandarin-specific alternatives |
+| ASR | Rev.AI by default; `paraformer` (FunASR) is the common Mandarin choice, and every other engine works too. See [ASR engines](#asr-engines). |
 | Text normalization | None (Cantonese normalization is `yue`-only) |
 | Number expansion | Chinese number system (`num2chinese` with simplified script for both `cmn` and `zho`) |
 | Utterance segmentation | `talkbank/CHATUtterance-zh_CN` for `cmn` / `zho` in standalone `utseg` and transcribe pre-CHAT segmentation |
@@ -27,6 +26,36 @@ and no alternative ASR engines.
 | `zho` (Chinese, generic) | `zh` | Maps to same Stanza model |
 
 Both `cmn` and `zho` map to Stanza `zh` (which is `zh-hans` internally).
+
+## ASR engines
+
+An earlier version of this page said Mandarin had "no alternative ASR
+engines". That was incorrect. Every engine works for Mandarin; none of them is
+language-gated.
+
+```bash
+# Paraformer, the usual choice for Mandarin.
+batchalign3 transcribe Mandarin_mp3 -o out --lang zho --asr-engine paraformer
+```
+
+`paraformer` is shorthand for the FunASR engine loading the `paraformer-zh`
+checkpoint, so it is equivalent to:
+
+```bash
+batchalign3 transcribe Mandarin_mp3 -o out --lang zho \
+    --asr-engine funaudio \
+    --engine-overrides '{"funaudio_model":"paraformer-zh"}'
+```
+
+An explicit `--engine-overrides` wins, so pass one to pick a different
+checkpoint. The full engine list is in
+[`transcribe`](../../user-guide/commands/transcribe.md#asr-engines), and
+`batchalign3 transcribe --help` prints the same list.
+
+Note that Paraformer's checkpoint loads a punctuation model, so its raw output
+carries CJK punctuation; our post-processing converts 。，！？ to token
+boundaries, which is what CHAT wants. Output therefore differs from tools that
+leave the punctuation in place.
 
 ## Word Segmentation
 

@@ -78,11 +78,6 @@ impl RuntimeLayout {
         self.state_dir.join("dashboard")
     }
 
-    /// Server PID file under the owned state root.
-    pub fn server_pid_path(&self) -> PathBuf {
-        self.state_dir.join("server.pid")
-    }
-
     /// Server stderr log file under the owned state root.
     pub fn server_log_path(&self) -> PathBuf {
         self.state_dir.join("server.log")

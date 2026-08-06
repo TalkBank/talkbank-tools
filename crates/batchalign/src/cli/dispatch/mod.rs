@@ -86,6 +86,22 @@ pub struct DispatchRequest<'a> {
 
 /// Route a processing command to the appropriate execution host.
 ///
+/// # Why `layout` is a parameter and not ambient
+///
+/// The runtime layout selects the state directory, and therefore which
+/// `server.yaml` this dispatch obeys. Resolving it inside from
+/// `BATCHALIGN_STATE_DIR` made it ambient PROCESS state, so the only way for a
+/// caller to steer it was to mutate its own environment. That is the same
+/// defect already cured on the worker spawn path by
+/// [`WorkerRuntimeConfig::state_dir`](crate::worker::WorkerRuntimeConfig),
+/// where three tests mutating process env raced each other under cargo's
+/// parallel threads and produced off-by-one daemon counts that read like
+/// registry bugs.
+///
+/// Taking it here makes the choice explicit at each call site: the binary
+/// passes `RuntimeLayout::from_env()` and says so, and a test passes
+/// `RuntimeLayout::from_state_dir(dir)` without touching shared state.
+///
 /// This is the main entry point for all CLI processing commands. It resolves
 /// where to send work using the following priority chain:
 ///
@@ -109,7 +125,10 @@ pub struct DispatchRequest<'a> {
 ///
 /// Returns [`CliError`] on I/O failures, HTTP errors, job failures, or direct
 /// execution failures.
-pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
+pub async fn dispatch(
+    request: DispatchRequest<'_>,
+    layout: &RuntimeLayout,
+) -> Result<(), CliError> {
     let DispatchRequest {
         command,
         lang,
@@ -191,8 +210,7 @@ pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
         return Ok(());
     }
 
-    let layout = RuntimeLayout::from_env();
-    let (mut cfg, warnings) = load_validated_config_from_layout(&layout, None)?;
+    let (mut cfg, warnings) = load_validated_config_from_layout(layout, None)?;
     for warning in warnings {
         eprintln!("warning: {warning}");
     }
@@ -280,9 +298,15 @@ pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
 
     // 4. Auto-detect a loopback server that was started outside the daemon
     // state-file flow (for example by launchd or a foreground serve command).
-    let local_url = format!("http://127.0.0.1:{}", cfg.port);
-    if !no_server && let Some(health) = probe_local_server(&local_url).await {
-        eprintln!("Using local server at {} ({})\n", local_url, health,);
+    // Prefer the port the server published over the one the config asked for.
+    // Computed INSIDE the guard: `--no-server` and `--sequential` never contact
+    // a server, so resolving one was pure waste on exactly the paths that opted
+    // out. `cfg` is already loaded, so this costs one small file read.
+    if !no_server
+        && let Some(local_url) = daemon::local_server_url(layout, cfg.port)
+        && let Some(health) = probe_local_server(&local_url).await
+    {
+        eprintln!("Using local server at {local_url} ({health})\n");
         let client = BatchalignClient::new()?;
         return dispatch_single_server(
             &client,
@@ -318,7 +342,7 @@ pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
     // Direct local execution (--no-server / --sequential path)
     dispatch_direct_mode(
         cfg,
-        layout,
+        layout.clone(),
         command,
         lang,
         num_speakers,
@@ -705,29 +729,37 @@ mod tests {
     /// `--sequential` + `--server` is rejected.
     #[tokio::test]
     async fn sequential_rejects_server_flag() {
-        let result = dispatch(DispatchRequest {
-            command: ReleasedCommand::Morphotag,
-            lang: "eng",
-            num_speakers: 0,
-            extensions: &["cha"],
-            server_arg: Some("http://server-01:8001"),
-            inputs: &[],
-            out_dir: None,
-            options: None,
-            bank: None,
-            subdir: None,
-            lexicon: None,
-            use_tui: false,
-            open_dashboard: false,
-            force_cpu: false,
-            allow_mps: false,
-            no_server: false,
-            before: None,
-            workers: None,
-            timeout: None,
-            sequential: true,
-            memory_tier: None,
-        })
+        let result = dispatch(
+            DispatchRequest {
+                command: ReleasedCommand::Morphotag,
+                lang: "eng",
+                num_speakers: 0,
+                extensions: &["cha"],
+                server_arg: Some("http://server-01:8001"),
+                inputs: &[],
+                out_dir: None,
+                options: None,
+                bank: None,
+                subdir: None,
+                lexicon: None,
+                use_tui: false,
+                open_dashboard: false,
+                force_cpu: false,
+                allow_mps: false,
+                no_server: false,
+                before: None,
+                workers: None,
+                timeout: None,
+                sequential: true,
+                memory_tier: None,
+            },
+            // Deliberately a path that does not exist: the mutual-exclusion
+            // check runs before any config is loaded, so a layout this test
+            // could actually read would imply a dependency it does not have.
+            &RuntimeLayout::from_state_dir(std::path::PathBuf::from(
+                "/nonexistent/dispatch-arg-validation",
+            )),
+        )
         .await;
         let err = result.expect_err("should reject --sequential --server");
         assert!(

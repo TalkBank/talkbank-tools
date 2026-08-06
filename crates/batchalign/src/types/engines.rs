@@ -292,10 +292,85 @@ impl EngineBackend for AsrEngineName {
 }
 
 impl AsrEngineName {
+    /// Every name a user may pass to `--asr-engine`.
+    ///
+    /// The engine wire names plus [`PARAFORMER_SELECTION_NAME`], which is a
+    /// selection rather than a backend (see [`AsrSelection`]). Clap renders
+    /// this into the flag's help and rejects anything outside it, so the
+    /// advertised set and the accepted set are one list.
+    ///
+    /// A SELECTION is not an engine: some names people search for are an
+    /// engine plus a checkpoint. `paraformer` is the worked example, and it is
+    /// why this type exists rather than a bare [`AsrEngineName`]: Paraformer is
+    /// `funaudio` with `funaudio_model="paraformer-zh"`, so someone who knows
+    /// the model by name cannot find it by engine name. Making the name
+    /// selectable, and letting it carry its own implied override, is the fix.
+    ///
+    /// The constructor is [`AsrSelection::parse`], which is also what the CLI's
+    /// value parser uses, so the accepted set and the resolved meaning have one
+    /// definition.
+    pub fn selectable_names() -> impl Iterator<Item = &'static str> {
+        Self::ALL
+            .iter()
+            .map(|engine| engine.wire_name())
+            .chain(std::iter::once(PARAFORMER_SELECTION_NAME))
+    }
+
+    /// This engine's index in [`ALL`](Self::ALL).
+    ///
+    /// Exists to be exhaustive: it is what makes adding a variant a compile
+    /// error rather than a silently unreachable engine. Nothing calls it for
+    /// the index.
+    #[allow(dead_code)]
+    const fn position_in_all(self) -> usize {
+        match self {
+            Self::RevAi => 0,
+            Self::Whisper => 1,
+            Self::WhisperHub => 2,
+            Self::WhisperX => 3,
+            Self::WhisperOai => 4,
+            Self::WhisperRs => 5,
+            Self::HkTencent => 6,
+            Self::HkAliyun => 7,
+            Self::HkFunaudio => 8,
+            Self::HkQwen => 9,
+        }
+    }
+
+    /// Every ASR engine that exists, in help-display order.
+    ///
+    /// THE owner of "which engines exist". The CLI derives its accepted values
+    /// and its help text from this, so the two cannot drift.
+    ///
+    /// A new variant cannot be forgotten here: [`position_in_all`] is an
+    /// exhaustive match returning each variant's index, so adding one fails to
+    /// compile until this array carries it. The earlier version of this comment
+    /// claimed the `wire_name` match enforced it, which was false: `wire_name`
+    /// would break, but `ALL` would happily stay at ten of eleven and the new
+    /// engine would simply be unreachable from the CLI.
+    ///
+    /// It exists because that drift had already shipped. "Which engines exist"
+    /// was spread across this enum, `AsrWorkerMode`, `AsrBackendV2`, the
+    /// `wire_name` table and a HAND-WRITTEN help string that listed five of the
+    /// ten. The help was the copy users read, and it was the stale one.
+    pub const ALL: [Self; 10] = [
+        Self::RevAi,
+        Self::Whisper,
+        Self::WhisperHub,
+        Self::WhisperX,
+        Self::WhisperOai,
+        Self::WhisperRs,
+        Self::HkTencent,
+        Self::HkAliyun,
+        Self::HkFunaudio,
+        Self::HkQwen,
+    ];
+
     /// The override name used in worker pool keys for dispatch, or `None` for
     /// cloud-only engines (Rev.AI) that don't need a local worker.
     ///
-    /// Must match `asr_backend_override_name()` in `worker/pool/execute_v2.rs`.
+    /// `execute_v2` reaches this through `EngineSelection` rather than keeping
+    /// its own copy, so there is no second table to keep in step.
     pub fn dispatch_override_name(&self) -> Option<&'static str> {
         match self {
             Self::Whisper => Some("whisper"),
@@ -1112,5 +1187,184 @@ mod tests {
             err.to_string().contains("wisper"),
             "expected engine-name validation error, got: {err}"
         );
+    }
+}
+
+/// The name a user reaches for when they want Mandarin/Cantonese Paraformer.
+///
+/// Not an [`AsrEngineName`] variant: Paraformer is the FunAudio engine loading
+/// a particular checkpoint, so promoting it to its own backend would duplicate
+/// the funaudio dispatch path for no gain. It is a selection name instead.
+pub const PARAFORMER_SELECTION_NAME: &str = "paraformer";
+
+/// Spellings the CLI has accepted historically that are not wire names.
+///
+/// Found by deriving the flag's values from `AsrEngineName` and watching a test
+/// fail: the hand-written clap enum advertised `whisper-oai` while the wire
+/// name is `whisper_oai`, so one engine had two public spellings and nothing
+/// reconciled them. Dropping the old one would break anyone's scripts, so it is
+/// accepted and hidden rather than removed.
+pub const LEGACY_SELECTION_ALIASES: &[(&str, &str)] = &[("whisper-oai", "whisper_oai")];
+
+/// The default ASR selection when `--asr-engine` is not given.
+pub const DEFAULT_ASR_SELECTION_NAME: &str = "rev";
+
+/// The FunASR checkpoint that makes FunAudio behave as Paraformer.
+///
+/// This is the checkpoint the FunASR ecosystem publishes under the Paraformer
+/// name for Chinese, so `--asr-engine paraformer` and a hand-written
+/// `funaudio_model=paraformer-zh` load exactly the same model.
+pub const PARAFORMER_CHECKPOINT: &str = "paraformer-zh";
+
+/// The override key FunAudio reads its checkpoint from.
+pub const FUNAUDIO_MODEL_OVERRIDE_KEY: &str = "funaudio_model";
+
+/// A selection that implies nothing beyond its engine.
+const NO_IMPLIED_OVERRIDES: &[(&str, &str)] = &[];
+
+/// What selecting `paraformer` implies: the FunASR checkpoint that makes the
+/// FunAudio engine behave as Paraformer.
+const PARAFORMER_IMPLIED_OVERRIDES: &[(&str, &str)] =
+    &[(FUNAUDIO_MODEL_OVERRIDE_KEY, PARAFORMER_CHECKPOINT)];
+
+/// An ASR engine choice as made by a user, with anything that choice implies.
+///
+/// Constructed only by [`parse`](Self::parse), so a selection cannot be
+/// assembled from an engine and an unrelated set of overrides.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsrSelection {
+    engine: AsrEngineName,
+    implied_overrides: &'static [(&'static str, &'static str)],
+}
+
+impl AsrSelection {
+    /// A selection that is just an engine, with nothing implied.
+    ///
+    /// For engines known at COMPILE time, so they never travel through a
+    /// string. The BA2 compatibility switches used this type by calling
+    /// `parse("whisperx")` and friends, which meant a wire-name change would
+    /// have turned four working flags into silent no-ops with nothing to catch
+    /// it; taking the variant makes that a compile error instead.
+    pub fn from_engine(engine: AsrEngineName) -> Self {
+        Self {
+            engine,
+            implied_overrides: NO_IMPLIED_OVERRIDES,
+        }
+    }
+
+    /// Resolve a user-facing engine name.
+    ///
+    /// Accepts every [`AsrEngineName`] wire name plus
+    /// [`PARAFORMER_SELECTION_NAME`]. Returns `None` for anything else, and
+    /// the caller must REPORT that rather than proceeding: an unrecognised
+    /// engine name used to be swallowed by an `Option`-returning resolver, so a
+    /// typo silently produced no engine at all.
+    pub fn parse(name: &str) -> Option<Self> {
+        // Resolve a historical spelling to its wire name first, so the rest of
+        // this function has exactly one name per engine to reason about.
+        let name = LEGACY_SELECTION_ALIASES
+            .iter()
+            .find_map(|(alias, canonical)| (*alias == name).then_some(*canonical))
+            .unwrap_or(name);
+        if name == PARAFORMER_SELECTION_NAME {
+            return Some(Self {
+                engine: AsrEngineName::HkFunaudio,
+                implied_overrides: PARAFORMER_IMPLIED_OVERRIDES,
+            });
+        }
+        AsrEngineName::try_from_wire_name(name).map(Self::from_engine)
+    }
+
+    /// The backend this selection runs on.
+    pub fn engine(&self) -> AsrEngineName {
+        self.engine.clone()
+    }
+
+    /// Overrides the NAME implies, which an explicit `--engine-overrides` wins
+    /// over: the user's typed JSON is more specific than the name's default.
+    pub fn implied_overrides(&self) -> &'static [(&'static str, &'static str)] {
+        self.implied_overrides
+    }
+
+    /// Apply what the NAME implies, without beating what the user typed.
+    ///
+    /// Lives on the selection because the merge is part of what selecting a
+    /// name MEANS. Every transcribing command had its own copy of this loop,
+    /// which is the same shape the shared resolver removed one level up: an
+    /// arm that forgets it makes `--asr-engine paraformer` parse and then run
+    /// plain funaudio, which is the exact defect the name exists to fix.
+    ///
+    /// An explicit `--engine-overrides` wins: a user naming a checkpoint is
+    /// being more specific than the name's default, not less.
+    pub fn apply_implied(&self, overrides: &mut EngineOverrides) {
+        for (key, value) in self.implied_overrides {
+            overrides
+                .extras
+                .entry((*key).to_string())
+                .or_insert_with(|| (*value).to_string());
+        }
+    }
+}
+
+#[cfg(test)]
+mod asr_selection_tests {
+    use super::*;
+
+    /// Every engine in the owner list resolves by its own wire name.
+    ///
+    /// This is what keeps the CLI's accepted set honest: a new variant that is
+    /// not in `ALL` is caught here rather than by a user who cannot reach it.
+    #[test]
+    fn every_engine_in_all_parses_from_its_wire_name() {
+        for engine in AsrEngineName::ALL {
+            let selection = AsrSelection::parse(engine.wire_name())
+                .unwrap_or_else(|| panic!("{} must parse", engine.wire_name()));
+            assert_eq!(selection.engine(), engine);
+            assert!(
+                selection.implied_overrides().is_empty(),
+                "a plain engine name implies no overrides"
+            );
+        }
+    }
+
+    /// Every entry in `ALL` names a distinct engine.
+    ///
+    /// The COUNT is carried by the array type (`[Self; 10]`), so adding a
+    /// variant without extending `ALL` is a compile error and needs no test.
+    /// What a type cannot check is that the ten entries are ten DIFFERENT
+    /// engines, which is what this asserts.
+    #[test]
+    fn all_names_are_distinct() {
+        let mut names: Vec<&str> = AsrEngineName::ALL.iter().map(|e| e.wire_name()).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), AsrEngineName::ALL.len(), "duplicate wire name");
+        assert_eq!(names.len(), 10, "ALL must list all ten engines");
+    }
+
+    /// Paraformer resolves to funaudio carrying its checkpoint.
+    #[test]
+    fn paraformer_resolves_to_funaudio_plus_checkpoint() {
+        let selection = AsrSelection::parse(PARAFORMER_SELECTION_NAME).expect("selectable");
+        assert_eq!(selection.engine(), AsrEngineName::HkFunaudio);
+        assert_eq!(selection.implied_overrides(), PARAFORMER_IMPLIED_OVERRIDES);
+    }
+
+    /// An unknown name yields nothing, so the caller has to report it.
+    #[test]
+    fn an_unknown_name_does_not_resolve() {
+        assert_eq!(AsrSelection::parse("paraformr"), None);
+        assert_eq!(AsrSelection::parse(""), None);
+    }
+
+    /// The user-facing list is the owner list plus paraformer, with no gaps.
+    #[test]
+    fn selectable_names_covers_all_engines_and_paraformer() {
+        let names: Vec<&str> = AsrEngineName::selectable_names().collect();
+        assert_eq!(names.len(), AsrEngineName::ALL.len() + 1);
+        assert!(names.contains(&PARAFORMER_SELECTION_NAME));
+        for engine in AsrEngineName::ALL {
+            assert!(names.contains(&engine.wire_name()));
+        }
     }
 }

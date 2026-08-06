@@ -84,6 +84,20 @@ batchalign-test-rust:
 	cargo test -p batchalign --lib -q
 	@echo "==> Testing xtask (the audits and lint gates themselves)..."
 	cargo test -p xtask -q
+	@$(MAKE) batchalign-test-doc
+
+# Doctests, which the CI chain did not run. `make test` does (see `test:`), but
+# `batchalign-ci-rust` did not, and that is the chain used before a deploy.
+#
+# A doctest is not a cargo target, so neither `--lib` nor `--all-targets`
+# reaches one; a public example can therefore break with every gate green.
+#
+# `--workspace`, never a hand-written crate list: the list is the drift this
+# file already warns about above, and a first attempt at this target spelled out
+# four crates and silently omitted three workspace members.
+batchalign-test-doc:
+	@echo "==> Testing doctests (not cargo targets; --lib and --all-targets miss them)..."
+	cargo test --doc --workspace -q
 
 # The ML golden suite: real engines, real model weights, real network.
 #

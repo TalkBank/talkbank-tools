@@ -246,31 +246,44 @@ pub enum SpeakerCorrespondence {
     Ambiguous(AmbiguousSpeakerMaps),
 }
 
+/// A quantity measured on both sides of a comparison.
+///
+/// Three pairs of `left_*`/`right_*` fields used to sit flat in
+/// `AgreementMetrics`, which is what pushed it over the wide-struct threshold
+/// and, more to the point, left the symmetry implicit: nothing tied
+/// `left_words` to `right_words` except their names, and a two-field struct
+/// cannot be half-updated the way two loose fields can.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(in crate::compare) struct SideCounts {
+    /// The left run.
+    pub(in crate::compare) left: usize,
+    /// The right run.
+    pub(in crate::compare) right: usize,
+}
+
 /// Agreement metrics for one established speaker pair.
+///
+/// The serialized shape is a CONTRACT with `compare-runs --format csv`, which
+/// reads it by JSON pointer, and a pointer that misses yields an empty cell at
+/// runtime rather than a compile error. `serialized_keys_match_the_csv_reader`
+/// below pins it. A mirror "wire struct" was tried first and was worse: it
+/// duplicated all eleven values, needed a test to hold the two copies in step,
+/// and was itself wide enough to fail the wide-struct audit.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AgreementMetrics {
-    /// Ordered agreement-error numerator: `insertions + deletions`.
-    wer_numerator: usize,
     /// Order-insensitive residual-error numerator.
+    ///
+    /// The one input that is not derivable from the alignment itself.
     cwer_numerator: usize,
-    /// Number of words in the left run.
-    left_words: usize,
-    /// Number of words in the right run.
-    right_words: usize,
-    /// Ordered matches.
-    matches: usize,
-    /// Words only in the left run.
-    insertions: usize,
-    /// Words only in the right run.
-    deletions: usize,
-    /// Ordered agreement error rate using the left side as denominator.
-    wer_rate: Option<f64>,
-    /// Order-insensitive agreement error rate using the left side as denominator.
-    cwer_rate: Option<f64>,
-    /// Left-side de-identification/exclusion tokens omitted from scoring.
-    excluded_left_tokens: usize,
-    /// Right-side de-identification/exclusion tokens omitted from scoring.
-    excluded_right_tokens: usize,
+    /// Word totals for each run.
+    words: SideCounts,
+    /// Matches, insertions and deletions from ONE alignment.
+    ///
+    /// Held as the tally rather than three loose counts so that a mix of
+    /// numbers from different alignments is unrepresentable.
+    tally: AlignmentTally,
+    /// De-identification/exclusion tokens omitted from scoring, per side.
+    excluded_tokens: SideCounts,
 }
 
 /// Ordered-alignment tallies for one speaker pair.
@@ -278,18 +291,11 @@ pub struct AgreementMetrics {
 /// A struct rather than three `usize` arguments: matches, insertions and
 /// deletions are counts of different things, and positionally they are
 /// indistinguishable, so a transposition would be silent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 struct AlignmentTally {
     matches: usize,
     insertions: usize,
     deletions: usize,
-}
-
-/// Placeholder tokens omitted from scoring, per side.
-///
-/// Same reason as [`AlignmentTally`]: two counts of different things.
-struct ExcludedTokens {
-    left: usize,
-    right: usize,
 }
 
 impl AgreementMetrics {
@@ -308,32 +314,36 @@ impl AgreementMetrics {
         right: &[String],
         tally: AlignmentTally,
         cwer_numerator: usize,
-        excluded: ExcludedTokens,
+        excluded: SideCounts,
     ) -> Self {
-        let wer_numerator = tally.insertions + tally.deletions;
         let left_words = left.len();
-        // Absent rather than zero when there is nothing to divide by: a rate
-        // of 0.0 would read as perfect agreement on an empty side.
-        let rate =
-            |numerator: usize| (left_words > 0).then(|| numerator as f64 / left_words as f64);
         Self {
-            wer_numerator,
             cwer_numerator,
-            left_words,
-            right_words: right.len(),
-            matches: tally.matches,
-            insertions: tally.insertions,
-            deletions: tally.deletions,
-            wer_rate: rate(wer_numerator),
-            cwer_rate: rate(cwer_numerator),
-            excluded_left_tokens: excluded.left,
-            excluded_right_tokens: excluded.right,
+            words: SideCounts {
+                left: left_words,
+                right: right.len(),
+            },
+            tally,
+            excluded_tokens: excluded,
         }
     }
 
+    /// A numerator over the left-side word count.
+    ///
+    /// Absent rather than zero when there is nothing to divide by: a rate of
+    /// 0.0 would read as perfect agreement on an empty side. Both public
+    /// rates go through here, so that rule has one statement.
+    fn rate(&self, numerator: usize) -> Option<f64> {
+        (self.words.left > 0).then(|| numerator as f64 / self.words.left as f64)
+    }
+
     /// Ordered agreement-error numerator.
+    ///
+    /// DERIVED, not stored: it is exactly `insertions + deletions`, and a
+    /// stored copy is a second representation of a fact the struct already
+    /// holds, free to drift from it.
     pub fn wer_numerator(&self) -> usize {
-        self.wer_numerator
+        self.tally.insertions + self.tally.deletions
     }
 
     /// Order-insensitive agreement-error numerator.
@@ -343,44 +353,44 @@ impl AgreementMetrics {
 
     /// Number of words in the left run.
     pub fn left_words(&self) -> usize {
-        self.left_words
+        self.words.left
     }
 
     /// Number of words in the right run.
     pub fn right_words(&self) -> usize {
-        self.right_words
+        self.words.right
     }
 
     /// Number of ordered matches.
     pub fn matches(&self) -> usize {
-        self.matches
+        self.tally.matches
     }
 
     /// Words only in the left run.
     pub fn insertions(&self) -> usize {
-        self.insertions
+        self.tally.insertions
     }
 
     /// Words only in the right run.
     pub fn deletions(&self) -> usize {
-        self.deletions
+        self.tally.deletions
     }
 
     /// Ordered agreement error rate, absent for a zero-word left side.
     pub fn wer_rate(&self) -> Option<f64> {
-        self.wer_rate
+        self.rate(self.wer_numerator())
     }
     /// Order-insensitive agreement error rate, absent for a zero-word left side.
     pub fn cwer_rate(&self) -> Option<f64> {
-        self.cwer_rate
+        self.rate(self.cwer_numerator)
     }
     /// Excluded left token count.
     pub fn excluded_left_tokens(&self) -> usize {
-        self.excluded_left_tokens
+        self.excluded_tokens.left
     }
     /// Excluded right token count.
     pub fn excluded_right_tokens(&self) -> usize {
-        self.excluded_right_tokens
+        self.excluded_tokens.right
     }
 }
 
@@ -704,13 +714,13 @@ pub fn serialize_cross_run_csv(
             plan.runs()[1].manifest().run_id().to_string(),
             agreement.left_speaker.clone(),
             agreement.right_speaker.clone(),
-            metrics.wer_numerator.to_string(),
-            metrics.cwer_numerator.to_string(),
-            metrics.left_words.to_string(),
-            metrics.right_words.to_string(),
-            metrics.matches.to_string(),
-            metrics.insertions.to_string(),
-            metrics.deletions.to_string(),
+            metrics.wer_numerator().to_string(),
+            metrics.cwer_numerator().to_string(),
+            metrics.left_words().to_string(),
+            metrics.right_words().to_string(),
+            metrics.matches().to_string(),
+            metrics.insertions().to_string(),
+            metrics.deletions().to_string(),
         ])?;
     }
     Ok(String::from_utf8(
@@ -895,7 +905,7 @@ fn agreement_metrics(
             deletions,
         },
         cwer_numerator,
-        ExcludedTokens {
+        SideCounts {
             left: excluded_left_tokens,
             right: excluded_right_tokens,
         },
@@ -1068,5 +1078,73 @@ mod tests {
         assert!(json.contains("\"left_run_id\": \"left\""));
         let csv = serialize_cross_run_csv(&validated, &report).unwrap();
         assert!(csv.starts_with("schema_version,left_run_id,right_run_id,left_speaker"));
+    }
+}
+
+#[cfg(test)]
+mod agreement_metrics_wire_tests {
+    use super::{AgreementMetrics, AlignmentTally, SideCounts};
+
+    /// The serialized keys are a CONTRACT with `compare-runs --format csv`,
+    /// which reads them by JSON pointer.
+    ///
+    /// A pointer that misses produces an EMPTY CELL at runtime, not a compile
+    /// error, so nothing in the type system connects this struct to that
+    /// reader. Regrouping the internal fields once silently emptied eleven of
+    /// sixteen columns. This test is the connection: change the wire shape and
+    /// it fails here, next to the reason.
+    #[test]
+    fn serialized_keys_match_the_csv_reader() {
+        let metrics = AgreementMetrics::new(
+            &["a".to_string(), "b".to_string()],
+            &["a".to_string()],
+            AlignmentTally {
+                matches: 1,
+                insertions: 1,
+                deletions: 0,
+            },
+            1,
+            SideCounts { left: 3, right: 4 },
+        );
+
+        let json = serde_json::to_value(&metrics).expect("metrics serialize");
+        let object = json.as_object().expect("a flat object, not a nested one");
+
+        // Exactly the pointers `cli/compare_runs_cmd.rs` reads. The nested
+        // ones are spelled as pointers because that is how the reader spells
+        // them; if this list and that reader ever disagree, the CSV silently
+        // emits empty cells, which is the failure this pins.
+        for pointer in [
+            "/cwer_numerator",
+            "/words/left",
+            "/words/right",
+            "/tally/matches",
+            "/tally/insertions",
+            "/tally/deletions",
+            "/excluded_tokens/left",
+            "/excluded_tokens/right",
+        ] {
+            assert!(
+                json.pointer(pointer).is_some(),
+                "CSV reader needs {pointer:?}: {json}"
+            );
+        }
+        assert_eq!(
+            object.len(),
+            4,
+            "an unexpected top-level key means the wire shape moved: {json}"
+        );
+
+        // The derived values the reader computes rather than reads.
+        assert_eq!(metrics.wer_numerator(), 1);
+        assert_eq!(
+            json.pointer("/words/left").and_then(|v| v.as_u64()),
+            Some(2)
+        );
+        assert_eq!(
+            json.pointer("/excluded_tokens/left")
+                .and_then(|v| v.as_u64()),
+            Some(3)
+        );
     }
 }

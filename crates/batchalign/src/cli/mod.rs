@@ -419,29 +419,32 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
 
             let before = args::extract_before(cmd);
 
-            dispatch::dispatch(dispatch::DispatchRequest {
-                command: profile.command,
-                lang: profile.lang,
-                num_speakers: profile.num_speakers,
-                extensions: profile.extensions,
-                server_arg: cli.global.server.as_deref(),
-                inputs: &inputs,
-                out_dir: out_dir.as_deref(),
-                options,
-                bank,
-                subdir,
-                lexicon,
-                use_tui: cli.global.use_tui(),
-                open_dashboard: cli.global.use_open_dashboard(),
-                force_cpu: cli.global.force_cpu,
-                allow_mps: cli.global.allow_mps,
-                no_server: cli.global.no_server,
-                before,
-                workers: cli.global.workers,
-                timeout: cli.global.timeout,
-                sequential: cli.global.sequential,
-                memory_tier: cli.global.memory_tier,
-            })
+            dispatch::dispatch(
+                dispatch::DispatchRequest {
+                    command: profile.command,
+                    lang: profile.lang,
+                    num_speakers: profile.num_speakers,
+                    extensions: profile.extensions,
+                    server_arg: cli.global.server.as_deref(),
+                    inputs: &inputs,
+                    out_dir: out_dir.as_deref(),
+                    options,
+                    bank,
+                    subdir,
+                    lexicon,
+                    use_tui: cli.global.use_tui(),
+                    open_dashboard: cli.global.use_open_dashboard(),
+                    force_cpu: cli.global.force_cpu,
+                    allow_mps: cli.global.allow_mps,
+                    no_server: cli.global.no_server,
+                    before,
+                    workers: cli.global.workers,
+                    timeout: cli.global.timeout,
+                    sequential: cli.global.sequential,
+                    memory_tier: cli.global.memory_tier,
+                },
+                &crate::config::RuntimeLayout::from_env(),
+            )
             .await
         }
     }

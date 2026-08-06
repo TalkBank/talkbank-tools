@@ -17,7 +17,7 @@
 use std::path::Path;
 
 use crate::Result;
-use crate::rust_scan::{brace_delta, rust_scan_roots, walkdir};
+use crate::rust_scan::{brace_delta, bracket_delta, rust_scan_roots, walkdir};
 
 const WIDE_STRUCT_THRESHOLD: usize = 10;
 
@@ -423,10 +423,18 @@ fn parse_named_structs_in_file(relative_path: &str, text: &str) -> Vec<NamedStru
         let mut bool_field_count = 0;
         let start_line = index + 1;
         index += 1;
+        // Bracket depth of an attribute that spans several lines. A
+        // continuation line of `#[arg(...)]` is not a field, and some of them
+        // contain a colon (`default_value = some::path::CONST`), which is the
+        // only thing `is_named_field` looks for. Counting those inflated the
+        // field count and failed the audit on a struct that had not grown.
+        let mut attribute_depth: isize = 0;
         while index < lines.len() && depth > 0 {
             let current = lines[index];
             let trimmed = current.trim();
-            if depth == 1 && is_named_field(trimmed) {
+            if attribute_depth > 0 || trimmed.starts_with("#[") {
+                attribute_depth += bracket_delta(current);
+            } else if depth == 1 && is_named_field(trimmed) {
                 field_count += 1;
                 if field_type(trimmed).is_some_and(|value| value.contains("bool")) {
                     bool_field_count += 1;
@@ -553,5 +561,68 @@ pub fn run(root: &Path) -> Result<()> {
         Ok(())
     } else {
         Err(format!("wide struct audit failures:\n- {}", failures.join("\n- ")).into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_named_structs_in_file;
+
+    /// A multi-line attribute is not a field, even when it contains a colon.
+    ///
+    /// `is_named_field` recognises a field by the presence of `:`, and an
+    /// attribute continuation line such as `default_value = a::b::C,` has one.
+    /// Parentheses do not change brace depth, so those lines sat at depth 1 and
+    /// were counted, inflating the struct by one field per multi-line attribute
+    /// and failing the audit on a struct that had not gained a field at all.
+    #[test]
+    fn a_multi_line_attribute_is_not_counted_as_a_field() {
+        let source = r#"
+pub struct Example {
+    /// A real field.
+    #[arg(
+        long,
+        default_value = crate::types::engines::DEFAULT_NAME,
+        value_parser = some_parser(),
+    )]
+    pub engine: String,
+
+    /// Another real field.
+    #[arg(long)]
+    pub count: u32,
+}
+"#;
+        let found = parse_named_structs_in_file("example.rs", source);
+        let example = found
+            .iter()
+            .find(|s| s.struct_name == "Example")
+            .expect("Example must be found");
+        assert_eq!(
+            example.field_count, 2,
+            "only `engine` and `count` are fields; the attribute lines are not"
+        );
+    }
+
+    /// Bool counting still works, and is likewise not fooled by attributes.
+    #[test]
+    fn bool_fields_are_counted_without_attribute_noise() {
+        let source = r#"
+pub struct Flags {
+    #[arg(
+        long,
+        help = "see mod::path::THING",
+    )]
+    pub verbose: bool,
+    pub quiet: bool,
+    pub name: String,
+}
+"#;
+        let found = parse_named_structs_in_file("flags.rs", source);
+        let flags = found
+            .iter()
+            .find(|s| s.struct_name == "Flags")
+            .expect("Flags must be found");
+        assert_eq!(flags.field_count, 3);
+        assert_eq!(flags.bool_field_count, 2);
     }
 }

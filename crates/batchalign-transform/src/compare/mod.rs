@@ -32,9 +32,10 @@ pub use self::artifact::{
     ValidatedProducedRun, ValidatedTranscriptionPlan,
 };
 pub use self::cross_mode::{
-    AlignmentPairResult, AlignmentTokenDifference, MorphotagPairResult, MorphotagTokenDifference,
-    PairFailureReason, PairOutcome, TimingDistribution, compare_validated_alignment_plan,
-    compare_validated_morphotag_plan, compare_validated_transcription_pairs,
+    AlignmentPairResult, AlignmentTokenDifference, MorphotagDifference, MorphotagPairResult,
+    MorphotagTokenDifference, PairFailureReason, PairOutcome, TimingDistribution,
+    compare_validated_alignment_plan, compare_validated_morphotag_plan,
+    compare_validated_transcription_pairs,
 };
 pub use self::cross_run::{
     AgreementMetrics, AmbiguousSpeakerMaps, ArtifactTranscriptionComparison,

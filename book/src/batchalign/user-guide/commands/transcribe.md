@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-05-21 16:10 EDT
+**Last updated:** 2026-08-05 20:38 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -146,13 +146,37 @@ CHAT transcripts.
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--lang CODE` | `eng` | 3-letter ISO language code, or `auto` for language auto-detection |
-| `--asr-engine {rev,whisper,whisper_hub,whisperx,whisper-oai}` | `rev` | ASR engine. See [`whisper-hub-asr.md`](../../reference/whisper-hub-asr.md) for `whisper_hub` (HuggingFace community fine-tunes). |
-| `--asr-engine-custom NAME` |: | Override ASR engine by name (e.g. `tencent`, `funaudio`) |
+| `--asr-engine NAME` | `rev` | ASR engine; see the table below. `--help` prints the same list, generated from the engines that exist, so neither can go stale. |
+| `--asr-engine-custom NAME` |: | **Deprecated alias for `--asr-engine`**, still honoured so existing scripts keep working. Hidden from `--help`. |
 | `-n`, `--num-speakers N` | `2` | Expected number of speakers |
 | `--diarization {auto,enabled,disabled}` | `auto` | Dedicated Pyannote speaker diarization stage (`auto` = disabled) |
 | `--wor` / `--nowor` | `--nowor` | Include or suppress the `%wor` word-timing tier |
 | `--merge-abbrev` | off | Merge abbreviations in the output |
 | `--utseg-fallback-stanza` | off | Opt in to the legacy Stanza constituency-parser fallback for utterance segmentation when no TalkBank BERT model is configured for `--lang`. Default refuses substitution. See [utseg → Language support](utseg.md#language-support). |
+
+#### ASR engines
+
+Every engine is reachable through the single `--asr-engine` flag. This list is
+generated from the engine set itself, as is the one `--help` prints.
+
+| Name | Notes |
+| --- | --- |
+| `rev` | Rev.AI cloud ASR. The default. |
+| `whisper` | Local Whisper. |
+| `whisper_hub` | HuggingFace Whisper fine-tune by model id. See [`whisper-hub-asr.md`](../../reference/whisper-hub-asr.md). |
+| `whisperx` | WhisperX. |
+| `whisper_oai` | OpenAI Whisper API. `whisper-oai` is accepted as a historical spelling. |
+| `whisper_rs` | Rust-native whisper.cpp, run in process. |
+| `tencent` | Tencent Cloud ASR. |
+| `aliyun` | Aliyun ASR. |
+| `funaudio` | FunASR / SenseVoice. Local, no credentials, no network. |
+| `qwen` | Qwen3-ASR. Local. |
+| `paraformer` | FunASR loading the Paraformer checkpoint: shorthand for `funaudio` with `funaudio_model=paraformer-zh`. Commonly wanted for Mandarin. An explicit `--engine-overrides '{"funaudio_model":"..."}'` wins over the implied checkpoint. |
+
+```bash
+# Mandarin with Paraformer.
+batchalign3 transcribe Mandarin_mp3 -o out --lang zho --asr-engine paraformer
+```
 
 ---
 

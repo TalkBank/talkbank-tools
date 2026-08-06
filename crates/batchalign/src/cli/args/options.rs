@@ -6,16 +6,16 @@
 use crate::chat_ops::CacheTaskName;
 use crate::chat_ops::fa::CaMarkerPolicy as AppCaMarkerPolicy;
 use crate::options::{
-    AlignOptions, AsrEngineName, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions,
-    CompareOptions, CorefOptions, DiarizeOptions, EngineOverrides, FaEngineName, MorphotagOptions,
+    AlignOptions, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions, CompareOptions,
+    CorefOptions, DiarizeOptions, EngineOverrides, FaEngineName, MorphotagOptions,
     OpensmileOptions, TranscribeOptions, TranslateEngineName, TranslateOptions,
     UtrEngine as AppUtrEngine, UtrOverlapStrategy as AppUtrOverlapStrategy, UtsegOptions,
 };
 use crate::params::{CacheOverrides, MergeAbbrevPolicy, WorTierPolicy};
 
 use super::{
-    AsrEngine, BenchAsrEngine, CaMarkerPolicy as CliCaMarkerPolicy, Commands, CommonOpts,
-    DiarizationMode, FaEngine, GlobalOpts, TranslateEngine, UtrEngine as CliUtrEngine,
+    CaMarkerPolicy as CliCaMarkerPolicy, Commands, CommonOpts, DiarizationMode, FaEngine,
+    GlobalOpts, TranslateEngine, UtrEngine as CliUtrEngine,
     UtrOverlapStrategy as CliUtrOverlapStrategy,
 };
 
@@ -214,29 +214,21 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             }))
         }
         Commands::Transcribe(a) => {
-            let asr_engine = if let Some(engine) = a.asr_engine_custom.as_deref() {
-                AsrEngineName::from_wire_name(engine).ok()?
-            } else if a.whisperx {
-                // BA2 compat alias
-                AsrEngineName::WhisperX
-            } else if a.whisper_oai {
-                // BA2 compat alias
-                AsrEngineName::WhisperOai
-            } else if a.whisper {
-                // BA2 compat alias
-                AsrEngineName::Whisper
-            } else if a.rev {
-                // BA2 compat alias
-                AsrEngineName::RevAi
-            } else {
-                match a.asr_engine {
-                    AsrEngine::Rev => AsrEngineName::RevAi,
-                    AsrEngine::Whisper => AsrEngineName::Whisper,
-                    AsrEngine::WhisperHub => AsrEngineName::WhisperHub,
-                    AsrEngine::WhisperX => AsrEngineName::WhisperX,
-                    AsrEngine::WhisperOai => AsrEngineName::WhisperOai,
-                }
-            };
+            // One resolver, shared with `benchmark`, and infallible: clap has
+            // already rejected an unknown engine name at parse time with the
+            // valid list, so there is no failure left to handle here and no
+            // `None` for a caller to mistake for something else.
+            let selection = a.asr.selection();
+            let asr_engine = selection.engine();
+
+            // Apply what the NAME implies, without letting it beat what the
+            // user typed. `--asr-engine paraformer` means funaudio carrying the
+            // Paraformer checkpoint, but an explicit
+            // `--engine-overrides '{"funaudio_model":"..."}'` is more specific
+            // and wins. Discarding these would make the new name parse and then
+            // silently run plain funaudio, which is the failure it exists to fix.
+            let mut common = common;
+            selection.apply_implied(&mut common.engine_overrides);
             // Resolve diarization: BA2 compat bools override the enum
             let diarize = if a.diarize {
                 true
@@ -298,27 +290,15 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             utseg_fallback: a.utseg_fallback_stanza.into(),
         })),
         Commands::Benchmark(a) => {
-            let asr_engine = if let Some(engine) = a.asr_engine_custom.as_deref() {
-                AsrEngineName::from_wire_name(engine).ok()?
-            } else if a.whisper_oai {
-                // BA2 compat alias
-                AsrEngineName::WhisperOai
-            } else if a.whisper {
-                // BA2 compat alias
-                AsrEngineName::Whisper
-            } else if a.rev {
-                // BA2 compat alias
-                AsrEngineName::RevAi
-            } else {
-                match a.asr_engine {
-                    BenchAsrEngine::Rev => AsrEngineName::RevAi,
-                    BenchAsrEngine::Whisper => AsrEngineName::Whisper,
-                    BenchAsrEngine::WhisperOai => AsrEngineName::WhisperOai,
-                }
-            };
+            // The same resolver `transcribe` uses. This arm used to hold its own
+            // copy of the whole precedence chain, including the `.ok()?` that
+            // turned an unknown engine name into no engine and no message.
+            let selection = a.asr.selection();
+            let mut common = common;
+            selection.apply_implied(&mut common.engine_overrides);
             Some(CommandOptions::Benchmark(BenchmarkOptions {
                 common,
-                asr_engine,
+                asr_engine: selection.engine(),
                 wor: resolve_wor_tier_policy(a.wor, a.nowor),
                 merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
             }))
@@ -394,6 +374,9 @@ pub fn extract_lexicon(cmd: &Commands) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Only the tests still name the engine enum directly; production code
+    // reaches it through AsrSelection.
+    use crate::options::AsrEngineName;
 
     #[test]
     fn parse_engine_overrides_none() {

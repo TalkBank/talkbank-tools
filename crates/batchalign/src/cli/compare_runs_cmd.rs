@@ -347,17 +347,17 @@ fn atomic_csv(path: &Path, records: &[Value], subject: &str) -> Result<(), CliEr
                                 text(record, "right_artifact"),
                                 text(row, "left_speaker"),
                                 text(row, "right_speaker"),
-                                num(metrics, "left_words"),
-                                num(metrics, "right_words"),
-                                num(metrics, "matches"),
-                                num(metrics, "insertions"),
-                                num(metrics, "deletions"),
-                                num(metrics, "wer_numerator"),
-                                scalar(metrics, "wer_rate"),
+                                pointer(metrics, "/words/left"),
+                                pointer(metrics, "/words/right"),
+                                pointer(metrics, "/tally/matches"),
+                                pointer(metrics, "/tally/insertions"),
+                                pointer(metrics, "/tally/deletions"),
+                                wer_numerator(metrics),
+                                rate(metrics, wer_numerator(metrics)),
                                 num(metrics, "cwer_numerator"),
-                                scalar(metrics, "cwer_rate"),
-                                num(metrics, "excluded_left_tokens"),
-                                num(metrics, "excluded_right_tokens"),
+                                rate(metrics, num(metrics, "cwer_numerator")),
+                                pointer(metrics, "/excluded_tokens/left"),
+                                pointer(metrics, "/excluded_tokens/right"),
                             ])
                             .map_err(invalid)?;
                     }
@@ -424,13 +424,13 @@ fn atomic_csv(path: &Path, records: &[Value], subject: &str) -> Result<(), CliEr
                             num(row, "token"),
                             text(row, "left_text"),
                             text(row, "right_text"),
-                            scalar(row, "tokenization"),
-                            scalar(row, "lemma"),
-                            scalar(row, "pos"),
-                            scalar(row, "feature_set"),
-                            scalar(row, "clitic_chunk"),
-                            scalar(row, "dependency_head"),
-                            scalar(row, "relation"),
+                            differs(row, "tokenization"),
+                            differs(row, "lemma"),
+                            differs(row, "pos"),
+                            differs(row, "feature_set"),
+                            differs(row, "clitic_chunk"),
+                            differs(row, "dependency_head"),
+                            differs(row, "relation"),
                         ])
                         .map_err(invalid)?;
                 }
@@ -497,6 +497,39 @@ fn text(value: &Value, key: &str) -> String {
         .unwrap_or_default()
         .to_string()
 }
+
+/// Whether a morphotag row reports a difference on `axis`.
+///
+/// The producer emits one `differences` array rather than seven `bool` fields
+/// (see `MorphotagDifference`), but the CSV keeps a column per axis, because
+/// that is what a spreadsheet wants. The reader bridges the two.
+fn differs(row: &Value, axis: &str) -> String {
+    let present = row
+        .get("differences")
+        .and_then(Value::as_array)
+        .is_some_and(|axes| axes.iter().any(|a| a.as_str() == Some(axis)));
+    present.to_string()
+}
+
+/// `insertions + deletions`, which the producer derives rather than stores.
+fn wer_numerator(metrics: &Value) -> String {
+    let at = |path: &str| metrics.pointer(path).and_then(Value::as_u64).unwrap_or(0);
+    (at("/tally/insertions") + at("/tally/deletions")).to_string()
+}
+
+/// A numerator over the left-side word count, absent when there is nothing to
+/// divide by. Mirrors `AgreementMetrics::rate`, which is not on the wire.
+fn rate(metrics: &Value, numerator: String) -> String {
+    let left = metrics
+        .pointer("/words/left")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    match (left, numerator.parse::<u64>()) {
+        (0, _) | (_, Err(_)) => String::new(),
+        (left, Ok(n)) => (n as f64 / left as f64).to_string(),
+    }
+}
+
 fn num(value: &Value, key: &str) -> String {
     value
         .get(key)
@@ -529,4 +562,48 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
     temp.persist(path)
         .map_err(|error| CliError::Io(error.error))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod csv_shape_tests {
+    use super::{differs, rate, wer_numerator};
+    use serde_json::json;
+
+    /// The CSV readers must track the producer's serialized shape.
+    ///
+    /// These columns are read by JSON pointer, and a pointer that misses
+    /// yields an EMPTY CELL rather than an error, so nothing in the type
+    /// system connects the two sides. That silence is not hypothetical: one
+    /// refactor of the producer emptied eleven of sixteen transcription
+    /// columns and seven of seventeen morphotag columns, and both shipped
+    /// green because every gate passed. This is the connection.
+    #[test]
+    fn morphotag_axes_come_from_the_differences_array() {
+        let row = json!({ "differences": ["lemma", "pos"] });
+        assert_eq!(differs(&row, "lemma"), "true");
+        assert_eq!(differs(&row, "pos"), "true");
+        assert_eq!(differs(&row, "relation"), "false");
+        // A row with no differences is "false", not empty.
+        let identical = json!({ "differences": [] });
+        assert_eq!(differs(&identical, "lemma"), "false");
+    }
+
+    #[test]
+    fn transcription_metrics_are_read_and_derived_from_the_nested_shape() {
+        let metrics = json!({
+            "cwer_numerator": 1,
+            "words": { "left": 2, "right": 1 },
+            "tally": { "matches": 1, "insertions": 1, "deletions": 0 },
+            "excluded_tokens": { "left": 3, "right": 4 },
+        });
+
+        // Derived, because the producer no longer stores them.
+        assert_eq!(wer_numerator(&metrics), "1");
+        assert_eq!(rate(&metrics, "1".to_string()), "0.5");
+
+        // Absent rather than zero when there is nothing to divide by, matching
+        // the producer: a rate of 0 would read as perfect agreement.
+        let empty_left = json!({ "words": { "left": 0, "right": 1 } });
+        assert_eq!(rate(&empty_left, "1".to_string()), "");
+    }
 }

@@ -326,7 +326,7 @@ fn snapshot_server_config_full() {
         media_mappings: mappings,
         default_lang: LanguageCode3::spa(),
         max_concurrent_jobs: Some(4),
-        port: 9000,
+        port: batchalign::config::PortRequest::from_u16(9000),
         host: "0.0.0.0".into(),
         max_workers_per_job: Some(2),
         job_ttl_days: 14,
@@ -458,7 +458,7 @@ auto_daemon: false
         cfg.media_mappings[&MediaMappingKey::new("childes-data")],
         ServerPath::new("/Volumes/Media/childes")
     );
-    assert_eq!(cfg.port, 8000);
+    assert_eq!(cfg.port, batchalign::config::PortRequest::from_u16(8000));
 }
 
 /// Verify InferRequest/InferResponse roundtrip matches Python worker.py.

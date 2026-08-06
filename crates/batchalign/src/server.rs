@@ -16,6 +16,7 @@ use crate::error;
 use crate::host_facts::HostFactsSource;
 use crate::media::MediaResolver;
 use crate::server_backend::{ServerBackendBootstrap, bootstrap_local_server_backend};
+use crate::server_handshake::{BoundPort, HandshakeSlot, ServerHandshake};
 use crate::state::{
     AppBuildInfo, AppControlPlane, AppEnvironment, AppPaths, AppState, WorkerSubsystem,
 };
@@ -287,7 +288,7 @@ pub async fn serve(
     build_hash: Option<String>,
 ) -> Result<(), error::ServerError> {
     let layout = RuntimeLayout::from_env();
-    serve_with_runtime(config, pool_config, layout, build_hash).await
+    serve_with_runtime(config, pool_config, layout, HandshakeSlot::Main, build_hash).await
 }
 
 /// Start serving with an explicit runtime layout for state-owned paths.
@@ -299,6 +300,7 @@ pub async fn serve_with_runtime(
     config: ServerConfig,
     pool_config: PoolConfig,
     layout: RuntimeLayout,
+    slot: HandshakeSlot,
     build_hash: Option<String>,
 ) -> Result<(), error::ServerError> {
     let host = config.host.clone();
@@ -334,19 +336,32 @@ pub async fn serve_with_runtime(
         create_app_with_runtime(config, pool_config, layout.clone(), None, None, build_hash)
             .await?;
 
-    let addr = format!("{host}:{port}");
+    let addr = format!("{host}:{}", port.bind_value());
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .map_err(error::ServerError::Io)?;
-    info!(addr = %addr, "Server listening");
 
-    // Write PID file so daemon.rs can discover this foreground server.
-    // Best-effort: if the write fails (e.g. read-only filesystem), log
-    // and continue -- the server still works, just won't be auto-discovered.
-    let pid_path = layout.server_pid_path();
-    if let Err(error) = write_pid_file(&pid_path) {
-        warn!(path = %pid_path.display(), error = %error,
-            "Failed to write server PID file; daemon auto-discovery may not work");
+    // The port we ASKED for and the port we GOT are different facts, and for
+    // an ephemeral request the first one is not a port at all. Everything
+    // downstream uses this one, read back off the listener.
+    let local_addr = listener.local_addr().map_err(error::ServerError::Io)?;
+    let bound_port = BoundPort::from_listener_addr(local_addr).ok_or_else(|| {
+        error::ServerError::Io(std::io::Error::other(format!(
+            "listener on {local_addr} reports port 0, so nothing is actually bound"
+        )))
+    })?;
+    info!(addr = %local_addr, requested = %port.describe(), "Server listening");
+
+    // Publish PID and bound port so `daemon.rs` can discover this server
+    // without re-deriving the port from the request.
+    //
+    // Best-effort: if the write fails (e.g. read-only filesystem), log and
+    // continue. The server still works; it just will not be auto-discovered.
+    if let Err(error) =
+        ServerHandshake::publish_listening(layout.state_dir(), slot, std::process::id(), bound_port)
+    {
+        warn!(error = %error,
+            "Failed to publish server handshake; daemon auto-discovery may not work");
     }
 
     axum::serve(
@@ -393,8 +408,10 @@ pub async fn serve_with_runtime(
     // 3. Shut down the worker pool (gracefully shuts down all workers)
     state.workers.pool.shutdown().await;
 
-    // 4. Remove PID file so stale detection works on next startup.
-    remove_pid_file(&pid_path);
+    // 4. Remove the handshake so stale detection works on next startup.
+    if let Err(error) = ServerHandshake::remove(layout.state_dir(), slot) {
+        warn!(error = %error, "Failed to remove server handshake");
+    }
     info!("Shutdown complete");
 
     Ok(())
@@ -439,32 +456,5 @@ async fn shutdown_signal() {
     tokio::select! {
         () = ctrl_c => info!("Received SIGINT, shutting down"),
         () = terminate => info!("Received SIGTERM, shutting down"),
-    }
-}
-
-// ---------------------------------------------------------------------------
-// PID file helpers
-// ---------------------------------------------------------------------------
-
-/// Write the current process PID to a file (atomic via temp + rename).
-fn write_pid_file(path: &std::path::Path) -> Result<(), std::io::Error> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension("pid.tmp");
-    std::fs::write(&tmp, std::process::id().to_string())?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
-}
-
-/// Remove a PID file. Best-effort: missing file is not an error.
-fn remove_pid_file(path: &std::path::Path) {
-    match std::fs::remove_file(path) {
-        Ok(()) => info!(path = %path.display(), "Removed server PID file"),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => {
-            warn!(path = %path.display(), error = %error,
-                "Failed to remove server PID file");
-        }
     }
 }

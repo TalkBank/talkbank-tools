@@ -51,6 +51,35 @@ pub enum PairFailureReason {
     },
 }
 
+/// What differs between two morphotag analyses at one token.
+///
+/// A named set rather than seven parallel `bool` fields. The bools were
+/// boolean blindness in its plainest form: nothing stopped a row asserting
+/// every difference at once on a token that had none, `if row.lemma` read the
+/// same as `if row.pos` at a glance, and adding an eighth axis meant editing
+/// the struct, the constructor and the "is this row a difference" disjunction
+/// in three separate places. As a set, "no differences" is `is_empty()`, the
+/// axes are exhaustively `match`-able, and the wide-struct audit stops firing
+/// because there is nothing wide left to audit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MorphotagDifference {
+    /// The main-tier token text itself differs.
+    Tokenization,
+    /// Lemma differs.
+    Lemma,
+    /// Part of speech differs.
+    Pos,
+    /// Feature set differs (order-insensitive).
+    FeatureSet,
+    /// Clitic/chunk structure differs.
+    CliticChunk,
+    /// Mapped dependency-head token identity differs.
+    DependencyHead,
+    /// Dependency relation differs.
+    Relation,
+}
+
 /// One structured morphotag difference at a main-tier token.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MorphotagTokenDifference {
@@ -66,20 +95,18 @@ pub struct MorphotagTokenDifference {
     pub left_text: Option<String>,
     /// Normalized right main-tier token, if present.
     pub right_text: Option<String>,
-    /// Tokenization differs at this position.
-    pub tokenization: bool,
-    /// Lemma differs.
-    pub lemma: bool,
-    /// POS differs.
-    pub pos: bool,
-    /// Feature set differs (order-insensitive).
-    pub feature_set: bool,
-    /// Clitic/chunk structure differs.
-    pub clitic_chunk: bool,
-    /// Mapped dependency-head token identity differs.
-    pub dependency_head: bool,
-    /// Dependency relation differs.
-    pub relation: bool,
+    /// Every axis on which the two analyses disagree here.
+    ///
+    /// Empty means the two agree at this token, which is the state the seven
+    /// bools could only express as "all of them are false".
+    pub differences: std::collections::BTreeSet<MorphotagDifference>,
+}
+
+impl MorphotagTokenDifference {
+    /// Whether the two analyses disagree at this token on any axis.
+    pub fn differs(&self) -> bool {
+        !self.differences.is_empty()
+    }
 }
 
 /// Complete morphotag result for one artifact pair.
@@ -431,6 +458,45 @@ fn compare_morph_pair(
                 compared_tokens += 1;
                 let l = left_utt.get(token);
                 let r = right_utt.get(token);
+                let mut kinds = std::collections::BTreeSet::new();
+                let mut note = |differs: bool, kind: MorphotagDifference| {
+                    if differs {
+                        kinds.insert(kind);
+                    }
+                };
+                note(
+                    l.map(|value| &value.text) != r.map(|value| &value.text),
+                    MorphotagDifference::Tokenization,
+                );
+                note(
+                    l.and_then(|value| value.lemma.as_ref())
+                        != r.and_then(|value| value.lemma.as_ref()),
+                    MorphotagDifference::Lemma,
+                );
+                note(
+                    l.and_then(|value| value.pos.as_ref())
+                        != r.and_then(|value| value.pos.as_ref()),
+                    MorphotagDifference::Pos,
+                );
+                note(
+                    l.map(|value| &value.features) != r.map(|value| &value.features),
+                    MorphotagDifference::FeatureSet,
+                );
+                note(
+                    l.map(|value| value.chunk_count) != r.map(|value| value.chunk_count),
+                    MorphotagDifference::CliticChunk,
+                );
+                note(
+                    l.and_then(|value| value.head_identity.as_ref())
+                        != r.and_then(|value| value.head_identity.as_ref()),
+                    MorphotagDifference::DependencyHead,
+                );
+                note(
+                    l.and_then(|value| value.relation.as_ref())
+                        != r.and_then(|value| value.relation.as_ref()),
+                    MorphotagDifference::Relation,
+                );
+
                 let row = MorphotagTokenDifference {
                     left_speaker: left_speaker.clone(),
                     right_speaker: right_speaker.clone(),
@@ -438,27 +504,9 @@ fn compare_morph_pair(
                     token,
                     left_text: l.map(|value| value.text.clone()),
                     right_text: r.map(|value| value.text.clone()),
-                    tokenization: l.map(|value| &value.text) != r.map(|value| &value.text),
-                    lemma: l.and_then(|value| value.lemma.as_ref())
-                        != r.and_then(|value| value.lemma.as_ref()),
-                    pos: l.and_then(|value| value.pos.as_ref())
-                        != r.and_then(|value| value.pos.as_ref()),
-                    feature_set: l.map(|value| &value.features) != r.map(|value| &value.features),
-                    clitic_chunk: l.map(|value| value.chunk_count)
-                        != r.map(|value| value.chunk_count),
-                    dependency_head: l.and_then(|value| value.head_identity.as_ref())
-                        != r.and_then(|value| value.head_identity.as_ref()),
-                    relation: l.and_then(|value| value.relation.as_ref())
-                        != r.and_then(|value| value.relation.as_ref()),
+                    differences: kinds,
                 };
-                if row.tokenization
-                    || row.lemma
-                    || row.pos
-                    || row.feature_set
-                    || row.clitic_chunk
-                    || row.dependency_head
-                    || row.relation
-                {
+                if row.differs() {
                     differences.push(row.clone());
                 }
                 tokens.push(row);

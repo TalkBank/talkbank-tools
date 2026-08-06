@@ -5,9 +5,12 @@
 //!
 //! ## Port policy
 //!
-//! The daemon always uses the port from the server config (default 8000).
-//! No random ephemeral ports; this makes discovery deterministic and avoids
-//! orphaned servers on random ports after crashes.
+//! The daemon takes the port REQUEST from the server config (default 8000)
+//! and passes it through to the child, which may be `0` for "let the OS
+//! choose". Discovery stays deterministic without a fixed port because the
+//! child PUBLISHES the port it actually bound, in its handshake, and every
+//! reader takes it from there; the old rule against ephemeral ports existed
+//! only because nothing recorded the answer.
 //!
 //! ## Stale-binary detection
 //!
@@ -19,7 +22,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::config::RuntimeLayout;
+use std::num::NonZeroU16;
+
+use crate::config::{PortRequest, RuntimeLayout};
+use crate::server_handshake::{HandshakeSlot, PublishOutcome, ServerHandshake};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
@@ -32,12 +38,30 @@ use crate::cli::python::resolve_python_executable;
 // Constants
 // ---------------------------------------------------------------------------
 
-/// Maximum seconds to wait for a newly spawned daemon to pass its first
-/// health check. 90 seconds is generous enough to cover cold-start model
-/// loading on slow machines (Stanza downloads can take 30--60s on first run)
-/// while still failing within a human-tolerable window if something is
-/// genuinely broken (port conflict, missing Python, bad config).
+/// Maximum seconds for a newly spawned daemon to become usable, covering BOTH
+/// phases: reaching its bind, and then answering `/health`.
+///
+/// 90 seconds is generous enough for a cold start on a slow machine while
+/// still failing within a human-tolerable window if something is genuinely
+/// broken (port conflict, missing Python, bad config).
+///
+/// It is ONE budget on purpose. The two phases used to have separate ceilings,
+/// 30 s to publish a port and 90 s to answer afterwards, which put the small
+/// number on the slow phase: everything expensive (config validation,
+/// host-facts detection, database migration, cache init, and on a
+/// freshly-built binary the first-exec cost) happens before the bind, while
+/// the second phase only confirms a socket that already exists. A cold start
+/// slower than 30 s therefore failed on the wrong clock, and the worst case
+/// was 120 s rather than the 90 the constant advertises.
 const HEALTH_TIMEOUT: f64 = 90.0;
+
+/// The whole budget for getting a spawned daemon to a usable state.
+///
+/// Shared by `serve start` and the auto-daemon path so both mean the same
+/// thing by "the daemon did not come up".
+pub(crate) fn startup_budget() -> Duration {
+    Duration::from_secs_f64(HEALTH_TIMEOUT)
+}
 
 /// How often to poll the daemon's `/health` endpoint while waiting for
 /// startup. 1 second balances responsiveness (the user sees the daemon come
@@ -49,8 +73,45 @@ fn runtime_layout() -> RuntimeLayout {
     RuntimeLayout::from_env()
 }
 
-/// Return the configured daemon port (from server.yaml or the default).
-fn config_port(layout: &RuntimeLayout) -> Result<u16, CliError> {
+/// The loopback URL a locally-running server can be reached at.
+///
+/// Answers "where is the local server" from the strongest evidence available,
+/// in order: the port the server PUBLISHED after binding, then the port the
+/// config asked for if that request named one. `None` means there is nothing
+/// to try, which for an ephemeral request with no published handshake is the
+/// honest answer rather than a URL built from a placeholder.
+///
+/// One owner for a question that had two callers building the URL from
+/// `cfg.port` directly, both of which silently assumed the request had been
+/// granted.
+pub(crate) fn local_server_url(layout: &RuntimeLayout, configured: PortRequest) -> Option<String> {
+    local_port(layout, configured).map(|port| format!("http://127.0.0.1:{port}"))
+}
+
+/// The port a local server can be reached on, from the strongest evidence.
+///
+/// Takes the configured request rather than loading `server.yaml` itself.
+/// Every caller already holds a validated config, and reloading it here meant a
+/// second parse plus a second `is_dir()` on every configured media root, and
+/// printed every config warning a second time.
+pub(crate) fn local_port(layout: &RuntimeLayout, configured: PortRequest) -> Option<NonZeroU16> {
+    if let Ok(Some(handshake)) = ServerHandshake::read(layout.state_dir(), HandshakeSlot::Main)
+        && let Some(port) = handshake.bound_port()
+    {
+        return NonZeroU16::new(port.get());
+    }
+    // No published port: either an older server, or none running. A fixed
+    // request is a usable guess for the first case; an ephemeral one leaves
+    // nothing to guess with, and guessing is what this change removed.
+    configured.fixed()
+}
+
+/// Return the port REQUEST from `server.yaml` (or the default).
+///
+/// A request, not a port: see [`PortRequest`]. The auto-daemon path needs a
+/// concrete number before the child binds, so it must decide what to do with
+/// an ephemeral request rather than being handed a plausible-looking integer.
+fn configured_port_request(layout: &RuntimeLayout) -> Result<PortRequest, CliError> {
     let (cfg, warnings) = crate::config::load_validated_config_from_layout(layout, None)?;
     for warning in warnings {
         eprintln!("warning: {warning}");
@@ -87,6 +148,18 @@ impl DaemonProfile {
         match self {
             Self::Main => "local",
             Self::Sidecar => "sidecar",
+        }
+    }
+
+    /// The handshake slot this profile's server publishes to.
+    ///
+    /// Every other per-profile artifact was already namespaced; this closes the
+    /// last shared one, which mattered once discovery started reading the
+    /// published port rather than re-deriving it from config.
+    fn handshake_slot(self) -> HandshakeSlot {
+        match self {
+            Self::Main => HandshakeSlot::Main,
+            Self::Sidecar => HandshakeSlot::Sidecar,
         }
     }
 
@@ -150,8 +223,6 @@ impl DaemonProfile {
 pub struct DaemonInfo {
     /// OS process ID of the daemon.
     pub pid: u32,
-    /// TCP port the daemon is listening on.
-    pub port: u16,
     /// Daemon version string (for stale-binary detection).
     #[serde(default)]
     pub version: String,
@@ -400,7 +471,6 @@ async fn ensure_daemon_locked(
         return Ok(Some(url));
     }
 
-    let port = config_port(layout)?;
     // Compute the resolved device flags once: they drive both the
     // restart decision (vs. stored DaemonInfo) and the values persisted
     // when start_daemon writes a new DaemonInfo. Resolving here keeps
@@ -422,7 +492,15 @@ async fn ensure_daemon_locked(
                 );
                 kill_process(info.pid);
                 cleanup_state_file_for(profile, dir);
-                return start_daemon(profile, layout, port, device_flags, workers, timeout).await;
+                return start_daemon(
+                    profile,
+                    layout,
+                    configured_port_request(layout)?,
+                    device_flags,
+                    workers,
+                    timeout,
+                )
+                .await;
             }
 
             if runtime_mismatch(&info, device_flags) {
@@ -436,10 +514,24 @@ async fn ensure_daemon_locked(
                 );
                 kill_process(info.pid);
                 cleanup_state_file_for(profile, dir);
-                return start_daemon(profile, layout, port, device_flags, workers, timeout).await;
+                return start_daemon(
+                    profile,
+                    layout,
+                    configured_port_request(layout)?,
+                    device_flags,
+                    workers,
+                    timeout,
+                )
+                .await;
             }
 
-            if health_check(info.port).await {
+            // The port comes from the handshake, which is where a bound
+            // server publishes it. `daemon.json` used to mirror it; two
+            // records of one fact is what this change set removed.
+            let published = ServerHandshake::published_port(dir, profile.handshake_slot());
+            if let Some(published) = published
+                && health_check(published.get()).await
+            {
                 // The daemon's per-task ceiling (`audio_task_timeout_s`)
                 // and per-job parallelism (`max_workers_per_job`) are
                 // both fixed at daemon startup. On the warm-reuse path
@@ -487,12 +579,20 @@ async fn ensure_daemon_locked(
                         profile.label(),
                     );
                 }
-                return Ok(Some(format!("http://127.0.0.1:{}", info.port)));
+                return Ok(Some(format!("http://127.0.0.1:{published}")));
             }
 
             kill_process(info.pid);
             cleanup_state_file_for(profile, dir);
-            return start_daemon(profile, layout, port, device_flags, workers, timeout).await;
+            return start_daemon(
+                profile,
+                layout,
+                configured_port_request(layout)?,
+                device_flags,
+                workers,
+                timeout,
+            )
+            .await;
         }
         // Process is dead but state file exists -- stale PID file.
         debug!(
@@ -503,39 +603,78 @@ async fn ensure_daemon_locked(
         cleanup_state_file_for(profile, dir);
     }
 
-    start_daemon(profile, layout, port, device_flags, workers, timeout).await
+    // Read the port REQUEST only on the path that actually spawns. It used to
+    // be read at the top of this function and discarded on the warm-reuse
+    // path, which is the common one: a second `server.yaml` parse plus an
+    // `is_dir()` per configured media root, and every config warning printed a
+    // second time, on every invocation that found a healthy daemon.
+    start_daemon(
+        profile,
+        layout,
+        configured_port_request(layout)?,
+        device_flags,
+        workers,
+        timeout,
+    )
+    .await
 }
 
+/// Find a manually-started server, if one is running and reachable.
+///
+/// Reads the port the server PUBLISHED rather than re-deriving it from
+/// `server.yaml`. The config's port is a request: it is what an operator asked
+/// for, which for an ephemeral request names no port at all, and even for a
+/// fixed request can differ from reality if the file was edited after the
+/// server started.
 async fn detect_manual_server(layout: &RuntimeLayout) -> Result<Option<String>, CliError> {
-    let pid_path = layout.server_pid_path();
-    let pid_str = match std::fs::read_to_string(&pid_path) {
-        Ok(pid_str) => pid_str,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(CliError::Io(err)),
-    };
-    let pid: u32 = match pid_str.trim().parse() {
-        Ok(pid) => pid,
-        Err(_) => {
-            // Corrupt PID file -- clean it up rather than returning an error
-            // that would block the caller from starting a daemon.
-            debug!(path = %pid_path.display(), "Removing corrupt server PID file");
-            let _ = std::fs::remove_file(&pid_path);
+    let state_dir = layout.state_dir();
+    let handshake = match ServerHandshake::read(state_dir, HandshakeSlot::Main) {
+        Ok(Some(handshake)) => handshake,
+        Ok(None) => return Ok(None),
+        Err(error) => {
+            // Deliberately left in place rather than deleted. A file we cannot
+            // read is the only evidence that a server may still be running,
+            // and removing it invites a second server onto the same port.
+            debug!(%error, "Ignoring unreadable server handshake");
             return Ok(None);
         }
     };
 
+    let pid = handshake.pid();
     if !is_process_alive(pid) {
-        // Stale PID file from a crashed server -- clean it up.
-        debug!(pid, path = %pid_path.display(), "Removing stale server PID file (process is dead)");
-        let _ = std::fs::remove_file(&pid_path);
+        debug!(pid, "Removing stale server handshake (process is dead)");
+        let _ = ServerHandshake::remove(state_dir, HandshakeSlot::Main);
         return Ok(None);
     }
 
-    let (cfg, warnings) = crate::config::load_validated_config_from_layout(layout, None)?;
-    for warning in warnings {
-        eprintln!("warning: {warning}");
-    }
-    let port = cfg.port;
+    let port = match handshake.bound_port() {
+        Some(port) => port.get(),
+        None => {
+            // The server has not published a port: either it is still starting,
+            // or it predates the published handshake. A fixed configured port
+            // is a usable guess for the older-server case; an ephemeral request
+            // leaves nothing to guess with, and guessing is what this change
+            // exists to stop.
+            let (cfg, warnings) = crate::config::load_validated_config_from_layout(layout, None)?;
+            for warning in warnings {
+                eprintln!("warning: {warning}");
+            }
+            match cfg.port.fixed() {
+                Some(port) => {
+                    debug!(
+                        pid,
+                        port = port.get(),
+                        "Server published no port; falling back to the configured one"
+                    );
+                    port.get()
+                }
+                None => {
+                    debug!(pid, "Server published no port and none is configured");
+                    return Ok(None);
+                }
+            }
+        }
+    };
 
     if startup_health_check(port).await {
         // Warn if the manual server has a stale build hash
@@ -573,7 +712,7 @@ async fn check_manual_server_staleness(port: u16) {
 async fn start_daemon(
     profile: DaemonProfile,
     layout: &RuntimeLayout,
-    port: u16,
+    port: PortRequest,
     flags: DaemonDeviceFlags,
     workers: Option<usize>,
     timeout: Option<u64>,
@@ -613,8 +752,13 @@ async fn start_daemon(
         "serve",
         "start",
         "--foreground",
+        "--handshake-slot",
+        profile.handshake_slot().as_arg(),
         "--port",
-        &port.to_string(),
+        // The REQUEST, which may be 0 for "let the OS choose". The child
+        // publishes what it actually bound and we read that back below, so
+        // nothing here has to be a prediction.
+        &port.bind_value().to_string(),
         "--host",
         "127.0.0.1",
         "--python",
@@ -692,9 +836,41 @@ async fn start_daemon(
     // captured raw so the warm-reuse warning can name the exact value
     // the daemon was started with.
     let persisted_workers = workers.map(|n| n as u32);
-    write_daemon_info_for(profile, dir, pid, port, flags, persisted_workers, timeout)?;
 
-    if wait_for_health(pid, port).await {
+    // Wait for the child to publish the port it BOUND before recording
+    // anything. `daemon.json` used to be written here with the port we asked
+    // for, before the child had bound, which made it a prediction: with an
+    // ephemeral request there was no number to write at all, and with a fixed
+    // one it could disagree with reality if the bind failed.
+    let deadline = std::time::Instant::now() + startup_budget();
+    let bound = match ServerHandshake::await_published(dir, profile.handshake_slot(), pid, deadline)
+        .await
+    {
+        PublishOutcome::Listening(port) => port,
+        outcome => {
+            // Kill it. A child that has not reported a port is still booting,
+            // and leaving it running orphans a daemon that will bind moments
+            // later: the next invocation adopts it while this one reports no
+            // server available, having thrown away the whole boot.
+            let reason = match outcome {
+                PublishOutcome::Exited => "exited before reporting a listening port",
+                PublishOutcome::TimedOut => "did not report a listening port in time",
+                PublishOutcome::Listening(_) => unreachable!("handled above"),
+            };
+            eprintln!(
+                "warning: {} daemon (PID {pid}) {reason}. Check {}",
+                profile.label(),
+                log_path.display()
+            );
+            kill_process(pid);
+            cleanup_state_file_for(profile, dir);
+            return Ok(None);
+        }
+    };
+    let port = bound.get();
+    write_daemon_info_for(profile, dir, pid, flags, persisted_workers, timeout)?;
+
+    if wait_for_health_until(pid, port, deadline).await {
         eprintln!(
             "{} daemon ready on port {} (PID {})",
             profile.label(),
@@ -719,9 +895,7 @@ async fn start_daemon(
     Ok(None)
 }
 
-async fn wait_for_health(pid: u32, port: u16) -> bool {
-    let deadline = std::time::Instant::now() + Duration::from_secs_f64(HEALTH_TIMEOUT);
-
+async fn wait_for_health_until(pid: u32, port: u16, deadline: std::time::Instant) -> bool {
     while std::time::Instant::now() < deadline {
         if !is_process_alive(pid) {
             return false;
@@ -807,7 +981,6 @@ fn write_daemon_info_for(
     profile: DaemonProfile,
     dir: &Path,
     pid: u32,
-    port: u16,
     flags: DaemonDeviceFlags,
     workers: Option<u32>,
     audio_task_timeout_s: Option<u64>,
@@ -822,7 +995,6 @@ fn write_daemon_info_for(
         .as_secs_f64();
     let info = DaemonInfo {
         pid,
-        port,
         version: current_version(),
         started_at,
         build_hash: crate::cli::build_hash().to_string(),
@@ -933,7 +1105,6 @@ mod tests {
     ) -> DaemonInfo {
         DaemonInfo {
             pid: 1,
-            port: 8000,
             version,
             started_at: 0.0,
             build_hash,
@@ -948,7 +1119,6 @@ mod tests {
     fn daemon_info_roundtrip() {
         let info = DaemonInfo {
             pid: 12345,
-            port: 54321,
             version: "1.0.0".to_string(),
             started_at: 1700000000.0,
             build_hash: "1.0.0-abc1234-1700000000".to_string(),
@@ -960,7 +1130,6 @@ mod tests {
         let json = serde_json::to_string(&info).unwrap();
         let back: DaemonInfo = serde_json::from_str(&json).unwrap();
         assert_eq!(back.pid, 12345);
-        assert_eq!(back.port, 54321);
         assert_eq!(back.version, "1.0.0");
         assert_eq!(back.build_hash, "1.0.0-abc1234-1700000000");
         assert_eq!(back.workers, Some(4));
@@ -1037,7 +1206,6 @@ mod tests {
         .unwrap();
         let info = read_daemon_info_for(DaemonProfile::Main, dir.path()).unwrap();
         assert_eq!(info.pid, 999);
-        assert_eq!(info.port, 8000);
         // version defaults to "" via serde(default)
         assert_eq!(info.version, "");
         assert_eq!(info.build_hash, "");
@@ -1052,7 +1220,6 @@ mod tests {
                 profile,
                 dir.path(),
                 42,
-                9999,
                 DaemonDeviceFlags {
                     cli_force_cpu: true,
                     cli_allow_mps: false,
@@ -1065,7 +1232,6 @@ mod tests {
             .unwrap();
             let info = read_daemon_info_for(profile, dir.path()).unwrap();
             assert_eq!(info.pid, 42);
-            assert_eq!(info.port, 9999);
             assert_eq!(info.version, current_version());
             assert_eq!(info.build_hash, crate::cli::build_hash());
             assert!(info.force_cpu);
@@ -1083,7 +1249,6 @@ mod tests {
             DaemonProfile::Main,
             dir.path(),
             7,
-            8001,
             NO_DEVICE_FLAGS,
             None,
             None,
@@ -1101,7 +1266,6 @@ mod tests {
             DaemonProfile::Main,
             dir.path(),
             1,
-            8000,
             NO_DEVICE_FLAGS,
             None,
             None,
@@ -1194,10 +1358,15 @@ mod tests {
     }
 
     #[test]
-    fn config_port_returns_default() {
+    fn configured_port_request_defaults_to_a_fixed_port() {
         let dir = tempfile::tempdir().unwrap();
         let layout = RuntimeLayout::from_state_dir(dir.path().join("state"));
-        let port = config_port(&layout).unwrap();
-        assert!(port > 0);
+        let request = configured_port_request(&layout).unwrap();
+        assert!(
+            request.fixed().is_some(),
+            "the default must be a fixed port, so the auto-daemon path works \
+             with no server.yaml: got {}",
+            request.describe()
+        );
     }
 }

@@ -143,29 +143,32 @@ pub async fn run(global: &GlobalOpts, args: &BenchArgs) -> Result<(), CliError> 
     for idx in 0..args.runs {
         let start = Instant::now();
 
-        dispatch::dispatch(dispatch::DispatchRequest {
-            command,
-            lang,
-            num_speakers,
-            extensions,
-            server_arg: global.server.as_deref(),
-            inputs: &inputs,
-            out_dir: Some(args.out_dir.as_path()),
-            options: Some(build_options(global, args)),
-            bank: None,
-            subdir: None,
-            lexicon: None,
-            use_tui: false,
-            open_dashboard: global.use_open_dashboard(),
-            force_cpu: global.force_cpu,
-            allow_mps: global.allow_mps,
-            no_server: global.no_server,
-            before: None,
-            workers: global.workers,
-            timeout: global.timeout,
-            sequential: global.sequential,
-            memory_tier: global.memory_tier,
-        })
+        dispatch::dispatch(
+            dispatch::DispatchRequest {
+                command,
+                lang,
+                num_speakers,
+                extensions,
+                server_arg: global.server.as_deref(),
+                inputs: &inputs,
+                out_dir: Some(args.out_dir.as_path()),
+                options: Some(build_options(global, args)),
+                bank: None,
+                subdir: None,
+                lexicon: None,
+                use_tui: false,
+                open_dashboard: global.use_open_dashboard(),
+                force_cpu: global.force_cpu,
+                allow_mps: global.allow_mps,
+                no_server: global.no_server,
+                before: None,
+                workers: global.workers,
+                timeout: global.timeout,
+                sequential: global.sequential,
+                memory_tier: global.memory_tier,
+            },
+            &crate::config::RuntimeLayout::from_env(),
+        )
         .await?;
 
         let elapsed = start.elapsed().as_secs_f64();

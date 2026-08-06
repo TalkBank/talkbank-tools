@@ -7,6 +7,8 @@
 
 use clap::{Args, Subcommand, ValueEnum};
 
+use crate::types::engines::AsrSelection;
+
 use super::{CommonOpts, IncrementalOpts};
 
 // ---------------------------------------------------------------------------
@@ -94,29 +96,6 @@ pub enum FaEngine {
     Wav2vec,
 }
 
-/// ASR engine for the `transcribe` command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
-pub enum AsrEngine {
-    /// Use Rev.AI ASR (default).
-    #[default]
-    Rev,
-    /// Use Huggingface's Whisper implementation.
-    Whisper,
-    /// Use a HuggingFace Whisper fine-tune loaded by model_id. The
-    /// per-language default is resolved from
-    /// ``batchalign/models/resolve.py``; override with
-    /// ``--engine-overrides '{"asr":"whisper_hub","model_id":"<owner>/<model>"}'``.
-    /// See ``book/src/batchalign/reference/whisper-hub-asr.md``.
-    #[value(name = "whisper_hub")]
-    WhisperHub,
-    /// Use WhisperX.
-    #[value(name = "whisperx")]
-    WhisperX,
-    /// Use OpenAI's Whisper API.
-    #[value(name = "whisper-oai")]
-    WhisperOai,
-}
-
 /// Speaker diarization mode for the `transcribe` command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum DiarizationMode {
@@ -158,19 +137,6 @@ pub enum TranslateEngine {
     /// Aliyun (Alibaba Cloud) Machine Translation cloud API
     /// (supports Cantonese; the canonical cloud option for ``yue``).
     Aliyun,
-}
-
-/// ASR engine for the `benchmark` command (subset of AsrEngine).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
-pub enum BenchAsrEngine {
-    /// Use Rev.AI ASR (default).
-    #[default]
-    Rev,
-    /// Use Huggingface's Whisper implementation.
-    Whisper,
-    /// Use OpenAI's Whisper API.
-    #[value(name = "whisper-oai")]
-    WhisperOai,
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +265,126 @@ pub struct AlignArgs {
     pub wav2vec: bool,
 }
 
+/// Clap value parser producing an [`AsrSelection`] straight from the flag.
+///
+/// Parsing at the BOUNDARY, so no later stage holds an engine name that might
+/// not name an engine. The accepted set is derived from `AsrEngineName`, which
+/// does two jobs at once: clap renders it into `--help`, and clap rejects
+/// anything else with an error naming what the user typed and listing what is
+/// valid. The surface this replaced did neither, so a typo was accepted by the
+/// flag and then discarded in silence further down.
+fn asr_selection_parser()
+-> impl clap::builder::TypedValueParser<Value = AsrSelection> + Clone + Send + Sync + 'static {
+    use crate::types::engines::{AsrEngineName, LEGACY_SELECTION_ALIASES};
+    use clap::builder::TypedValueParser as _;
+    let shown = AsrEngineName::selectable_names().map(clap::builder::PossibleValue::new);
+    // Historical spellings stay accepted but hidden, so help shows one name per
+    // engine while nobody's existing command line breaks.
+    let hidden = LEGACY_SELECTION_ALIASES
+        .iter()
+        .map(|(alias, _)| clap::builder::PossibleValue::new(*alias).hide(true));
+    clap::builder::PossibleValuesParser::new(shown.chain(hidden).collect::<Vec<_>>()).try_map(
+        |name: String| {
+            // Unreachable in practice: clap has already restricted the value to
+            // the list above. Returning an error rather than unwrapping keeps
+            // the impossible case impossible WITHOUT a panic in a shipped
+            // binary, which is the repo rule.
+            AsrSelection::parse(&name).ok_or_else(|| {
+                clap::Error::raw(
+                    clap::error::ErrorKind::InvalidValue,
+                    format!("unknown ASR engine {name:?}\n"),
+                )
+            })
+        },
+    )
+}
+
+/// The ASR engine selection surface, shared by every command that transcribes.
+///
+/// One struct, flattened into each command, because there is one question here
+/// and it had been answered twice. `transcribe` and `benchmark` each carried
+/// their own engine flag, their own hand-written value list (five of ten and
+/// three of ten), their own copy of the BA2 compatibility ladder, and their own
+/// `--asr-engine-custom`. Fixing the resolution in one of them left the other
+/// holding the original defect, including an unknown name resolving to nothing
+/// at all, in silence.
+///
+/// Now the flag, the accepted values, the precedence and the resolution have a
+/// single definition, and a new command gets them by flattening this.
+#[derive(Args, Debug, Clone)]
+pub struct AsrSelectionArgs {
+    // Keep the doc comment SHORT: clap renders it verbatim as the flag's help,
+    // so rationale written here is shown to users instead of the value list.
+    /// ASR engine to transcribe with.
+    #[arg(
+        long,
+        default_value = crate::types::engines::DEFAULT_ASR_SELECTION_NAME,
+        value_parser = asr_selection_parser(),
+    )]
+    pub asr_engine: AsrSelection,
+
+    /// Deprecated alias for `--asr-engine`; hidden, still honoured.
+    ///
+    /// Kept so existing scripts and book examples keep working. Hidden from
+    /// help because two doors onto one choice is what let the visible one go
+    /// stale. It is parsed by the SAME parser, so it can no longer accept a
+    /// name that `--asr-engine` would reject.
+    #[arg(long, hide = true, value_parser = asr_selection_parser())]
+    pub asr_engine_custom: Option<AsrSelection>,
+
+    /// BA2 compat: use --asr-engine whisper instead.
+    #[arg(long, hide = true)]
+    pub whisper: bool,
+
+    /// BA2 compat: use --asr-engine whisperx instead.
+    #[arg(long, hide = true)]
+    pub whisperx: bool,
+
+    /// BA2 compat: use --asr-engine whisper_oai instead.
+    #[arg(long, hide = true)]
+    pub whisper_oai: bool,
+
+    /// BA2 compat: use --asr-engine rev instead.
+    #[arg(long, hide = true)]
+    pub rev: bool,
+}
+
+impl AsrSelectionArgs {
+    /// Which ASR engine this invocation selected.
+    ///
+    /// INFALLIBLE, which is the point: every field is already an
+    /// [`AsrSelection`] or a bool, so there is no unparsed name left to fail
+    /// on and no `None` for a caller to mishandle. Clap rejected an unknown
+    /// name at parse time, with the valid list, before this runs.
+    ///
+    /// Precedence, widest override first:
+    /// 1. `--asr-engine-custom`, the hidden legacy flag.
+    /// 2. the BA2 compatibility switches.
+    /// 3. `--asr-engine`, which has a default and so is always present.
+    pub fn selection(&self) -> AsrSelection {
+        use crate::types::engines::AsrEngineName;
+        if let Some(ref selection) = self.asr_engine_custom {
+            return selection.clone();
+        }
+        // Compat switches are checked before the flag because they are explicit
+        // user intent while `--asr-engine` always carries a default. Built from
+        // the enum, not by re-parsing a string: these four engines are known at
+        // compile time, so a wire-name change must not be able to turn them
+        // into a silent no-op.
+        for (set, engine) in [
+            (self.whisperx, AsrEngineName::WhisperX),
+            (self.whisper_oai, AsrEngineName::WhisperOai),
+            (self.whisper, AsrEngineName::Whisper),
+            (self.rev, AsrEngineName::RevAi),
+        ] {
+            if set {
+                return AsrSelection::from_engine(engine);
+            }
+        }
+        self.asr_engine.clone()
+    }
+}
+
 /// Arguments for the `transcribe` command.
 #[derive(Args, Debug, Clone)]
 pub struct TranscribeArgs {
@@ -306,14 +392,9 @@ pub struct TranscribeArgs {
     #[command(flatten)]
     pub common: CommonOpts,
 
-    /// ASR engine: rev (default), whisper, whisperx, or whisper-oai.
-    #[arg(long, value_enum, default_value_t)]
-    pub asr_engine: AsrEngine,
-
-    /// Explicit custom ASR engine name (e.g. tencent, funaudio).
-    /// Overrides --asr-engine when set.
-    #[arg(long)]
-    pub asr_engine_custom: Option<String>,
+    /// ASR engine selection (flag, legacy alias, BA2 switches).
+    #[command(flatten)]
+    pub asr: AsrSelectionArgs,
 
     /// Speaker diarization mode: auto (default), enabled, or disabled.
     #[arg(long, value_enum, default_value_t)]
@@ -352,22 +433,6 @@ pub struct TranscribeArgs {
     pub num_speakers: u32,
 
     // -- Hidden BA2 compatibility aliases --
-    /// BA2 compat: use --asr-engine whisper instead.
-    #[arg(long, hide = true)]
-    pub whisper: bool,
-
-    /// BA2 compat: use --asr-engine whisperx instead.
-    #[arg(long, hide = true)]
-    pub whisperx: bool,
-
-    /// BA2 compat: use --asr-engine whisper-oai instead.
-    #[arg(long, hide = true)]
-    pub whisper_oai: bool,
-
-    /// BA2 compat: use --asr-engine rev instead.
-    #[arg(long, hide = true)]
-    pub rev: bool,
-
     /// BA2 compat: use --diarization enabled instead.
     #[arg(long, hide = true)]
     pub diarize: bool,
@@ -590,14 +655,14 @@ pub struct BenchmarkArgs {
     #[command(flatten)]
     pub common: CommonOpts,
 
-    /// ASR engine: rev (default), whisper, or whisper-oai.
-    #[arg(long, value_enum, default_value_t)]
-    pub asr_engine: BenchAsrEngine,
-
-    /// Explicit custom ASR engine name (e.g. tencent, funaudio).
-    /// Overrides --asr-engine when set.
-    #[arg(long)]
-    pub asr_engine_custom: Option<String>,
+    /// ASR engine selection (flag, legacy alias, BA2 switches).
+    ///
+    /// The same surface `transcribe` has. It previously advertised three of the
+    /// ten engines through its own enum, which was a restriction with nothing
+    /// behind it: `BenchmarkOptions::asr_engine` was already the full
+    /// `AsrEngineName`, and `--asr-engine-custom` routed around the enum anyway.
+    #[command(flatten)]
+    pub asr: AsrSelectionArgs,
 
     /// Language (3-letter ISO code).
     #[arg(long, default_value = "eng")]
@@ -632,19 +697,7 @@ pub struct BenchmarkArgs {
     /// Subdirectory under the bank.
     #[arg(long)]
     pub subdir: Option<String>,
-
     // -- Hidden BA2 compatibility aliases --
-    /// BA2 compat: use --asr-engine whisper instead.
-    #[arg(long, hide = true)]
-    pub whisper: bool,
-
-    /// BA2 compat: use --asr-engine whisper-oai instead.
-    #[arg(long, hide = true)]
-    pub whisper_oai: bool,
-
-    /// BA2 compat: use --asr-engine rev instead.
-    #[arg(long, hide = true)]
-    pub rev: bool,
 }
 
 /// Arguments for the `opensmile` command.
@@ -1002,6 +1055,20 @@ pub enum ServeAction {
 /// Arguments for `serve start`.
 #[derive(Args, Debug, Clone)]
 pub struct ServeStartArgs {
+    /// Which handshake slot this server publishes to.
+    ///
+    /// Hidden: set by the CLI when it spawns a daemon, not by people. Two
+    /// servers can run at once and each must publish its own record; nothing
+    /// can infer which one this process is, so it is stated rather than
+    /// guessed.
+    #[arg(
+        long,
+        hide = true,
+        value_enum,
+        default_value = crate::server_handshake::HandshakeSlot::Main.as_arg(),
+    )]
+    pub handshake_slot: crate::server_handshake::HandshakeSlot,
+
     /// Port to listen on (defaults to server.yaml or 8000).
     #[arg(long)]
     pub port: Option<u16>,

@@ -5,12 +5,14 @@
 //! - **`serve start`** -- Launch the HTTP server that accepts processing jobs.
 //!   In foreground mode (`--foreground`) the server runs in the current process,
 //!   blocking until shutdown. In background mode (the default) a detached child
-//!   process is spawned in a new session (`setsid`) so it survives CLI exit, and
-//!   a PID file is written for later cleanup. CLI flags (port, host,
-//!   Python path, test-echo) override values from `server.yaml`.
+//!   process is spawned in a new session (`setsid`) so it survives CLI exit; it
+//!   publishes a handshake naming its PID and the port it bound, which is what
+//!   the CLI reads back. CLI flags (port, host, Python path, test-echo)
+//!   override values from `server.yaml`.
 //!
 //! - **`serve stop`** -- Shut down any running server and local daemon. Reads the
-//!   PID file, sends `SIGTERM` to the process group, and cleans up state files.
+//!   published handshake, sends `SIGTERM` to the process group, and cleans up
+//!   state files.
 //!
 //! - **`serve status`** -- Probe a running server's `/health` endpoint and print
 //!   version, worker count, active jobs, and media root configuration. Discovers
@@ -21,6 +23,7 @@ use crate::config::{self, RuntimeLayout};
 use crate::host_facts::EffectiveConfig;
 use crate::host_memory::HostMemoryRuntimeConfig;
 use crate::host_policy::HostExecutionPolicy;
+use crate::server_handshake::{HandshakeSlot, PublishOutcome, ServerHandshake};
 use crate::worker::handle::WorkerRuntimeConfig;
 use crate::worker::pool::PoolConfig;
 
@@ -48,7 +51,9 @@ pub async fn start(
 
     // Override config values only when explicitly passed via CLI.
     if let Some(port) = args.port {
-        cfg.port = port;
+        // `--port 0` on the command line asks for an ephemeral bind, the same
+        // as writing `port: 0` in the config.
+        cfg.port = crate::config::PortRequest::from_u16(port);
     }
     if let Some(ref host) = args.host {
         cfg.host = host.clone();
@@ -77,7 +82,11 @@ pub async fn start(
     if args.foreground {
         let tier = cfg.resolved_memory_tier();
         let host_policy = HostExecutionPolicy::from_server_config(&cfg);
-        eprintln!("\nStarting server on {}:{}...", cfg.host, cfg.port);
+        eprintln!(
+            "\nStarting server on {}:{}...",
+            cfg.host,
+            cfg.port.describe()
+        );
         eprintln!("Backend: local");
         eprintln!(
             "Memory tier: {}{} (total: {} GB, headroom: {} GB, stanza: {} GB, gpu: {} GB, bootstrap: {:?})\n",
@@ -165,6 +174,7 @@ pub async fn start(
             cfg,
             pool_config,
             layout,
+            args.handshake_slot,
             Some(crate::cli::build_hash().to_string()),
         )
         .await?;
@@ -189,8 +199,11 @@ pub async fn start(
             "serve",
             "start",
             "--foreground",
+            "--handshake-slot",
+            args.handshake_slot.as_arg(),
             "--port",
-            &cfg.port.to_string(),
+            // The wire form, NOT `describe()`: this is the child's argv.
+            &cfg.port.bind_value().to_string(),
             "--host",
             &cfg.host,
         ]);
@@ -249,35 +262,54 @@ pub async fn start(
         let proc = cmd.spawn()?;
         let pid = proc.id();
 
-        // Write PID file atomically (via temp + rename).
-        let pid_path = layout.server_pid_path();
-        let pid_tmp = pid_path.with_extension("pid.tmp");
-        std::fs::write(&pid_tmp, pid.to_string())?;
-        std::fs::rename(&pid_tmp, &pid_path)?;
-
-        // Brief wait, then verify the spawned process is still alive.
-        // If it crashed immediately (e.g. port conflict, missing Python),
-        // report that rather than claiming success.
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-
-        if !is_process_alive(pid) {
-            let _ = std::fs::remove_file(&pid_path);
-            eprintln!(
-                "\nerror: server process (PID {pid}) exited immediately after spawn.\n\
-                 Check the log file: {}\n\
-                 hint: run `batchalign3 serve start --foreground` to see startup errors.",
-                log_path.display()
-            );
-            return Err(CliError::DaemonStartFailed);
-        }
+        // Wait for the child to publish the port it BOUND, rather than
+        // sleeping a fixed two seconds and then reporting the port we asked
+        // for. The child is the only process that knows the answer, and for an
+        // ephemeral request there is no answer to guess at.
+        //
+        // The parent deliberately writes nothing here. It used to record the
+        // PID immediately, which under the new contract would race the child's
+        // own record and could overwrite a published port with a
+        // port-less one.
+        let deadline = std::time::Instant::now() + crate::cli::daemon::startup_budget();
+        let bound_port = match ServerHandshake::await_published(
+            layout.state_dir(),
+            args.handshake_slot,
+            pid,
+            deadline,
+        )
+        .await
+        {
+            PublishOutcome::Listening(port) => port,
+            // The reason comes from the wait itself. Re-probing the process
+            // here to guess it was racy: a server that timed out could exit
+            // before the probe and be reported as having died immediately.
+            outcome => {
+                let reason = match outcome {
+                    PublishOutcome::Exited => "exited before reporting a listening port",
+                    PublishOutcome::TimedOut => "did not report a listening port in time",
+                    PublishOutcome::Listening(_) => unreachable!("handled above"),
+                };
+                eprintln!(
+                    "\nerror: server process (PID {pid}) {reason}.\n\
+                     Check the log file: {}\n\
+                     hint: run `batchalign3 serve start --foreground` to see startup errors.",
+                    log_path.display()
+                );
+                return Err(CliError::DaemonStartFailed);
+            }
+        };
 
         eprintln!("\nServer started (PID {pid})");
-        eprintln!("Listening on http://{}:{}", cfg.host, cfg.port);
-        eprintln!("\nPID file: {}", pid_path.display());
+        eprintln!("Listening on http://{}:{bound_port}", cfg.host);
+        eprintln!(
+            "\nHandshake file: {}",
+            ServerHandshake::path_in(layout.state_dir(), args.handshake_slot).display()
+        );
         eprintln!("Log file: {}", log_path.display());
         eprintln!(
-            "\nClients can now use: batchalign3 <command> ... --server http://<this-machine>:{}",
-            cfg.port
+            "\nClients can now use: batchalign3 <command> ... \
+             --server http://<this-machine>:{bound_port}"
         );
     }
 
@@ -310,29 +342,38 @@ pub async fn stop() -> Result<(), CliError> {
 pub async fn status(args: &ServeStatusArgs) -> Result<(), CliError> {
     let client = BatchalignClient::new()?;
     let layout = RuntimeLayout::from_env();
+    // `serve status` is a diagnostic command, so surfacing a bad config is part
+    // of its job. The port is only a FALLBACK: this command wants to reach the
+    // server actually running, which the published handshake names.
     let (cfg, warnings) = config::load_validated_config_from_layout(&layout, None)?;
     for warning in warnings {
         eprintln!("warning: {warning}");
     }
-    let configured_port = cfg.port;
 
     let server = if let Some(ref s) = args.server {
         s.trim_end_matches('/').to_string()
     } else {
         // Try local daemon first
-        if let Some(info) = daemon::read_daemon_info() {
-            if client
-                .health_check(&format!("http://127.0.0.1:{}", info.port))
-                .await
-                .is_ok()
-            {
-                eprintln!("Using local daemon (PID {})", info.pid);
-                format!("http://127.0.0.1:{}", info.port)
-            } else {
-                format!("http://localhost:{configured_port}")
+        // The daemon's port comes from the handshake it published, not from
+        // `daemon.json`, which no longer mirrors it.
+        let daemon_url = daemon::read_daemon_info().and_then(|info| {
+            ServerHandshake::published_port(layout.state_dir(), HandshakeSlot::Main)
+                .map(|port| (info.pid, format!("http://127.0.0.1:{port}")))
+        });
+        match daemon_url {
+            Some((pid, url)) if client.health_check(&url).await.is_ok() => {
+                eprintln!("Using local daemon (PID {pid})");
+                url
             }
-        } else {
-            format!("http://localhost:{configured_port}")
+            // Either no daemon record, or its published port does not answer.
+            // Falling back to the same URL would just re-probe what failed.
+            _ => match daemon::local_server_url(&layout, cfg.port) {
+                Some(url) => url,
+                None => {
+                    eprintln!("No local server discoverable. Pass --server URL.");
+                    return Ok(());
+                }
+            },
         }
     };
 
@@ -365,33 +406,39 @@ pub async fn status(args: &ServeStatusArgs) -> Result<(), CliError> {
 /// Stop a server whose PID is recorded in the state directory.
 ///
 /// Validates that the recorded PID actually belongs to a live process before
-/// sending signals. Always cleans up the PID file, even if the process is
-/// already dead (stale PID file from a previous crash).
+/// sending signals, and removes the handshake afterwards, including when the
+/// process was already dead. The one record it leaves in place is one it could
+/// not read: that may still name a live server, and deleting it would strand
+/// the process with nothing recording it.
 fn stop_server(layout: &RuntimeLayout) -> bool {
-    let pid_path = layout.server_pid_path();
-    let pid_str = match std::fs::read_to_string(&pid_path) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-    let pid: u32 = match pid_str.trim().parse() {
-        Ok(p) => p,
-        Err(_) => {
-            // Corrupt PID file -- clean it up.
-            let _ = std::fs::remove_file(&pid_path);
+    let state_dir = layout.state_dir();
+    // `serve stop` stops the server a person started, which is the main slot;
+    // the sidecar is stopped through `stop_sidecar_daemon`.
+    let handshake = match ServerHandshake::read(state_dir, HandshakeSlot::Main) {
+        Ok(Some(handshake)) => handshake,
+        Ok(None) => return false,
+        Err(error) => {
+            // Left in place on purpose. A handshake we cannot read may still
+            // name a live server, and deleting it would strand that process
+            // with nothing recording it. Say so instead of silently tidying.
+            eprintln!("warning: {error}");
             return false;
         }
     };
 
+    // Both states carry a PID, and stopping is the same act either way: a
+    // server that has spawned but not yet bound still needs killing.
+    let pid = handshake.pid();
+
     // Check if the process is actually alive before signalling.
     // Avoids sending signals to an unrelated process that reused the PID.
     if !is_process_alive(pid) {
-        // Stale PID file -- clean it up.
-        let _ = std::fs::remove_file(&pid_path);
+        let _ = ServerHandshake::remove(state_dir, HandshakeSlot::Main);
         return false;
     }
 
     let killed = kill_pid(pid);
-    let _ = std::fs::remove_file(&pid_path);
+    let _ = ServerHandshake::remove(state_dir, HandshakeSlot::Main);
     killed
 }
 

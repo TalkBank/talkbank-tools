@@ -9,7 +9,7 @@ use super::*;
 #[test]
 fn default_config() {
     let cfg = ServerConfig::default();
-    assert_eq!(cfg.port, 8000);
+    assert_eq!(cfg.port, crate::config::PortRequest::from_u16(8000));
     assert_eq!(cfg.host, "0.0.0.0");
     assert_eq!(cfg.default_lang, "eng"); // PartialEq<&str>
     assert_eq!(cfg.job_ttl_days, 7);
@@ -64,7 +64,7 @@ auto_daemon: true
         "/nfs/childes"
     );
     assert_eq!(cfg.default_lang, "spa");
-    assert_eq!(cfg.port, 9000);
+    assert_eq!(cfg.port, crate::config::PortRequest::from_u16(9000));
     assert_eq!(cfg.max_concurrent_jobs, Some(4));
     assert!(cfg.auto_daemon);
 }
@@ -116,8 +116,19 @@ fn load_missing_file_returns_defaults() {
     assert_eq!(cfg, ServerConfig::default());
 }
 
+/// Out-of-range scalars are clamped with a warning; `port` deliberately is NOT.
+///
+/// POLICY, not an invariant, so it stays a test: each clamp is a choice with a
+/// real alternative (rejecting the config outright would also be defensible).
+///
+/// `port` used to be clamped here too, 0 to 8000. It no longer is, because 0 is
+/// not out of range: TCP defines it as "let the OS choose a free port", and
+/// [`PortRequest`](crate::config::PortRequest) now says so in the type. The
+/// clamp was what made an ephemeral request impossible to write down, and it
+/// silently aimed a server at the busiest port on the machine. Hence four bad
+/// values and three warnings.
 #[test]
-fn load_validated_config_clamps_bad_values() {
+fn load_validated_config_clamps_bad_values_but_not_the_port() {
     let dir = tempfile::tempdir().unwrap();
     let state_dir = dir.path().join("state");
     std::fs::create_dir_all(&state_dir).unwrap();
@@ -130,14 +141,16 @@ fn load_validated_config_clamps_bad_values() {
 
     let layout = RuntimeLayout::from_state_dir(state_dir);
     let (cfg, warnings) = load_validated_config_from_layout(&layout, None).unwrap();
-    assert_eq!(cfg.port, 8000);
+    // NOT clamped to 8000: 0 is a legal request meaning "OS chooses".
+    assert_eq!(cfg.port, crate::config::PortRequest::Ephemeral);
     assert_eq!(cfg.job_ttl_days, 1);
     assert_eq!(cfg.memory_gate_poll_s, 1);
     assert_eq!(cfg.max_concurrent_worker_startups, 1);
     // Legacy `gpu_thread_pool_size: 0` in YAML now collapses to `None`
     // via the `zero_as_none` serde shim, no validator warning fires.
     assert_eq!(cfg.gpu_thread_pool_size, None);
-    assert_eq!(warnings.len(), 4);
+    // Three, not four: the port no longer warns because it is no longer wrong.
+    assert_eq!(warnings.len(), 3, "got: {warnings:?}");
 }
 
 #[test]
@@ -180,10 +193,6 @@ fn runtime_layout_derives_owned_subpaths() {
         PathBuf::from("/tmp/batchalign-state/dashboard")
     );
     assert_eq!(
-        layout.server_pid_path(),
-        PathBuf::from("/tmp/batchalign-state/server.pid")
-    );
-    assert_eq!(
         layout.server_log_path(),
         PathBuf::from("/tmp/batchalign-state/server.log")
     );
@@ -197,7 +206,7 @@ fn runtime_layout_load_config_uses_layout_config_path() {
     std::fs::write(layout.config_path(), "port: 9123\n").unwrap();
 
     let cfg = load_config_from_layout(&layout, None).unwrap();
-    assert_eq!(cfg.port, 9123);
+    assert_eq!(cfg.port, crate::config::PortRequest::from_u16(9123));
 }
 
 // ---------------------------------------------------------------------

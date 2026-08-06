@@ -578,6 +578,7 @@ dependencies = [
  "serde",
  "serde_json",
  "symphonia",
+ "tempfile",
  "tokenizers 0.23.1",
  "whisper-rs",
 ]

@@ -3,6 +3,7 @@ use crate::api::ReleasedCommand;
 use crate::options::{
     AsrEngineName, CommandOptions, FaEngineName, TranslateEngineName, UtrEngine as AppUtrEngine,
 };
+use crate::types::engines::EngineBackend;
 use clap::{CommandFactory, Parser};
 use rstest::rstest;
 use std::path::{Path, PathBuf};
@@ -204,7 +205,7 @@ fn parse_transcribe_with_lang() {
     if let Commands::Transcribe(a) = &cli.command {
         assert_eq!(a.lang, "spa");
         assert_eq!(a.num_speakers, 3);
-        assert!(a.whisperx);
+        assert!(a.asr.whisperx);
     } else {
         panic!("expected Transcribe");
     }
@@ -230,7 +231,11 @@ fn parse_transcribe_asr_engine_override() {
         "tencent",
     ]);
     if let Commands::Transcribe(a) = &cli.command {
-        assert_eq!(a.asr_engine_custom.as_deref(), Some("tencent"));
+        assert_eq!(
+            a.asr.selection().engine(),
+            AsrEngineName::HkTencent,
+            "the hidden legacy flag still resolves"
+        );
     } else {
         panic!("expected Transcribe");
     }
@@ -2010,4 +2015,217 @@ fn translate_engine_global_override_beats_explicit_flag() {
         }
         other => panic!("expected Translate variant, got: {other:?}"),
     }
+}
+
+// -----------------------------------------------------------------------------
+// ASR engine selection: one flag, derived possible-values, `paraformer` as a
+// first-class name.
+//
+// These exist because the previous surface was undiscoverable in four separate
+// ways, all of them in the CLI itself: `--asr-engine` advertised five of the
+// ten engines that exist; the other five were reachable only through a
+// differently-named flag whose help gave an "e.g." and never a list;
+// `paraformer`, a name people search for, appeared nowhere in the CLI at all;
+// and an unrecognised value was swallowed in silence rather than reported.
+// -----------------------------------------------------------------------------
+
+/// `paraformer` is selectable by name, and resolves to the funaudio engine
+/// carrying the Paraformer checkpoint.
+///
+/// It is not its own backend: Paraformer is the FunAudio engine loading the
+/// `paraformer-zh` checkpoint. The name is what people search for, so the name
+/// is what the CLI accepts.
+#[test]
+fn parse_transcribe_paraformer_resolves_to_funaudio_with_checkpoint() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "transcribe",
+        "audio/",
+        "--lang",
+        "zho",
+        "--asr-engine",
+        "paraformer",
+    ]);
+    let Commands::Transcribe(a) = &cli.command else {
+        panic!("expected Transcribe");
+    };
+    let selection = a.asr.selection();
+    assert_eq!(selection.engine(), AsrEngineName::HkFunaudio);
+    assert_eq!(
+        selection.implied_overrides(),
+        &[("funaudio_model", "paraformer-zh")],
+        "the selection must carry the checkpoint that makes it Paraformer"
+    );
+}
+
+/// Every engine that exists is reachable through the one flag.
+///
+/// Derived from `AsrEngineName`, so the help cannot drift back to a subset:
+/// adding a variant without a name here fails to compile.
+#[test]
+fn every_asr_engine_is_selectable_by_its_wire_name() {
+    for engine in AsrEngineName::ALL {
+        let name = engine.wire_name();
+        let cli = Cli::parse_from(["batchalign3", "transcribe", "audio/", "--asr-engine", name]);
+        let Commands::Transcribe(a) = &cli.command else {
+            panic!("expected Transcribe");
+        };
+        let selection = a.asr.selection();
+        assert_eq!(
+            selection.engine(),
+            engine,
+            "{name} resolved to the wrong engine"
+        );
+    }
+}
+
+/// An unrecognised engine name is REPORTED, never silently swallowed.
+///
+/// The old path did `AsrEngineName::from_wire_name(engine).ok()?` inside a
+/// function returning `Option`, so a typo produced no error and no engine: the
+/// user saw the run proceed as if nothing had been asked for.
+#[test]
+fn an_unknown_asr_engine_name_is_rejected_at_parse_time() {
+    let error = Cli::try_parse_from([
+        "batchalign3",
+        "transcribe",
+        "audio/",
+        "--asr-engine",
+        "paraformr",
+    ])
+    .expect_err("a misspelled engine must not parse");
+    let message = error.to_string();
+    assert!(
+        message.contains("paraformr"),
+        "the error must name the value the user typed: {message}"
+    );
+}
+
+/// The old flag keeps working, so existing scripts and book examples do not
+/// break; it is hidden from help rather than removed.
+#[test]
+fn the_legacy_custom_engine_flag_still_resolves() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "transcribe",
+        "audio/",
+        "--asr-engine-custom",
+        "funaudio",
+    ]);
+    let Commands::Transcribe(a) = &cli.command else {
+        panic!("expected Transcribe");
+    };
+    let selection = a.asr.selection();
+    assert_eq!(selection.engine(), AsrEngineName::HkFunaudio);
+}
+
+/// The historical `whisper-oai` spelling keeps working.
+///
+/// Deriving the flag's values from `AsrEngineName` exposed that this engine had
+/// two public names: the clap enum said `whisper-oai`, the wire name is
+/// `whisper_oai`. Both resolve, and only the wire name is advertised.
+#[test]
+fn the_legacy_whisper_oai_spelling_still_resolves() {
+    for spelling in ["whisper-oai", "whisper_oai"] {
+        let cli = Cli::parse_from([
+            "batchalign3",
+            "transcribe",
+            "audio/",
+            "--asr-engine",
+            spelling,
+        ]);
+        let Commands::Transcribe(a) = &cli.command else {
+            panic!("expected Transcribe");
+        };
+        assert_eq!(
+            a.asr.selection().engine(),
+            AsrEngineName::WhisperOai,
+            "{spelling} must resolve"
+        );
+    }
+}
+
+/// An explicit `--engine-overrides` beats what the engine NAME implies.
+///
+/// `paraformer` implies `funaudio_model=paraformer-zh`, but a user naming a
+/// specific checkpoint is being more precise, not less, so their value wins.
+#[test]
+fn explicit_engine_overrides_beat_the_implied_checkpoint() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "--engine-overrides",
+        r#"{"funaudio_model":"paraformer-zh-streaming"}"#,
+        "transcribe",
+        "audio/",
+        "--lang",
+        "zho",
+        "--asr-engine",
+        "paraformer",
+    ]);
+    let options = crate::cli::args::options::build_typed_options(&cli.command, &cli.global)
+        .expect("options must resolve");
+    let crate::options::CommandOptions::Transcribe(t) = options else {
+        panic!("expected transcribe options");
+    };
+    assert_eq!(
+        t.common.engine_overrides.extras.get("funaudio_model"),
+        Some(&"paraformer-zh-streaming".to_string()),
+        "the user's explicit checkpoint must win over the name's default"
+    );
+}
+
+/// `benchmark` gets the same engine surface as `transcribe`, not a subset.
+///
+/// It previously advertised three of the ten engines through its own clap enum
+/// and carried its own copy of the precedence chain, so the same fix had to be
+/// made twice or the second copy kept the defect. Sharing one flattened struct
+/// is what makes that impossible rather than merely fixed.
+#[test]
+fn benchmark_and_transcribe_share_one_engine_surface() {
+    for engine in AsrEngineName::ALL {
+        let name = engine.wire_name();
+        let bench = Cli::parse_from(["batchalign3", "benchmark", "audio/", "--asr-engine", name]);
+        let Commands::Benchmark(b) = &bench.command else {
+            panic!("expected Benchmark");
+        };
+        assert_eq!(
+            b.asr.selection().engine(),
+            engine,
+            "benchmark must accept {name} exactly as transcribe does"
+        );
+    }
+
+    // Including the name that prompted all of this.
+    let bench = Cli::parse_from([
+        "batchalign3",
+        "benchmark",
+        "audio/",
+        "--asr-engine",
+        "paraformer",
+    ]);
+    let Commands::Benchmark(b) = &bench.command else {
+        panic!("expected Benchmark");
+    };
+    assert_eq!(b.asr.selection().engine(), AsrEngineName::HkFunaudio);
+    assert_eq!(
+        b.asr.selection().implied_overrides(),
+        &[("funaudio_model", "paraformer-zh")]
+    );
+}
+
+/// A misspelled engine is rejected on `benchmark` too, not swallowed.
+#[test]
+fn benchmark_rejects_an_unknown_engine_name() {
+    let error = Cli::try_parse_from([
+        "batchalign3",
+        "benchmark",
+        "audio/",
+        "--asr-engine-custom",
+        "paraformr",
+    ])
+    .expect_err("a misspelled engine must not parse");
+    assert!(
+        error.to_string().contains("paraformr"),
+        "the error must name the value typed: {error}"
+    );
 }

@@ -15,6 +15,7 @@
 
 mod layout;
 mod load;
+mod port;
 mod resolve;
 mod server;
 
@@ -27,4 +28,5 @@ mod tests;
 // Callers use `crate::config::ServerConfig`, `crate::config::RuntimeLayout`, etc.
 pub use layout::*;
 pub use load::*;
+pub use port::PortRequest;
 pub use server::*;

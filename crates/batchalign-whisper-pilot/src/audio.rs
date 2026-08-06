@@ -194,11 +194,18 @@ mod tests {
     fn pcm_decode_reads_mono_wav_channel_and_rate() {
         let samples = sine(16_000, 0.25);
         let wav = mono_pcm16_wav(&samples, 16_000);
-        let tmp = std::env::temp_dir().join("batchalign_whisper_pilot_decode_test.wav");
+        // A private directory, not a fixed name under the shared temp root.
+        // The previous form wrote one constant path, so two concurrent runs of
+        // this binary raced over the same bytes and the loser's `remove_file`
+        // deleted the winner's fixture out from under it. `TempDir` also
+        // cleans up on unwind, which the old `remove_file` after the decode
+        // did not: a failing decode leaked the file and left the next run
+        // reading stale bytes.
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path().join("decode_test.wav");
         std::fs::write(&tmp, &wav).unwrap();
 
         let (decoded, sample_rate) = pcm_decode(&tmp).unwrap();
-        std::fs::remove_file(&tmp).ok();
 
         assert_eq!(sample_rate, 16_000);
         // Mono decode returns one sample per frame; allow a small tail delta

@@ -49,6 +49,24 @@ pub(crate) async fn prepare_asr_media_input(
     media_name: Option<String>,
     context_label: &str,
 ) -> Result<PreparedAsrMediaInput, ServerError> {
+    // Reject an unusable media name HERE, before the ASR call is made.
+    //
+    // `@Media` delimits the filename with a comma, so a stem like
+    // `interview,part2` cannot be written to a header. The failure used to
+    // surface at CHAT serialization, AFTER transcription had been paid for,
+    // which is the same late-failure pattern that made this defect expensive
+    // in the field. Nothing here is recoverable by the pipeline: the operator
+    // renames the file. So the cheapest possible moment to say so is now,
+    // while the only thing spent is a path lookup.
+    if let Some(name) = media_name.as_deref()
+        && let Err(error) = talkbank_model::model::MediaFilename::parse(name)
+    {
+        return Err(ServerError::Validation(format!(
+            "Media name {name:?} for {context_label} cannot be written to an @Media header \
+             ({error}); rename the media file and resubmit"
+        )));
+    }
+
     let inference_audio_path = crate::ensure_wav::ensure_wav(&original_audio_path, None)
         .await
         .map_err(|error| {
@@ -69,6 +87,38 @@ pub(crate) async fn prepare_asr_media_input(
 mod tests {
     use super::{preserved_media_name_for_chat, resolve_paths_mode_or_staging_input};
     use crate::store::RunnerFilesystemConfig;
+
+    /// An unusable media name is rejected BEFORE ASR runs, not at CHAT
+    /// serialization afterwards.
+    ///
+    /// This is the whole point of the check's placement: the operator's fix is
+    /// to rename the file, and learning that after paying for transcription is
+    /// the expensive version of the same message.
+    #[tokio::test]
+    async fn an_unusable_media_name_is_rejected_before_asr() {
+        // `tempfile`'s RAII guard, not a hand-rolled directory: the manual
+        // version cleaned up AFTER the assertions, so a failing run leaked a
+        // directory every time, which is the run you hit while iterating.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let audio = dir.path().join("interview,part2.wav");
+        std::fs::write(&audio, b"not really audio").expect("write");
+
+        let err = super::prepare_asr_media_input(
+            audio.clone(),
+            &std::collections::HashMap::new(),
+            Some("interview,part2".to_string()),
+            "test job",
+        )
+        .await
+        .expect_err("a comma-bearing media name must be rejected up front");
+
+        let message = err.to_string();
+        assert!(
+            message.contains("@Media") && message.contains("rename"),
+            "the error must say what is wrong and what to do: {message}"
+        );
+    }
+
     use std::path::PathBuf;
 
     #[test]

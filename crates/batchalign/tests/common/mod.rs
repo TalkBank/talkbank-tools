@@ -1306,7 +1306,7 @@ fn normalize_gra_root(gra_line: &str) -> String {
 fn live_fixture_server_config() -> ServerConfig {
     ServerConfig {
         host: "127.0.0.1".into(),
-        port: 0,
+        port: batchalign::config::PortRequest::from_u16(0),
         job_ttl_days: 1,
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()

@@ -31,32 +31,103 @@ use common::test_server_fixture::acquire_test_server_session;
 // Version / help
 // ---------------------------------------------------------------------------
 
-/// Reserve an ephemeral port for a daemon that will bind it in ANOTHER process,
-/// returning the port and the listener holding it.
+/// The port the auto-spawned daemon published for itself.
 ///
-/// The kernel picks a free port, but the daemon cannot bind it while we still
-/// hold it, so the reservation must be released first. Everything between that
-/// release and the daemon's `bind()` is a window in which any outbound
-/// connection on the machine can take the port, because this is exactly the
-/// ephemeral range the kernel allocates from.
+/// Used by the auto-daemon tests, which never run `serve start` and so cannot
+/// take the port from [`start_daemon_on_ephemeral_port`]. Both slots are
+/// checked because `transcribe` may be routed to either the main daemon or the
+/// transcribe sidecar.
 ///
-/// The five call sites used to drop the listener as a temporary on the line
-/// that read the port number, leaving the whole config write plus process spawn
-/// plus Python startup inside that window. It held in isolation and lost under
-/// full-suite load: on 2026-07-29
-/// `cli_transcribe_in_place_mp4_populates_injected_media_cache_live` failed a
-/// full run with "could not start local daemon", then passed alone in 138s.
+/// This replaces `reserve_ephemeral_port`, which bound a port only to learn its
+/// number, released it, and hoped the daemon won the ensuing race. It lost that
+/// race twice in one session under full-suite load. Nothing reserves a port
+/// now: the daemon binds whatever the OS gives it and reports what it got.
+fn published_daemon_port(harness: &CliHarness) -> u16 {
+    use batchalign::server_handshake::{HandshakeSlot, ServerHandshake};
+    for slot in [HandshakeSlot::Main, HandshakeSlot::Sidecar] {
+        if let Ok(Some(handshake)) = ServerHandshake::read(harness.state_dir(), slot)
+            && let Some(port) = handshake.bound_port()
+        {
+            return port.get();
+        }
+    }
+    panic!("the auto-spawned daemon published no port in either slot");
+}
+
+/// Start the test daemon on an OS-chosen port and return the port it bound.
 ///
-/// Returning the listener lets each caller drop it immediately before the
-/// command that starts the daemon, which narrows the window from seconds to
-/// microseconds. It does NOT close it: handing a port NUMBER to another process
-/// is racy by construction. The race disappears only when the daemon binds port
-/// 0 itself and reports the port it got, which is a change to the daemon/CLI
-/// contract rather than to this harness.
-fn reserve_ephemeral_port() -> (u16, std::net::TcpListener) {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
-    let port = listener.local_addr().expect("local addr").port();
-    (port, listener)
+/// No port number is reserved, predicted or handed over: the config asks for
+/// `port: 0`, the daemon binds whatever the OS gives it, and this reads back
+/// the port it published. There is no window for another process to take the
+/// port because no port was claimed in advance, so unlike the reserve-then-bind
+/// helper this replaced, there is nothing to retry.
+///
+/// The `extra_config` lines are appended to the host/port pair.
+fn start_daemon_on_ephemeral_port(
+    harness: &CliHarness,
+    python_path: &str,
+    extra_config: &str,
+) -> u16 {
+    harness.write_server_config(&format!("host: 127.0.0.1\nport: 0\n{extra_config}"));
+
+    let start = harness
+        .cmd()
+        .env("BATCHALIGN_PYTHON", python_path)
+        .args(["serve", "start", "--test-echo"])
+        .timeout(std::time::Duration::from_secs(60))
+        .output()
+        .expect("start CLI test server");
+    assert!(
+        start.status.success(),
+        "serve start should succeed. stderr: {}",
+        String::from_utf8_lossy(&start.stderr)
+    );
+
+    batchalign::server_handshake::ServerHandshake::read(
+        harness.state_dir(),
+        batchalign::server_handshake::HandshakeSlot::Main,
+    )
+    .expect("read published handshake")
+    .expect("a started server publishes a handshake")
+    .bound_port()
+    .expect("a started server publishes the port it bound")
+    .get()
+}
+
+/// A server asked for an ephemeral port publishes the port it actually bound,
+/// and that publication is what callers read.
+///
+/// Asserts the end of the chain that no unit test covers: `port: 0` in the
+/// config survives to the bind, the OS picks a port, and the number a caller
+/// reads back is the one the server is really listening on. The rationale
+/// lives on [`PortRequest`] and in `server_handshake`.
+#[test]
+fn serve_start_with_ephemeral_port_publishes_the_bound_port() {
+    let Some(python_path) = resolve_python() else {
+        eprintln!("SKIP: Python 3.12 with batchalign not available");
+        return;
+    };
+
+    let harness = CliHarness::new();
+    // The helper asks for `port: 0` and reads back what was published, which is
+    // exactly the property under test, so it is the subject here rather than
+    // scaffolding to work around.
+    let port = start_daemon_on_ephemeral_port(&harness, &python_path, "auto_daemon: false\n");
+
+    // A real, reachable port: not the 0 that was asked for, and not the 8000
+    // that the old silent default would have substituted.
+    assert_ne!(port, 8000, "must not fall back to the default port");
+    assert!(
+        std::net::TcpStream::connect(("127.0.0.1", port)).is_ok(),
+        "the published port {port} must be the one the server is listening on"
+    );
+
+    let _ = harness
+        .cmd()
+        .env("BATCHALIGN_PYTHON", &python_path)
+        .args(["serve", "stop"])
+        .timeout(std::time::Duration::from_secs(10))
+        .output();
 }
 
 #[test]
@@ -637,25 +708,7 @@ fn cli_transcribe_explicit_server_falls_back_to_local_daemon() {
     std::fs::create_dir_all(&out_dir).expect("mkdir output");
     write_silent_wav(&in_dir.join("sample.wav"));
 
-    let (port, port_reservation) = reserve_ephemeral_port();
-    harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
-    ));
-
-    // Release the port only now, immediately before the daemon binds it.
-    drop(port_reservation);
-    let start_result = harness
-        .cmd()
-        .env("BATCHALIGN_PYTHON", &python_path)
-        .args(["serve", "start", "--test-echo"])
-        .timeout(std::time::Duration::from_secs(60))
-        .output()
-        .expect("start CLI test server");
-    let start_stderr = String::from_utf8_lossy(&start_result.stderr);
-    assert!(
-        start_result.status.success(),
-        "serve start should succeed. stderr: {start_stderr}"
-    );
+    let port = start_daemon_on_ephemeral_port(&harness, &python_path, "auto_daemon: true\n");
 
     let cli_result = harness
         .cmd()
@@ -732,25 +785,13 @@ fn cli_align_explicit_server_uses_remote_content_mode() {
     )
     .expect("write input");
 
-    let (port, port_reservation) = reserve_ephemeral_port();
-    harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: false\nmedia_roots:\n  - {}\n",
-        media_dir.display()
-    ));
-
-    // Release the port only now, immediately before the daemon binds it.
-    drop(port_reservation);
-    let start_result = harness
-        .cmd()
-        .env("BATCHALIGN_PYTHON", &python_path)
-        .args(["serve", "start", "--test-echo"])
-        .timeout(std::time::Duration::from_secs(60))
-        .output()
-        .expect("start CLI test server");
-    let start_stderr = String::from_utf8_lossy(&start_result.stderr);
-    assert!(
-        start_result.status.success(),
-        "serve start should succeed. stderr: {start_stderr}"
+    let port = start_daemon_on_ephemeral_port(
+        &harness,
+        &python_path,
+        &format!(
+            "auto_daemon: false\nmedia_roots:\n  - {}\n",
+            media_dir.display()
+        ),
     );
 
     let cli_result = harness
@@ -819,25 +860,7 @@ fn cli_transcribe_in_place_mp4_succeeds_via_local_daemon() {
     std::fs::create_dir_all(media_file.parent().expect("media parent")).expect("mkdir input");
     write_silent_mp4(&media_file);
 
-    let (port, port_reservation) = reserve_ephemeral_port();
-    harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
-    ));
-
-    // Release the port only now, immediately before the daemon binds it.
-    drop(port_reservation);
-    let start_result = harness
-        .cmd()
-        .env("BATCHALIGN_PYTHON", &python_path)
-        .args(["serve", "start", "--test-echo"])
-        .timeout(std::time::Duration::from_secs(60))
-        .output()
-        .expect("start CLI test server");
-    let start_stderr = String::from_utf8_lossy(&start_result.stderr);
-    assert!(
-        start_result.status.success(),
-        "serve start should succeed. stderr: {start_stderr}"
-    );
+    let _port = start_daemon_on_ephemeral_port(&harness, &python_path, "auto_daemon: true\n");
 
     let cli_result = harness
         .cmd()
@@ -907,13 +930,11 @@ fn cli_transcribe_in_place_mp4_populates_injected_media_cache_live() {
     std::fs::create_dir_all(&cache_dir).expect("mkdir cache");
     transcode_audio_to_mp4(&source_audio, &media_file);
 
-    let (port, port_reservation) = reserve_ephemeral_port();
-    harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
-    ));
+    // Ephemeral: the auto-daemon binds whatever the OS gives it and publishes
+    // the result, so no port number is reserved or handed over and there is no
+    // window for another process to take one.
+    harness.write_server_config("host: 127.0.0.1\nport: 0\nauto_daemon: true\n");
 
-    // Release the port only now, immediately before the daemon binds it.
-    drop(port_reservation);
     let cli_result = harness
         .cmd()
         .env("BATCHALIGN_PYTHON", &python_path)
@@ -929,6 +950,11 @@ fn cli_transcribe_in_place_mp4_populates_injected_media_cache_live() {
         .timeout(std::time::Duration::from_secs(300))
         .output()
         .expect("spawn CLI");
+
+    // Read the port the daemon published, before stopping it. This is the same
+    // number the CLI printed, read from the daemon's own record rather than
+    // predicted by the test.
+    let port = published_daemon_port(&harness);
 
     let _ = harness
         .cmd()
@@ -1052,13 +1078,11 @@ fn cli_compare_failed_auto_daemon_job_returns_server_exit_code() {
     std::fs::create_dir_all(&out_dir).expect("mkdir output");
     std::fs::write(in_dir.join("test.cha"), MINIMAL_CHAT).expect("write input");
 
-    let (port, port_reservation) = reserve_ephemeral_port();
-    harness.write_server_config(&format!(
-        "host: 127.0.0.1\nport: {port}\nauto_daemon: true\n"
-    ));
+    // Ephemeral: the auto-daemon binds whatever the OS gives it and publishes
+    // the result, so no port number is reserved or handed over and there is no
+    // window for another process to take one.
+    harness.write_server_config("host: 127.0.0.1\nport: 0\nauto_daemon: true\n");
 
-    // Release the port only now, immediately before the daemon binds it.
-    drop(port_reservation);
     let cli_result = harness
         .cmd()
         .env("BATCHALIGN_PYTHON", &python_path)

@@ -1,7 +1,7 @@
 # Server Dispatch Architecture
 
 **Status:** Current
-**Last updated:** 2026-07-30 09:05 EDT
+**Last updated:** 2026-08-05 22:40 EDT
 
 This page describes the implemented `batchalign3` runtime:
 
@@ -476,7 +476,10 @@ The local daemon uses the same configured port from `~/.batchalign3/server.yaml`
 (default `8000`). It records state in `daemon.json` and can start a separate
 sidecar profile for transcribe workloads.
 
-`serve start` writes `server.pid` and `server.log` for manually started servers.
+`serve start` writes `server.log` for manually started servers, and the server
+itself writes `server.pid`: a handshake naming its PID and the port it actually
+bound. Callers read the port from there rather than from `server.yaml`, whose
+`port` is a request (`0` asks the OS to choose).
 Auto-daemon state is tracked separately from manual `serve start`.
 
 ## Startup recovery

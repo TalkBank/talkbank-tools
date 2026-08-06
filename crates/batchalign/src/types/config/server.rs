@@ -59,10 +59,13 @@ pub struct ServerConfig {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_concurrent_jobs: Option<u32>,
-    /// TCP port for the HTTP server.  Must be 1..=65535; 0 is clamped to
-    /// 8000 by `validate()`.  Default: 8000.
-    #[serde(default = "default_port")]
-    pub port: u16,
+    /// TCP port for the HTTP server.
+    ///
+    /// A REQUEST, not the port the server ends up on: `0` asks the OS to
+    /// choose, and the granted port is published in the server handshake
+    /// rather than predicted from here. Default: 8000.
+    #[serde(default)]
+    pub port: super::PortRequest,
     /// Bind address for the HTTP server.  Default: `"0.0.0.0"` (all interfaces).
     #[serde(default = "default_host")]
     pub host: String,
@@ -311,10 +314,6 @@ pub(crate) fn default_lang() -> LanguageCode3 {
     LanguageCode3::eng()
 }
 
-pub(crate) fn default_port() -> u16 {
-    8000
-}
-
 pub(crate) fn default_host() -> String {
     "0.0.0.0".to_string()
 }
@@ -372,7 +371,7 @@ impl Default for ServerConfig {
             media_mappings: BTreeMap::new(),
             default_lang: LanguageCode3::eng(),
             max_concurrent_jobs: None,
-            port: 8000,
+            port: super::PortRequest::default(),
             host: "0.0.0.0".to_string(),
             force_cpu: None,
             allow_mps: None,

@@ -1,7 +1,7 @@
 # Filesystem Paths Used by batchalign3
 
 **Status:** Current
-**Last updated:** 2026-05-20 07:50 EDT
+**Last updated:** 2026-08-05 22:40 EDT
 
 All current filesystem paths used by the public `batchalign3` runtime.
 
@@ -22,7 +22,8 @@ to `~/.batchalign3` and can be overridden with `BATCHALIGN_STATE_DIR`.
 | Path | Purpose | Defined in |
 |------|---------|------------|
 | `~/.batchalign3/logs/` | Structured CLI run logs (`run-*.jsonl`) and exported log zips | `crates/batchalign/src/cli/logs_cmd.rs` |
-| `~/.batchalign3/server.pid` | PID file for manual `batchalign3 serve start` | `crates/batchalign/src/cli/serve_cmd.rs` |
+| `~/.batchalign3/server.pid` | Handshake for the main server: the PID and the port it actually bound, written by the server after its bind succeeds | `crates/batchalign/src/server_handshake.rs` |
+| `~/.batchalign3/sidecar-server.pid` | The same, for the transcribe sidecar daemon | `crates/batchalign/src/server_handshake.rs` |
 | `~/.batchalign3/server.log` | stderr log for manual `batchalign3 serve start` | `crates/batchalign/src/cli/serve_cmd.rs` |
 | `~/.batchalign3/daemon.json` | main auto-daemon state | `crates/batchalign/src/cli/daemon.rs` |
 | `~/.batchalign3/daemon.lock` | main auto-daemon startup lock | `crates/batchalign/src/cli/daemon.rs` |

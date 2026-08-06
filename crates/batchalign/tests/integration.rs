@@ -1160,7 +1160,7 @@ async fn multiple_files_in_one_job() {
 async fn multi_file_job_uses_parallel_workers() {
     let config = ServerConfig {
         host: "127.0.0.1".into(),
-        port: 0,
+        port: batchalign::config::PortRequest::from_u16(0),
         max_workers_per_job: Some(3), // Force 3 parallel workers
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
@@ -1241,7 +1241,7 @@ async fn server_starts_with_real_worker_capability_gate() {
 
     let config = ServerConfig {
         host: "127.0.0.1".into(),
-        port: 0,
+        port: batchalign::config::PortRequest::from_u16(0),
         job_ttl_days: 7,
         memory_gate_mb: Some(MemoryMb(0)),
         ..Default::default()
