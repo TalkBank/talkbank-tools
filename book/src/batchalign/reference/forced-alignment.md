@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-07-01 10:18 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 ## Overview
 
@@ -1167,8 +1167,9 @@ utterances lose word-level timing, but the file completes.
 ### Default engine drift and correction (2026-07-01)
 
 The "Default FA engine" row above has claimed Whisper for both BA2 and BA3
-since this table was written, but the code did not actually match it: `FaEngine`'s
-`#[default]` (`crates/batchalign/src/cli/args/commands.rs`) and
+since this table was written, but the code did not actually match it: the CLI
+default (then a `FaEngine` clap enum in `cli/args/commands.rs`, since replaced by
+`FaEngineName::DEFAULT`) and
 `default_fa_engine()` (`crates/batchalign/src/types/options.rs`) both defaulted
 to Wave2Vec. This was a real doc/code drift, not a documentation error: the
 table described the intended, BA2-matching behavior; the code had drifted from

@@ -62,7 +62,10 @@ pub(crate) fn extract_fa_dispatch_params(
             a.effective_fa_engine(),
             a.pauses,
             a.wor,
-            a.utr_engine.clone(),
+            // `effective_`, not the raw field. FA read its override here and
+            // UTR read the flag, so `--engine-overrides '{"utr":...}'` was
+            // ignored at this line even once the key was typed upstream.
+            a.effective_utr_engine(),
             a.utr_overlap_strategy,
             a.merge_abbrev,
             a.bullet_repair,

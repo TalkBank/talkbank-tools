@@ -1,7 +1,7 @@
 # Language Code Resolution
 
 **Status:** Current
-**Last updated:** 2026-05-20 20:15 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 This page documents how batchalign3 maps language codes to models, Stanza
 pipelines, and processing behavior.
@@ -123,14 +123,14 @@ Other ASR engines ignore language for model selection:
 
 UTR (Utterance Timing Recovery) is **engine-based, not
 language-keyed**. The CLI selects a UTR backend with `--utr-engine
-{rev,whisper,...}` (plus `--utr-engine-custom NAME` for cloud
+{rev,whisper,tencent}` (`--utr-engine-custom` is a deprecated alias for cloud
 backends). Each engine carries its own model identity:
 
 | Engine | Model / Backend |
 |--------|-----------------|
 | `--utr-engine whisper` | `openai/whisper-large-v2` (stock Whisper) |
 | `--utr-engine rev` | Rev.AI cloud API |
-| `--utr-engine-custom tencent_utr` | Tencent Cloud UTR backend |
+| `--utr-engine tencent` | Tencent Cloud UTR backend (Chinese variants) |
 
 There is no per-language UTR-model resolver, `--utr-engine whisper`
 loads the same checkpoint regardless of `--lang`. See
@@ -282,7 +282,7 @@ Error: Language 'hak' (Hakka) is not supported by Rev.AI ASR.
   Supported alternatives:
   - Use --asr-engine whisper for Hakka (Whisper supports all languages)
   - Use --lang auto to let Rev.AI auto-detect the language
-  - Use --asr-engine-custom tencent for Chinese/Hakka via Tencent ASR
+  - Use --asr-engine tencent for Chinese/Hakka via Tencent ASR
 ```
 
 ### Per-Engine Language Support: Can We Query at Runtime?

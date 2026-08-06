@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-07-01 10:18 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -287,16 +287,16 @@ is more conservative about turning real pauses/fillers into dominant words.
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--media-dir PATH` | alongside `.cha` | Directory to search for audio files matching the `@Media` header stem |
-| `--utr-engine {rev,whisper}` | `rev` in CLI defaults | UTR backend. `rev` requires working Rev.AI credentials/config; operators without Rev.AI should choose `whisper` or a custom UTR backend explicitly |
-| `--utr-engine-custom NAME` |: | Override UTR engine by name (e.g. `tencent_utr`) |
+| `--utr-engine {rev,whisper,tencent}` | `rev` | UTR backend; `--help` lists the accepted values. `rev` needs Rev.AI credentials and has no Cantonese support; `whisper` is local; `tencent` covers Chinese variants. A rejection names the engines that would work for the file's language. |
+| `--utr-engine-custom NAME` |: | **Deprecated alias for `--utr-engine`**, still honoured, hidden from `--help`. |
 | `--utr` / `--no-utr` | enabled | Enable or skip the UTR pre-pass entirely |
 | `--utr-strategy {auto,global,two-pass}` | `auto` | Overlap strategy: `auto` currently always returns `GlobalUtr` (the language/content-aware gate was disabled 2026-03-30; see §"UTR strategy selection" above). `two-pass` is the only way to reach `TwoPassOverlapUtr` today. |
 | `--utr-fuzzy THRESHOLD` | `0.85` | Jaro-Winkler similarity threshold for word matching. `1.0` = exact only |
 | `--utr-ca-markers {enabled,disabled}` | `enabled` | Use CA overlap markers (⌈⌉⌊⌋) to set alignment windows |
 | `--utr-density-threshold N` | `0.30` | Max overlap fraction before skipping pass-1 exclusion (0.0-1.0) |
 | `--utr-tight-buffer MS` | `500` | Pass-2 tight window buffer in milliseconds |
-| `--fa-engine {wav2vec,whisper}` | `whisper` (since 2026-07-01; see §"Forced alignment reference") | Forced-alignment model |
-| `--fa-engine-custom NAME` |: | Override FA engine by name (e.g. `wav2vec_fa_canto`) |
+| `--fa-engine {wav2vec,whisper,cantonese}` | `whisper` (since 2026-07-01; see §"Forced alignment reference") | Forced-alignment model. `cantonese` is the jyutping-preprocessing engine, formerly reachable only as `wav2vec_fa_canto` through the flag below. |
+| `--fa-engine-custom NAME` |: | **Deprecated alias for `--fa-engine`**, still honoured, hidden from `--help`. |
 | `--wor` / `--nowor` | `--wor` | Include or suppress the `%wor` word-timing tier |
 | `--pauses` | off | Group words into pause-separated chunks (Whisper FA only) |
 | `--merge-abbrev` | off | Merge abbreviations in the output CHAT |

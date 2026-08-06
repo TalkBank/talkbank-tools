@@ -1,7 +1,7 @@
 # Malayalam Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-21 08:41 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 Malayalam (`mal`) is supported in **transcribe-only** mode. Stanza
 ships no processor packages for Malayalam, so utseg / morphotag /
@@ -18,7 +18,7 @@ worker startup for the authoritative current list.
 
 | Pipeline Stage | Malayalam-Specific Behavior |
 |---------------|---------------------------|
-| ASR | HuggingFace Whisper fine-tune via `--engine-overrides '{"asr":"whisper_hub"}'` |
+| ASR | HuggingFace Whisper fine-tune via `--asr-engine whisper_hub` |
 | Text normalization | None, Malayalam script passed through as-is |
 | Number expansion | **Rust-side `NUM2LANG` table.** Digits like `"3"` reach CHAT as `"മൂന്ന്"` and pass E220. See [Number Expansion](../../architecture/number-expansion.md) for the dispatch path; Malayalam is registered in the per-language coverage matrix on that page. |
 | Retokenize | Not applied, retokenize maps a Stanza-tokenized word list back to ASR tokens; without a Stanza pipeline there is nothing to map. |
@@ -30,7 +30,7 @@ worker startup for the authoritative current list.
 
 ```bash
 batchalign3 transcribe --lang mal \
-    --engine-overrides '{"asr":"whisper_hub"}' \
+    --asr-engine whisper_hub \
     audio_dir/ -o output_dir/
 ```
 

@@ -1,7 +1,7 @@
 # Language-Specific Processing Overview
 
 **Status:** Current
-**Last updated:** 2026-05-20 20:22 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 This page is the single entry point for understanding how batchalign3 handles
 non-English languages. It maps every stage of the processing pipeline to the
@@ -44,7 +44,7 @@ The default `--asr-engine whisper` loads `openai/whisper-large-v3`
 across every language (`batchalign/inference/asr.py:120`). UTR is
 engine-based: `--utr-engine whisper` loads `openai/whisper-large-v2`,
 `--utr-engine rev` uses Rev.AI's cloud API, and
-`--utr-engine-custom tencent_utr` routes to Tencent. There is no
+`--utr-engine tencent` routes to Tencent. There is no
 per-language fine-tune resolver wired into `--asr-engine whisper` or
 the UTR engines; per-language fine-tunes are opt-in through the
 separate `--asr-engine whisper_hub` engine (see

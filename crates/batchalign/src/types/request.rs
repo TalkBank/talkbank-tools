@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::revai_language::{revai_known_broken, try_revai_language_hint};
 use crate::options::{AsrEngineName, CommandOptions, UtrEngine};
+use crate::types::engines::SelectableEngine;
 
 use super::domain::{DisplayPath, LanguageCode3, LanguageSpec, NumSpeakers, ReleasedCommand};
 
@@ -216,10 +217,15 @@ impl JobSubmission {
         if let Some(AsrEngineName::RevAi) = &asr_engine
             && try_revai_language_hint(lang).is_none()
         {
+            // Not derived like the UTR message below: ASR has no per-engine
+            // language predicate to filter on, since Rev.AI is the only engine
+            // whose language support is modelled at all. Deriving it means
+            // modelling that first.
             return Err(ValidationError(format!(
                 "Language '{}' is not supported by Rev.AI ASR. Alternatives:\n\
                  - Use --asr-engine whisper for local Whisper ASR (supports most languages)\n\
-                 - Use --asr-engine-custom tencent for Chinese/Hakka via Tencent\n\
+                 - Use --asr-engine tencent for Chinese/Hakka via Tencent\n\
+                 - Run `batchalign3 transcribe --help` for every engine name\n\
                  - Check supported languages: book/src/batchalign/reference/language-code-resolution.md",
                 lang
             )));
@@ -300,29 +306,50 @@ pub(crate) fn validate_utr_language_support(
     lang: &LanguageCode3,
     engine: &UtrEngine,
 ) -> Result<(), ValidationError> {
-    match engine {
-        UtrEngine::RevAi => {
-            if try_revai_language_hint(lang).is_none() {
-                return Err(ValidationError(format!(
-                    "This file requires utterance timing recovery, but the selected UTR backend 'rev' does not support language '{}'. \
-                     Use --utr-engine whisper for local Whisper UTR or --utr-engine-custom tencent_utr for Cantonese/Hakka UTR.",
-                    lang
-                )));
-            }
-        }
-        UtrEngine::HkTencent => {
-            let chinese_codes = ["zho", "yue", "wuu", "nan", "hak", "cmn"];
-            if !chinese_codes.contains(&lang.as_ref()) {
-                return Err(ValidationError(format!(
-                    "This file requires utterance timing recovery, but the selected UTR backend 'tencent_utr' only supports Chinese variants ({}).",
-                    chinese_codes.join(", ")
-                )));
-            }
-        }
-        UtrEngine::Whisper => {}
+    if utr_engine_supports_language(engine, lang) {
+        return Ok(());
     }
 
-    Ok(())
+    // The alternatives are DERIVED from the same predicate that produced the
+    // rejection, not written out as prose, so the message cannot recommend an
+    // engine that does not work or name a flag that has been renamed. Why this
+    // matters: see `SelectableEngine`.
+    let alternatives: Vec<&str> = UtrEngine::ALL
+        .iter()
+        .filter(|candidate| utr_engine_supports_language(candidate, lang))
+        .map(UtrEngine::selection_name)
+        .collect();
+
+    let remedy = if alternatives.is_empty() {
+        "No UTR engine supports this language; run with --no-utr to skip \
+         utterance timing recovery."
+            .to_owned()
+    } else {
+        format!("Use --utr-engine with one of: {}.", alternatives.join(", "))
+    };
+
+    Err(ValidationError(format!(
+        "This file requires utterance timing recovery, but the selected UTR \
+         engine '{}' does not support language '{lang}'. {remedy}",
+        engine.selection_name()
+    )))
+}
+
+/// The Chinese variants Tencent UTR covers.
+const TENCENT_UTR_LANGUAGES: [&str; 6] = ["zho", "yue", "wuu", "nan", "hak", "cmn"];
+
+/// Whether one UTR engine can handle one language.
+///
+/// THE owner of that question. It was previously inlined into the validation
+/// match, which meant the only way to ask "what else would work here" was to
+/// restate the answer in an error string.
+fn utr_engine_supports_language(engine: &UtrEngine, lang: &LanguageCode3) -> bool {
+    match engine {
+        UtrEngine::RevAi => try_revai_language_hint(lang).is_some(),
+        UtrEngine::HkTencent => TENCENT_UTR_LANGUAGES.contains(&lang.as_ref()),
+        // Local Whisper is language-general.
+        UtrEngine::Whisper => true,
+    }
 }
 
 /// Validation error for request models.
@@ -717,20 +744,82 @@ mod tests {
         );
     }
 
+    /// Rev.AI cannot do Cantonese, and the user is told what can.
+    ///
+    /// This used to pin the exact sentence `"Use --utr-engine whisper"`, which
+    /// made the prose the contract: the remedy could not gain the Cantonese
+    /// engine, or lose the flag name it had outlived, without a test failing
+    /// for the wrong reason. It now asserts that a working engine is offered.
+    /// Which engines those are, and that the list cannot disagree with the
+    /// verdict, is covered in `utr_language_support_tests`.
     #[test]
     fn utr_runtime_validation_rejects_rev_for_unsupported_language() {
         let err =
             validate_utr_language_support(&LanguageCode3::yue(), &UtrEngine::RevAi).unwrap_err();
+        let message = err.to_string();
         assert!(
-            err.to_string()
-                .contains("requires utterance timing recovery")
-                && err.to_string().contains("Use --utr-engine whisper"),
+            message.contains("requires utterance timing recovery"),
             "expected stage-aware UTR error, got: {err}"
+        );
+        assert!(
+            message.contains(UtrEngine::Whisper.selection_name()),
+            "local Whisper does support yue and must be offered: {err}"
         );
     }
 
     #[test]
     fn utr_runtime_validation_allows_whisper_for_yue() {
         assert!(validate_utr_language_support(&LanguageCode3::yue(), &UtrEngine::Whisper).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod utr_language_support_tests {
+    use super::*;
+
+    /// The remedy names engines that actually work for THIS language, derived
+    /// from the same predicate that rejected the selected one.
+    ///
+    /// Behaviour a signature cannot describe, so it stays a test: the point is
+    /// that the message and the verdict cannot disagree, which is a property of
+    /// how they are computed rather than of their types.
+    #[test]
+    fn a_rejection_suggests_only_engines_that_support_the_language() {
+        let error = validate_utr_language_support(&LanguageCode3::yue(), &UtrEngine::RevAi)
+            .expect_err("Rev.AI does not support Cantonese");
+        let message = error.to_string();
+        for engine in UtrEngine::ALL.iter().cloned() {
+            if engine == UtrEngine::RevAi {
+                continue;
+            }
+            let named = message.contains(engine.selection_name());
+            assert_eq!(
+                named,
+                utr_engine_supports_language(&engine, &LanguageCode3::yue()),
+                "{} should be suggested iff it supports yue: {message}",
+                engine.selection_name()
+            );
+        }
+    }
+
+    /// The message must not ADVERTISE the deprecated flag.
+    ///
+    /// `--utr-engine-custom` still exists and still works; it is hidden from
+    /// help on purpose. The defect was that an error message sent users to it,
+    /// which is how it stayed the documented route long after `--utr-engine`
+    /// could do the job.
+    #[test]
+    fn a_rejection_does_not_advertise_the_deprecated_flag() {
+        let error = validate_utr_language_support(&LanguageCode3::yue(), &UtrEngine::RevAi)
+            .expect_err("Rev.AI does not support Cantonese");
+        let message = error.to_string();
+        assert!(
+            !message.contains("--utr-engine-custom"),
+            "the deprecated flag must not be advertised: {message}"
+        );
+        assert!(
+            message.contains("--utr-engine"),
+            "the surviving flag must be named: {message}"
+        );
     }
 }

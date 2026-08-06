@@ -7,28 +7,20 @@
 
 use clap::{Args, Subcommand, ValueEnum};
 
-use crate::types::engines::AsrSelection;
+use crate::types::engines::{
+    AsrEngineName, AsrSelection, FaEngineName, SelectableEngine, TranslateEngineName,
+    UtrEngine as AppUtrEngine,
+};
 
 use super::{CommonOpts, IncrementalOpts};
 
 // ---------------------------------------------------------------------------
-// Engine choice enums
+// Per-command option enums
+//
+// Engine choices are NOT here: they live on the domain enums in
+// `types::engines` and reach the CLI through `SelectableEngine`.
 // ---------------------------------------------------------------------------
 
-/// UTR (utterance timing recovery) engine for the `align` command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
-pub enum UtrEngine {
-    /// Use Rev.AI utterance timing recovery (default).
-    #[default]
-    Rev,
-    /// Use Whisper for utterance timing recovery.
-    Whisper,
-}
-
-/// UTR overlap strategy for the `align` command.
-///
-/// Controls how `+<` (lazy overlap) utterances are handled during
-/// utterance timing recovery.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum UtrOverlapStrategy {
     /// Currently equivalent to `global`, the language/content-aware
@@ -78,25 +70,6 @@ pub enum CliReviewLevel {
     All,
 }
 
-/// Forced-alignment engine for the `align` command.
-///
-/// Whisper is the default (matching BA2's long-standing default; see
-/// `default_fa_engine()` in `types/options.rs` for the full rationale).
-/// Wav2Vec's CTC decoder has a real length constraint ("targets length is
-/// too long for CTC") that empirically fires on essentially every FA group
-/// on real speech data, so defaulting to it buys nothing while paying for a
-/// doomed attempt before the automatic Whisper retry. Wav2Vec remains
-/// available as an explicit opt-in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
-pub enum FaEngine {
-    /// Use Whisper for forced alignment (default).
-    #[default]
-    Whisper,
-    /// Use Wav2Vec forced alignment.
-    Wav2vec,
-}
-
-/// Speaker diarization mode for the `transcribe` command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum DiarizationMode {
     /// Automatic (currently defaults to disabled).
@@ -108,42 +81,6 @@ pub enum DiarizationMode {
     Disabled,
 }
 
-/// Translation engine for the `translate` command.
-///
-/// `google` requires reachability to the public Google Translate
-/// endpoint and is unsuitable behind the Great Firewall without VPN.
-/// `tencent` uses Tencent Cloud TMT (cloud API, China-friendly,
-/// best empirical quality on Mandarin but does NOT support Cantonese
-///: requires CAM credentials with ``tmt:TextTranslate``). `aliyun`
-/// uses Alibaba Cloud Machine Translation (cloud API, China-friendly,
-/// supports Cantonese as a source language, requires Aliyun
-/// access-key credentials, shared with the Aliyun ASR backend).
-/// `seamless` and `nllb` are local-model alternatives downloaded
-/// from HuggingFace on first use; neither requires outbound network
-/// at inference time. `nllb` is the recommended self-hosted fallback
-/// and handles Cantonese first-class; `seamless` is retained for
-/// back-compat with BA2 callers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
-pub enum TranslateEngine {
-    /// Public Google Translate via the ``googletrans`` library (default).
-    #[default]
-    Google,
-    /// Local Meta SeamlessM4T model (BA2-inherited; low CJK quality).
-    Seamless,
-    /// Local Meta NLLB-200-distilled-1.3B (recommended self-hosted).
-    Nllb,
-    /// Tencent Cloud TMT cloud API (best Mandarin; no Cantonese).
-    Tencent,
-    /// Aliyun (Alibaba Cloud) Machine Translation cloud API
-    /// (supports Cantonese; the canonical cloud option for ``yue``).
-    Aliyun,
-}
-
-// ---------------------------------------------------------------------------
-// Processing commands
-// ---------------------------------------------------------------------------
-
-/// Arguments for the `align` command.
 #[derive(Args, Debug, Clone)]
 pub struct AlignArgs {
     /// Shared file I/O options.
@@ -154,23 +91,37 @@ pub struct AlignArgs {
     #[command(flatten)]
     pub incremental: IncrementalOpts,
 
-    /// UTR engine: rev (default) or whisper.
-    #[arg(long, value_enum, default_value_t)]
-    pub utr_engine: UtrEngine,
+    // Keep these doc comments SHORT: clap renders them verbatim as the flag's
+    // help, so rationale written here is shown to users instead of the value
+    // list it derives from the enum.
+    /// UTR engine to recover utterance timings with.
+    #[arg(
+        long,
+        default_value = AppUtrEngine::DEFAULT.selection_name(),
+        value_parser = engine_selection_parser::<AppUtrEngine>(),
+    )]
+    pub utr_engine: AppUtrEngine,
 
-    /// Explicit custom UTR engine name (e.g. tencent_utr).
-    /// Overrides --utr-engine when set.
-    #[arg(long)]
-    pub utr_engine_custom: Option<String>,
+    /// Deprecated alias for `--utr-engine`; hidden, still honoured.
+    ///
+    /// Parsed by the SAME parser, so it can no longer accept a name that
+    /// `--utr-engine` would reject. It used to take an unvalidated string that
+    /// a later stage resolved with `.ok()?`, so a typo produced no engine and
+    /// no message.
+    #[arg(long, hide = true, value_parser = engine_selection_parser::<AppUtrEngine>())]
+    pub utr_engine_custom: Option<AppUtrEngine>,
 
-    /// Forced-alignment engine: whisper (default) or wav2vec.
-    #[arg(long, value_enum, default_value_t)]
-    pub fa_engine: FaEngine,
+    /// Forced-alignment engine.
+    #[arg(
+        long,
+        default_value = FaEngineName::DEFAULT.selection_name(),
+        value_parser = engine_selection_parser::<FaEngineName>(),
+    )]
+    pub fa_engine: FaEngineName,
 
-    /// Explicit custom FA engine name (e.g. wav2vec_fa_canto).
-    /// Overrides --fa-engine when set.
-    #[arg(long)]
-    pub fa_engine_custom: Option<String>,
+    /// Deprecated alias for `--fa-engine`; hidden, still honoured.
+    #[arg(long, hide = true, value_parser = engine_selection_parser::<FaEngineName>())]
+    pub fa_engine_custom: Option<FaEngineName>,
 
     /// Directory containing media files for alignment.
     /// Matches by filename stem (file.cha looks for file.mp3/mp4/wav).
@@ -273,30 +224,92 @@ pub struct AlignArgs {
 /// anything else with an error naming what the user typed and listing what is
 /// valid. The surface this replaced did neither, so a typo was accepted by the
 /// flag and then discarded in silence further down.
-fn asr_selection_parser()
--> impl clap::builder::TypedValueParser<Value = AsrSelection> + Clone + Send + Sync + 'static {
-    use crate::types::engines::{AsrEngineName, LEGACY_SELECTION_ALIASES};
+/// Value parser for any engine-selection flag.
+///
+/// Takes NO parameters: everything it needs (the shown names, the hidden
+/// aliases, the resolver, the category) travels with the type. The earlier
+/// version took those four as separate arguments, none constrained by the
+/// others, so nothing stopped a caller pairing one category's names with
+/// another's resolver and producing a flag whose help advertised engines it
+/// would then reject.
+///
+/// Parsing at the BOUNDARY, so no later stage holds an engine name that might
+/// not name an engine. Clap renders the accepted set into `--help` AND rejects
+/// anything else with an error naming what the user typed, so the advertised
+/// set and the accepted set are one list by construction.
+fn engine_selection_parser<E: SelectableEngine>()
+-> impl clap::builder::TypedValueParser<Value = E::Selected> + 'static {
     use clap::builder::TypedValueParser as _;
-    let shown = AsrEngineName::selectable_names().map(clap::builder::PossibleValue::new);
+    let shown = E::selectable_names().map(clap::builder::PossibleValue::new);
     // Historical spellings stay accepted but hidden, so help shows one name per
     // engine while nobody's existing command line breaks.
-    let hidden = LEGACY_SELECTION_ALIASES
-        .iter()
-        .map(|(alias, _)| clap::builder::PossibleValue::new(*alias).hide(true));
+    let hidden =
+        E::hidden_alias_names().map(|alias| clap::builder::PossibleValue::new(alias).hide(true));
     clap::builder::PossibleValuesParser::new(shown.chain(hidden).collect::<Vec<_>>()).try_map(
-        |name: String| {
+        move |name: String| {
             // Unreachable in practice: clap has already restricted the value to
-            // the list above. Returning an error rather than unwrapping keeps
-            // the impossible case impossible WITHOUT a panic in a shipped
-            // binary, which is the repo rule.
-            AsrSelection::parse(&name).ok_or_else(|| {
+            // the list above. An error rather than an unwrap keeps the
+            // impossible case impossible without a panic in a shipped binary.
+            E::resolve(&name).ok_or_else(|| {
                 clap::Error::raw(
                     clap::error::ErrorKind::InvalidValue,
-                    format!("unknown ASR engine {name:?}\n"),
+                    format!("unknown {} engine {name:?}\n", E::CATEGORY),
                 )
             })
         },
     )
+}
+
+impl AlignArgs {
+    /// Which UTR engine this invocation selected, or `None` for no UTR pass.
+    ///
+    /// INFALLIBLE for the same reason [`AsrSelectionArgs::selection`] is: every
+    /// field is already a typed engine, so there is no unparsed name left to
+    /// fail on. The `None` here means "the user asked for no UTR", which is a
+    /// real answer, NOT the old "a name failed to resolve and we said nothing".
+    ///
+    /// Precedence, widest override first:
+    /// 1. `--no-utr`, which turns the pass off outright.
+    /// 2. `--utr-engine-custom`, the hidden legacy flag.
+    /// 3. the BA2 compatibility switch `--whisper` (unless `--rev` is also set).
+    /// 4. `--utr-engine`, which has a default and so is always present.
+    pub fn utr_selection(&self) -> Option<AppUtrEngine> {
+        if !self.utr || self.no_utr {
+            return None;
+        }
+        if let Some(ref engine) = self.utr_engine_custom {
+            return Some(engine.clone());
+        }
+        if self.whisper && !self.rev {
+            return Some(AppUtrEngine::Whisper);
+        }
+        Some(self.utr_engine.clone())
+    }
+
+    /// Which forced-alignment engine this invocation selected.
+    ///
+    /// Precedence, widest override first:
+    /// 1. `--fa-engine-custom`, the hidden legacy flag.
+    /// 2. the BA2 compatibility switches, which are explicit user intent while
+    ///    `--fa-engine` always carries a default.
+    /// 3. `--fa-engine`.
+    ///
+    /// `--wav2vec` was dead before 2026-07-01: nothing consulted the flag, so
+    /// it silently fell through to whatever the default happened to be. That
+    /// was masked while the default WAS Wav2Vec, and exposed the moment the
+    /// default became Whisper. It is consulted here.
+    pub fn fa_selection(&self) -> FaEngineName {
+        if let Some(ref engine) = self.fa_engine_custom {
+            return engine.clone();
+        }
+        if self.whisper_fa {
+            return FaEngineName::Whisper;
+        }
+        if self.wav2vec {
+            return FaEngineName::Wave2Vec;
+        }
+        self.fa_engine.clone()
+    }
 }
 
 /// The ASR engine selection surface, shared by every command that transcribes.
@@ -318,8 +331,8 @@ pub struct AsrSelectionArgs {
     /// ASR engine to transcribe with.
     #[arg(
         long,
-        default_value = crate::types::engines::DEFAULT_ASR_SELECTION_NAME,
-        value_parser = asr_selection_parser(),
+        default_value = AsrEngineName::DEFAULT.selection_name(),
+        value_parser = engine_selection_parser::<AsrEngineName>(),
     )]
     pub asr_engine: AsrSelection,
 
@@ -329,7 +342,7 @@ pub struct AsrSelectionArgs {
     /// help because two doors onto one choice is what let the visible one go
     /// stale. It is parsed by the SAME parser, so it can no longer accept a
     /// name that `--asr-engine` would reject.
-    #[arg(long, hide = true, value_parser = asr_selection_parser())]
+    #[arg(long, hide = true, value_parser = engine_selection_parser::<AsrEngineName>())]
     pub asr_engine_custom: Option<AsrSelection>,
 
     /// BA2 compat: use --asr-engine whisper instead.
@@ -458,22 +471,17 @@ pub struct TranslateArgs {
     #[command(flatten)]
     pub common: CommonOpts,
 
-    /// Translation engine: `google` (default), `tencent`, `nllb`, or `seamless`.
-    ///
-    /// `google` calls the public Google Translate endpoint and
-    /// requires outbound network reachability, unsuitable behind
-    /// the Great Firewall without VPN. `tencent` uses Tencent Cloud
-    /// TMT (China-friendly cloud API, best empirical quality on
-    /// Mandarin, but does NOT support Cantonese; requires CAM
-    /// credentials with `tmt:TextTranslate`). `nllb` is the
-    /// recommended self-hosted fallback (Meta NLLB-200-distilled-1.3B,
-    /// text-MT-native, ~5 GB local model, no inference-time network
-    /// requirement, handles Cantonese first-class). `seamless` is the
-    /// BA2-inherited local-model fallback retained for back-compat;
-    /// its CJK quality on short utterances is poor, prefer `nllb` or
-    /// `tencent` for new work.
-    #[arg(long, value_enum, default_value_t)]
-    pub translate_engine: TranslateEngine,
+    // Keep this SHORT: clap renders it verbatim above the value list. The
+    // prose here used to name four of the five engines, omitting `aliyun`,
+    // which is the same stale-hand-written-list defect the value list now
+    // fixes. Per-engine tradeoffs belong in the book, not in `--help`.
+    /// Translation engine.
+    #[arg(
+        long,
+        default_value = TranslateEngineName::DEFAULT.selection_name(),
+        value_parser = engine_selection_parser::<TranslateEngineName>(),
+    )]
+    pub translate_engine: TranslateEngineName,
 
     /// Merge abbreviations in output.
     #[arg(long, conflicts_with = "no_merge_abbrev")]

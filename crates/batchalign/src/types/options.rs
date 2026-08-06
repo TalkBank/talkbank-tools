@@ -47,13 +47,17 @@ pub use super::params::{MergeAbbrevPolicy, UtsegFallbackPolicy, WorTierPolicy};
 /// predates BA3) and defaulted to Whisper directly; this restores that
 /// default. Wave2Vec remains available via `--fa-engine wav2vec` for
 /// content where it might not hit the CTC ceiling.
+///
+/// DERIVED, not restated: the CLI flag's default comes from the same constant,
+/// so the value a user gets by omitting `--fa-engine` and the value a
+/// deserialized `AlignOptions` gets by omitting the field cannot disagree.
 fn default_fa_engine() -> FaEngineName {
-    FaEngineName::Whisper
+    FaEngineName::DEFAULT
 }
 
 /// Default ASR engine for serialized command options.
 fn default_asr_engine() -> AsrEngineName {
-    AsrEngineName::RevAi
+    AsrEngineName::DEFAULT
 }
 
 /// Default translation engine for serialized command options.
@@ -245,6 +249,24 @@ impl AlignOptions {
             .fa
             .clone()
             .unwrap_or_else(|| self.fa_engine.clone())
+    }
+
+    /// Return the effective UTR engine after applying any shared `utr`
+    /// override, or `None` when no UTR pass was asked for.
+    ///
+    /// The `None` here means "no UTR pass", which is a real answer. An override
+    /// cannot conjure a pass that was not requested: `--engine-overrides
+    /// '{"utr":...}'` says WHICH engine, not WHETHER, exactly as the `fa` and
+    /// `asr` overrides do.
+    pub fn effective_utr_engine(&self) -> Option<UtrEngine> {
+        let requested = self.utr_engine.as_ref()?;
+        Some(
+            self.common
+                .engine_overrides
+                .utr
+                .clone()
+                .unwrap_or_else(|| requested.clone()),
+        )
     }
 }
 

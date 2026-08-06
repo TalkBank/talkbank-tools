@@ -1,7 +1,7 @@
 # translate
 
 **Status:** Current
-**Last updated:** 2026-05-27 11:12 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 Add English translations to non-English CHAT transcripts by injecting a
 `%xtra` tier after each utterance. Text-only, no audio involved.
@@ -46,7 +46,9 @@ Five backends are available:
   short-CJK quality is poor and the model hallucinates on empty inputs;
   **prefer `nllb` or `tencent` for new work.** Retained for back-compat.
 
-Select with `--translate-engine google|tencent|aliyun|nllb|seamless`.
+Select with `--translate-engine`; `batchalign3 translate --help` lists every
+accepted value, derived from the engine enum, and rejects anything else while
+parsing.
 Default is Google. Operators on hosts where Google Translate is
 unreachable pass `--translate-engine tencent` (best Mandarin),
 `--translate-engine aliyun` (Cantonese-capable cloud option), or

@@ -1,7 +1,7 @@
 # Cantonese Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-27 21:27 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 User reference for Cantonese (`yue`) processing in batchalign3, ASR engine
 options, credentials, retokenize usage, and what to expect from each
@@ -30,9 +30,9 @@ empirically outperforms vanilla Whisper-large-v3 by a wide margin
 on Cantonese child speech (42.8% CER vs 81.9% CER on TalkBank Tier
 3 fixtures; see the 2026-05-26 Cantonese ASR benchmark). The
 default is wired in `batchalign/worker/_model_loading/asr.py`'s
-`_LANG_DEFAULTS` table and applies when no `--engine-overrides
-'{"asr":...}'` is set and no Rev.AI key is configured. Alternatives
-are activated via `--engine-overrides`.
+`_LANG_DEFAULTS` table and applies when no `--asr-engine` is passed
+and no Rev.AI key is configured. Alternatives are selected with
+`--asr-engine`; run `batchalign3 transcribe --help` for the full list.
 
 | Engine | Type | Credentials | Word output | Strength |
 |---|---|---|---|---|
@@ -50,25 +50,25 @@ batchalign3 transcribe input/ -o output/ --lang yue
 
 # Tencent Cloud ASR (requires credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "tencent"}'
+  --asr-engine tencent
 
 # Aliyun NLS ASR (requires credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "aliyun"}'
+  --asr-engine aliyun
 
 # Qwen3-ASR (default 1.7B variant; pinned via qwen_model for 0.6B)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "qwen"}'
+  --asr-engine qwen
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "qwen", "qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
+  --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
 
 # Whisper (explicit opt-in; not recommended for Cantonese)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "whisper"}'
+  --asr-engine whisper
 
 # Cantonese forced alignment
 batchalign3 align input/ -o output/ --lang yue \
-  --engine-overrides '{"fa": "wav2vec_canto"}'
+  --fa-engine cantonese
 ```
 
 ### Credentials
@@ -114,10 +114,11 @@ through to Whisper.
 (`qwen-asr` Python package, model downloaded from HuggingFace on
 first use). Two variants are publicly released, 1.7B (default,
 heavier) and 0.6B (lighter, smaller download). Select the 0.6B
-variant via `--engine-overrides '{"asr": "qwen", "qwen_model":
-"Qwen/Qwen3-ASR-0.6B"}'`; per-engine extras like `qwen_model` and
-`qwen_device` are accepted by the `EngineOverrides` schema and
-forwarded to the worker. External evaluations report competitive
+variant via `--asr-engine qwen --engine-overrides
+'{"qwen_model": "Qwen/Qwen3-ASR-0.6B"}'`. Note the division of labour:
+the ENGINE is chosen with the flag, while per-engine extras like
+`qwen_model` and `qwen_device` stay in `--engine-overrides`, which is
+what that option is actually for. External evaluations report competitive
 CER on per-utterance Cantonese child speech with the 1.7B variant;
 TalkBank's own longer-form Cantonese fixtures show this engine
 benefits from per-utterance segmentation rather than full-session

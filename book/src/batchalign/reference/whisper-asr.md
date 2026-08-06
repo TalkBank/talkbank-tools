@@ -1,7 +1,7 @@
 # Whisper Usage in Batchalign
 
 **Status:** Current
-**Last updated:** 2026-07-29 10:57 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 ## Overview
 
@@ -112,7 +112,7 @@ first non-Rev.AI ASR engine that is Rust-owned (`is_rust_owned`).
 
 ## Per-language defaults
 
-The fallback dispatch when no `--engine-overrides '{"asr":...}'` is set
+The fallback dispatch when no `--asr-engine` is set
 AND no Rev.AI key is configured is **not** unconditionally Whisper. The
 worker resolver consults a per-language default table
 (`_LANG_DEFAULTS` in `batchalign/worker/_model_loading/asr.py`) before
@@ -124,7 +124,7 @@ falling through to Whisper. Currently:
 - all other languages → Whisper (the documented historical fallback)
 
 To override the per-language default, pass an explicit
-`--engine-overrides '{"asr":"<engine>"}'`. The override always wins.
+`--asr-engine <engine>`. The override always wins.
 
 ## Model Selection
 

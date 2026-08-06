@@ -3,7 +3,7 @@ use crate::api::ReleasedCommand;
 use crate::options::{
     AsrEngineName, CommandOptions, FaEngineName, TranslateEngineName, UtrEngine as AppUtrEngine,
 };
-use crate::types::engines::EngineBackend;
+use crate::types::engines::{EngineBackend, SelectableEngine};
 use clap::{CommandFactory, Parser};
 use rstest::rstest;
 use std::path::{Path, PathBuf};
@@ -183,8 +183,11 @@ fn parse_align_with_engine_overrides() {
         "tencent_utr",
     ]);
     if let Commands::Align(a) = &cli.command {
-        assert_eq!(a.fa_engine_custom.as_deref(), Some("wav2vec_fa_canto"));
-        assert_eq!(a.utr_engine_custom.as_deref(), Some("tencent_utr"));
+        // Asserting the resolved SELECTION, not the string the flag held: the
+        // flags now parse into the engine enums, so there is no raw name left
+        // to compare and no later stage that could fail to resolve one.
+        assert_eq!(a.fa_selection(), FaEngineName::Wav2vecCanto);
+        assert_eq!(a.utr_engine_custom, Some(AppUtrEngine::HkTencent));
     } else {
         panic!("expected Align");
     }
@@ -2064,7 +2067,7 @@ fn parse_transcribe_paraformer_resolves_to_funaudio_with_checkpoint() {
 /// adding a variant without a name here fails to compile.
 #[test]
 fn every_asr_engine_is_selectable_by_its_wire_name() {
-    for engine in AsrEngineName::ALL {
+    for engine in AsrEngineName::ALL.iter().cloned() {
         let name = engine.wire_name();
         let cli = Cli::parse_from(["batchalign3", "transcribe", "audio/", "--asr-engine", name]);
         let Commands::Transcribe(a) = &cli.command else {
@@ -2182,7 +2185,7 @@ fn explicit_engine_overrides_beat_the_implied_checkpoint() {
 /// is what makes that impossible rather than merely fixed.
 #[test]
 fn benchmark_and_transcribe_share_one_engine_surface() {
-    for engine in AsrEngineName::ALL {
+    for engine in AsrEngineName::ALL.iter().cloned() {
         let name = engine.wire_name();
         let bench = Cli::parse_from(["batchalign3", "benchmark", "audio/", "--asr-engine", name]);
         let Commands::Benchmark(b) = &bench.command else {
@@ -2227,5 +2230,159 @@ fn benchmark_rejects_an_unknown_engine_name() {
     assert!(
         error.to_string().contains("paraformr"),
         "the error must name the value typed: {error}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// UTR and FA engine selection.
+//
+// `--asr-engine` was given one owner and a parse-time rejection. The other two
+// engine categories were left as they were, so the same defect survives twice:
+// `--utr-engine` and `--fa-engine` each advertise a subset, each have a
+// separately named `--*-engine-custom` taking an unvalidated string, and each
+// resolve it with `from_wire_name(..).ok()?`, which turns a typo into no engine
+// and no message.
+//
+// A user reported the consequence from the field: prompted by a UTR
+// language-support error naming `--utr-engine-custom`, they had to guess which
+// engine to pass, and remembered the mechanism backwards afterwards.
+// ---------------------------------------------------------------------------
+
+/// Every UTR engine that exists is reachable by name through the visible flag.
+///
+/// The ASR defect in the large: the flag advertised five of ten engines and the
+/// rest lived behind a differently-named flag whose help gave an "e.g.". The
+/// Cantonese/Hakka UTR engine is in exactly that position today, and it is the
+/// one a Cantonese user needs.
+#[test]
+fn every_utr_engine_is_reachable_through_the_visible_flag() {
+    for engine in AppUtrEngine::ALL.iter().cloned() {
+        let name = engine.selection_name();
+        let cli = Cli::try_parse_from([
+            "batchalign3",
+            "align",
+            "input/",
+            "--utr",
+            "--utr-engine",
+            name,
+        ])
+        .unwrap_or_else(|error| panic!("--utr-engine {name} must parse: {error}"));
+        let Commands::Align(a) = &cli.command else {
+            panic!("expected Align");
+        };
+        assert_eq!(
+            a.utr_selection(),
+            Some(engine.clone()),
+            "--utr-engine {name} must select {engine:?}"
+        );
+    }
+}
+
+/// Every FA engine that exists is reachable by name through the visible flag.
+#[test]
+fn every_fa_engine_is_reachable_through_the_visible_flag() {
+    for engine in FaEngineName::ALL.iter().cloned() {
+        let name = engine.selection_name();
+        let cli = Cli::try_parse_from(["batchalign3", "align", "input/", "--fa-engine", name])
+            .unwrap_or_else(|error| panic!("--fa-engine {name} must parse: {error}"));
+        let Commands::Align(a) = &cli.command else {
+            panic!("expected Align");
+        };
+        assert_eq!(
+            a.fa_selection(),
+            engine.clone(),
+            "--fa-engine {name} must select {engine:?}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The remaining two engine seams: translate, and the UTR override key.
+//
+// `--asr-engine`, `--utr-engine` and `--fa-engine` now derive their values from
+// the enums. Translate was the fourth category and kept the shape the other
+// three shed: a CLI-private `TranslateEngine` mirrored onto the domain
+// `TranslateEngineName` by a hand-written match that is exhaustive over the CLI
+// copy, so a domain variant with no CLI twin compiles and is unreachable.
+//
+// Separately, `EngineOverrides` types `asr` / `fa` / `translate` and has no
+// `utr`, so `--engine-overrides '{"utr": ...}'` was accepted, forwarded to the
+// Python worker as an opaque extra, and ignored by everything.
+// ---------------------------------------------------------------------------
+
+/// Every translate engine is reachable by name through the visible flag.
+#[test]
+fn every_translate_engine_is_reachable_through_the_visible_flag() {
+    for engine in TranslateEngineName::ALL.iter().cloned() {
+        let name = engine.selection_name();
+        let cli = Cli::try_parse_from([
+            "batchalign3",
+            "translate",
+            "input/",
+            "--translate-engine",
+            name,
+        ])
+        .unwrap_or_else(|error| panic!("--translate-engine {name} must parse: {error}"));
+        let Commands::Translate(a) = &cli.command else {
+            panic!("expected Translate");
+        };
+        assert_eq!(
+            a.translate_engine,
+            engine.clone(),
+            "--translate-engine {name} must select {engine:?}"
+        );
+    }
+}
+
+/// `--engine-overrides '{"utr": ...}'` selects the UTR engine.
+///
+/// It used to be swallowed: `utr` is not one of the typed keys, so it landed in
+/// `extras` and was shipped to a Python worker that has no say in UTR engine
+/// selection at all. The user saw their chosen engine ignored, silently.
+#[test]
+fn an_engine_overrides_utr_key_selects_the_utr_engine() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "--engine-overrides",
+        r#"{"utr": "tencent_utr"}"#,
+        "align",
+        "input/",
+        "--utr",
+    ]);
+    let options = build_typed_options(&cli.command, &cli.global).expect("align options");
+    let CommandOptions::Align(align) = options else {
+        panic!("expected Align");
+    };
+    assert_eq!(
+        align.common.engine_overrides.utr,
+        Some(AppUtrEngine::HkTencent),
+        "the utr key must be typed, not swallowed into extras"
+    );
+    assert_eq!(
+        align.effective_utr_engine(),
+        Some(AppUtrEngine::HkTencent),
+        "an explicit override must beat the flag default, as it does for asr/fa"
+    );
+}
+
+/// A misspelled engine name is rejected while parsing, in every category and
+/// through both the visible flag and its hidden legacy alias.
+///
+/// One table rather than six near-identical bodies. Six is what the file had:
+/// each category grew its own copy as it was converted, which is the same
+/// per-category duplication the production code just shed.
+#[rstest]
+#[case(&["batchalign3", "align", "input/", "--utr", "--utr-engine", "tencnt_utr"], "tencnt_utr")]
+#[case(&["batchalign3", "align", "input/", "--utr", "--utr-engine-custom", "tencnt_utr"], "tencnt_utr")]
+#[case(&["batchalign3", "align", "input/", "--fa-engine", "cantnese"], "cantnese")]
+#[case(&["batchalign3", "align", "input/", "--fa-engine-custom", "wav2vec_fa_cant"], "wav2vec_fa_cant")]
+#[case(&["batchalign3", "translate", "input/", "--translate-engine", "aliyn"], "aliyn")]
+#[case(&["batchalign3", "transcribe", "audio/", "--asr-engine", "paraformr"], "paraformr")]
+#[case(&["batchalign3", "benchmark", "audio/", "--asr-engine-custom", "paraformr"], "paraformr")]
+fn an_unknown_engine_name_is_rejected_at_parse_time(#[case] argv: &[&str], #[case] typed: &str) {
+    let error = Cli::try_parse_from(argv).expect_err("a misspelled engine must not parse");
+    assert!(
+        error.to_string().contains(typed),
+        "the error must name the value the user typed: {error}"
     );
 }

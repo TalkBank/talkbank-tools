@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-07-30 19:02 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -88,7 +88,7 @@ CHAT transcripts by running forced alignment against the corresponding audio.
 | **Extensions filter** | `["cha"]` | Same |
 | **Output** | `.cha` with `%wor` timing line, word `time` fields populated | Same `.cha` returned to the client, which writes it to the requested output path |
 | **Mutation** | If `OUT_DIR = IN_DIR`: overwrites original `.cha` in place. Media files untouched. | Same |
-| **Key options** | `--utr-engine`, `--utr-engine-custom`, `--utr-strategy`, `--fa-engine`, `--fa-engine-custom`, `--pauses`, `--wor/--nowor`, `--override-media-cache` | All passed through typed command options |
+| **Key options** | `--utr-engine`, `--utr-strategy`, `--fa-engine`, `--pauses`, `--wor/--nowor`, `--override-media-cache` | All passed through typed command options |
 
 **What changes in the `.cha`:** `%wor` tier added/updated with word-level
 timestamps. Utterance-level bullet times (`\x15start_end\x15`) updated.
@@ -111,7 +111,7 @@ paths-mode preparation.
 | **Extensions filter** | `["mp3", "mp4", "wav"]` | Same |
 | **Output** | New `.cha` files (audio extension replaced: `foo.wav` → `foo.cha`) | Same `.cha` files returned to the client, which writes them locally |
 | **Mutation** | **Never mutates input.** Creates new `.cha` files in `OUT_DIR`. Original audio untouched. If `OUT_DIR = IN_DIR`, the new `.cha` appears alongside the audio. | Same |
-| **Key options** | `--asr-engine`, `--asr-engine-custom`, `--diarization`, `--wor/--nowor`, `--lang`, `-n`, `--batch-size` | Same |
+| **Key options** | `--asr-engine`, `--diarization`, `--wor/--nowor`, `--lang`, `-n`, `--batch-size` | Same |
 
 **Current routing note (Rust CLI):** when `auto_daemon` is enabled (the
 default), `transcribe`-family commands try the local daemon first. Explicit
@@ -314,7 +314,7 @@ matches BA2 behavior without copying BA2's string/document shell.
 | **Extensions filter** | `["mp3", "mp4", "wav"]` | Same |
 | **Output** | New `.cha` files with ASR output + eval metrics | Same files returned to the client, which writes them locally |
 | **Mutation** | **Never mutates input.** Creates new `.cha` files. | Same |
-| **Key options** | `--asr-engine`, `--asr-engine-custom`, `--lang`, `-n`, `--wor/--nowor` | All passed |
+| **Key options** | `--asr-engine`, `--lang`, `-n`, `--wor/--nowor` | All passed |
 
 **Same I/O pattern as transcribe**: creates new `.cha` files with audio
 extension renamed. Additionally includes evaluation metrics from comparing

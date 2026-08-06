@@ -1,7 +1,7 @@
 # `whisper_hub` ASR Engine
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:58 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 ## What it is
 
@@ -37,7 +37,7 @@ pick a model for a language we haven't seeded yet:
 ```bash
 batchalign3 transcribe input/ output/ \
   --lang mal --asr-engine whisper_hub \
-  --engine-overrides '{"asr":"whisper_hub","model_id":"other/mal-model"}'
+  --asr-engine whisper_hub --engine-overrides '{"model_id": "other/mal-model"}'
 ```
 
 ## Per-language defaults
@@ -51,8 +51,8 @@ after we've confirmed the chosen fine-tune produces coherent output.
 |---|---|---|
 | `mal` (Malayalam) | `thennal/whisper-medium-ml` | See "Evaluation below." |
 
-Any other language requires passing `--engine-overrides
-'{"asr":"whisper_hub","model_id":"..."}'`: the loader raises
+Any other language requires passing `--asr-engine whisper_hub
+--engine-overrides '{"model_id":"..."}'`: the loader raises
 `WhisperHubModelNotFoundError` with a specific message telling the user
 how to fix it, instead of falling back to a stock Whisper checkpoint
 that would silently produce garbage.

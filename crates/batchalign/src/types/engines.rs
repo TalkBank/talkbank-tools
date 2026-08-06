@@ -12,7 +12,11 @@ use serde::{Deserialize, Serialize};
 /// engine categories without knowing which specific enum it holds.
 pub trait EngineBackend: std::fmt::Debug + Clone + Send + Sync + 'static {
     /// Stable wire-format name used in JSON, CLI args, and SQLite.
-    fn wire_name(&self) -> &str;
+    ///
+    /// `&'static str`, not a borrow of `self`: every implementation returns a
+    /// literal, and the narrower signature meant a category whose selection
+    /// name IS its wire name could not say so without copying the table.
+    fn wire_name(&self) -> &'static str;
 
     /// Whether this engine's inference is fully Rust-owned (no Python worker).
     fn is_rust_owned(&self) -> bool;
@@ -21,6 +25,233 @@ pub trait EngineBackend: std::fmt::Debug + Clone + Send + Sync + 'static {
     fn try_from_wire_name(name: &str) -> Option<Self>
     where
         Self: Sized;
+}
+
+/// An engine category a user can choose from on the command line.
+///
+/// # Why this exists
+///
+/// There are four engine categories (ASR, UTR, FA, translate) and they had four
+/// hand-written answers to the same five questions: which engines exist, what
+/// is the default, what does a user type, what historical spellings still work,
+/// and what does a name resolve to. Each answer was restated at the CLI, and
+/// three of the four restatements had gone stale in the same direction: the
+/// flag advertised a SUBSET, and the engines it left out were reachable only
+/// through a second, differently-named flag taking an unvalidated string. That
+/// is how the Cantonese engines stayed hidden from the users who needed them.
+///
+/// Fixing them one at a time did not work either: ASR was fixed first, and the
+/// report that prompted this landed on UTR, one of the two still broken.
+///
+/// # What it buys
+///
+/// [`engine_selection_parser`] takes no free parameters. It previously took the
+/// shown names, the hidden names, a resolver and a category string as four
+/// unrelated arguments, which meant nothing stopped a caller pairing FA's names
+/// with UTR's resolver and producing a flag whose help advertised three engines
+/// it would then reject. Now the four facts travel together, from the type.
+///
+/// [`engine_selection_parser`]: crate::cli::args::commands
+pub trait SelectableEngine: EngineBackend + Sized {
+    /// What choosing a name yields.
+    ///
+    /// Usually `Self`. ASR is the exception: some of its names are an engine
+    /// PLUS a checkpoint (`paraformer` is `funaudio` carrying `paraformer-zh`),
+    /// so it selects an [`AsrSelection`] rather than a bare variant. Without
+    /// this associated type the trait would either exclude ASR or force the
+    /// other three into a wrapper they do not need.
+    type Selected: Clone + Send + Sync + 'static;
+
+    /// Every engine in this category, in help-display order.
+    ///
+    /// THE owner of "which engines exist" for the category.
+    const ALL: &'static [Self];
+
+    /// The engine used when the flag is omitted.
+    const DEFAULT: Self;
+
+    /// Human-readable category name, for diagnostics.
+    ///
+    /// What [`UnknownEngineName::category`] reports, via
+    /// [`parse_wire_name`](Self::parse_wire_name), so each category string has
+    /// one owner rather than one per error site.
+    const CATEGORY: &'static str;
+
+    /// The single name this engine is advertised under.
+    ///
+    /// Distinct from [`EngineBackend::wire_name`], which is persisted in JSON
+    /// and SQLite and therefore cannot change. `--utr-engine tencent` beside
+    /// `--asr-engine tencent` is one concept spelled one way, even though UTR's
+    /// wire name is `tencent_utr`.
+    fn selection_name(&self) -> &'static str;
+
+    /// Every spelling accepted, canonical and historical, and what it means.
+    ///
+    /// COMPLETE: every canonical [`selection_name`](Self::selection_name)
+    /// appears here, followed by that engine's historical spellings. The first
+    /// draft of this trait let the table mean something different per category
+    /// (UTR listed only wire names, FA listed some canonical names and not
+    /// others), which forced three different resolvers and quietly weakened
+    /// the coherence test to two of four categories.
+    ///
+    /// One table per category, read by the resolver, by
+    /// [`try_from_wire_name`](EngineBackend::try_from_wire_name) and by the
+    /// CLI's hidden list, so a spelling cannot be accepted by one and rejected
+    /// by another. Clap rejects anything outside its list BEFORE the resolver
+    /// runs, so a hidden list that falls short of the resolver silently breaks
+    /// old command lines.
+    fn accepted_names() -> &'static [(&'static str, Self)];
+
+    /// Resolve a user-typed name to a variant.
+    ///
+    /// Provided, because with a complete table there is one answer. Three
+    /// hand-written bodies preceded this, two of which did the same two lookups
+    /// in opposite orders.
+    fn resolve_variant(name: &str) -> Option<Self> {
+        Self::accepted_names()
+            .iter()
+            .find(|(accepted, _)| *accepted == name)
+            .map(|(_, engine)| engine.clone())
+    }
+
+    /// Resolve a user-typed name to whatever this category selects.
+    ///
+    /// Defaults to [`resolve_variant`](Self::resolve_variant). ASR overrides
+    /// it, because a name there can carry a checkpoint as well as an engine.
+    fn resolve(name: &str) -> Option<Self::Selected>;
+
+    /// The names shown in `--help`.
+    ///
+    /// Overridable: ASR appends `paraformer`, which names a selection rather
+    /// than a variant.
+    fn selectable_names() -> impl Iterator<Item = &'static str> {
+        Self::ALL.iter().map(Self::selection_name)
+    }
+
+    /// The names accepted but not advertised: everything that is not the one
+    /// canonical selection name for its engine.
+    ///
+    /// Derived, so the hidden set cannot fall short of the resolver.
+    fn hidden_alias_names() -> impl Iterator<Item = &'static str> {
+        Self::accepted_names()
+            .iter()
+            .filter(|(name, engine)| *name != engine.selection_name())
+            .map(|(name, _)| *name)
+    }
+
+    /// Parse a persisted wire-format token, reporting the category on failure.
+    ///
+    /// Each category had its own copy of this body and its own copy of the
+    /// category literal, four of each. The literal now comes from
+    /// [`CATEGORY`](Self::CATEGORY).
+    fn parse_wire_name(name: &str) -> Result<Self, UnknownEngineName> {
+        Self::try_from_wire_name(name).ok_or_else(|| UnknownEngineName {
+            name: name.to_owned(),
+            category: Self::CATEGORY,
+        })
+    }
+}
+
+impl SelectableEngine for AsrEngineName {
+    /// ASR selects an [`AsrSelection`], not a bare variant: `paraformer` is
+    /// `funaudio` plus a checkpoint, so a name is not always an engine.
+    type Selected = AsrSelection;
+    const ALL: &'static [Self] = &[
+        Self::RevAi,
+        Self::Whisper,
+        Self::WhisperHub,
+        Self::WhisperX,
+        Self::WhisperOai,
+        Self::WhisperRs,
+        Self::HkTencent,
+        Self::HkAliyun,
+        Self::HkFunaudio,
+        Self::HkQwen,
+    ];
+    const DEFAULT: Self = Self::RevAi;
+    const CATEGORY: &'static str = "ASR";
+
+    fn selection_name(&self) -> &'static str {
+        // Identical to the wire name for this category, so there is one table.
+        self.wire_name_const()
+    }
+
+    fn accepted_names() -> &'static [(&'static str, Self)] {
+        Self::ACCEPTED_NAMES
+    }
+
+    fn resolve(name: &str) -> Option<AsrSelection> {
+        AsrSelection::parse(name)
+    }
+
+    /// Overridden to append `paraformer`, which names a SELECTION rather than
+    /// a variant and so cannot come from `ALL`.
+    fn selectable_names() -> impl Iterator<Item = &'static str> {
+        Self::ALL
+            .iter()
+            .map(|engine| engine.wire_name_const())
+            .chain(std::iter::once(PARAFORMER_SELECTION_NAME))
+    }
+}
+
+impl AsrEngineName {
+    /// Every spelling accepted. One historical entry: `whisper-oai` was the
+    /// CLI's spelling of the `whisper_oai` wire name, which deriving the value
+    /// list from the enum immediately exposed as two public names for one
+    /// engine.
+    const ACCEPTED_NAMES: &'static [(&'static str, Self)] = &[
+        ("rev", Self::RevAi),
+        ("whisper", Self::Whisper),
+        ("whisper_hub", Self::WhisperHub),
+        ("whisperx", Self::WhisperX),
+        ("whisper_oai", Self::WhisperOai),
+        ("whisper-oai", Self::WhisperOai),
+        ("whisper_rs", Self::WhisperRs),
+        ("tencent", Self::HkTencent),
+        ("aliyun", Self::HkAliyun),
+        ("funaudio", Self::HkFunaudio),
+        ("qwen", Self::HkQwen),
+    ];
+}
+
+impl SelectableEngine for TranslateEngineName {
+    type Selected = Self;
+    const ALL: &'static [Self] = &[
+        Self::Google,
+        Self::Seamless,
+        Self::Nllb,
+        Self::Tencent,
+        Self::Aliyun,
+    ];
+    const DEFAULT: Self = Self::Google;
+    const CATEGORY: &'static str = "translate";
+
+    fn selection_name(&self) -> &'static str {
+        // Identical to the wire name for this category, so there is one table.
+        self.wire_name()
+    }
+
+    fn accepted_names() -> &'static [(&'static str, Self)] {
+        Self::ACCEPTED_NAMES
+    }
+
+    fn resolve(name: &str) -> Option<Self> {
+        Self::resolve_variant(name)
+    }
+}
+
+impl TranslateEngineName {
+    /// Every spelling accepted. No historical aliases: the CLI names and the
+    /// wire names were already identical, which is why this category's
+    /// duplicate CLI enum stayed silently in agreement rather than drifting
+    /// like the other three.
+    const ACCEPTED_NAMES: &'static [(&'static str, Self)] = &[
+        ("google", Self::Google),
+        ("seamless", Self::Seamless),
+        ("nllb", Self::Nllb),
+        ("tencent", Self::Tencent),
+        ("aliyun", Self::Aliyun),
+    ];
 }
 
 /// Error returned when a wire-format engine name is not recognized.
@@ -49,7 +280,7 @@ pub enum UtrEngine {
 }
 
 impl EngineBackend for UtrEngine {
-    fn wire_name(&self) -> &str {
+    fn wire_name(&self) -> &'static str {
         match self {
             Self::RevAi => "rev_utr",
             Self::Whisper => "whisper_utr",
@@ -62,22 +293,55 @@ impl EngineBackend for UtrEngine {
     }
 
     fn try_from_wire_name(name: &str) -> Option<Self> {
-        match name {
-            "rev_utr" => Some(Self::RevAi),
-            "whisper_utr" => Some(Self::Whisper),
-            "tencent_utr" => Some(Self::HkTencent),
-            _ => None,
+        // The one table, so a spelling cannot be accepted here and rejected by
+        // the CLI resolver, or the reverse.
+        Self::resolve_variant(name)
+    }
+}
+
+impl SelectableEngine for UtrEngine {
+    type Selected = Self;
+    const ALL: &'static [Self] = &[Self::RevAi, Self::Whisper, Self::HkTencent];
+    const DEFAULT: Self = Self::RevAi;
+    const CATEGORY: &'static str = "UTR";
+
+    fn selection_name(&self) -> &'static str {
+        match self {
+            Self::RevAi => "rev",
+            Self::Whisper => "whisper",
+            Self::HkTencent => "tencent",
         }
+    }
+
+    fn accepted_names() -> &'static [(&'static str, Self)] {
+        Self::ACCEPTED_NAMES
+    }
+
+    fn resolve(name: &str) -> Option<Self> {
+        Self::resolve_variant(name)
     }
 }
 
 impl UtrEngine {
+    /// Canonical names first, then the wire names, which are the historical
+    /// half: persisted in JSON and SQLite so they cannot change, but also not
+    /// what a user should have to type.
+    const ACCEPTED_NAMES: &'static [(&'static str, Self)] = &[
+        ("rev", Self::RevAi),
+        ("whisper", Self::Whisper),
+        ("tencent", Self::HkTencent),
+        ("rev_utr", Self::RevAi),
+        ("whisper_utr", Self::Whisper),
+        ("tencent_utr", Self::HkTencent),
+    ];
+
     /// Parse one persisted wire-format token.
+    ///
+    /// Forwards to [`SelectableEngine::parse_wire_name`], which owns both
+    /// this body and the category name. All four categories had their own
+    /// copy of each.
     pub fn from_wire_name(name: &str) -> Result<Self, UnknownEngineName> {
-        Self::try_from_wire_name(name).ok_or_else(|| UnknownEngineName {
-            name: name.to_owned(),
-            category: "UTR",
-        })
+        <Self as SelectableEngine>::parse_wire_name(name)
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
@@ -127,7 +391,7 @@ pub enum FaEngineName {
 }
 
 impl EngineBackend for FaEngineName {
-    fn wire_name(&self) -> &str {
+    fn wire_name(&self) -> &'static str {
         match self {
             Self::Wave2Vec => "wav2vec_fa",
             Self::Whisper => "whisper_fa",
@@ -140,16 +404,52 @@ impl EngineBackend for FaEngineName {
     }
 
     fn try_from_wire_name(name: &str) -> Option<Self> {
-        match name {
-            "wav2vec_fa" | "wave2vec" => Some(Self::Wave2Vec),
-            "whisper_fa" | "whisper" => Some(Self::Whisper),
-            "cantonese_fa" | "wav2vec_canto" | "wav2vec_fa_canto" => Some(Self::Wav2vecCanto),
-            _ => None,
+        Self::ACCEPTED_NAMES
+            .iter()
+            .find(|(accepted, _)| *accepted == name)
+            .map(|(_, engine)| engine.clone())
+    }
+}
+
+impl SelectableEngine for FaEngineName {
+    type Selected = Self;
+    const ALL: &'static [Self] = &[Self::Wave2Vec, Self::Whisper, Self::Wav2vecCanto];
+    const DEFAULT: Self = Self::Whisper;
+    const CATEGORY: &'static str = "FA";
+
+    fn selection_name(&self) -> &'static str {
+        match self {
+            Self::Wave2Vec => "wav2vec",
+            Self::Whisper => "whisper",
+            Self::Wav2vecCanto => "cantonese",
         }
+    }
+
+    fn accepted_names() -> &'static [(&'static str, Self)] {
+        Self::ACCEPTED_NAMES
+    }
+
+    fn resolve(name: &str) -> Option<Self> {
+        Self::resolve_variant(name)
     }
 }
 
 impl FaEngineName {
+    /// Canonical names first, then every historical spelling. This category had
+    /// the most in circulation: the Cantonese engine alone answered to three,
+    /// and the book used a fourth.
+    const ACCEPTED_NAMES: &'static [(&'static str, Self)] = &[
+        ("wav2vec", Self::Wave2Vec),
+        ("whisper", Self::Whisper),
+        ("cantonese", Self::Wav2vecCanto),
+        ("wav2vec_fa", Self::Wave2Vec),
+        ("wave2vec", Self::Wave2Vec),
+        ("whisper_fa", Self::Whisper),
+        ("cantonese_fa", Self::Wav2vecCanto),
+        ("wav2vec_canto", Self::Wav2vecCanto),
+        ("wav2vec_fa_canto", Self::Wav2vecCanto),
+    ];
+
     /// The override name used in worker pool keys for dispatch.
     ///
     /// Must match `fa_backend_override_name()` in `worker/pool/execute_v2.rs`.
@@ -164,11 +464,12 @@ impl FaEngineName {
     }
 
     /// Parse one persisted wire-format token.
+    ///
+    /// Forwards to [`SelectableEngine::parse_wire_name`], which owns both
+    /// this body and the category name. All four categories had their own
+    /// copy of each.
     pub fn from_wire_name(name: &str) -> Result<Self, UnknownEngineName> {
-        Self::try_from_wire_name(name).ok_or_else(|| UnknownEngineName {
-            name: name.to_owned(),
-            category: "FA",
-        })
+        <Self as SelectableEngine>::parse_wire_name(name)
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
@@ -254,8 +555,15 @@ pub enum AsrEngineName {
     HkQwen,
 }
 
-impl EngineBackend for AsrEngineName {
-    fn wire_name(&self) -> &str {
+impl AsrEngineName {
+    /// The wire name, usable in a `const` context.
+    ///
+    /// THE owner of the table; [`EngineBackend::wire_name`] delegates here. It
+    /// is inherent and `const` so a constant can be DERIVED from a variant
+    /// rather than restating its spelling: `DEFAULT_ASR_SELECTION_NAME` was
+    /// the literal `"rev"` written beside `AsrEngineName::RevAi`, and nothing
+    /// tied the two together.
+    pub const fn wire_name_const(&self) -> &'static str {
         match self {
             Self::RevAi => "rev",
             Self::Whisper => "whisper",
@@ -268,6 +576,12 @@ impl EngineBackend for AsrEngineName {
             Self::HkFunaudio => "funaudio",
             Self::HkQwen => "qwen",
         }
+    }
+}
+
+impl EngineBackend for AsrEngineName {
+    fn wire_name(&self) -> &'static str {
+        self.wire_name_const()
     }
 
     fn is_rust_owned(&self) -> bool {
@@ -292,79 +606,12 @@ impl EngineBackend for AsrEngineName {
 }
 
 impl AsrEngineName {
-    /// Every name a user may pass to `--asr-engine`.
-    ///
-    /// The engine wire names plus [`PARAFORMER_SELECTION_NAME`], which is a
-    /// selection rather than a backend (see [`AsrSelection`]). Clap renders
-    /// this into the flag's help and rejects anything outside it, so the
-    /// advertised set and the accepted set are one list.
-    ///
-    /// A SELECTION is not an engine: some names people search for are an
-    /// engine plus a checkpoint. `paraformer` is the worked example, and it is
-    /// why this type exists rather than a bare [`AsrEngineName`]: Paraformer is
-    /// `funaudio` with `funaudio_model="paraformer-zh"`, so someone who knows
-    /// the model by name cannot find it by engine name. Making the name
-    /// selectable, and letting it carry its own implied override, is the fix.
-    ///
-    /// The constructor is [`AsrSelection::parse`], which is also what the CLI's
-    /// value parser uses, so the accepted set and the resolved meaning have one
-    /// definition.
-    pub fn selectable_names() -> impl Iterator<Item = &'static str> {
-        Self::ALL
-            .iter()
-            .map(|engine| engine.wire_name())
-            .chain(std::iter::once(PARAFORMER_SELECTION_NAME))
-    }
-
-    /// This engine's index in [`ALL`](Self::ALL).
-    ///
-    /// Exists to be exhaustive: it is what makes adding a variant a compile
-    /// error rather than a silently unreachable engine. Nothing calls it for
-    /// the index.
-    #[allow(dead_code)]
-    const fn position_in_all(self) -> usize {
-        match self {
-            Self::RevAi => 0,
-            Self::Whisper => 1,
-            Self::WhisperHub => 2,
-            Self::WhisperX => 3,
-            Self::WhisperOai => 4,
-            Self::WhisperRs => 5,
-            Self::HkTencent => 6,
-            Self::HkAliyun => 7,
-            Self::HkFunaudio => 8,
-            Self::HkQwen => 9,
-        }
-    }
-
-    /// Every ASR engine that exists, in help-display order.
-    ///
-    /// THE owner of "which engines exist". The CLI derives its accepted values
-    /// and its help text from this, so the two cannot drift.
-    ///
-    /// A new variant cannot be forgotten here: [`position_in_all`] is an
-    /// exhaustive match returning each variant's index, so adding one fails to
-    /// compile until this array carries it. The earlier version of this comment
-    /// claimed the `wire_name` match enforced it, which was false: `wire_name`
-    /// would break, but `ALL` would happily stay at ten of eleven and the new
-    /// engine would simply be unreachable from the CLI.
-    ///
-    /// It exists because that drift had already shipped. "Which engines exist"
-    /// was spread across this enum, `AsrWorkerMode`, `AsrBackendV2`, the
-    /// `wire_name` table and a HAND-WRITTEN help string that listed five of the
-    /// ten. The help was the copy users read, and it was the stale one.
-    pub const ALL: [Self; 10] = [
-        Self::RevAi,
-        Self::Whisper,
-        Self::WhisperHub,
-        Self::WhisperX,
-        Self::WhisperOai,
-        Self::WhisperRs,
-        Self::HkTencent,
-        Self::HkAliyun,
-        Self::HkFunaudio,
-        Self::HkQwen,
-    ];
+    // `ALL` and `selectable_names` used to live here as inherent items, and
+    // this diff added them AGAIN as part of the `SelectableEngine` impl. Two
+    // owners of one list, which is the defect the trait exists to remove, and
+    // the worse half is that inherent items WIN method resolution over trait
+    // items: `AsrEngineName::ALL` silently meant the inherent copy, so the two
+    // could drift with nothing to notice. The trait impl is the only one now.
 
     /// The override name used in worker pool keys for dispatch, or `None` for
     /// cloud-only engines (Rev.AI) that don't need a local worker.
@@ -385,12 +632,13 @@ impl AsrEngineName {
         }
     }
 
-    /// Parse one persisted wire-format token. Falls back to `try_from_wire_name`.
+    /// Parse one persisted wire-format token.
+    ///
+    /// Forwards to [`SelectableEngine::parse_wire_name`], which owns both
+    /// this body and the category name. All four categories had their own
+    /// copy of each.
     pub fn from_wire_name(name: &str) -> Result<Self, UnknownEngineName> {
-        Self::try_from_wire_name(name).ok_or_else(|| UnknownEngineName {
-            name: name.to_owned(),
-            category: "ASR",
-        })
+        <Self as SelectableEngine>::parse_wire_name(name)
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
@@ -508,7 +756,7 @@ pub enum TranslateEngineName {
 }
 
 impl EngineBackend for TranslateEngineName {
-    fn wire_name(&self) -> &str {
+    fn wire_name(&self) -> &'static str {
         match self {
             Self::Google => "google",
             Self::Seamless => "seamless",
@@ -525,14 +773,9 @@ impl EngineBackend for TranslateEngineName {
     }
 
     fn try_from_wire_name(name: &str) -> Option<Self> {
-        match name {
-            "google" => Some(Self::Google),
-            "seamless" => Some(Self::Seamless),
-            "nllb" => Some(Self::Nllb),
-            "tencent" => Some(Self::Tencent),
-            "aliyun" => Some(Self::Aliyun),
-            _ => None,
-        }
+        // The one table, so a spelling cannot be accepted here and rejected by
+        // the CLI resolver, or the reverse.
+        Self::resolve_variant(name)
     }
 }
 
@@ -543,21 +786,18 @@ impl TranslateEngineName {
     /// divergence between dispatch and wire today. Provided for
     /// shape-parity with ``AsrEngineName`` and ``FaEngineName``.
     pub fn dispatch_override_name(&self) -> &'static str {
-        match self {
-            Self::Google => "google",
-            Self::Seamless => "seamless",
-            Self::Nllb => "nllb",
-            Self::Tencent => "tencent",
-            Self::Aliyun => "aliyun",
-        }
+        // Identical to the wire name, which its previous doc admitted; a third
+        // copy of one five-string table is three places to mistype it.
+        self.wire_name()
     }
 
     /// Parse one persisted wire-format token.
+    ///
+    /// Forwards to [`SelectableEngine::parse_wire_name`], which owns both
+    /// this body and the category name. All four categories had their own
+    /// copy of each.
     pub fn from_wire_name(name: &str) -> Result<Self, UnknownEngineName> {
-        Self::try_from_wire_name(name).ok_or_else(|| UnknownEngineName {
-            name: name.to_owned(),
-            category: "translate",
-        })
+        <Self as SelectableEngine>::parse_wire_name(name)
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
@@ -660,6 +900,14 @@ pub struct EngineOverrides {
     pub asr: Option<AsrEngineName>,
     /// FA engine override (e.g., `FaEngineName::Wav2vecCanto`).
     pub fa: Option<FaEngineName>,
+    /// UTR engine override (e.g., `UtrEngine::HkTencent`).
+    ///
+    /// Added late, and its absence was a silent-discard bug rather than a
+    /// deliberate omission: `utr` is not one of the typed keys, so
+    /// `--engine-overrides '{"utr":"whisper_utr"}'` fell through to
+    /// [`Self::extras`] and was shipped to a Python worker that has no say in
+    /// UTR engine selection at all. The user's choice vanished with no message.
+    pub utr: Option<UtrEngine>,
     /// Translate engine override (e.g., `TranslateEngineName::Seamless`).
     pub translate: Option<TranslateEngineName>,
     /// Opaque per-engine configuration knobs (e.g., ``qwen_model``,
@@ -671,7 +919,8 @@ pub struct EngineOverrides {
 impl EngineOverrides {
     /// Return `true` when no overrides are set.
     pub fn is_empty(&self) -> bool {
-        self.asr.is_none()
+        self.utr.is_none()
+            && self.asr.is_none()
             && self.fa.is_none()
             && self.translate.is_none()
             && self.extras.is_empty()
@@ -750,6 +999,7 @@ impl Serialize for EngineOverrides {
         use serde::ser::SerializeMap;
         let count = self.asr.is_some() as usize
             + self.fa.is_some() as usize
+            + self.utr.is_some() as usize
             + self.translate.is_some() as usize
             + self.extras.len();
         let mut map = serializer.serialize_map(Some(count))?;
@@ -758,6 +1008,9 @@ impl Serialize for EngineOverrides {
         }
         if let Some(ref fa) = self.fa {
             map.serialize_entry("fa", fa.as_wire_name())?;
+        }
+        if let Some(ref utr) = self.utr {
+            map.serialize_entry("utr", utr.as_wire_name())?;
         }
         if let Some(ref translate) = self.translate {
             map.serialize_entry("translate", translate.as_wire_name())?;
@@ -788,6 +1041,10 @@ impl<'de> Deserialize<'de> for EngineOverrides {
                     overrides.fa = Some(
                         FaEngineName::from_wire_name(&value).map_err(serde::de::Error::custom)?,
                     );
+                }
+                "utr" => {
+                    overrides.utr =
+                        Some(UtrEngine::from_wire_name(&value).map_err(serde::de::Error::custom)?);
                 }
                 "translate" => {
                     overrides.translate = Some(
@@ -1197,18 +1454,6 @@ mod tests {
 /// the funaudio dispatch path for no gain. It is a selection name instead.
 pub const PARAFORMER_SELECTION_NAME: &str = "paraformer";
 
-/// Spellings the CLI has accepted historically that are not wire names.
-///
-/// Found by deriving the flag's values from `AsrEngineName` and watching a test
-/// fail: the hand-written clap enum advertised `whisper-oai` while the wire
-/// name is `whisper_oai`, so one engine had two public spellings and nothing
-/// reconciled them. Dropping the old one would break anyone's scripts, so it is
-/// accepted and hidden rather than removed.
-pub const LEGACY_SELECTION_ALIASES: &[(&str, &str)] = &[("whisper-oai", "whisper_oai")];
-
-/// The default ASR selection when `--asr-engine` is not given.
-pub const DEFAULT_ASR_SELECTION_NAME: &str = "rev";
-
 /// The FunASR checkpoint that makes FunAudio behave as Paraformer.
 ///
 /// This is the checkpoint the FunASR ecosystem publishes under the Paraformer
@@ -1260,19 +1505,17 @@ impl AsrSelection {
     /// engine name used to be swallowed by an `Option`-returning resolver, so a
     /// typo silently produced no engine at all.
     pub fn parse(name: &str) -> Option<Self> {
-        // Resolve a historical spelling to its wire name first, so the rest of
-        // this function has exactly one name per engine to reason about.
-        let name = LEGACY_SELECTION_ALIASES
-            .iter()
-            .find_map(|(alias, canonical)| (*alias == name).then_some(*canonical))
-            .unwrap_or(name);
         if name == PARAFORMER_SELECTION_NAME {
             return Some(Self {
                 engine: AsrEngineName::HkFunaudio,
                 implied_overrides: PARAFORMER_IMPLIED_OVERRIDES,
             });
         }
-        AsrEngineName::try_from_wire_name(name).map(Self::from_engine)
+        // The SAME table the CLI derives its hidden-alias list from. These were
+        // two tables (a separate `LEGACY_SELECTION_ALIASES` const), so a
+        // spelling could be advertised by one and rejected by the other, which
+        // is precisely what `accepted_names` documents as impossible.
+        AsrEngineName::resolve_variant(name).map(Self::from_engine)
     }
 
     /// The backend this selection runs on.
@@ -1316,7 +1559,7 @@ mod asr_selection_tests {
     /// not in `ALL` is caught here rather than by a user who cannot reach it.
     #[test]
     fn every_engine_in_all_parses_from_its_wire_name() {
-        for engine in AsrEngineName::ALL {
+        for engine in AsrEngineName::ALL.iter().cloned() {
             let selection = AsrSelection::parse(engine.wire_name())
                 .unwrap_or_else(|| panic!("{} must parse", engine.wire_name()));
             assert_eq!(selection.engine(), engine);
@@ -1363,8 +1606,138 @@ mod asr_selection_tests {
         let names: Vec<&str> = AsrEngineName::selectable_names().collect();
         assert_eq!(names.len(), AsrEngineName::ALL.len() + 1);
         assert!(names.contains(&PARAFORMER_SELECTION_NAME));
-        for engine in AsrEngineName::ALL {
+        for engine in AsrEngineName::ALL.iter().cloned() {
             assert!(names.contains(&engine.wire_name()));
         }
+    }
+}
+
+#[cfg(test)]
+mod selectable_engine_tests {
+    use super::*;
+
+    /// Every engine in a category is advertised, resolves, and resolves back to
+    /// itself, checked generically so no category can be left out.
+    ///
+    /// This is the property the four hand-written surfaces kept failing: three
+    /// of four advertised a SUBSET of what they accepted. It survives as a test
+    /// rather than a type because "the advertised list and the resolver agree"
+    /// is a relationship between two functions, which no signature states.
+    fn assert_category_is_coherent<E>()
+    where
+        E: SelectableEngine + PartialEq + std::fmt::Debug,
+    {
+        // Written against `resolve_variant`, which returns `Option<Self>` for
+        // EVERY category including ASR. The first version was bounded on
+        // `Selected = E`, which silently exempted ASR, the only category with
+        // ten engines and the one whose list had already gone stale once.
+
+        // The load-bearing check, and the ONLY one here that can catch an
+        // engine missing from `ALL`. `ACCEPTED_NAMES` is written independently
+        // of `ALL`, so it is a second witness; anything derived from `ALL` and
+        // compared against `ALL` is circular. An earlier version asserted
+        // `advertised.len() == ALL.len()`, which passed cleanly with a variant
+        // deleted from `ALL`, because deleting it shrank both sides.
+        for (name, engine) in E::accepted_names() {
+            assert!(
+                E::ALL.contains(engine),
+                "{}: {name} resolves to {engine:?}, which is missing from ALL, \
+                 so that engine is unreachable from the flag",
+                E::CATEGORY
+            );
+        }
+
+        // Every engine's canonical name is in the table. This is what makes
+        // `accepted_names` mean the same thing in all four categories; three
+        // of them used to omit some or all canonical names, which forced three
+        // different resolvers and weakened the check above.
+        for engine in E::ALL {
+            let name = engine.selection_name();
+            assert_eq!(
+                E::resolve_variant(name).as_ref(),
+                Some(engine),
+                "{}: canonical name {name} must resolve back to itself",
+                E::CATEGORY
+            );
+        }
+
+        // Hidden aliases must resolve: clap rejects anything outside the
+        // shown-plus-hidden list before the resolver runs, so an alias the
+        // resolver does not know is a value clap accepts and then errors on.
+        for alias in E::hidden_alias_names() {
+            assert!(
+                E::resolve_variant(alias).is_some(),
+                "{}: hidden alias {alias} does not resolve",
+                E::CATEGORY
+            );
+        }
+
+        // The wire name round-trips, so persisted job options still parse.
+        for engine in E::ALL {
+            assert_eq!(
+                E::try_from_wire_name(engine.wire_name()).as_ref(),
+                Some(engine),
+                "{}: wire name {} must parse back",
+                E::CATEGORY,
+                engine.wire_name()
+            );
+        }
+
+        // One canonical name per engine.
+        let mut advertised: Vec<&str> = E::ALL.iter().map(E::selection_name).collect();
+        let count = advertised.len();
+        advertised.sort_unstable();
+        advertised.dedup();
+        assert_eq!(
+            advertised.len(),
+            count,
+            "{}: two engines share a selection name",
+            E::CATEGORY
+        );
+    }
+
+    #[test]
+    fn utr_category_is_coherent() {
+        assert_category_is_coherent::<UtrEngine>();
+    }
+
+    #[test]
+    fn fa_category_is_coherent() {
+        assert_category_is_coherent::<FaEngineName>();
+    }
+
+    #[test]
+    fn translate_category_is_coherent() {
+        assert_category_is_coherent::<TranslateEngineName>();
+    }
+
+    /// ASR is no longer exempt.
+    #[test]
+    fn asr_category_is_coherent() {
+        assert_category_is_coherent::<AsrEngineName>();
+    }
+
+    /// ASR additionally advertises `paraformer`, a selection rather than a
+    /// variant, and it must resolve through the CLI's own resolver.
+    #[test]
+    fn asr_advertises_paraformer_on_top_of_its_engines() {
+        let advertised: Vec<&str> = AsrEngineName::selectable_names().collect();
+        assert_eq!(advertised.len(), AsrEngineName::ALL.len() + 1);
+        assert!(advertised.contains(&PARAFORMER_SELECTION_NAME));
+        for name in &advertised {
+            assert!(
+                AsrEngineName::resolve(name).is_some(),
+                "advertised {name} does not resolve"
+            );
+        }
+    }
+
+    /// The default is a member of its own category.
+    #[test]
+    fn every_default_is_an_engine_that_exists() {
+        assert!(UtrEngine::ALL.contains(&UtrEngine::DEFAULT));
+        assert!(FaEngineName::ALL.contains(&FaEngineName::DEFAULT));
+        assert!(AsrEngineName::ALL.contains(&AsrEngineName::DEFAULT));
+        assert!(TranslateEngineName::ALL.contains(&TranslateEngineName::DEFAULT));
     }
 }

@@ -192,21 +192,39 @@ pub enum ServerHandshake {
     },
 }
 
-/// How waiting for a server to publish its port ended.
+/// Why a server never published a port.
 ///
-/// Three outcomes, not `Option<BoundPort>`: the wait loop knows exactly why it
-/// stopped, and collapsing "the process died" into "no port" threw that away.
-/// The caller then re-probed the process to reconstruct it, which races, so a
-/// server that timed out and then exited was reported as having exited
-/// immediately. Now the loop returns what it already knew.
+/// The error half of [`ServerHandshake::await_published`]. It is a named enum
+/// rather than a bare `Option<BoundPort>` because the wait loop knows exactly
+/// why it stopped, and collapsing "the process died" into "no port" threw that
+/// away; the caller then re-probed the process to reconstruct it, which races,
+/// so a server that timed out and then exited was reported as having exited
+/// immediately.
+///
+/// It is the ERROR half specifically, rather than a third variant on a
+/// success-or-failure enum, because both callers had already handled the
+/// success case by the time they needed this and could only close the
+/// impossible arm with `unreachable!("handled above")`: a panic, in a daemon
+/// startup path, standing in for a fact the type can carry. Each also kept its
+/// own copy of the message below, so the two could drift.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PublishOutcome {
-    /// The server bound and published this port.
-    Listening(BoundPort),
+pub enum PublishFailure {
     /// The process exited before publishing.
     Exited,
     /// The deadline passed while the process was still alive.
     TimedOut,
+}
+
+impl PublishFailure {
+    /// Operator-facing description, phrased to follow a process identifier.
+    ///
+    /// THE owner of this wording.
+    pub const fn reason(self) -> &'static str {
+        match self {
+            Self::Exited => "exited before reporting a listening port",
+            Self::TimedOut => "did not report a listening port in time",
+        }
+    }
 }
 
 /// Failures reading or writing the handshake.
@@ -285,7 +303,7 @@ impl ServerHandshake {
         slot: HandshakeSlot,
         pid: u32,
         deadline: std::time::Instant,
-    ) -> PublishOutcome {
+    ) -> Result<BoundPort, PublishFailure> {
         /// Fast enough that a sub-second bind is not rounded up to a poll tick.
         const POLL: std::time::Duration = std::time::Duration::from_millis(50);
 
@@ -300,18 +318,18 @@ impl ServerHandshake {
                     .flatten()
                     .is_some_and(|h| h.pid() == pid)
             {
-                return PublishOutcome::Listening(port);
+                return Ok(port);
             }
             if !crate::worker::pool::reaper::process_alive(pid) {
                 // One last look: the child may have published and exited
                 // between the poll above and this check.
                 return match Self::published_port(state_dir, slot) {
-                    Some(port) => PublishOutcome::Listening(port),
-                    None => PublishOutcome::Exited,
+                    Some(port) => Ok(port),
+                    None => Err(PublishFailure::Exited),
                 };
             }
             if std::time::Instant::now() >= deadline {
-                return PublishOutcome::TimedOut;
+                return Err(PublishFailure::TimedOut);
             }
             tokio::time::sleep(POLL).await;
         }

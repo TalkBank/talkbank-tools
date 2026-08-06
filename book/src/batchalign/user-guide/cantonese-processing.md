@@ -1,11 +1,11 @@
 # Cantonese Engines
 
 **Status:** Current
-**Last updated:** 2026-05-27 12:00 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 Batchalign includes alternative ASR and forced alignment engines for Cantonese.
-These are built-in modules activated via `--engine-overrides` and shipped in
-the base package.
+These are built-in modules shipped in the base package, selected with the
+per-category engine flags below.
 
 ## Available Engines
 
@@ -15,7 +15,7 @@ the base package.
 | `tencent` | ASR | Tencent Cloud speech recognition with speaker diarization. |
 | `aliyun` | ASR | Alibaba Cloud NLS real-time speech recognition (Cantonese only). |
 | `funaudio` | ASR | FunASR/SenseVoice local model (no cloud credentials needed). |
-| `wav2vec_canto` | FA | Cantonese forced alignment with jyutping preprocessing. |
+| `cantonese` | FA | Cantonese forced alignment with jyutping preprocessing. |
 
 ## Installation
 
@@ -28,33 +28,62 @@ these engines. There are no Cantonese-specific extras to install.
 
 ## Usage
 
-Select an alternative engine with `--engine-overrides`:
+Each engine category has one flag, and `--help` lists every value it
+accepts: `--asr-engine` for transcription, `--fa-engine` for forced
+alignment, `--utr-engine` for utterance timing recovery.
+
+`--engine-overrides` is for per-engine PARAMETERS, such as which
+checkpoint to load. It is no longer how an engine is chosen; earlier
+versions of this page used it that way, which is why the Cantonese
+engines were hard to find.
 
 ```bash
 # Recommended: Qwen3-ASR (local, no credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "qwen"}'
+  --asr-engine qwen
 
 # Pick the 0.6B model for faster inference on tight hardware
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "qwen", "qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
+  --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
 
 # Transcribe with Tencent Cloud ASR (cloud, needs CAM credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "tencent"}'
+  --asr-engine tencent
 
 # Transcribe with FunASR (local, no credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "funaudio"}'
+  --asr-engine funaudio
 
 # Benchmark against a gold CHAT companion in the input directory
 batchalign3 benchmark input/ --output output/ --lang yue -n 1 \
-  --engine-overrides '{"asr": "qwen"}'
+  --asr-engine qwen
 
 # Force align with Cantonese FA engine
 batchalign3 align input/ -o output/ --lang yue \
-  --engine-overrides '{"fa": "wav2vec_canto"}'
+  --fa-engine cantonese
+
+# Align a transcript whose utterances have no timings yet, so utterance
+# timing recovery has to run. Rev.AI, the default UTR engine, does NOT
+# support Cantonese; pass one that does.
+batchalign3 align input/ -o output/ --lang yue --utr \
+  --fa-engine cantonese --utr-engine tencent
 ```
+
+### Utterance timing recovery on Cantonese
+
+`--utr` recovers timings for utterances that have none. Its default
+engine is Rev.AI, which has no Cantonese support, so a Cantonese file
+needing UTR fails validation unless another engine is named:
+
+| `--utr-engine` | Cantonese | Notes |
+|---|---|---|
+| `rev` (default) | no | Rev.AI has no `yue` model. |
+| `whisper` | yes | Local, no credentials. |
+| `tencent` | yes | Cloud, needs CAM credentials. Chinese variants only. |
+
+The error names the engines that would work, so there is nothing to
+guess. If none does, `--no-utr` skips the pass and alignment proceeds
+with interpolated timings.
 
 ## Credential Configuration
 
@@ -135,7 +164,7 @@ dependencies (like OpenCC) are required.
 
 - Local model, no cloud credentials, no network required
 - Default model is `FunAudioLLM/SenseVoiceSmall`. Pass
-  `--engine-overrides '{"asr": "funaudio", "funaudio_model": "<hf-id>"}'`
+  `--asr-engine funaudio --engine-overrides '{"funaudio_model": "<hf-id>"}'`
   to swap to a different FunASR model (e.g. a Paraformer variant); the
   loader's downstream code branches on whether the chosen model name
   contains `paraformer`.

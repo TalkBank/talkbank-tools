@@ -7,15 +7,13 @@ use crate::chat_ops::CacheTaskName;
 use crate::chat_ops::fa::CaMarkerPolicy as AppCaMarkerPolicy;
 use crate::options::{
     AlignOptions, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions, CompareOptions,
-    CorefOptions, DiarizeOptions, EngineOverrides, FaEngineName, MorphotagOptions,
-    OpensmileOptions, TranscribeOptions, TranslateEngineName, TranslateOptions,
-    UtrEngine as AppUtrEngine, UtrOverlapStrategy as AppUtrOverlapStrategy, UtsegOptions,
+    CorefOptions, DiarizeOptions, EngineOverrides, MorphotagOptions, OpensmileOptions,
+    TranscribeOptions, TranslateOptions, UtrOverlapStrategy as AppUtrOverlapStrategy, UtsegOptions,
 };
 use crate::params::{CacheOverrides, MergeAbbrevPolicy, WorTierPolicy};
 
 use super::{
-    CaMarkerPolicy as CliCaMarkerPolicy, Commands, CommonOpts, DiarizationMode, FaEngine,
-    GlobalOpts, TranslateEngine, UtrEngine as CliUtrEngine,
+    CaMarkerPolicy as CliCaMarkerPolicy, Commands, CommonOpts, DiarizationMode, GlobalOpts,
     UtrOverlapStrategy as CliUtrOverlapStrategy,
 };
 
@@ -145,43 +143,14 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
 
     match cmd {
         Commands::Align(a) => {
-            let fa_engine = if let Some(engine) = a.fa_engine_custom.as_deref() {
-                FaEngineName::from_wire_name(engine).ok()?
-            } else {
-                // BA2 compat aliases take precedence over --fa-engine.
-                // `wav2vec` was previously dead: this flag was never
-                // consulted, so `--wav2vec` silently fell through to
-                // whatever `--fa-engine`'s default happened to be. Only
-                // masked (not caught) while the default itself was Wave2Vec;
-                // exposed once the default changed to Whisper 2026-07-01.
-                let effective = if a.whisper_fa {
-                    FaEngine::Whisper
-                } else if a.wav2vec {
-                    FaEngine::Wav2vec
-                } else {
-                    a.fa_engine
-                };
-                match effective {
-                    FaEngine::Wav2vec => FaEngineName::Wave2Vec,
-                    FaEngine::Whisper => FaEngineName::Whisper,
-                }
-            };
-            let utr_engine = if a.utr && !a.no_utr {
-                let utr = if let Some(engine) = a.utr_engine_custom.as_deref() {
-                    AppUtrEngine::from_wire_name(engine).ok()?
-                } else if a.whisper && !a.rev {
-                    // BA2 compat alias
-                    AppUtrEngine::Whisper
-                } else {
-                    match a.utr_engine {
-                        CliUtrEngine::Rev => AppUtrEngine::RevAi,
-                        CliUtrEngine::Whisper => AppUtrEngine::Whisper,
-                    }
-                };
-                Some(utr)
-            } else {
-                None
-            };
+            // Resolution lives on `AlignArgs`, with the flags whose invariants
+            // it depends on, and is infallible. It used to live here as two
+            // inline ladders ending in `from_wire_name(..).ok()?`, which turned
+            // a mistyped engine name into `None` from this whole function: no
+            // engine, no message, and a run that proceeded as if nothing had
+            // been asked for.
+            let fa_engine = a.fa_selection();
+            let utr_engine = a.utr_selection();
             let utr_overlap_strategy = match a.utr_strategy {
                 CliUtrOverlapStrategy::Auto => AppUtrOverlapStrategy::Auto,
                 CliUtrOverlapStrategy::Global => AppUtrOverlapStrategy::Global,
@@ -257,13 +226,9 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
         }
         Commands::Translate(a) => Some(CommandOptions::Translate(TranslateOptions {
             common,
-            translate_engine: match a.translate_engine {
-                TranslateEngine::Google => TranslateEngineName::Google,
-                TranslateEngine::Seamless => TranslateEngineName::Seamless,
-                TranslateEngine::Nllb => TranslateEngineName::Nllb,
-                TranslateEngine::Tencent => TranslateEngineName::Tencent,
-                TranslateEngine::Aliyun => TranslateEngineName::Aliyun,
-            },
+            // No mapping: the flag parses straight into the domain enum, so
+            // there is no match here to be exhaustive over the wrong type.
+            translate_engine: a.translate_engine.clone(),
             merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
         })),
         Commands::Morphotag(a) => Some(CommandOptions::Morphotag(MorphotagOptions {
@@ -374,9 +339,10 @@ pub fn extract_lexicon(cmd: &Commands) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // Only the tests still name the engine enum directly; production code
-    // reaches it through AsrSelection.
-    use crate::options::AsrEngineName;
+    // Only the tests still name the engine enums directly; production code
+    // reaches ASR through AsrSelection, and FA/UTR through the resolution
+    // methods on the args types.
+    use crate::options::{AsrEngineName, FaEngineName};
 
     #[test]
     fn parse_engine_overrides_none() {

@@ -23,7 +23,7 @@ use crate::config::{self, RuntimeLayout};
 use crate::host_facts::EffectiveConfig;
 use crate::host_memory::HostMemoryRuntimeConfig;
 use crate::host_policy::HostExecutionPolicy;
-use crate::server_handshake::{HandshakeSlot, PublishOutcome, ServerHandshake};
+use crate::server_handshake::{HandshakeSlot, ServerHandshake};
 use crate::worker::handle::WorkerRuntimeConfig;
 use crate::worker::pool::PoolConfig;
 
@@ -280,16 +280,12 @@ pub async fn start(
         )
         .await
         {
-            PublishOutcome::Listening(port) => port,
+            Ok(port) => port,
             // The reason comes from the wait itself. Re-probing the process
             // here to guess it was racy: a server that timed out could exit
             // before the probe and be reported as having died immediately.
-            outcome => {
-                let reason = match outcome {
-                    PublishOutcome::Exited => "exited before reporting a listening port",
-                    PublishOutcome::TimedOut => "did not report a listening port in time",
-                    PublishOutcome::Listening(_) => unreachable!("handled above"),
-                };
+            Err(failure) => {
+                let reason = failure.reason();
                 eprintln!(
                     "\nerror: server process (PID {pid}) {reason}.\n\
                      Check the log file: {}\n\

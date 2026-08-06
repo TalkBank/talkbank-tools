@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-07-30 18:21 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 This page documents the current public `batchalign3` CLI surface. For anything
 you are scripting against, confirm with `batchalign3 <command> --help`.
@@ -32,13 +32,44 @@ Global options go before the command name.
 | `--timeout SECONDS` | Inference timeout for audio tasks (default: 1800 = 30 min) |
 | `--tui` / `--no-tui` | Toggle full-screen TUI for server-backed jobs (`DirectHost` local runs stay on terminal progress bars) |
 | `--open-dashboard` / `--no-open-dashboard` | Toggle browser auto-open for submitted server job pages (macOS only, interactive TTY only) |
-| `--engine-overrides JSON` | Select built-in alternative engines via a `{string:string}` JSON object. The recognized keys are `asr`, `fa`, and `translate` (engine names). Per-engine extra parameters are also accepted, e.g. `{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B","qwen_device":"cpu"}`: and forwarded to the worker. Unknown engine *names* still error loudly (so a typo like `"wisper"` is caught), but unknown *extras* keys flow through as opaque per-engine knobs. Invalid JSON is rejected. |
+| `--engine-overrides JSON` | Per-engine PARAMETERS, as a `{string:string}` JSON object, e.g. `{"qwen_model":"Qwen/Qwen3-ASR-0.6B","qwen_device":"cpu"}`. Forwarded to the worker as opaque knobs. The `asr` / `fa` / `utr` / `translate` keys additionally select an engine and beat the per-command flags; see "Engine selection" below. Invalid JSON is rejected. |
 | `--sequential` | Process files one at a time with a single worker. No memory gate, no server. Ideal for small jobs on laptops |
 | `--no-server` | Skip auto-detection of a local server; force direct in-process execution |
 
 BA2 compatibility flags (`--memlog`, `--mem-guard`, `--adaptive-workers`,
 `--pool`, `--shared-models`, etc.) have been removed. If your scripts use them,
 remove them.
+
+## Engine selection
+
+**These are per-command flags, not global ones**: they go AFTER the command
+name, like `batchalign3 transcribe in/ --asr-engine paraformer`.
+
+| Option | Commands | Meaning |
+| --- | --- | --- |
+| `--asr-engine NAME` | `transcribe`, `benchmark` | ASR engine. |
+| `--fa-engine NAME` | `align` | Forced-alignment engine. |
+| `--utr-engine NAME` | `align` | Utterance-timing-recovery engine. Only consulted with `--utr`. |
+| `--translate-engine NAME` | `translate` | Translation engine. |
+
+Each flag's `--help` lists every value it accepts, derived from the engine
+enum itself, so the advertised set and the accepted set are the same list. An
+unrecognized name is rejected while parsing, naming what you typed and
+suggesting the nearest valid value.
+
+The older `--asr-engine-custom` / `--fa-engine-custom` / `--utr-engine-custom`
+flags still work and are hidden from help. They exist because each visible flag
+used to advertise only some of its engines, which left the rest reachable only
+through a second, differently-named flag: that is how the Cantonese engines
+stayed hidden from the people who needed them. Prefer the flags above.
+
+The `asr` / `fa` / `utr` / `translate` keys of `--engine-overrides` also select
+an engine, and take precedence over the flags. Use the flags for ordinary work;
+the keys exist so one shared option can pin engines across a batch.
+
+`utr` was missing from that set until 2026-08-06: it parsed, was forwarded to
+the Python worker as an opaque extra, and was ignored by everything, so a user
+who wrote it saw their choice silently dropped.
 
 ## Sequential mode
 

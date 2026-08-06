@@ -1,7 +1,7 @@
 # translate: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-08-06 16:10 EDT
 
 Implementation guide for the `translate` command. For user-facing
 documentation, see [User Guide: translate](../../user-guide/commands/translate.md).
@@ -12,8 +12,8 @@ documentation, see [User Guide: translate](../../user-guide/commands/translate.m
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `TranslateArgs` | `--translate-engine` flag (`TranslateEngine` clap enum) + lang override |
-| CLI → wire | `crates/batchalign/src/cli/args/options.rs`: `Commands::Translate` arm | Maps `TranslateEngine` → `Option<TranslateEngineName>` on `TranslateOptions` |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `TranslateArgs` | `--translate-engine` flag, parsed straight into `TranslateEngineName` by `engine_selection_parser::<TranslateEngineName>()` |
+| CLI → wire | `crates/batchalign/src/cli/args/options.rs`: `Commands::Translate` arm | No mapping: the flag already holds a `TranslateEngineName`. The CLI-private mirror enum and its hand-written match were removed 2026-08-06; see `SelectableEngine` in `types/engines.rs` |
 | Catalog entry | `crates/batchalign/src/recipe_runner/catalog.rs` | the `CatalogEntry` for `translate` |
 | Stage recipe | `crates/batchalign/src/recipe_runner/recipes.rs` | `TRANSLATE_RECIPE` |
 | Translate orchestration | `crates/batchalign/src/translate.rs` | Cross-file batching, cache, `%xtra` injection |

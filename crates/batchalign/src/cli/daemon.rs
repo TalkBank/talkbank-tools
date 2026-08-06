@@ -25,7 +25,7 @@ use std::time::Duration;
 use std::num::NonZeroU16;
 
 use crate::config::{PortRequest, RuntimeLayout};
-use crate::server_handshake::{HandshakeSlot, PublishOutcome, ServerHandshake};
+use crate::server_handshake::{HandshakeSlot, ServerHandshake};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
@@ -846,17 +846,13 @@ async fn start_daemon(
     let bound = match ServerHandshake::await_published(dir, profile.handshake_slot(), pid, deadline)
         .await
     {
-        PublishOutcome::Listening(port) => port,
-        outcome => {
+        Ok(port) => port,
+        Err(failure) => {
             // Kill it. A child that has not reported a port is still booting,
             // and leaving it running orphans a daemon that will bind moments
             // later: the next invocation adopts it while this one reports no
             // server available, having thrown away the whole boot.
-            let reason = match outcome {
-                PublishOutcome::Exited => "exited before reporting a listening port",
-                PublishOutcome::TimedOut => "did not report a listening port in time",
-                PublishOutcome::Listening(_) => unreachable!("handled above"),
-            };
+            let reason = failure.reason();
             eprintln!(
                 "warning: {} daemon (PID {pid}) {reason}. Check {}",
                 profile.label(),
