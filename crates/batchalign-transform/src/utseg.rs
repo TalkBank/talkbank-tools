@@ -518,6 +518,46 @@ fn partition_wor_tier(
 /// words inside each via `extract::collect_utterance_content` with
 /// `TierDomain::Wor`. Each such word inherits its enclosing content item's
 /// group.
+/// Whether a content node is a retrace, in EITHER spelling.
+///
+/// One owner for the question, because the answer is what decides whether a
+/// node binds forward to its material. It was written inline as
+/// `matches!(item, UtteranceContent::Retrace(_))`, and when chatter v0.10.0
+/// added `AnnotatedRetrace` that expression silently started answering "no"
+/// for every retrace carrying an error code: the crate compiled, and the
+/// stranding regression this module documents came back for exactly the
+/// utterances a transcriber had annotated. A `matches!` is a catch-all wearing
+/// a macro. The exhaustive match below makes a third spelling a compile error.
+fn is_retrace_node(item: &UtteranceContent) -> bool {
+    match item {
+        UtteranceContent::Retrace(_) | UtteranceContent::AnnotatedRetrace(_) => true,
+        UtteranceContent::Word(_)
+        | UtteranceContent::AnnotatedWord(_)
+        | UtteranceContent::ReplacedWord(_)
+        | UtteranceContent::Event(_)
+        | UtteranceContent::AnnotatedEvent(_)
+        | UtteranceContent::Pause(_)
+        | UtteranceContent::Group(_)
+        | UtteranceContent::AnnotatedGroup(_)
+        | UtteranceContent::Quotation(_)
+        | UtteranceContent::PhoGroup(_)
+        | UtteranceContent::SinGroup(_)
+        | UtteranceContent::AnnotatedAction(_)
+        | UtteranceContent::Freecode(_)
+        | UtteranceContent::Separator(_)
+        | UtteranceContent::OverlapPoint(_)
+        | UtteranceContent::InternalBullet(_)
+        | UtteranceContent::LongFeatureBegin(_)
+        | UtteranceContent::LongFeatureEnd(_)
+        | UtteranceContent::UnderlineBegin(_)
+        | UtteranceContent::UnderlineEnd(_)
+        | UtteranceContent::NonvocalBegin(_)
+        | UtteranceContent::NonvocalEnd(_)
+        | UtteranceContent::NonvocalSimple(_)
+        | UtteranceContent::OtherSpokenEvent(_) => false,
+    }
+}
+
 fn wor_eligible_word_groups(
     content_items: &[UtteranceContent],
     content_item_group: &[Option<usize>],
@@ -572,9 +612,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     // if none follows (a legitimately utterance-final retrace), leave it for the
     // generic back-fill. Regression: `utseg_split_does_not_strand_retrace`.
     for idx in 0..num_content_items {
-        if content_item_group[idx].is_some()
-            || !matches!(content_items[idx], UtteranceContent::Retrace(_))
-        {
+        if content_item_group[idx].is_some() || !is_retrace_node(&content_items[idx]) {
             continue;
         }
         if let Some(next_group) = content_item_group[idx + 1..].iter().find_map(|g| *g) {
@@ -830,22 +868,22 @@ mod tests {
         assert!(out1.contains("and he likes cake"), "Second split: {out1}");
     }
 
-    /// True if `chat` contains a retrace marker (`[/]`, `[//]`, `[///]`)
-    /// immediately followed (after optional whitespace) by a terminator. Such a
-    /// marker is dangling: the retrace has no repeated/corrected material after
-    /// it, which is invalid CHAT.
-    fn has_dangling_retrace(chat: &str) -> bool {
-        for marker in ["[/]", "[//]", "[///]"] {
-            let mut from = 0;
-            while let Some(pos) = chat[from..].find(marker) {
-                let after = chat[from + pos + marker.len()..].trim_start();
-                if after.starts_with(['.', '?', '!']) {
-                    return true;
-                }
-                from += pos + marker.len();
-            }
-        }
-        false
+    /// True if a segment ENDS with a retrace, which means the split separated
+    /// the retrace from the material it points at.
+    ///
+    /// A question about the MODEL, not about rendered text. This used to scan
+    /// the segment's CHAT string for a marker followed by a terminator, and any
+    /// annotation sitting between the two hid the dangle:
+    /// `Sis <that first> [/] [* p:w] .` is stranded and the scan called it
+    /// clean. So when chatter v0.10.0 introduced `AnnotatedRetrace` and the
+    /// pre-assignment stopped matching it, the regression was invisible to the
+    /// very test written to catch it. Both retrace spellings are named here,
+    /// with no catch-all, so a third would be a compile error.
+    fn ends_with_dangling_retrace(utt: &Utterance) -> bool {
+        matches!(
+            utt.main.content.content.iter().next_back(),
+            Some(UtteranceContent::Retrace(_) | UtteranceContent::AnnotatedRetrace(_))
+        )
     }
 
     /// utseg must never split an utterance between a retrace marker and the
@@ -873,8 +911,38 @@ mod tests {
             let s = seg.to_chat_string();
             println!("segment {i}: {s}");
             assert!(
-                !has_dangling_retrace(&s),
+                !ends_with_dangling_retrace(seg),
                 "utseg split stranded a retrace in segment {i}: {s}"
+            );
+        }
+    }
+
+    /// Annotated-retrace variant of `utseg_split_does_not_strand_retrace`.
+    ///
+    /// chatter v0.10.0 gave an annotated retrace its own content node,
+    /// `AnnotatedRetrace`, so `<that first> [/] [* p:w]` stopped matching
+    /// `UtteranceContent::Retrace(_)`. The pre-assignment above then skipped
+    /// it, the generic back-fill attached it to the PRECEDING word, and the
+    /// stranding this whole block exists to prevent came back for exactly the
+    /// utterances that carry an error code, on the UMICH corpus the original
+    /// bug was found in. The crate still COMPILED, because the arm that lost
+    /// the case was a `matches!`.
+    #[test]
+    fn utseg_split_does_not_strand_annotated_retrace() {
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
+            @Participants:\tPAR0 Participant\n\
+            @ID:\teng|test|PAR0|||||Participant|||\n\
+            *PAR0:\tSis <that first> [/] [* p:w] that first you .\n@End\n";
+        let chat = parse_chat(chat_text);
+        let utt = get_utterance(&chat, 0).clone();
+        let result = split_utterance(utt, &[0, 1, 1, 1]);
+        assert_eq!(result.len(), 2, "expected a split into two segments");
+        for (i, seg) in result.iter().enumerate() {
+            let s = seg.to_chat_string();
+            println!("segment {i}: {s}");
+            assert!(
+                !ends_with_dangling_retrace(seg),
+                "utseg split stranded an annotated retrace in segment {i}: {s}"
             );
         }
     }
@@ -902,7 +970,7 @@ mod tests {
             let s = seg.to_chat_string();
             println!("segment {i}: {s}");
             assert!(
-                !has_dangling_retrace(&s),
+                !ends_with_dangling_retrace(seg),
                 "utseg split stranded a group retrace in segment {i}: {s}"
             );
         }
