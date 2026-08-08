@@ -33,7 +33,8 @@ use talkbank_model::alignment::helpers::TierDomain;
 use talkbank_model::model::ChatFileLines;
 use talkbank_model::model::dependent_tier::wor::WorItem;
 use talkbank_model::model::{
-    ChatFile, DependentTier, Line, MainTier, Terminator, Utterance, UtteranceContent, WorTier,
+    ChatFile, DependentTier, Line, MainTier, Retrace, Terminator, Utterance, UtteranceContent,
+    WorTier,
 };
 
 use crate::extract;
@@ -506,19 +507,7 @@ fn partition_wor_tier(
     )
 }
 
-/// Compute the child-group assignment for each main-tier word that is
-/// `%wor`-eligible.
-///
-/// "Eligible" matches `TierDomain::Wor`: untranscribed words (`xxx`/`yyy`/
-/// `www`), phonological fragments (`&+`), and nonwords (`&~`) are excluded;
-/// fillers (`&-`) are included. The returned Vec has one entry per eligible
-/// word, in main-tier order; entries are child-group indices.
-///
-/// Implementation: walk content_items one at a time, count `%wor`-eligible
-/// words inside each via `extract::collect_utterance_content` with
-/// `TierDomain::Wor`. Each such word inherits its enclosing content item's
-/// group.
-/// Whether a content node is a retrace, in EITHER spelling.
+/// The retrace this content node is, in EITHER spelling, or `None`.
 ///
 /// One owner for the question, because the answer is what decides whether a
 /// node binds forward to its material. It was written inline as
@@ -528,9 +517,15 @@ fn partition_wor_tier(
 /// stranding regression this module documents came back for exactly the
 /// utterances a transcriber had annotated. A `matches!` is a catch-all wearing
 /// a macro. The exhaustive match below makes a third spelling a compile error.
-fn is_retrace_node(item: &UtteranceContent) -> bool {
+///
+/// Returns the NODE rather than a bool: the two spellings differ only in
+/// carrying the annotations that follow the marker, so a caller that later
+/// needs the retraced material has it, and a predicate that answers `true`
+/// and throws the answer away cannot be extended without being rewritten.
+fn as_retrace(item: &UtteranceContent) -> Option<&Retrace> {
     match item {
-        UtteranceContent::Retrace(_) | UtteranceContent::AnnotatedRetrace(_) => true,
+        UtteranceContent::Retrace(retrace) => Some(retrace),
+        UtteranceContent::AnnotatedRetrace(annotated) => Some(&annotated.inner),
         UtteranceContent::Word(_)
         | UtteranceContent::AnnotatedWord(_)
         | UtteranceContent::ReplacedWord(_)
@@ -554,9 +549,22 @@ fn is_retrace_node(item: &UtteranceContent) -> bool {
         | UtteranceContent::NonvocalBegin(_)
         | UtteranceContent::NonvocalEnd(_)
         | UtteranceContent::NonvocalSimple(_)
-        | UtteranceContent::OtherSpokenEvent(_) => false,
+        | UtteranceContent::OtherSpokenEvent(_) => None,
     }
 }
+
+/// Compute the child-group assignment for each main-tier word that is
+/// `%wor`-eligible.
+///
+/// "Eligible" matches `TierDomain::Wor`: untranscribed words (`xxx`/`yyy`/
+/// `www`), phonological fragments (`&+`), and nonwords (`&~`) are excluded;
+/// fillers (`&-`) are included. The returned Vec has one entry per eligible
+/// word, in main-tier order; entries are child-group indices.
+///
+/// Implementation: walk content_items one at a time, count `%wor`-eligible
+/// words inside each via `extract::collect_utterance_content` with
+/// `TierDomain::Wor`. Each such word inherits its enclosing content item's
+/// group.
 
 fn wor_eligible_word_groups(
     content_items: &[UtteranceContent],
@@ -612,7 +620,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     // if none follows (a legitimately utterance-final retrace), leave it for the
     // generic back-fill. Regression: `utseg_split_does_not_strand_retrace`.
     for idx in 0..num_content_items {
-        if content_item_group[idx].is_some() || !is_retrace_node(&content_items[idx]) {
+        if content_item_group[idx].is_some() || as_retrace(&content_items[idx]).is_none() {
             continue;
         }
         if let Some(next_group) = content_item_group[idx + 1..].iter().find_map(|g| *g) {
@@ -877,13 +885,22 @@ mod tests {
     /// `Sis <that first> [/] [* p:w] .` is stranded and the scan called it
     /// clean. So when chatter v0.10.0 introduced `AnnotatedRetrace` and the
     /// pre-assignment stopped matching it, the regression was invisible to the
-    /// very test written to catch it. Both retrace spellings are named here,
-    /// with no catch-all, so a third would be a compile error.
+    /// very test written to catch it.
+    ///
+    /// Asks `as_retrace`, the same owner the production path asks. It first
+    /// spelled the predicate out again as a `matches!`, which was the exact
+    /// construct that function's docstring condemns, so the guard against this
+    /// bug class carried the bug class: a `matches!` is not exhaustive, and a
+    /// third retrace spelling would have made this helper answer "not a
+    /// retrace" while compiling cleanly.
     fn ends_with_dangling_retrace(utt: &Utterance) -> bool {
-        matches!(
-            utt.main.content.content.iter().next_back(),
-            Some(UtteranceContent::Retrace(_) | UtteranceContent::AnnotatedRetrace(_))
-        )
+        utt.main
+            .content
+            .content
+            .iter()
+            .next_back()
+            .and_then(as_retrace)
+            .is_some()
     }
 
     /// utseg must never split an utterance between a retrace marker and the
