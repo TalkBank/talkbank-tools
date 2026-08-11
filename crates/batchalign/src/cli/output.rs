@@ -12,18 +12,232 @@
 //!   outside the intended tree (e.g. `../../../etc/passwd`).
 //! - **Parent directory creation**: intermediate directories are created
 //!   automatically so callers do not need to pre-create nested output trees.
+//!
+//! # Two kinds of path, two types
+//!
+//! Every path here is one of exactly two kinds, and conflating them produced
+//! two field failures at once (external user report, 2026-08-11: `-o B` wrote
+//! its results into `B/B`):
+//!
+//! - An [`OutputRoot`] is the job's output directory, canonical and absolute.
+//! - A [`PlannedOutputPath`] is where one result file goes. It is absolute,
+//!   and it is *already rooted* at the [`OutputRoot`].
+//!
+//! The old code held both as bare `PathBuf` and recovered the distinction at
+//! runtime with `if out_path.is_absolute()`, which is a guess, not a fact. A
+//! path built as `out_dir.join(rel)` from a RELATIVE `-o` is relative, so that
+//! branch rooted it a second time and produced `B/B/session.cha`; an absolute
+//! `-o` took the other branch and was correct, which is why every test in this
+//! file (all using an absolute `tempfile::tempdir()`) passed. The same guess
+//! also broke containment: a not-yet-existing relative output directory failed
+//! to canonicalize and fell back to itself, so a relative prefix was compared
+//! against an absolute parent and every write was rejected as a traversal.
+//!
+//! Neither mistake is expressible now: a [`PlannedOutputPath`] cannot be joined
+//! onto anything, and an [`OutputRoot`] exists only after the directory does.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::api::{ContentType, FileResult};
 
 use crate::cli::error::CliError;
 
+/// The job's output directory: absolute, canonical, and known to exist.
+///
+/// Construction is the proof: [`OutputRoot::prepare`] is the only way to get
+/// one, and it creates the directory before canonicalizing it. A caller
+/// holding an `OutputRoot` therefore cannot be holding a relative path, which
+/// is what made the containment check compare incomparable kinds.
+struct OutputRoot(PathBuf);
+
+impl OutputRoot {
+    /// Create the output directory if absent, then canonicalize it.
+    ///
+    /// Canonicalizing matters beyond tidiness: the containment check below
+    /// compares against a canonicalized parent, and on macOS a temporary
+    /// directory reached through `/var` canonicalizes to `/private/var`, so
+    /// both sides must have been through the same resolution.
+    fn prepare(out_dir: &Path) -> Result<Self, CliError> {
+        std::fs::create_dir_all(out_dir).map_err(|e| {
+            CliError::Io(std::io::Error::new(
+                e.kind(),
+                format!("cannot create output directory {}: {e}", out_dir.display()),
+            ))
+        })?;
+        let canonical = std::fs::canonicalize(out_dir).map_err(|e| {
+            CliError::Io(std::io::Error::new(
+                e.kind(),
+                format!("cannot resolve output directory {}: {e}", out_dir.display()),
+            ))
+        })?;
+        Ok(Self(canonical))
+    }
+
+    fn as_path(&self) -> &Path {
+        &self.0
+    }
+}
+
+/// Where a single result file is to be written: absolute, and already rooted
+/// at an [`OutputRoot`].
+///
+/// The inner path is private and there is no accessor that composes, so the
+/// double join that produced `B/B` cannot be written. The two constructors
+/// name the two situations the old code could not tell apart:
+/// [`PlannedOutputPath::already_planned`] for a path the discovery pass
+/// already rooted, and [`PlannedOutputPath::under`] for a bare server-side
+/// display name that still has to be placed.
+struct PlannedOutputPath(PathBuf);
+
+impl PlannedOutputPath {
+    /// Adopt a path that the discovery pass already rooted at the output
+    /// directory (`out_dir.join(rel)`).
+    ///
+    /// Such a path is relative exactly when `-o` was given as a relative
+    /// path, in which case it is relative to the PROCESS's current directory,
+    /// never to the output root: resolving it against the root is what
+    /// duplicated the directory. Containment is not assumed here, it is
+    /// enforced by [`PlannedOutputPath::verified_under`].
+    fn already_planned(path: &Path) -> Result<Self, CliError> {
+        let absolute = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            let cwd = std::env::current_dir().map_err(|e| {
+                CliError::Io(std::io::Error::new(
+                    e.kind(),
+                    format!(
+                        "cannot read current directory to place {}: {e}",
+                        path.display()
+                    ),
+                ))
+            })?;
+            cwd.join(path)
+        };
+        Ok(Self(lexically_normalized(&absolute)))
+    }
+
+    /// Place a server-side display name (`"sample.cha"`, `"PWA/TYO_a1.cha"`)
+    /// directly under the output root.
+    ///
+    /// An absolute or upward-reaching name from the server survives the join
+    /// unchanged or escapes the root; both are caught by
+    /// [`PlannedOutputPath::verified_under`] rather than silently written.
+    fn under(root: &OutputRoot, name: &Path) -> Self {
+        Self(lexically_normalized(&root.as_path().join(name)))
+    }
+
+    /// Rewrite the extension to `.cha` unless the result is already CHAT or a
+    /// CSV sidecar.
+    ///
+    /// POLICY, not an invariant: `transcribe` is handed media (`audio.mp3`)
+    /// and returns a transcript, so the output file has to be renamed. Kept as
+    /// a test because no type can state which commands rename.
+    fn with_chat_extension(self) -> Self {
+        let ext = self
+            .0
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if ext == "cha" || ext == "csv" {
+            self
+        } else {
+            Self(self.0.with_extension("cha"))
+        }
+    }
+
+    /// Prove the destination sits inside `root`, create its parent, and
+    /// return the path to write.
+    ///
+    /// Checked twice on purpose. The first check runs BEFORE any directory is
+    /// created, so a hostile path never leaves a directory behind on its way
+    /// to being refused; the second runs after the parent exists, because
+    /// only the filesystem can settle a symlink planted between the two.
+    fn verified_under(self, root: &OutputRoot) -> Result<PathBuf, CliError> {
+        let traversal = || CliError::PathTraversal(self.0.to_string_lossy().to_string());
+
+        let resolved = resolved_without_creating(&self.0);
+        if !resolved.starts_with(root.as_path()) {
+            return Err(traversal());
+        }
+
+        let parent = resolved.parent().ok_or_else(traversal)?;
+        std::fs::create_dir_all(parent).map_err(|e| {
+            CliError::Io(std::io::Error::new(
+                e.kind(),
+                format!("cannot create output directory {}: {e}", parent.display()),
+            ))
+        })?;
+        let canonical_parent = std::fs::canonicalize(parent).map_err(|e| {
+            CliError::Io(std::io::Error::new(
+                e.kind(),
+                format!("cannot resolve output directory {}: {e}", parent.display()),
+            ))
+        })?;
+        if !canonical_parent.starts_with(root.as_path()) {
+            return Err(traversal());
+        }
+
+        let file_name = resolved.file_name().ok_or_else(traversal)?;
+        Ok(canonical_parent.join(file_name))
+    }
+}
+
+/// Resolve symlinks as far as the filesystem already reaches, creating
+/// nothing.
+///
+/// Walks up to the deepest ancestor that exists, canonicalizes it, then
+/// re-attaches the components that do not exist yet. This is what makes the
+/// pre-creation containment check trustworthy: on macOS a temporary directory
+/// handed in as `/var/folders/...` canonicalizes to `/private/var/folders/...`,
+/// and comparing the unresolved form against a canonical root would refuse
+/// every legitimate write. Expects `path` to be lexically normalized already,
+/// so no `..` remains to be reinterpreted after a symlink is followed.
+fn resolved_without_creating(path: &Path) -> PathBuf {
+    let mut unresolved: Vec<std::ffi::OsString> = Vec::new();
+    let mut cursor = path.to_path_buf();
+    loop {
+        if let Ok(canonical) = std::fs::canonicalize(&cursor) {
+            let mut resolved = canonical;
+            for component in unresolved.iter().rev() {
+                resolved.push(component);
+            }
+            return resolved;
+        }
+        let Some(name) = cursor.file_name().map(|n| n.to_os_string()) else {
+            // Reached a root that does not canonicalize: nothing to resolve.
+            return path.to_path_buf();
+        };
+        unresolved.push(name);
+        if !cursor.pop() {
+            return path.to_path_buf();
+        }
+    }
+}
+
+/// Resolve `.` and `..` without consulting the filesystem.
+///
+/// Purely lexical so it can run BEFORE any directory is created. Symlink
+/// escapes survive this and are caught by the canonical check afterwards.
+fn lexically_normalized(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
 /// Write a single file result to the output directory.
 ///
 /// Uses `result_map` (server_name -> output_path) for exact lookup.
-/// Falls back to joining with `out_dir` if not in the map.
+/// Falls back to placing the file directly under `out_dir` if not in the map.
 ///
 /// Returns `Ok(true)` on success, `Ok(false)` if the result had an error,
 /// or `Err` on I/O failure.
@@ -37,34 +251,17 @@ pub fn write_result(
         return Ok(false);
     }
 
-    let content_type = &result.content_type;
-    let out_path = if *content_type != ContentType::Chat {
+    let root = OutputRoot::prepare(out_dir)?;
+
+    let planned = if result.content_type != ContentType::Chat {
         // Non-CHAT output (e.g. CSV from opensmile), use server filename directly
-        out_dir.join(&*result.filename)
+        PlannedOutputPath::under(&root, Path::new(&*result.filename))
     } else {
-        resolve_output_path(&result.filename, result_map, out_dir)
+        resolve_output_path(&result.filename, result_map, &root)?
     };
 
-    // Path traversal protection: result path must be under out_dir
-    let out_resolved = std::fs::canonicalize(out_dir).unwrap_or_else(|_| out_dir.to_path_buf());
-    // We can't canonicalize the output path yet (it may not exist), so normalize manually
-    let out_path_abs = if out_path.is_absolute() {
-        out_path.clone()
-    } else {
-        out_dir.join(&out_path)
-    };
-
-    // Check that the output path doesn't escape the output directory
-    // by checking that canonicalizing the parent stays under out_dir
-    if let Some(parent) = out_path_abs.parent() {
-        std::fs::create_dir_all(parent)?;
-        let parent_resolved = std::fs::canonicalize(parent)?;
-        if !parent_resolved.starts_with(&out_resolved) {
-            return Err(CliError::PathTraversal(result.filename.to_string()));
-        }
-    }
-
-    std::fs::write(&out_path_abs, &result.content)?;
+    let destination = planned.verified_under(&root)?;
+    std::fs::write(&destination, &result.content)?;
     Ok(true)
 }
 
@@ -72,43 +269,71 @@ pub fn write_result(
 fn resolve_output_path(
     result_filename: &str,
     result_map: &HashMap<String, PathBuf>,
-    out_dir: &Path,
-) -> PathBuf {
+    root: &OutputRoot,
+) -> Result<PlannedOutputPath, CliError> {
     if let Some(path) = result_map.get(result_filename) {
-        return path.clone();
+        return PlannedOutputPath::already_planned(path);
     }
-    // Fallback: join with out_dir
-    let out_path = out_dir.join(result_filename);
-    // For transcribe which renames extensions: ensure .cha
-    let ext = out_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    if ext != "cha" && !result_filename.ends_with(".csv") {
-        out_path.with_extension("cha")
-    } else {
-        out_path
-    }
+    // Fallback: place under the output root, renaming media extensions to .cha
+    Ok(PlannedOutputPath::under(root, Path::new(result_filename)).with_chat_extension())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Resolve against a real (absolute) root and report where the file would
+    /// land, so the assertions below read as plain paths.
+    fn resolved(filename: &str, result_map: &HashMap<String, PathBuf>, root_dir: &Path) -> PathBuf {
+        let root = OutputRoot::prepare(root_dir).unwrap();
+        resolve_output_path(filename, result_map, &root)
+            .unwrap()
+            .verified_under(&root)
+            .unwrap()
+    }
+
     #[test]
     fn resolve_output_uses_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
         let mut map = HashMap::new();
-        map.insert("test.cha".to_string(), PathBuf::from("/out/test.cha"));
-        let result = resolve_output_path("test.cha", &map, Path::new("/out"));
-        assert_eq!(result, PathBuf::from("/out/test.cha"));
+        map.insert("test.cha".to_string(), root.join("test.cha"));
+
+        assert_eq!(
+            resolved("test.cha", &map, dir.path()),
+            root.join("test.cha")
+        );
     }
 
     #[test]
     fn resolve_output_fallback() {
-        let map = HashMap::new();
-        let result = resolve_output_path("test.cha", &map, Path::new("/out"));
-        assert_eq!(result, PathBuf::from("/out/test.cha"));
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+
+        assert_eq!(
+            resolved("test.cha", &HashMap::new(), dir.path()),
+            root.join("test.cha")
+        );
+    }
+
+    /// The field failure of 2026-08-11, at unit scale: a map value that was
+    /// built from a RELATIVE `-o` must land where it says, not one level
+    /// deeper. See `tests/relative_output_dir.rs` for the same contract
+    /// exercised through real discovery.
+    #[test]
+    fn relative_planned_path_is_not_rooted_twice() {
+        let dir = tempfile::tempdir().unwrap();
+        let root_dir = dir.path().join("B");
+        let root = OutputRoot::prepare(&root_dir).unwrap();
+
+        // What `discover_client_files` produces for `-o B`: a path relative
+        // to the current directory, already rooted at the output directory.
+        let planned = PlannedOutputPath::already_planned(&root_dir.join("session.cha")).unwrap();
+
+        assert_eq!(
+            planned.verified_under(&root).unwrap(),
+            root.as_path().join("session.cha")
+        );
     }
 
     #[test]
@@ -147,25 +372,40 @@ mod tests {
         assert!(!ok);
     }
 
+    /// POLICY: `transcribe` is handed media and returns a transcript, so the
+    /// fallback renames the extension. No type states which commands rename.
     #[test]
     fn resolve_output_fallback_adds_cha_for_media() {
-        let map = HashMap::new();
-        let result = resolve_output_path("audio.mp3", &map, Path::new("/out"));
-        assert_eq!(result, PathBuf::from("/out/audio.cha"));
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+
+        assert_eq!(
+            resolved("audio.mp3", &HashMap::new(), dir.path()),
+            root.join("audio.cha")
+        );
     }
 
+    /// POLICY: opensmile returns CSV sidecars, which keep their extension.
     #[test]
     fn resolve_output_fallback_keeps_csv() {
-        let map = HashMap::new();
-        let result = resolve_output_path("features.csv", &map, Path::new("/out"));
-        assert_eq!(result, PathBuf::from("/out/features.csv"));
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+
+        assert_eq!(
+            resolved("features.csv", &HashMap::new(), dir.path()),
+            root.join("features.csv")
+        );
     }
 
     #[test]
     fn resolve_output_fallback_no_extension() {
-        let map = HashMap::new();
-        let result = resolve_output_path("filename", &map, Path::new("/out"));
-        assert_eq!(result, PathBuf::from("/out/filename.cha"));
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+
+        assert_eq!(
+            resolved("filename", &HashMap::new(), dir.path()),
+            root.join("filename.cha")
+        );
     }
 
     #[test]
@@ -222,6 +462,33 @@ mod tests {
         assert!(
             format!("{err}").contains("path escapes output directory"),
             "expected PathTraversal, got: {err}"
+        );
+    }
+
+    /// A hostile path must not leave a directory behind on its way to being
+    /// refused. The lexical check runs before any `create_dir_all`.
+    #[test]
+    fn write_result_traversal_creates_no_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        let escape_target = dir.path().parent().unwrap().join("batchalign-escape-probe");
+        let map = HashMap::new();
+        let result = FileResult {
+            filename: "../batchalign-escape-probe/escaped.cha".into(),
+            content: "bad".to_string(),
+            content_type: ContentType::Chat,
+            error: None,
+            provenance: Vec::new(),
+        };
+
+        let err = write_result(&result, &map, dir.path()).unwrap_err();
+        assert!(
+            format!("{err}").contains("path escapes output directory"),
+            "expected PathTraversal, got: {err}"
+        );
+        assert!(
+            !escape_target.exists(),
+            "a refused write must not have created {}",
+            escape_target.display()
         );
     }
 
