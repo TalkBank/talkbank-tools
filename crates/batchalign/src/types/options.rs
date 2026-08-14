@@ -237,11 +237,7 @@ impl AlignOptions {
 
     /// Return the effective FA engine after applying any shared `fa` override.
     pub fn effective_fa_engine(&self) -> FaEngineName {
-        self.common
-            .engine_overrides
-            .fa
-            .clone()
-            .unwrap_or_else(|| self.fa_engine.clone())
+        self.common.engine_overrides.fa.unwrap_or(self.fa_engine)
     }
 
     /// Return the effective UTR engine after applying any shared `utr`

@@ -4,10 +4,13 @@
 //!
 //! 1. Rust types derive `schemars::JsonSchema`
 //! 2. This module emits JSON Schema for all IPC-boundary types
-//! 3. `scripts/generate_ipc_types.sh` runs `datamodel-code-generator` to
-//!    produce Pydantic models from the schema
-//! 4. `scripts/check_ipc_type_drift.sh` detects when Rust types change
-//!    without regenerating the Python side
+//! 3. `scripts/generate_ipc_types.sh` writes that schema into `ipc-schema/`
+//! 4. `scripts/check_ipc_type_drift.sh` fails when a Rust type has changed
+//!    without the schema being regenerated
+//!
+//! The hand-written Python models are then checked against the schema by
+//! `batchalign/tests/test_ipc_type_conformance.py`. They are not generated;
+//! see the "Rust to Python IPC Type Sync" developer page for why.
 //!
 //! ## Adding new IPC types
 //!
@@ -47,9 +50,8 @@ macro_rules! register {
 /// Generate JSON Schema for all IPC-boundary types, grouped by protocol layer.
 ///
 /// The `worker_v2` layer name is intentional: it matches the live typed worker
-/// namespace across Rust, `ipc-schema/worker_v2`, and
-/// `batchalign/generated/worker_v2` while the frozen V1 worker surface still
-/// exists beside it.
+/// namespace across the Rust module and `ipc-schema/worker_v2`, while the
+/// frozen V1 worker surface still exists beside it.
 ///
 /// Returns a map of `layer_name → { type_name → Schema }`.
 pub fn generate_ipc_schema() -> BTreeMap<String, BTreeMap<String, Schema>> {
@@ -201,6 +203,29 @@ pub fn check_ipc_schema(
                 Ok(actual) if actual.trim() == expected.trim() => {}
                 Ok(_) => drift.push(format!("  CHANGED: {}", path.display())),
                 Err(_) => drift.push(format!("  MISSING: {}", path.display())),
+            }
+        }
+
+        // A schema file with no Rust type behind it. Renaming a type used to
+        // leave its old file on disk forever: the generator never prunes, and
+        // checking only the types we know about cannot see what is left over.
+        // That matters because the Python conformance test reads these FILES,
+        // so an orphan means Python is being held to a contract Rust no longer
+        // has, with both gates green.
+        let Ok(entries) = std::fs::read_dir(&layer_dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_none_or(|ext| ext != "json") {
+                continue;
+            }
+            let is_known = path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .is_some_and(|stem| types.contains_key(stem));
+            if !is_known {
+                drift.push(format!("  ORPHANED: {}", path.display()));
             }
         }
     }

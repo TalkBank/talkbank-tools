@@ -25,8 +25,9 @@ belongs to the composed rule (pitch band + machine ear).
 from __future__ import annotations
 
 import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, Sequence
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     import numpy as np
@@ -102,7 +103,9 @@ class WindowFaScore:
 
 def normalize_word(word: str) -> str:
     """Lowercase a word to the aligner's a-z' alphabet; empty if nothing survives."""
-    return "".join(ch for ch in word.lower() if ch.isascii() and (ch.isalpha() or ch == "'"))
+    return "".join(
+        ch for ch in word.lower() if ch.isascii() and (ch.isalpha() or ch == "'")
+    )
 
 
 def normalize_words(words: Sequence[str]) -> tuple[str, ...]:

@@ -10,24 +10,33 @@ Missing any of these causes serde deserialization failure.  The Pydantic
 """
 
 from __future__ import annotations
+
 from typing import Any
 
 from batchalign.inference.morphosyntax import (
     UdWord,
+)
+from batchalign.inference.morphosyntax import (
     validate_ud_words as _validate_ud_words,
 )
-
 
 # --- Direct model tests ---
 
 
 def test_udword_complete_token() -> None:
     """Complete token should pass validation unchanged."""
-    w = UdWord.model_validate({
-        "id": 1, "text": "hello", "lemma": "hello",
-        "upos": "INTJ", "head": 0, "deprel": "root",
-        "xpos": "UH", "feats": None,
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "hello",
+            "lemma": "hello",
+            "upos": "INTJ",
+            "head": 0,
+            "deprel": "root",
+            "xpos": "UH",
+            "feats": None,
+        }
+    )
     assert w.lemma == "hello"
     assert w.upos == "INTJ"
     assert w.head == 0
@@ -37,10 +46,15 @@ def test_udword_complete_token() -> None:
 
 def test_udword_missing_lemma_defaults_to_text() -> None:
     """Regular token missing lemma should default to surface text."""
-    w = UdWord.model_validate({
-        "id": 14, "text": "assistante",
-        "upos": "NOUN", "head": 6, "deprel": "conj",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 14,
+            "text": "assistante",
+            "upos": "NOUN",
+            "head": 6,
+            "deprel": "conj",
+        }
+    )
     assert w.lemma == "assistante"
 
 
@@ -55,65 +69,106 @@ def test_udword_range_token_gets_empty_lemma() -> None:
 
 def test_udword_missing_upos() -> None:
     """Missing upos should default to 'X'."""
-    w = UdWord.model_validate({
-        "id": 1, "text": "foo", "lemma": "foo",
-        "head": 0, "deprel": "root",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "foo",
+            "lemma": "foo",
+            "head": 0,
+            "deprel": "root",
+        }
+    )
     assert w.upos == "X"
 
 
 def test_udword_missing_head() -> None:
     """Missing head should default to 0."""
-    w = UdWord.model_validate({
-        "id": 1, "text": "foo", "lemma": "foo",
-        "upos": "NOUN", "deprel": "root",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "foo",
+            "lemma": "foo",
+            "upos": "NOUN",
+            "deprel": "root",
+        }
+    )
     assert w.head == 0
 
 
 def test_udword_missing_deprel() -> None:
     """Missing deprel should default to 'dep'."""
-    w = UdWord.model_validate({
-        "id": 1, "text": "foo", "lemma": "foo",
-        "upos": "NOUN", "head": 0,
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "foo",
+            "lemma": "foo",
+            "upos": "NOUN",
+            "head": 0,
+        }
+    )
     assert w.deprel == "dep"
 
 
 def test_udword_pad_deprel_sanitized() -> None:
     """Stanza <PAD> deprel should be replaced with safe default 'dep'."""
-    w = UdWord.model_validate({
-        "id": 3, "text": "etxean", "lemma": "etxe",
-        "upos": "NOUN", "head": 0, "deprel": "<PAD>",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 3,
+            "text": "etxean",
+            "lemma": "etxe",
+            "upos": "NOUN",
+            "head": 0,
+            "deprel": "<PAD>",
+        }
+    )
     assert w.deprel == "dep"
 
 
 def test_udword_angle_bracket_deprel_sanitized() -> None:
     """Any angle-bracketed deprel (e.g. <UNK>) should be sanitized."""
-    w = UdWord.model_validate({
-        "id": 1, "text": "foo", "lemma": "foo",
-        "upos": "NOUN", "head": 0, "deprel": "<UNK>",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "foo",
+            "lemma": "foo",
+            "upos": "NOUN",
+            "head": 0,
+            "deprel": "<UNK>",
+        }
+    )
     assert w.deprel == "dep"
 
 
 def test_udword_normal_deprel_preserved() -> None:
     """Normal deprel values must not be affected by PAD sanitization."""
-    w = UdWord.model_validate({
-        "id": 1, "text": "hello", "lemma": "hello",
-        "upos": "INTJ", "head": 0, "deprel": "root",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "hello",
+            "lemma": "hello",
+            "upos": "INTJ",
+            "head": 0,
+            "deprel": "root",
+        }
+    )
     assert w.deprel == "root"
 
 
 def test_udword_extra_fields_preserved() -> None:
     """Extra fields (ner, start_char, etc.) should be kept."""
-    w = UdWord.model_validate({
-        "id": 1, "text": "Paris", "lemma": "Paris",
-        "upos": "PROPN", "head": 0, "deprel": "root",
-        "ner": "B-LOC", "start_char": 0, "end_char": 5,
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "Paris",
+            "lemma": "Paris",
+            "upos": "PROPN",
+            "head": 0,
+            "deprel": "root",
+            "ner": "B-LOC",
+            "start_char": 0,
+            "end_char": 5,
+        }
+    )
     d = w.model_dump()
     assert d["ner"] == "B-LOC"
     assert d["start_char"] == 0
@@ -172,10 +227,16 @@ def test_udword_iob_deprel_normalized_to_iobj() -> None:
     undetected until chatter's E761 relation-vocabulary rule shipped in
     v0.4.0. CLAN CHECK never flagged it.
     """
-    w = UdWord.model_validate({
-        "id": 2, "text": "ne", "lemma": "ne",
-        "upos": "PRON", "head": 1, "deprel": "iob",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 2,
+            "text": "ne",
+            "lemma": "ne",
+            "upos": "PRON",
+            "head": 1,
+            "deprel": "iob",
+        }
+    )
     assert w.deprel == "iobj"
 
 
@@ -187,10 +248,16 @@ def test_udword_unknown_deprel_falls_back_to_dep() -> None:
     unrecognised relation degrades to `dep`, which is a real UD relation, and
     warns.
     """
-    w = UdWord.model_validate({
-        "id": 1, "text": "foo", "lemma": "foo",
-        "upos": "NOUN", "head": 0, "deprel": "notarelation",
-    })
+    w = UdWord.model_validate(
+        {
+            "id": 1,
+            "text": "foo",
+            "lemma": "foo",
+            "upos": "NOUN",
+            "head": 0,
+            "deprel": "notarelation",
+        }
+    )
     assert w.deprel == "dep"
 
 
@@ -202,10 +269,25 @@ def test_udword_valid_ud_relations_pass_through_untouched() -> None:
     only the HEAD is a closed set; over-eager normalisation here would
     corrupt far more data than the bug it fixes.
     """
-    for deprel in ("iobj", "nsubj", "root", "punct", "expl", "discourse",
-                   "nmod:poss", "acl:relcl", "flat:foreign"):
-        w = UdWord.model_validate({
-            "id": 1, "text": "foo", "lemma": "foo",
-            "upos": "NOUN", "head": 0, "deprel": deprel,
-        })
+    for deprel in (
+        "iobj",
+        "nsubj",
+        "root",
+        "punct",
+        "expl",
+        "discourse",
+        "nmod:poss",
+        "acl:relcl",
+        "flat:foreign",
+    ):
+        w = UdWord.model_validate(
+            {
+                "id": 1,
+                "text": "foo",
+                "lemma": "foo",
+                "upos": "NOUN",
+                "head": 0,
+                "deprel": deprel,
+            }
+        )
         assert w.deprel == deprel, f"{deprel!r} must survive untouched"

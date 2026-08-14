@@ -10,10 +10,8 @@ import logging
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-from pydantic import BaseModel, Field
-
-logger = logging.getLogger(__name__)
 import pycountry
+from pydantic import BaseModel, Field
 
 from batchalign.inference._domain_types import (
     AudioPath,
@@ -26,8 +24,11 @@ from batchalign.inference._domain_types import (
     TimestampSeconds,
 )
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from batchalign.inference.types import WhisperASRHandle
+    from batchalign.worker._types_v2 import WhisperChunkResultPayloadV2
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -125,7 +126,6 @@ def load_whisper_asr(
     device_policy=None,
 ) -> WhisperASRHandle:
     """Load a Whisper ASR pipeline. Returns a typed handle."""
-    from batchalign.inference.types import WhisperASRHandle
     import torch
     from transformers import (
         GenerationConfig,
@@ -134,9 +134,9 @@ def load_whisper_asr(
         pipeline,
     )
 
-    from batchalign.inference.audio import bind_whisper_token_timestamp_extractor
-
     from batchalign.device import resolve_inference_device
+    from batchalign.inference.audio import bind_whisper_token_timestamp_extractor
+    from batchalign.inference.types import WhisperASRHandle
     from batchalign.worker._progress import (
         HF_ARTIFACTS_WHISPER,
         emit_hf_download_if_missing,
@@ -153,9 +153,7 @@ def load_whisper_asr(
     # doesn't bypass the notification.
     emit_hf_download_if_missing(base, kind="ASR", artifacts=HF_ARTIFACTS_WHISPER)
     if model != base:
-        emit_hf_download_if_missing(
-            model, kind="ASR", artifacts=HF_ARTIFACTS_WHISPER
-        )
+        emit_hf_download_if_missing(model, kind="ASR", artifacts=HF_ARTIFACTS_WHISPER)
 
     config = GenerationConfig.from_pretrained(base)
     config.no_repeat_ngram_size = 4
@@ -164,8 +162,15 @@ def load_whisper_asr(
     if language == "Cantonese":
         config.no_timestamps_token_id = 50363
         config.alignment_heads = [
-            [5, 3], [5, 9], [8, 0], [8, 4], [8, 8],
-            [9, 0], [9, 7], [9, 9], [10, 5],
+            [5, 3],
+            [5, 9],
+            [8, 0],
+            [8, 4],
+            [8, 8],
+            [9, 0],
+            [9, 7],
+            [9, 9],
+            [10, 5],
         ]
 
     asr_dtype = torch.float16 if device.type == "cuda" else torch.float32
@@ -234,20 +239,40 @@ def infer_whisper_prepared_audio(
     audio preparation, while Python just feeds the prepared waveform into the
     HuggingFace runtime and returns the raw chunk payload.
     """
-    from batchalign.worker._types_v2 import WhisperChunkResultPayloadV2, WhisperChunkSpanV2
+    from batchalign.worker._types_v2 import (
+        WhisperChunkResultPayloadV2,
+        WhisperChunkSpanV2,
+    )
 
     gen_kwargs = model.gen_kwargs(iso3_to_language_name(lang))
     raw = model(
-        {"raw": np.asarray(audio, dtype=np.float32), "sampling_rate": model.sample_rate},
+        {
+            "raw": np.asarray(audio, dtype=np.float32),
+            "sampling_rate": model.sample_rate,
+        },
         batch_size=1,
         generate_kwargs=gen_kwargs,
     )
 
     chunks = raw.get("chunks", []) if isinstance(raw, dict) else []
     clamped_chunks: list[WhisperChunkSpanV2] = []
+    dropped_without_span = 0
     for chunk in chunks:
-        start_s: float = (chunk.get("timestamp") or [None, None])[0] or 0.0
-        end_s: float = (chunk.get("timestamp") or [None, None])[1] or 0.0
+        # A missing bound is an ABSENCE, not a time. Substituting 0.0 here used
+        # to satisfy `WhisperChunkSpanV2`'s non-optional fields by inventing a
+        # value: a chunk missing only its start then claimed to run from the
+        # beginning of the audio to its real end, and passed every downstream
+        # check because both numbers were real and correctly ordered. It also
+        # reached the Rust boundary as `Some(0.0)` rather than `None`, so the
+        # filter there could not see it either. Note 0.0 is a legal start, so
+        # `or 0.0` could not distinguish the two cases even in principle.
+        timestamp = chunk.get("timestamp") or [None, None]
+        raw_start, raw_end = timestamp[0], timestamp[1]
+        if raw_start is None or raw_end is None:
+            dropped_without_span += 1
+            continue
+        start_s: float = float(raw_start)
+        end_s: float = float(raw_end)
         if end_s < start_s:
             logger.warning(
                 "Whisper chunk has inverted timestamps (start=%.1f > end=%.1f), swapping",
@@ -261,6 +286,13 @@ def infer_whisper_prepared_audio(
                 start_s=start_s,
                 end_s=end_s,
             )
+        )
+    if dropped_without_span:
+        logger.warning(
+            "Dropped %d Whisper chunk(s) with no usable timestamp span "
+            "(kept %d); these carry no placeable timing",
+            dropped_without_span,
+            len(clamped_chunks),
         )
     return WhisperChunkResultPayloadV2(
         lang=lang,

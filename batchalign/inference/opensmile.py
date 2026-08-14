@@ -76,9 +76,7 @@ def _build_smile_engine(feature_set: str, feature_level: str) -> tuple[object, s
     feature_set_map = _get_feature_set_map()
     feature_set_enum = feature_set_map.get(feature_set, opensmile.FeatureSet.eGeMAPSv02)
     normalized_level = (
-        "functionals"
-        if feature_level == "functionals"
-        else "low_level_descriptors"
+        "functionals" if feature_level == "functionals" else "low_level_descriptors"
     )
     feature_level_enum = (
         opensmile.FeatureLevel.Functionals
@@ -126,7 +124,9 @@ def _build_response(
 def infer_opensmile_item(item: OpenSmileBatchItem) -> OpenSmileResponse:
     """Run openSMILE on one audio file path."""
     try:
-        smile, normalized_level = _build_smile_engine(item.feature_set, item.feature_level)
+        smile, normalized_level = _build_smile_engine(
+            item.feature_set, item.feature_level
+        )
         L.info("Extracting features from: %s", Path(item.audio_path).name)
         features_df = smile.process_file(item.audio_path)
         return _build_response(
@@ -136,7 +136,9 @@ def infer_opensmile_item(item: OpenSmileBatchItem) -> OpenSmileResponse:
             features_df=features_df,
         )
     except Exception as error:
-        L.error("Error extracting openSMILE features from %s: %s", item.audio_path, error)
+        L.error(
+            "Error extracting openSMILE features from %s: %s", item.audio_path, error
+        )
         return OpenSmileResponse(
             feature_set=item.feature_set,
             feature_level=item.feature_level,

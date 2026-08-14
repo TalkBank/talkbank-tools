@@ -13,6 +13,7 @@ use walkdir::WalkDir;
 
 use crate::ReleasedCommand;
 
+use crate::cli::args::InputKind;
 use crate::cli::error::CliError;
 
 /// Check whether a CHAT file is a "dummy" placeholder that should be copied,
@@ -42,14 +43,14 @@ fn is_appledouble_sidecar(path: &Path) -> bool {
 
 /// Discover files from a single directory for server dispatch.
 ///
-/// Walks `in_dir` recursively, filters by `extensions`, sorts by file size
+/// Walks `in_dir` recursively, filters by `input_kind`, sorts by file size
 /// (largest first). Dummy CHAT files are skipped (should be copied separately).
 ///
 /// Returns `(files, outputs)` where `outputs[i]` is the output path for `files[i]`.
 pub fn discover_client_files(
     in_dir: &Path,
     out_dir: &Path,
-    extensions: &[&str],
+    input_kind: InputKind,
 ) -> Result<(Vec<PathBuf>, Vec<PathBuf>), CliError> {
     let mut files = Vec::new();
     let mut outputs = Vec::new();
@@ -92,7 +93,7 @@ pub fn discover_client_files(
             continue;
         }
 
-        if extensions.contains(&ext.as_str()) || extensions.contains(&"*") {
+        if input_kind.accepts(&ext) {
             let rel = path.strip_prefix(in_dir).map_err(|err| {
                 invalid_data(format!(
                     "failed to derive path relative to {} for {}: {err}",
@@ -119,7 +120,7 @@ pub fn discover_client_files(
 pub fn discover_server_inputs(
     inputs: &[PathBuf],
     out_dir: Option<&Path>,
-    extensions: &[&str],
+    input_kind: InputKind,
 ) -> Result<(Vec<PathBuf>, Vec<PathBuf>), CliError> {
     let mut all_files = Vec::new();
     let mut all_outputs = Vec::new();
@@ -130,7 +131,7 @@ pub fn discover_server_inputs(
             let d_out = out_dir
                 .map(PathBuf::from)
                 .unwrap_or_else(|| inp_path.to_path_buf());
-            let (fs, os) = discover_client_files(inp_path, &d_out, extensions)?;
+            let (fs, os) = discover_client_files(inp_path, &d_out, input_kind)?;
             all_files.extend(fs);
             all_outputs.extend(os);
         } else if inp_path.is_file() {
@@ -320,14 +321,14 @@ pub const GENERATION_COMMANDS: &[ReleasedCommand] = &[
     ReleasedCommand::Opensmile,
 ];
 
-/// Copy files whose extension doesn't match `extensions` from `in_dir` to `out_dir`.
+/// Copy files that are not inputs for `input_kind` from `in_dir` to `out_dir`.
 ///
 /// Preserves relative directory structure. Skipped for in-place mode and
 /// generation commands.
 pub fn copy_nonmatching(
     in_dir: &Path,
     out_dir: &Path,
-    extensions: &[&str],
+    input_kind: InputKind,
     command: ReleasedCommand,
 ) -> Result<(), CliError> {
     if GENERATION_COMMANDS.contains(&command) {
@@ -350,7 +351,7 @@ pub fn copy_nonmatching(
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
-        if !extensions.contains(&ext.as_str()) && !extensions.contains(&"*") {
+        if !input_kind.accepts(&ext) {
             let rel = path.strip_prefix(in_dir).map_err(|err| {
                 invalid_data(format!(
                     "failed to derive non-matching relative path from {} for {}: {err}",

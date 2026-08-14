@@ -66,8 +66,9 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use crate::api::{ReleasedCommand, WorkerLanguage};
 use crate::host_facts::PerProfile;
 use crate::options::CommandOptions;
-use crate::types::engines::EngineOverrides;
+use crate::types::engines::{EngineOverrides, FaEngineName, SelectableEngine};
 use crate::worker::{WorkerBootstrapMode, WorkerCapabilities, WorkerProfile, WorkerTarget};
+use batchalign_types::worker::InferTask;
 use tokio::sync::{Mutex as AsyncMutex, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tracing::{info, instrument, warn};
@@ -115,8 +116,12 @@ impl EngineSelection {
         Self::default()
     }
 
-    /// Derive the selection a command's dispatch path will use.
-    pub(super) fn from_command_options(options: &CommandOptions) -> Self {
+    /// The engines a command itself names, before any target-driven filling.
+    ///
+    /// Split out so `for_target` can add to it and normalize ONCE.
+    /// Normalizing, unwrapping and re-normalizing left a reader unable to tell
+    /// whether the second pass was required or incidental.
+    fn overrides_for_command(options: &CommandOptions) -> EngineOverrides {
         let mut overrides = options.common().engine_overrides.clone();
         match options {
             CommandOptions::Align(options) => {
@@ -146,6 +151,35 @@ impl EngineSelection {
             | CommandOptions::Compare(_)
             | CommandOptions::Avqi(_)
             | CommandOptions::Diarize(_) => {}
+        }
+        overrides
+    }
+
+    /// The selection a worker for `target` must carry.
+    ///
+    /// A worker loads models for every task in its TARGET's bundle, while the
+    /// overrides describe only what its COMMAND selected. Those are different
+    /// sets: a transcribe command on the GPU profile preloads forced alignment
+    /// while naming only an ASR engine, so the worker reached the FA loader
+    /// with no engine named and had to guess.
+    ///
+    /// Only forced alignment is filled in, and the asymmetry is the point.
+    /// Rust owns the FA default: the Python side has no way to choose between
+    /// two models that report different SHAPES of timing, which is why its
+    /// guess there was deleted rather than corrected. ASR and translation are
+    /// the opposite. `resolve_asr_engine` picks per LANGUAGE (`yue` takes
+    /// FunAudio, because Whisper measured worst on it) and prefers Rev.AI only
+    /// when a key is actually present, and it reads any `asr` key as an
+    /// explicit operator instruction. Injecting a default here would therefore
+    /// silently overrule a better-informed choice: an align job, which never
+    /// asked for ASR at all, would pin the ASR model for the whole worker.
+    ///
+    /// Lazy-profile workers preload nothing and are keyed without a selection;
+    /// they name an engine per request instead.
+    pub(super) fn for_target(target: WorkerTarget, options: &CommandOptions) -> Self {
+        let mut overrides = Self::overrides_for_command(options);
+        if target.preloaded_tasks().contains(&InferTask::Fa) {
+            overrides.fa.get_or_insert(FaEngineName::DEFAULT);
         }
         Self::from_overrides(overrides)
     }
@@ -209,6 +243,18 @@ pub(super) struct WorkerKey {
 }
 
 impl WorkerKey {
+    /// A key with no engine selection.
+    ///
+    /// This is the door `for_target` closes only halfway, and it cannot be
+    /// shut from here. Nothing in production reaches it, but its two callers,
+    /// `WorkerPool::pre_scale` and `dispatch_batch_infer`, are ordinary `pub`
+    /// functions whose own callers are all tests, so `#[cfg(test)]` on this
+    /// constructor does not compile. Retiring it means retiring the V1
+    /// batch-infer path and the untyped pre-scale helper, which is a larger
+    /// change than adding the type it undermines.
+    ///
+    /// Until then: every key a real job uses comes from
+    /// `from_command_options` or `from_registry_json`.
     pub(super) fn without_engine_selection(target: WorkerTarget, language: WorkerLanguage) -> Self {
         Self {
             target,
@@ -232,7 +278,7 @@ impl WorkerKey {
             {
                 EngineSelection::none()
             } else {
-                EngineSelection::from_command_options(options)
+                EngineSelection::for_target(target, options)
             },
         }
     }
@@ -1057,7 +1103,16 @@ mod default_pool_config_tests {
             ..EngineOverrides::default()
         };
 
-        let selection = EngineSelection::from_command_options(&CommandOptions::Align(options));
+        // Through the production constructor: `for_target` is what builds
+        // every real key, and it is a superset of what the retired
+        // `from_command_options` did.
+        let selection = EngineSelection::for_target(
+            WorkerTarget::for_command_with_mode(
+                ReleasedCommand::Align,
+                WorkerBootstrapMode::Profile,
+            ),
+            &CommandOptions::Align(options),
+        );
 
         assert_eq!(selection.overrides().asr, None);
         assert_eq!(selection.overrides().extras["provider_region"], "us-east");

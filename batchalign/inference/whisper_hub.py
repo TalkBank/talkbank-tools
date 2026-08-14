@@ -94,7 +94,7 @@ def resolve_whisper_hub_model_id(
         f"Either add a seed entry in batchalign/models/resolve.py (after "
         f"empirical evaluation: see book/src/reference/whisper-hub-asr.md) "
         f"or pass an explicit model_id via "
-        f"--engine-overrides '{{\"asr\":\"whisper_hub\",\"model_id\":\"<owner>/<model>\"}}'."
+        f'--engine-overrides \'{{"asr":"whisper_hub","model_id":"<owner>/<model>"}}\'.'
     )
 
 
@@ -102,8 +102,8 @@ def load_whisper_hub_asr(
     lang: LanguageCode,
     engine_overrides: dict[str, str] | None,
     *,
-    device_policy: "DevicePolicy | None" = None,
-) -> "WhisperASRHandle":
+    device_policy: DevicePolicy | None = None,
+) -> WhisperASRHandle:
     """Load an HF Whisper fine-tune and return the shared ``WhisperASRHandle``.
 
     The returned handle is the same type used by stock Whisper. Downstream

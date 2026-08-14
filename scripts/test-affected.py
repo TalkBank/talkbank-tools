@@ -171,7 +171,8 @@ def main() -> int:
     e2e_dir = _REPO_ROOT / "frontend" / "e2e" / "tests"
     if e2e_dir.exists():
         e2e_tests = sorted(
-            f for f in list(e2e_dir.glob("*.mjs")) + list(e2e_dir.glob("*.ts"))
+            f
+            for f in list(e2e_dir.glob("*.mjs")) + list(e2e_dir.glob("*.ts"))
             if f.is_file()
         )
         test_files.extend(e2e_tests)

@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
 use crate::api::JobId;
-use crate::runner::util::KNOWN_MEDIA_EXTENSIONS;
+use crate::media::MediaExtensions;
 
 use super::rsync::StagingError;
 
@@ -84,13 +84,5 @@ pub async fn prepare_staging_dir(
 /// that doesn't require the runner module's visibility scope.
 async fn resolve_adjacent_media(chat_path: &Path) -> Option<PathBuf> {
     let stem = chat_path.file_stem()?.to_str()?;
-    let dir = chat_path.parent()?;
-
-    for ext in KNOWN_MEDIA_EXTENSIONS {
-        let candidate = dir.join(format!("{stem}.{ext}"));
-        if tokio::fs::try_exists(&candidate).await.unwrap_or(false) {
-            return Some(candidate);
-        }
-    }
-    None
+    MediaExtensions::find_in(chat_path.parent()?, stem).await
 }

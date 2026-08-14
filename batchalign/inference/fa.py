@@ -6,13 +6,11 @@ Pure inference, no CHAT, no caching, no pipeline.
 from __future__ import annotations
 
 import logging
-import threading
-import time
 from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
-from pydantic import BaseModel, ValidationError, model_validator
+from pydantic import BaseModel, model_validator
 
 from batchalign.inference._domain_types import (
     AudioPath,
@@ -26,13 +24,7 @@ if TYPE_CHECKING:
         Wave2VecFAHandle,
         WhisperFAHandle,
     )
-    from batchalign.inference.audio import ASRAudioFile
 
-from batchalign.providers import (
-    BatchInferRequest,
-    BatchInferResponse,
-    InferResponse,
-)
 
 L = logging.getLogger("batchalign.worker")
 
@@ -52,7 +44,6 @@ class FaInferItem(BaseModel):
     audio_path: AudioPath
     audio_start_ms: TimestampMs
     audio_end_ms: TimestampMs
-    pauses: bool = False
 
     @model_validator(mode="after")
     def validate_parallel_arrays(self) -> FaInferItem:
@@ -72,19 +63,6 @@ class FaInferItem(BaseModel):
                 f"got {len(self.word_utterance_word_indices)}"
             )
         return self
-
-
-class FaRawToken(BaseModel):
-    """A single raw token with timestamp from Whisper."""
-
-    text: str
-    time_s: float
-
-
-class WhisperFaResponse(BaseModel):
-    """Whisper FA output: raw tokens with timestamps."""
-
-    tokens: list[FaRawToken]
 
 
 class FaIndexedTiming(BaseModel):
@@ -116,9 +94,9 @@ def load_whisper_fa(
     import torch
     from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
+    from batchalign.device import resolve_inference_device
     from batchalign.inference.audio import bind_whisper_token_timestamp_extractor
     from batchalign.inference.types import WhisperFAHandle
-    from batchalign.device import resolve_inference_device
     from batchalign.worker._progress import (
         HF_ARTIFACTS_WHISPER,
         emit_hf_download_if_missing,
@@ -158,21 +136,27 @@ def infer_whisper_fa(
     handle: WhisperFAHandle,
     audio_chunk: torch.Tensor,
     text: str,
-    pauses: bool = False,
 ) -> list[tuple[str, float]]:
     """Run Whisper forced alignment. Returns [(token_text, timestamp_sec), ...]."""
     import torch
     from transformers.models.whisper.generation_whisper import (
         _dynamic_time_warping as dtw,
+    )
+    from transformers.models.whisper.generation_whisper import (
         _median_filter as median_filter,
     )
 
     device = next(handle.model.parameters()).device
 
-    words_list = list(text) if pauses else text
+    # `text` arrives already shaped. Whether it is space-joined or spelled one
+    # character per token is `FaTextModeV2`, applied in Rust by `join_fa_words`
+    # before this is called. This used to reshape it a second time behind a
+    # `pauses` flag, which is the duplication that fold removed.
     features = handle.processor(
-        audio=audio_chunk, text=(" ".join(words_list) if pauses else text),
-        sampling_rate=handle.sample_rate, return_tensors="pt",
+        audio=audio_chunk,
+        text=text,
+        sampling_rate=handle.sample_rate,
+        return_tensors="pt",
     )
     tokens = features["labels"][0]
 
@@ -180,10 +164,12 @@ def infer_whisper_fa(
         output = handle.model(**features.to(device), output_attentions=True)
 
     cross_attentions = torch.cat(output.cross_attentions).cpu()
-    weights = torch.stack([
-        cross_attentions[l][h]
-        for l, h in handle.model.generation_config.alignment_heads
-    ])
+    weights = torch.stack(
+        [
+            cross_attentions[layer][head]
+            for layer, head in handle.model.generation_config.alignment_heads
+        ]
+    )
 
     std, mean = torch.std_mean(weights, dim=-2, keepdim=True, unbiased=False)
     weights = (weights - mean) / std
@@ -195,7 +181,14 @@ def infer_whisper_fa(
     jumps = np.pad(np.diff(text_idx), (1, 0), constant_values=1).astype(bool)
     jump_times = time_idx[jumps] * 0.02
 
-    return [(handle.processor.decode(i), j) for i, j in zip(tokens, jump_times)]
+    # `strict` because the correspondence is one timestamp per label token: the
+    # attention matrix has one row per decoder position, so the DTW path yields
+    # one jump each. A mismatch means the alignment is wrong, and truncating to
+    # the shorter side would silently return timings for a PREFIX of the text
+    # while the caller believes it aligned all of it.
+    return [
+        (handle.processor.decode(i), j) for i, j in zip(tokens, jump_times, strict=True)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -209,12 +202,10 @@ def load_wave2vec_fa(
     device_policy=None,
 ) -> Wave2VecFAHandle:
     """Load a Wave2Vec FA model. Returns a typed handle."""
-    import torch
     import torchaudio
 
-    from batchalign.inference.types import Wave2VecFAHandle
     from batchalign.device import resolve_inference_device
-
+    from batchalign.inference.types import Wave2VecFAHandle
     from batchalign.worker._progress import emit_download_event
 
     bundle = torchaudio.pipelines.MMS_FA
@@ -289,7 +280,9 @@ def infer_wave2vec_fa(
     scores = scores.exp()
     merged_path = AF.merge_tokens(alignments, scores)
 
-    def unflatten(list_: list[torch.Tensor], lengths: list[int]) -> list[list[torch.Tensor]]:
+    def unflatten(
+        list_: list[torch.Tensor], lengths: list[int]
+    ) -> list[list[torch.Tensor]]:
         i = 0
         ret = []
         for length in lengths:
@@ -300,129 +293,18 @@ def infer_wave2vec_fa(
     word_spans = unflatten(merged_path, word_lengths)
     ratio = audio.size(0) / emission.size(1)
     result: list[tuple[str, tuple[int, int]]] = [
-        (word, (int(((spans[0].start * ratio) / handle.sample_rate) * 1000),
-                int(((spans[-1].end * ratio) / handle.sample_rate) * 1000)))
-        for word, spans in zip(words, word_spans)
+        (
+            word,
+            (
+                int(((spans[0].start * ratio) / handle.sample_rate) * 1000),
+                int(((spans[-1].end * ratio) / handle.sample_rate) * 1000),
+            ),
+        )
+        # `strict` because `_build_target_tokens` appends exactly one entry to
+        # `word_lengths` per word (empty words fall back to the wildcard token),
+        # and `unflatten` returns one span-group per length. That 1:1 is held by
+        # two functions agreeing, not by a type, so enforce it here rather than
+        # dropping trailing words if either side ever changes.
+        for word, spans in zip(words, word_spans, strict=True)
     ]
     return result
-
-
-# ---------------------------------------------------------------------------
-# Inference function
-# ---------------------------------------------------------------------------
-
-
-def batch_infer_fa(
-    req: BatchInferRequest,
-    whisper_model: WhisperFAHandle | None,
-    wave2vec_model: Wave2VecFAHandle | None,
-) -> BatchInferResponse:
-    """Batch FA inference: (audio_chunk, words) -> raw timings.
-
-    Whisper always returns raw tokens (WhisperFaResponse); Rust handles
-    token-to-word alignment via deterministic stitching + DP fallback.
-    Wave2Vec returns indexed word-level timings (Wave2VecIndexedResponse).
-    """
-    from batchalign.inference.audio import load_audio_file
-
-    is_whisper = whisper_model is not None
-
-    t0 = time.monotonic()
-
-    audio_cache: dict[str, ASRAudioFile] = {}
-    lock = threading.Lock()
-
-    n = len(req.items)
-    results: list[InferResponse] = []
-
-    for item_idx, raw_item in enumerate(req.items):
-        try:
-            item = FaInferItem.model_validate(raw_item)
-        except ValidationError:
-            results.append(InferResponse(error="Invalid FaInferItem", elapsed_s=0.0))
-            continue
-
-        if not item.words:
-            if is_whisper:
-                results.append(
-                    InferResponse(
-                        result=WhisperFaResponse(tokens=[]).model_dump(),
-                        elapsed_s=0.0,
-                    )
-                )
-            else:
-                results.append(
-                    InferResponse(
-                        result=Wave2VecIndexedResponse(indexed_timings=[]).model_dump(),
-                        elapsed_s=0.0,
-                    )
-                )
-            continue
-
-        try:
-            if item.audio_path not in audio_cache:
-                audio_cache[item.audio_path] = load_audio_file(item.audio_path)
-            audio_obj = audio_cache[item.audio_path]
-            audio_chunk = audio_obj.chunk(item.audio_start_ms, item.audio_end_ms)
-
-            if is_whisper:
-                assert whisper_model is not None
-                detokenized = " ".join(item.words)
-                detokenized = detokenized.replace("_", " ").strip()
-                with lock:
-                    whisper_results = infer_whisper_fa(
-                        whisper_model, audio_chunk, detokenized, pauses=item.pauses
-                    )
-                # Always return raw tokens, Rust handles alignment.
-                response_data = WhisperFaResponse(
-                    tokens=[
-                        FaRawToken(text=text, time_s=t)
-                        for text, t in whisper_results
-                    ]
-                ).model_dump()
-            else:
-                assert wave2vec_model is not None
-                with lock:
-                    wave2vec_results = infer_wave2vec_fa(
-                        wave2vec_model, audio_chunk, item.words
-                    )
-                indexed_timings_list: list[FaIndexedTiming | None] = [None] * len(
-                    item.words
-                )
-                for i, (_, (start, end)) in enumerate(
-                    wave2vec_results[: len(item.words)]
-                ):
-                    indexed_timings_list[i] = FaIndexedTiming(
-                        start_ms=start, end_ms=end
-                    )
-                response_data = Wave2VecIndexedResponse(
-                    indexed_timings=indexed_timings_list
-                ).model_dump()
-
-            results.append(InferResponse(result=response_data, elapsed_s=0.0))
-
-        except (OSError, RuntimeError, ValueError) as error:
-            L.warning(
-                "FA infer failed for item %d: %s", item_idx, error, exc_info=True
-            )
-            results.append(
-                InferResponse(
-                    error=f"Forced alignment inference failed: {error}",
-                    elapsed_s=0.0,
-                )
-            )
-
-    elapsed = time.monotonic() - t0
-    if results:
-        first = results[0]
-        results[0] = InferResponse(
-            result=first.result, error=first.error, elapsed_s=elapsed
-        )
-
-    L.info(
-        "batch_infer fa: %d items (%s), %.3fs",
-        n,
-        "whisper" if is_whisper else "wave2vec",
-        elapsed,
-    )
-    return BatchInferResponse(results=results)

@@ -36,7 +36,6 @@ from batchalign.worker._protocol import (
     _serve_stdio,
 )
 
-
 # ---------------------------------------------------------------------------
 # Classifier: bootstrap-vs-runtime discriminator on raw exception types.
 # ---------------------------------------------------------------------------
@@ -104,9 +103,7 @@ def _run_serve_stdio_with_one_message(message_json: str, dispatch_side_effect):
     ):
         _serve_stdio()
 
-    lines = [
-        line for line in fake_stdout.getvalue().splitlines() if line.strip()
-    ]
+    lines = [line for line in fake_stdout.getvalue().splitlines() if line.strip()]
     return [json.loads(line) for line in lines]
 
 
@@ -134,9 +131,7 @@ def test_serve_stdio_emits_bootstrap_kind_on_typed_bootstrap_error():
         fake_dispatch,
     )
 
-    assert len(envelopes) == 1, (
-        f"Expected exactly one error envelope; got: {envelopes}"
-    )
+    assert len(envelopes) == 1, f"Expected exactly one error envelope; got: {envelopes}"
     env = envelopes[0]
     assert env["op"] == "error"
     assert env["kind"] == "bootstrap"
@@ -151,6 +146,7 @@ def test_serve_stdio_emits_runtime_kind_on_generic_error():
     rely on the runtime kind. We don't want to suddenly classify all
     handler exceptions as terminal.
     """
+
     def fake_dispatch(_message):
         raise RuntimeError("transient inference error")
 
@@ -184,10 +180,7 @@ def test_serve_stdio_continues_after_runtime_error():
 
         return ProtocolDispatchResult(payload={"op": "health", "ok": True})
 
-    fake_stdin = io.StringIO(
-        '{"op": "infer", "request": {}}\n'
-        + '{"op": "health"}\n'
-    )
+    fake_stdin = io.StringIO('{"op": "infer", "request": {}}\n' + '{"op": "health"}\n')
     fake_stdout = io.StringIO()
     fake_stderr = io.StringIO()
     with (
@@ -201,9 +194,7 @@ def test_serve_stdio_continues_after_runtime_error():
     ):
         _serve_stdio()
 
-    lines = [
-        line for line in fake_stdout.getvalue().splitlines() if line.strip()
-    ]
+    lines = [line for line in fake_stdout.getvalue().splitlines() if line.strip()]
     assert len(lines) == 2, (
         f"Both messages must produce envelopes; got {len(lines)}: {lines}"
     )
@@ -251,9 +242,7 @@ def test_serve_stdio_exits_after_bootstrap_error():
         f"Loop must exit after the first bootstrap error; got "
         f"{call_count['n']} dispatch calls"
     )
-    lines = [
-        line for line in fake_stdout.getvalue().splitlines() if line.strip()
-    ]
+    lines = [line for line in fake_stdout.getvalue().splitlines() if line.strip()]
     assert len(lines) == 1
     env = json.loads(lines[0])
     assert env["op"] == "error"

@@ -54,7 +54,9 @@ def _write_payload(path: Path) -> None:
     )
 
 
-def _make_request(tmp_path: Path, *, backend: FaBackendV2, text_mode: FaTextModeV2) -> ExecuteRequestV2:
+def _make_request(
+    tmp_path: Path, *, backend: FaBackendV2, text_mode: FaTextModeV2
+) -> ExecuteRequestV2:
     """Create one staged V2 FA execute request with prepared artifacts."""
 
     payload_path = tmp_path / "payload.json"
@@ -70,7 +72,6 @@ def _make_request(tmp_path: Path, *, backend: FaBackendV2, text_mode: FaTextMode
             payload_ref_id="payload-ref-1",
             audio_ref_id="audio-ref-1",
             text_mode=text_mode,
-            pauses=True,
         ),
         attachments=[
             PreparedTextRefV2(
@@ -99,14 +100,15 @@ def test_executes_whisper_fa_v2_request(tmp_path: Path) -> None:
 
     captured: dict[str, object] = {}
 
-    def whisper_runner(audio: np.ndarray, text: str, pauses: bool) -> list[tuple[str, float]]:
+    def whisper_runner(audio: np.ndarray, text: str) -> list[tuple[str, float]]:
         captured["shape"] = audio.shape
         captured["text"] = text
-        captured["pauses"] = pauses
         return [("hello", 0.12), ("world", 0.38)]
 
     response = execute_forced_alignment_request_v2(
-        _make_request(tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED),
+        _make_request(
+            tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED
+        ),
         ForcedAlignmentExecutionHostV2(whisper_runner=whisper_runner),
     )
 
@@ -114,19 +116,23 @@ def test_executes_whisper_fa_v2_request(tmp_path: Path) -> None:
     assert isinstance(response.result, WhisperTokenTimingResultV2)
     assert response.result.tokens[0].text == "hello"
     assert response.result.tokens[1].time_s == 0.38
-    assert captured == {"shape": (4,), "text": "hello world", "pauses": True}
+    assert captured == {"shape": (4,), "text": "hello world"}
 
 
 def test_executes_wave2vec_fa_v2_request(tmp_path: Path) -> None:
     """The staged V2 executor should project indexed word timings for wave2vec."""
 
-    def wave2vec_runner(audio: np.ndarray, words: list[str]) -> list[tuple[str, tuple[int, int]]]:
+    def wave2vec_runner(
+        audio: np.ndarray, words: list[str]
+    ) -> list[tuple[str, tuple[int, int]]]:
         assert audio.shape == (4,)
         assert words == ["hello", "world"]
         return [("hello", (10, 40)), ("world", (40, 90))]
 
     response = execute_forced_alignment_request_v2(
-        _make_request(tmp_path, backend=FaBackendV2.WAVE2VEC, text_mode=FaTextModeV2.SPACE_JOINED),
+        _make_request(
+            tmp_path, backend=FaBackendV2.WAVE2VEC, text_mode=FaTextModeV2.SPACE_JOINED
+        ),
         ForcedAlignmentExecutionHostV2(wave2vec_runner=wave2vec_runner),
     )
 
@@ -148,7 +154,11 @@ def test_executes_cantonese_wave2vec_fa_v2_request(tmp_path: Path) -> None:
         return [(payload.words[0], (50, 120)), (payload.words[1], (130, 220))]
 
     response = execute_forced_alignment_request_v2(
-        _make_request(tmp_path, backend=FaBackendV2.WAV2VEC_CANTO, text_mode=FaTextModeV2.CHAR_JOINED),
+        _make_request(
+            tmp_path,
+            backend=FaBackendV2.WAV2VEC_CANTO,
+            text_mode=FaTextModeV2.CHAR_JOINED,
+        ),
         ForcedAlignmentExecutionHostV2(canto_runner=canto_runner),
     )
 
@@ -166,7 +176,9 @@ def test_executes_cantonese_wave2vec_fa_v2_request(tmp_path: Path) -> None:
 def test_returns_missing_attachment_error_for_invalid_request(tmp_path: Path) -> None:
     """Missing prepared artifacts should become typed protocol errors."""
 
-    request = _make_request(tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED)
+    request = _make_request(
+        tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED
+    )
     request.attachments = request.attachments[:1]
 
     response = execute_forced_alignment_request_v2(
@@ -184,7 +196,9 @@ def test_invalid_numeric_attachment_becomes_invalid_payload_even_if_validation_i
 ) -> None:
     """Rust should reject bad FA prepared-audio numerics even when Python is bypassed."""
 
-    request = _make_request(tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED)
+    request = _make_request(
+        tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED
+    )
     raw_attachment = request.attachments[1].model_dump()
     raw_attachment["sample_rate_hz"] = 0
     bad_attachment = PreparedAudioRefV2.model_construct(**raw_attachment)
@@ -206,7 +220,9 @@ def test_invalid_numeric_attachment_becomes_invalid_payload_even_if_validation_i
     assert response.result is None
 
 
-def test_returns_model_unavailable_for_unwired_cantonese_backend(tmp_path: Path) -> None:
+def test_returns_model_unavailable_for_unwired_cantonese_backend(
+    tmp_path: Path,
+) -> None:
     """Backends without an installed host should fail explicitly."""
 
     response = execute_forced_alignment_request_v2(
@@ -227,9 +243,11 @@ def test_invalid_whisper_fa_host_output_becomes_runtime_failure(tmp_path: Path) 
     """Malformed Whisper FA host output should be classified as runtime failure."""
 
     response = execute_forced_alignment_request_v2(
-        _make_request(tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED),
+        _make_request(
+            tmp_path, backend=FaBackendV2.WHISPER, text_mode=FaTextModeV2.SPACE_JOINED
+        ),
         ForcedAlignmentExecutionHostV2(
-            whisper_runner=lambda _audio, _text, _pauses: [("hello", float("nan"))]
+            whisper_runner=lambda _audio, _text: [("hello", float("nan"))]
         ),
     )
 
@@ -239,11 +257,15 @@ def test_invalid_whisper_fa_host_output_becomes_runtime_failure(tmp_path: Path) 
     assert response.result is None
 
 
-def test_invalid_wave2vec_fa_host_output_becomes_runtime_failure(tmp_path: Path) -> None:
+def test_invalid_wave2vec_fa_host_output_becomes_runtime_failure(
+    tmp_path: Path,
+) -> None:
     """Malformed wave2vec FA host output should be classified as runtime failure."""
 
     response = execute_forced_alignment_request_v2(
-        _make_request(tmp_path, backend=FaBackendV2.WAVE2VEC, text_mode=FaTextModeV2.SPACE_JOINED),
+        _make_request(
+            tmp_path, backend=FaBackendV2.WAVE2VEC, text_mode=FaTextModeV2.SPACE_JOINED
+        ),
         ForcedAlignmentExecutionHostV2(
             wave2vec_runner=lambda _audio, _words: [("hello", (40, 10))]
         ),
@@ -275,7 +297,6 @@ def _make_request_in_dir(thread_dir: Path, thread_index: int) -> ExecuteRequestV
             payload_ref_id=f"payload-{thread_index}",
             audio_ref_id=f"audio-{thread_index}",
             text_mode=FaTextModeV2.SPACE_JOINED,
-            pauses=True,
         ),
         attachments=[
             PreparedTextRefV2(

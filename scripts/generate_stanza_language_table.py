@@ -19,7 +19,7 @@ def main() -> None:
 
     print(f"// Generated from Stanza {table.stanza_version} resources.json")
     print(f"// {len(codes)} languages")
-    print(f"// Run: uv run scripts/generate_stanza_language_table.py")
+    print("// Run: uv run scripts/generate_stanza_language_table.py")
     print()
     print("const STANZA_SUPPORTED_ISO3: &[&str] = &[")
     for i in range(0, len(codes), 10):
@@ -30,7 +30,9 @@ def main() -> None:
 
     print()
     print("// For stanza_languages.rs:")
-    print("static SUPPORTED_STANZA_CODES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {")
+    print(
+        "static SUPPORTED_STANZA_CODES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {"
+    )
     print("    [")
     for i in range(0, len(codes), 10):
         chunk = codes[i : i + 10]

@@ -49,18 +49,18 @@ flowchart TD
     full --> engine_select
 
     engine_select{--fa-engine?}
-    engine_select -->|whisper| whisper_fa[WhisperFa engine\nmax_group_ms=20000]
-    engine_select -->|wav2vec| wav2vec_fa[Wave2Vec engine\nmax_group_ms=15000]
+    engine_select -->|whisper| whisper_fa[Whisper engine\nonset times only\nmax_group_ms from the engine = 20000]
+    engine_select -->|wav2vec / cantonese| wav2vec_fa[Wave2Vec engines\nword start+end\nmax_group_ms from the engine = 15000]
 
-    whisper_fa --> pause_check{--pauses?}
-    pause_check -->|Yes| with_pauses[FaTimingMode::WithPauses]
-    pause_check -->|No| continuous_w[FaTimingMode::Continuous]
+    whisper_fa --> pause_check
+    wav2vec_fa --> pause_check
 
-    wav2vec_fa --> continuous_wv[FaTimingMode::Continuous]
+    pause_check{--pauses?}
+    pause_check -->|Yes| preserve[WordGapHealing::PreserveMeasured\nkeep each word's own end]
+    pause_check -->|No| heal[WordGapHealing::Heal\nextend a word to the next word's start\nwhen the gap is small and plausible]
 
-    with_pauses --> cache_check
-    continuous_w --> cache_check
-    continuous_wv --> cache_check
+    preserve --> cache_check
+    heal --> cache_check
 
     cache_check[Cache lookup: BLAKE3 keys]
     cache_check --> worker_infer[execute_v2(task="fa") misses → Python FA worker\nprepared audio + prepared text]

@@ -23,12 +23,12 @@ from batchalign.worker._types_v2 import (
     AvqiResultPayloadV2,
     CapabilitiesRequestV2,
     CapabilitiesResponseV2,
+    ExecuteRequestV2,
     ExecuteResponseV2,
     ExecuteSuccessV2,
-    ExecuteRequestV2,
-    IndexedWordTimingV2,
     HelloRequestV2,
     HelloResponseV2,
+    IndexedWordTimingV2,
     OpenSmileResultPayloadV2,
     ProgressEventV2,
     ShutdownRequestV2,
@@ -77,7 +77,12 @@ def _prune_absent_none_fields(value: object, raw: object) -> object:
 def _fixture_root() -> Path:
     """Return the shared repo-level fixture directory for worker protocol V2."""
 
-    return Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "worker_protocol_v2"
+    return (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "worker_protocol_v2"
+    )
 
 
 def _load_manifest() -> list[dict[str, str]]:
@@ -132,7 +137,9 @@ def test_worker_protocol_v2_fixtures_roundtrip_in_python(entry: dict[str, str]) 
         ),
     ],
 )
-def test_worker_protocol_v2_rejects_invalid_ranges(model_type: type[BaseModel], payload: dict[str, object]) -> None:
+def test_worker_protocol_v2_rejects_invalid_ranges(
+    model_type: type[BaseModel], payload: dict[str, object]
+) -> None:
     """Timing-bearing V2 DTOs should reject reversed spans at the schema boundary."""
 
     with pytest.raises(ValidationError):

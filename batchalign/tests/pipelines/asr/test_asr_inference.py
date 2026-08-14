@@ -8,8 +8,8 @@ No ML models are required, the tests use structured runtime doubles.
 from __future__ import annotations
 
 import json
-from types import ModuleType
 import sys
+from types import ModuleType
 
 import numpy as np
 import torch
@@ -27,7 +27,6 @@ from batchalign.inference.asr import (
     iso3_to_language_name,
     load_whisper_asr,
 )
-
 
 # ---------------------------------------------------------------------------
 # Pydantic model tests
@@ -149,9 +148,7 @@ class TestWhisperPathBoundary:
 
         assert response.kind == "whisper_chunks"
         assert response.text == "hello world"
-        assert model.calls == [
-            ("/tmp/input.wav", 1, {"language": "english"})
-        ]
+        assert model.calls == [("/tmp/input.wav", 1, {"language": "english"})]
 
     def test_infer_whisper_prepared_audio_passes_waveform_directly(self) -> None:
         """The prepared-audio helper should not reopen media paths in Python."""
@@ -297,7 +294,7 @@ class _FakeGenerationConfig:
         self.alignment_heads: list[list[int]] | None = None
 
     @classmethod
-    def from_pretrained(cls, base: str) -> "_FakeGenerationConfig":
+    def from_pretrained(cls, base: str) -> _FakeGenerationConfig:
         return cls(base)
 
 
@@ -422,8 +419,15 @@ class TestWhisperLoader:
 
         assert handle.config.no_timestamps_token_id == 50363
         assert handle.config.alignment_heads == [
-            [5, 3], [5, 9], [8, 0], [8, 4], [8, 8],
-            [9, 0], [9, 7], [9, 9], [10, 5],
+            [5, 3],
+            [5, 9],
+            [8, 0],
+            [8, 4],
+            [8, 8],
+            [9, 0],
+            [9, 7],
+            [9, 9],
+            [10, 5],
         ]
         # MPS excluded since 2026-04-05 (AGXG14X kernel deadlock), even with
         # MPS available, the loader selects CPU. Cantonese config overrides

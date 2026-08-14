@@ -507,7 +507,7 @@ flowchart TD
     reason -->|"'Kernel size can't be greater\nthan actual input size'"| r3
     reason -->|"any other error"| none
 
-    whisper["Retry group with\nFaEngineType::WhisperFa\n(new request namespace\nto avoid artifact collision)"]
+    whisper["Retry group with\nFaEngineName::Whisper\n(new request namespace\nto avoid artifact collision)"]
     fallback_ok["Group timings resolved\n+ FaFallbackEventTrace\nrecorded in job traces"]
     fallback_err{"Whisper response OK?"}
     model_unavail_err["ModelUnavailable:\nno Whisper model loaded: \nleave words unaligned\n+ WARN in server log\n(is_whisper_model_unavailable())"]
@@ -727,16 +727,21 @@ UTR bullet for bounding word end times. If `update_utterance_bullet` ran first,
 it would recompute from raw onset-only timings (Whisper FA gives only start
 times), producing a bullet too tight for proper end-time chaining.
 
-#### Word end times (non-pauses mode)
+#### Word end times for an onset-only engine
 
-Whisper FA returns onset times only, each token has a start time but no end
-time. In non-pauses mode (the default), the pipeline assigns end times by
-chaining: each word's end = next word's start.
+Whisper FA returns onset times only: each token has a start time and no end
+time. An end must therefore be derived, and the only end available is the next
+word's onset, so the parser chains them: each word's end = the next word's
+start.
 
-The **last word** of each utterance has no next word to chain to. Its end is
-extended to the utterance bullet end (from UTR or original CHAT). If no bullet
-exists, a fallback of `start + 500ms` is used (matching Python master's
-behavior).
+This is not a mode, and there is no alternative treatment. A word whose end
+equals its own start has no duration, which is the absence of a timing rather
+than a timing; a `%wor` tier of such words is the symptom, not a setting.
+
+The **last word** of each utterance has no next word to chain to. In the
+parser it takes a named fallback (`LAST_WORD_FALLBACK_MS`, 500 ms); in
+post-processing its end is extended to the utterance bullet end (from UTR or
+original CHAT) when one is available.
 
 #### Word timing clamping policy
 
@@ -942,8 +947,10 @@ regardless of which mode was used initially.
 
 ### FA cache
 
-FA caches raw model responses per-group (keyed by audio chunk fingerprint + text
-\+ pauses flag). The `--override-media-cache` flag bypasses this cache.
+FA caches raw model responses per-group. The key is
+`BLAKE3("{audio identity}|{start}|{end}|{words}|{gap healing}|{engine}")`, so a
+different engine, a different audio window, or a different gap-healing policy
+cannot collide. The `--override-media-cache` flag bypasses this cache.
 
 Both caches use the same SQLite database (the analysis cache, see [Filesystem Paths](../reference/filesystem-paths.md#analysis-cache-sqlite)).
 

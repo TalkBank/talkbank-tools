@@ -14,8 +14,7 @@ shared schema definitions.
 The `v2` suffix is still intentional. The older JSON-lines `worker` /
 `batchalign/worker/_types.py` surface remains in-tree as a frozen compatibility
 contract, so the Rust module (`crates/batchalign-types/src/worker_v2/`), schema
-directory (`ipc-schema/worker_v2/`), generated Python package
-(`batchalign/generated/worker_v2/`), and hand-written models
+directory (`ipc-schema/worker_v2/`) and hand-written models
 (`batchalign/worker/_types_v2.py`) stay versioned together until V1 is removed
 as a whole.
 

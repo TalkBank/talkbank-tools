@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from typing import Optional
 
 from batchalign.worker._protocol import write_progress_event
 
@@ -31,8 +30,8 @@ L = logging.getLogger(__name__)
 def emit_download_event(
     stage: str,
     user_message: str,
-    request_id: Optional[str] = None,
-    size_bytes_estimate: Optional[int] = None,
+    request_id: str | None = None,
+    size_bytes_estimate: int | None = None,
 ) -> None:
     """Surface a download event to the user via the progress_v2 channel.
 
@@ -158,8 +157,8 @@ HF_ARTIFACTS_NLLB: tuple[str, ...] = (
 def emit_hf_download_if_missing(
     model_id: str,
     kind: str,
-    request_id: Optional[str] = None,
-    artifacts: Optional[Sequence[str]] = None,
+    request_id: str | None = None,
+    artifacts: Sequence[str] | None = None,
 ) -> None:
     """If ``model_id`` is not fully in the HuggingFace cache, emit an event.
 
@@ -214,7 +213,7 @@ def emit_hf_download_if_missing(
             if not isinstance(cached, str):
                 is_fully_cached = False
                 break
-    except Exception as probe_exc:  # noqa: BLE001, best effort
+    except Exception as probe_exc:
         L.debug("HF cache probe failed for %s: %s", model_id, probe_exc)
         # If the probe itself can't run, emit anyway, false-positive
         # notifications are a much smaller UX cost than silent waits.

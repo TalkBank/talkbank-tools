@@ -7,6 +7,8 @@
 //! tools live below this module as [`tools`]. They are otherwise unrelated:
 //! nothing here spawns anything.
 
+pub mod declared;
+pub mod extensions;
 pub mod probe;
 pub mod tools;
 pub mod transcode;
@@ -15,16 +17,11 @@ pub mod window;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+pub use declared::DeclaredMedia;
+pub use extensions::MediaExtensions;
+
 use dashmap::DashMap;
 use tracing::{debug, warn};
-
-/// File extensions treated as audio/video during media walks.
-///
-/// This list intentionally mirrors the formats that batchalign's ASR and
-/// forced-alignment engines can consume. Adding an extension here is enough
-/// to make it discoverable via `resolve()`, `list_files()`, and the
-/// `/media/list` endpoint -- no engine changes are needed.
-const MEDIA_EXTENSIONS: &[&str] = &[".wav", ".mp3", ".mp4", ".m4a", ".flac", ".ogg", ".aac"];
 
 /// Walk cache TTL in seconds.
 ///
@@ -128,7 +125,7 @@ impl MediaResolver {
                 };
                 if entry.file_type().is_file() {
                     let filename = entry.file_name().to_string_lossy().to_string();
-                    if is_media_extension(&filename) {
+                    if MediaExtensions::matches(&filename) {
                         let Some(parent) = entry.path().parent() else {
                             warn!(
                                 path = %entry.path().display(),
@@ -167,13 +164,7 @@ impl MediaResolver {
 
         let name_path = Path::new(name);
         let name_stem = name_path.file_stem().unwrap_or_default().to_string_lossy();
-        let name_has_media_ext = name_path
-            .extension()
-            .map(|e| {
-                let ext = format!(".{}", e.to_string_lossy().to_lowercase());
-                MEDIA_EXTENSIONS.contains(&ext.as_str())
-            })
-            .unwrap_or(false);
+        let name_has_media_ext = MediaExtensions::matches(name);
 
         for root in media_roots {
             let entries = self.walk_media(root);
@@ -190,7 +181,7 @@ impl MediaResolver {
                 for entry in &entries {
                     let fp = Path::new(&entry.filename);
                     let f_stem = fp.file_stem().unwrap_or_default().to_string_lossy();
-                    if f_stem == name_stem && is_media_extension(&entry.filename) {
+                    if f_stem == name_stem && MediaExtensions::matches(&entry.filename) {
                         return Some(entry.full_path());
                     }
                 }
@@ -227,13 +218,7 @@ impl MediaResolver {
 
         let name_path = Path::new(name);
         let name_stem = name_path.file_stem().unwrap_or_default().to_string_lossy();
-        let name_has_media_ext = name_path
-            .extension()
-            .map(|e| {
-                let ext = format!(".{}", e.to_string_lossy().to_lowercase());
-                MEDIA_EXTENSIONS.contains(&ext.as_str())
-            })
-            .unwrap_or(false);
+        let name_has_media_ext = MediaExtensions::matches(name);
 
         // Pass 1: exact filename match (flat)
         let candidate = search_dir.join(name);
@@ -242,15 +227,10 @@ impl MediaResolver {
         }
 
         // Pass 2: stem match with known extensions
-        if !name_has_media_ext {
-            let mut exts: Vec<&&str> = MEDIA_EXTENSIONS.iter().collect();
-            exts.sort();
-            for ext in exts {
-                let candidate = search_dir.join(format!("{name_stem}{ext}"));
-                if candidate.is_file() {
-                    return Some(candidate.to_string_lossy().to_string());
-                }
-            }
+        if !name_has_media_ext
+            && let Some(candidate) = MediaExtensions::find_in_blocking(&search_dir, &name_stem)
+        {
+            return Some(candidate.to_string_lossy().to_string());
         }
 
         None
@@ -325,11 +305,6 @@ impl Default for MediaResolver {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn is_media_extension(filename: &str) -> bool {
-    let lower = filename.to_lowercase();
-    MEDIA_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
 }
 
 #[cfg(test)]

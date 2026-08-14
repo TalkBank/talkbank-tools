@@ -85,7 +85,9 @@ def test_load_prepared_audio_f32le_payload(tmp_path: Path) -> None:
 def test_find_attachment_by_id_requires_presence() -> None:
     """Attachment lookup should fail with a clear error when the id is absent."""
 
-    with pytest.raises(ArtifactInputErrorV2, match="missing worker protocol V2 attachment"):
+    with pytest.raises(
+        ArtifactInputErrorV2, match="missing worker protocol V2 attachment"
+    ):
         find_attachment_by_id_v2([], "missing-ref")
 
 

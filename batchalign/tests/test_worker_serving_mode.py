@@ -17,10 +17,7 @@ import logging
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-import pytest
-
 from batchalign.worker._main import _gpu_has_cuda_device
-
 
 # ---------------------------------------------------------------------------
 # _gpu_has_cuda_device unit tests
@@ -31,7 +28,8 @@ class TestGpuHasCudaDevice:
     """Direct tests for the CUDA detection helper."""
 
     def test_returns_true_when_cuda_available_and_not_force_cpu(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         monkeypatch.setattr("torch.cuda.is_available", lambda: True)
         assert _gpu_has_cuda_device(force_cpu=False) is True
@@ -41,13 +39,15 @@ class TestGpuHasCudaDevice:
         assert _gpu_has_cuda_device(force_cpu=False) is False
 
     def test_returns_false_when_cuda_available_but_force_cpu(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         monkeypatch.setattr("torch.cuda.is_available", lambda: True)
         assert _gpu_has_cuda_device(force_cpu=True) is False
 
     def test_returns_false_when_no_cuda_and_force_cpu(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         monkeypatch.setattr("torch.cuda.is_available", lambda: False)
         assert _gpu_has_cuda_device(force_cpu=True) is False
@@ -176,97 +176,127 @@ class TestServingModeSelection:
     GPU profile + CUDA availability + force_cpu flag."""
 
     def test_gpu_profile_on_cpu_uses_sequential_serving(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """GPU profile without CUDA should use sequential serving to avoid
         OpenMP thread oversubscription on CPU."""
         capture = _ServingCapture()
         args = _make_main_args(profile="gpu")
         _patch_main_for_serving_test(
-            monkeypatch, cuda_available=False, capture=capture, args=args,
+            monkeypatch,
+            cuda_available=False,
+            capture=capture,
+            args=args,
         )
 
         from batchalign.worker._main import main
+
         main()
 
         assert capture.called == "sequential_stdio"
 
     def test_gpu_profile_on_cuda_uses_concurrent_serving(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """GPU profile with CUDA should use concurrent serving, PyTorch
         releases the GIL during CUDA kernels."""
         capture = _ServingCapture()
         args = _make_main_args(profile="gpu", gpu_thread_pool_size=8)
         _patch_main_for_serving_test(
-            monkeypatch, cuda_available=True, capture=capture, args=args,
+            monkeypatch,
+            cuda_available=True,
+            capture=capture,
+            args=args,
         )
 
         from batchalign.worker._main import main
+
         main()
 
         assert capture.called == "concurrent_stdio"
         assert capture.max_threads == 8
 
     def test_gpu_profile_force_cpu_uses_sequential_serving(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """GPU profile with CUDA available but --force-cpu should use
         sequential serving: models are on CPU regardless of CUDA."""
         capture = _ServingCapture()
         args = _make_main_args(profile="gpu", force_cpu=True)
         _patch_main_for_serving_test(
-            monkeypatch, cuda_available=True, capture=capture, args=args,
+            monkeypatch,
+            cuda_available=True,
+            capture=capture,
+            args=args,
         )
 
         from batchalign.worker._main import main
+
         main()
 
         assert capture.called == "sequential_stdio"
 
     def test_stanza_profile_always_uses_sequential_serving(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """Stanza profile should always use sequential serving regardless
         of CUDA availability: Stanza is CPU-bound and GIL-limited."""
         capture = _ServingCapture()
         args = _make_main_args(profile="stanza")
         _patch_main_for_serving_test(
-            monkeypatch, cuda_available=True, capture=capture, args=args,
+            monkeypatch,
+            cuda_available=True,
+            capture=capture,
+            args=args,
         )
 
         from batchalign.worker._main import main
+
         main()
 
         assert capture.called == "sequential_stdio"
 
     def test_gpu_profile_tcp_on_cpu_uses_sequential_tcp(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """GPU profile over TCP without CUDA should use sequential TCP
         serving, not concurrent."""
         capture = _ServingCapture()
         args = _make_main_args(profile="gpu", transport="tcp")
         _patch_main_for_serving_test(
-            monkeypatch, cuda_available=False, capture=capture, args=args,
+            monkeypatch,
+            cuda_available=False,
+            capture=capture,
+            args=args,
         )
 
         from batchalign.worker._main import main
+
         main()
 
         assert capture.called == "sequential_tcp"
 
     def test_gpu_profile_tcp_on_cuda_uses_concurrent_tcp(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """GPU profile over TCP with CUDA should use concurrent TCP serving."""
         capture = _ServingCapture()
         args = _make_main_args(profile="gpu", transport="tcp")
         _patch_main_for_serving_test(
-            monkeypatch, cuda_available=True, capture=capture, args=args,
+            monkeypatch,
+            cuda_available=True,
+            capture=capture,
+            args=args,
         )
 
         from batchalign.worker._main import main
+
         main()
 
         assert capture.called == "concurrent_tcp"

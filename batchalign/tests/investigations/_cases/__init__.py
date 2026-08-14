@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .._probe_types import ProbeCase
 from . import (
     arabic,
     catalan,
@@ -43,7 +44,6 @@ from . import (
     ukrainian,
     vietnamese,
 )
-from .._probe_types import ProbeCase
 
 
 @dataclass(frozen=True)

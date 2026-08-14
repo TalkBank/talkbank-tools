@@ -92,11 +92,27 @@ from enum import Enum
 # object, reflexive, partitive and locative, plus the `e`-form variants a clitic
 # takes when another clitic follows it (me, te, se, ce, ve, glie). Listed
 # exhaustively rather than generated so a linguist can audit it by reading.
-ITALIAN_ENCLITICS: frozenset[str] = frozenset({
-    "mi", "ti", "si", "ci", "vi",
-    "lo", "la", "li", "le", "ne", "gli",
-    "me", "te", "se", "ce", "ve", "glie",
-})
+ITALIAN_ENCLITICS: frozenset[str] = frozenset(
+    {
+        "mi",
+        "ti",
+        "si",
+        "ci",
+        "vi",
+        "lo",
+        "la",
+        "li",
+        "le",
+        "ne",
+        "gli",
+        "me",
+        "te",
+        "se",
+        "ce",
+        "ve",
+        "glie",
+    }
+)
 
 # The `e`-form variants exist ONLY before another clitic: `mi` becomes `me` in
 # ``dammelo`` (*me* + *lo*), `ci` becomes `ce` in ``metticelo``. Italian has no
@@ -108,9 +124,16 @@ ITALIAN_ENCLITICS: frozenset[str] = frozenset({
 # Stanza: without it, English ``face`` would force-split to *fa* + *ce*).
 # `ne` is deliberately NOT here: it is a real final clitic (``dammene``,
 # ``scegline``).
-CLITICS_REQUIRING_A_FOLLOWER: frozenset[str] = frozenset({
-    "me", "te", "se", "ce", "ve", "glie",
-})
+CLITICS_REQUIRING_A_FOLLOWER: frozenset[str] = frozenset(
+    {
+        "me",
+        "te",
+        "se",
+        "ce",
+        "ve",
+        "glie",
+    }
+)
 
 # The only prepositions that fuse with a following definite article, and the
 # complete set of definite articles they fuse with. Both are closed function-word
@@ -122,12 +145,29 @@ CLITICS_REQUIRING_A_FOLLOWER: frozenset[str] = frozenset({
 # one of about forty contracted spellings?) is what lets this reject Stanza's
 # `la` -> *il* + *i* and `hai` -> *ha* + *i*: both look like contractions but
 # neither has a preposition in the base.
-ITALIAN_ARTICLE_FUSING_PREPOSITIONS: frozenset[str] = frozenset({
-    "a", "da", "di", "in", "su", "con", "per",
-})
-ITALIAN_DEFINITE_ARTICLES: frozenset[str] = frozenset({
-    "il", "lo", "la", "i", "gli", "le", "l'", "l",
-})
+ITALIAN_ARTICLE_FUSING_PREPOSITIONS: frozenset[str] = frozenset(
+    {
+        "a",
+        "da",
+        "di",
+        "in",
+        "su",
+        "con",
+        "per",
+    }
+)
+ITALIAN_DEFINITE_ARTICLES: frozenset[str] = frozenset(
+    {
+        "il",
+        "lo",
+        "la",
+        "i",
+        "gli",
+        "le",
+        "l'",
+        "l",
+    }
+)
 
 # The complete contracted paradigm: seven prepositions crossed with the definite
 # articles. Finite, closed, and unchanged for centuries, so writing it out states
@@ -143,16 +183,54 @@ ITALIAN_DEFINITE_ARTICLES: frozenset[str] = frozenset({
 # Bare elided forms (`all`, `dell`) are deliberately absent: written Italian
 # keeps the elision apostrophe (`all'`, `dell'`), so a bare `all` is not a
 # spelling of the contraction and must not be treated as one.
-ITALIAN_PREPOSITION_ARTICLE_CONTRACTIONS: frozenset[str] = frozenset({
-    "al", "allo", "alla", "ai", "agli", "alle", "all'",
-    "dal", "dallo", "dalla", "dai", "dagli", "dalle", "dall'",
-    "del", "dello", "della", "dei", "degli", "delle", "dell'",
-    "nel", "nello", "nella", "nei", "negli", "nelle", "nell'",
-    "sul", "sullo", "sulla", "sui", "sugli", "sulle", "sull'",
-    # con + and per + are archaic but attested in older transcripts.
-    "col", "collo", "colla", "coi", "cogli", "colle",
-    "pel", "pei",
-})
+ITALIAN_PREPOSITION_ARTICLE_CONTRACTIONS: frozenset[str] = frozenset(
+    {
+        "al",
+        "allo",
+        "alla",
+        "ai",
+        "agli",
+        "alle",
+        "all'",
+        "dal",
+        "dallo",
+        "dalla",
+        "dai",
+        "dagli",
+        "dalle",
+        "dall'",
+        "del",
+        "dello",
+        "della",
+        "dei",
+        "degli",
+        "delle",
+        "dell'",
+        "nel",
+        "nello",
+        "nella",
+        "nei",
+        "negli",
+        "nelle",
+        "nell'",
+        "sul",
+        "sullo",
+        "sulla",
+        "sui",
+        "sugli",
+        "sulle",
+        "sull'",
+        # con + and per + are archaic but attested in older transcripts.
+        "col",
+        "collo",
+        "colla",
+        "coi",
+        "cogli",
+        "colle",
+        "pel",
+        "pei",
+    }
+)
 
 # The presentative `ecco` ("here is") takes enclitics exactly as a verb does
 # (`eccolo`, `eccomi`) but is tagged ADV/INTJ, never VERB, so the verb test
@@ -376,7 +454,9 @@ class Reconstruction(Enum):
     GEMINATED = "geminated"
 
 
-def reconstruct_split(word: str, proposed_split: Sequence[str]) -> Reconstruction | None:
+def reconstruct_split(
+    word: str, proposed_split: Sequence[str]
+) -> Reconstruction | None:
     """How does *proposed_split* account for every character of *word*, if at all?
 
     An enclisis analysis that cannot rebuild the surface is malformed by
@@ -440,9 +520,9 @@ class MwtPattern(Enum):
     """
 
     PREPOSITION_ARTICLE = "preposition_article"  # alla = a + la      CLOSED
-    ECCO_ENCLITIC = "ecco_enclitic"              # eccolo = ecco + lo CLOSED
-    CLITIC_CLUSTER = "clitic_cluster"            # glielo = glie + lo CLOSED
-    VERB_ENCLITIC = "verb_enclitic"              # giralo = gira + lo OPEN
+    ECCO_ENCLITIC = "ecco_enclitic"  # eccolo = ecco + lo CLOSED
+    CLITIC_CLUSTER = "clitic_cluster"  # glielo = glie + lo CLOSED
+    VERB_ENCLITIC = "verb_enclitic"  # giralo = gira + lo OPEN
 
 
 def classify_split(

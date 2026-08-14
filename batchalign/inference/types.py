@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 # Stanza Protocols
 # ---------------------------------------------------------------------------
 
+
 class StanzaWord(Protocol):
     """Structural type for ``stanza.models.common.doc.Word``."""
 
@@ -103,7 +104,9 @@ class StanzaDoc(Protocol):
     @property
     def sentences(self) -> list[StanzaSentence]: ...
 
-    def to_dict(self) -> list[list[dict[str, str | int | float | list[int] | tuple[int, ...] | None]]]:
+    def to_dict(
+        self,
+    ) -> list[list[dict[str, str | int | float | list[int] | tuple[int, ...] | None]]]:
         """Serialize the document to a nested list of word-level dicts."""
         ...
 
@@ -131,6 +134,7 @@ class StanzaNLP(Protocol):
 # ---------------------------------------------------------------------------
 # Audio file Protocol
 # ---------------------------------------------------------------------------
+
 
 @runtime_checkable
 class AudioFile(Protocol):

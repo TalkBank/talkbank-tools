@@ -53,14 +53,15 @@ class StanzaCatalogDownloadError(RuntimeError):
     error is recoverable by retrying when network is available.
     """
 
+
 # ISO-639-3 → Stanza alpha-2 overrides for codes that pycountry
 # doesn't map correctly or that Stanza uses non-standard identifiers for.
 _ISO3_OVERRIDES: dict[str, str] = {
-    "nor": "nb",       # Norwegian → Bokmål (Stanza uses "nb")
+    "nor": "nb",  # Norwegian → Bokmål (Stanza uses "nb")
     "yue": "zh-hans",  # Cantonese → Chinese (Stanza's zh-hans model)
     "cmn": "zh-hans",  # Mandarin → Chinese
     "zho": "zh-hans",  # Chinese (generic) → zh-hans
-    "msa": "ms",       # Malay (ISO-639-3 msa) → Stanza ms
+    "msa": "ms",  # Malay (ISO-639-3 msa) → Stanza ms
 }
 
 
@@ -214,6 +215,7 @@ def resolve_stanza_version(loaded_version: str = "") -> str:
         return loaded_version
     try:
         import stanza
+
         return getattr(stanza, "__version__", "unknown")
     except (ImportError, ModuleNotFoundError):
         return "unknown"
@@ -256,10 +258,7 @@ def refresh_resources_manifest_if_present() -> None:
     # ``<resources_url>/resources_<version>.json``. Reading the module
     # constants keeps us aligned with whatever STANZA_RESOURCES_URL /
     # STANZA_RESOURCES_VERSION the worker environment is configured with.
-    url = (
-        f"{src.DEFAULT_RESOURCES_URL}/"
-        f"resources_{src.DEFAULT_RESOURCES_VERSION}.json"
-    )
+    url = f"{src.DEFAULT_RESOURCES_URL}/resources_{src.DEFAULT_RESOURCES_VERSION}.json"
     # Rule 11 (time transparency): this is an external blocking call (up to the
     # timeout), so frame it on the progress channel even though it is usually
     # sub-second.
@@ -273,7 +272,9 @@ def refresh_resources_manifest_if_present() -> None:
             url, timeout=_MANIFEST_REFRESH_TIMEOUT_S
         ) as response:
             data = response.read()
-        json.loads(data)  # validate before installing: never persist a torn body or HTML error page
+        json.loads(
+            data
+        )  # validate before installing: never persist a torn body or HTML error page
 
         # Atomic install so a concurrent reader never observes a partial file.
         tmp_path = manifest_path + ".tmp-refresh"
@@ -382,10 +383,7 @@ def _bootstrap_and_retry(original: BaseException) -> StanzaCapabilityTable:
     except Exception as download_exc:
         emit_download_event(
             stage="downloading_stanza_catalog_failed",
-            user_message=(
-                "Stanza resource catalog download failed: "
-                f"{download_exc}"
-            ),
+            user_message=(f"Stanza resource catalog download failed: {download_exc}"),
         )
         raise StanzaCatalogDownloadError(
             f"Failed to download Stanza resource catalog from "

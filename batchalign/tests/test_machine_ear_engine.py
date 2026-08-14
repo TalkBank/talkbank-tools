@@ -56,7 +56,11 @@ class _FakeProcessor:
         self.seen_prompt: str | None = None
 
     def apply_chat_template(
-        self, conversation: list[dict[str, Any]], *, add_generation_prompt: bool, tokenize: bool
+        self,
+        conversation: list[dict[str, Any]],
+        *,
+        add_generation_prompt: bool,
+        tokenize: bool,
     ) -> str:
         parts = [
             item["text"]
@@ -67,7 +71,12 @@ class _FakeProcessor:
         return "\n".join(parts)
 
     def __call__(
-        self, *, text: str, audio: list[np.ndarray], sampling_rate: int, return_tensors: str
+        self,
+        *,
+        text: str,
+        audio: list[np.ndarray],
+        sampling_rate: int,
+        return_tensors: str,
     ) -> _FakeInputs:
         import torch
 
@@ -111,7 +120,9 @@ def test_ask_clip_prompts_and_parses(tmp_path: Path) -> None:
 
 
 def test_ask_clip_rejects_wrong_sample_rate(tmp_path: Path) -> None:
-    handle = MachineEarHandle(processor=_FakeProcessor("NO"), model=_FakeModel(), device="cpu")
+    handle = MachineEarHandle(
+        processor=_FakeProcessor("NO"), model=_FakeModel(), device="cpu"
+    )
     wav = clip_at(tmp_path / "clip44k.wav", 44_100)
     with pytest.raises(ValueError, match="calibrated at 16000"):
         ask_clip(handle, wav, "anything")

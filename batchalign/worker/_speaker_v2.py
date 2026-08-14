@@ -30,8 +30,12 @@ if TYPE_CHECKING:
 class SpeakerExecutionHostV2:
     """Injected speaker execution hooks for the live V2 path."""
 
-    pyannote_prepared_audio_runner: Callable[[np.ndarray, int, int], SpeakerResponse] | None = None
-    nemo_prepared_audio_runner: Callable[[np.ndarray, int, int], SpeakerResponse] | None = None
+    pyannote_prepared_audio_runner: (
+        Callable[[np.ndarray, int, int], SpeakerResponse] | None
+    ) = None
+    nemo_prepared_audio_runner: (
+        Callable[[np.ndarray, int, int], SpeakerResponse] | None
+    ) = None
 
 
 def build_default_speaker_execution_host_v2(
@@ -54,17 +58,21 @@ def build_default_speaker_execution_host_v2(
         )
 
     return SpeakerExecutionHostV2(
-        pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: _run_prepared(
-            audio,
-            sample_rate_hz,
-            num_speakers,
-            "pyannote",
+        pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+            _run_prepared(
+                audio,
+                sample_rate_hz,
+                num_speakers,
+                "pyannote",
+            )
         ),
-        nemo_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: _run_prepared(
-            audio,
-            sample_rate_hz,
-            num_speakers,
-            "nemo",
+        nemo_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+            _run_prepared(
+                audio,
+                sample_rate_hz,
+                num_speakers,
+                "nemo",
+            )
         ),
     )
 

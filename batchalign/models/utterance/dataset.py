@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 # Token labels for utterance boundary classification.
 TOKENS: dict[str, int] = {
-    "U": 0,   # normal word
+    "U": 0,  # normal word
     "OC": 1,  # first letter capitalized (sentence onset)
     "E.": 2,  # period (sentence boundary)
     "E?": 3,  # question mark
@@ -110,13 +110,12 @@ class UtteranceBoundaryDataset(dataset.Dataset):  # type: ignore[misc]  # Datase
 
 
 def calculate_acc_prec_rec_f1(
-    preds: "torch.Tensor", labs: "torch.Tensor"
+    preds: torch.Tensor, labs: torch.Tensor
 ) -> tuple[float, float, float, float]:
     """Calculate accuracy, precision, recall, and F1 on sentence boundaries.
 
     Labels of ``-100`` are ignored (sub-word padding).
     """
-    import torch  # noqa: F811, lazy for top-level import cost
 
     tp = 0
     fp = 0
@@ -128,9 +127,7 @@ def calculate_acc_prec_rec_f1(
     boundaries_hat = preds.clone().apply_(lambda x: x in BOUNDARIES)
     boundaries_hat = (boundaries_hat == 1).nonzero().tolist()
 
-    boundaries_hat = list(
-        filter(lambda x: labs[x[0]][x[1]] != -100, boundaries_hat)
-    )
+    boundaries_hat = list(filter(lambda x: labs[x[0]][x[1]] != -100, boundaries_hat))
 
     for elem in boundaries_hat:
         if elem in boundaries:

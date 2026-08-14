@@ -119,6 +119,17 @@ fn join_fa_words(words: &[String], text_mode: FaTextModeV2) -> String {
     match text_mode {
         FaTextModeV2::CharJoined => words.join("").replace('_', " ").trim().to_owned(),
         FaTextModeV2::SpaceJoined => words.join(" ").replace('_', " ").trim().to_owned(),
+        // Byte-for-byte what the Python host used to do with `pauses=True`:
+        // it took the space-joined text and re-spelled it one character per
+        // token. Doing it here keeps every shaping decision in one function.
+        FaTextModeV2::CharSpaced => words
+            .join(" ")
+            .replace('_', " ")
+            .trim()
+            .chars()
+            .map(|character| character.to_string())
+            .collect::<Vec<_>>()
+            .join(" "),
     }
 }
 
@@ -206,7 +217,7 @@ fn run_whisper(
     let text = join_fa_words(&payload.words, fa_request.text_mode);
     let response = runner
         .bind(py)
-        .call1((audio_array, text.as_str(), fa_request.pauses))
+        .call1((audio_array, text.as_str()))
         .map_err(|error| FaExecuteFailure::Runtime(error.to_string()))?;
     Ok(TaskResultV2::WhisperTokenTimingResult(
         parse_whisper_tokens(&response)?,

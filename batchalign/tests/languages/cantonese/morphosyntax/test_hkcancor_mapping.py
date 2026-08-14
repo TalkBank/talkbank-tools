@@ -72,7 +72,18 @@ def test_hkcancor_ud_distribution_has_all_major_tags() -> None:
         if t.pos and t.pos.strip():
             ud_counter[hkcancor_to_ud(t.pos)] += 1
 
-    required = {"VERB", "NOUN", "ADJ", "ADV", "PRON", "AUX", "ADP", "PART", "INTJ", "NUM"}
+    required = {
+        "VERB",
+        "NOUN",
+        "ADJ",
+        "ADV",
+        "PRON",
+        "AUX",
+        "ADP",
+        "PART",
+        "INTJ",
+        "NUM",
+    }
     missing = required - set(ud_counter.keys())
     assert not missing, f"Missing UD tags: {missing}"
 
@@ -94,9 +105,7 @@ def test_hkcancor_mapping_table_completeness() -> None:
     # Tags in corpus but not in mapping → would map to X
     unmapped = corpus_tags - mapped_tags
     # Allow a small number of edge cases
-    assert len(unmapped) < 5, (
-        f"Too many unmapped tags ({len(unmapped)}): {unmapped}"
-    )
+    assert len(unmapped) < 5, f"Too many unmapped tags ({len(unmapped)}): {unmapped}"
 
 
 def test_hkcancor_classifier_maps_to_noun() -> None:
@@ -128,6 +137,4 @@ def test_hkcancor_sentence_final_particles_map_to_part() -> None:
     corpus = _load_corpus()
     tokens = corpus.tokens()
     sfps = [t for t in tokens if t.pos in ("y", "y1")]
-    assert len(sfps) > 17_000, (
-        f"Expected >17K SFP tokens, got {len(sfps)}"
-    )
+    assert len(sfps) > 17_000, f"Expected >17K SFP tokens, got {len(sfps)}"

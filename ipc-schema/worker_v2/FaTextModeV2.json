@@ -12,6 +12,11 @@
       "description": "Join words as character stream.",
       "type": "string",
       "const": "char_joined"
+    },
+    {
+      "description": "Space-join the words, then separate every CHARACTER with a space.\n\nGives the decoder one token per character, so its onsets land inside\nwords rather than only at their starts, which is what makes a real\nsilence visible as a gap. Selected by `--pauses`.\n\nThis was a second boolean on the request until 2026-08-14, applied by\nthe Python host AFTER the mode above had already joined the text. Two\nfields decided one thing, and the boolean was documented as preserving\npause markers, which it never did.",
+      "type": "string",
+      "const": "char_spaced"
     }
   ]
 }

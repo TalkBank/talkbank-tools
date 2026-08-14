@@ -56,15 +56,15 @@ def test_history_writes_when_env_set(tmp_path: Path) -> None:
 
     conn = sqlite3.connect(db)
     try:
-        rows = conn.execute(
-            "SELECT test_id, outcome FROM test_runs"
-        ).fetchall()
+        rows = conn.execute("SELECT test_id, outcome FROM test_runs").fetchall()
     finally:
         conn.close()
 
     # At least one row for our dummy test.
-    assert any(tid.endswith("test_passes_for_history") and outcome == "passed"
-               for tid, outcome in rows), rows
+    assert any(
+        tid.endswith("test_passes_for_history") and outcome == "passed"
+        for tid, outcome in rows
+    ), rows
 
 
 def test_history_skipped_when_off(tmp_path: Path) -> None:
@@ -78,7 +78,9 @@ def test_history_skipped_when_off(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
-    assert not db.exists(), f"history db should not be created when OFF is set (found {db})"
+    assert not db.exists(), (
+        f"history db should not be created when OFF is set (found {db})"
+    )
 
 
 def test_history_skipped_when_db_unset(tmp_path: Path) -> None:

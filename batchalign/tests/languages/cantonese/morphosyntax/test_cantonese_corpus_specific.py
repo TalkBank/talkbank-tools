@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import pycantonese
 
-
 # ---------------------------------------------------------------------------
 # LeeWongLeung: largest Cantonese corpus (254K utterances, child speech)
 # Source: data/childes-other-data/Chinese/Cantonese/LeeWongLeung/
@@ -49,7 +48,9 @@ def test_leewongleung_pos_tagging() -> None:
     # 飲 (drink) should be VERB
     assert tag_dict["飲"] == "VERB", f"飲 tagged as {tag_dict['飲']}, expected VERB"
     # 自己 (self) should be PRON
-    assert tag_dict["自己"] == "PRON", f"自己 tagged as {tag_dict['自己']}, expected PRON"
+    assert tag_dict["自己"] == "PRON", (
+        f"自己 tagged as {tag_dict['自己']}, expected PRON"
+    )
     # 好 (good) can be ADJ or ADV, both are reasonable
     assert tag_dict["好"] in ("ADJ", "ADV"), f"好 tagged as {tag_dict['好']}"
     # 啦 (SFP) should be PART
@@ -140,7 +141,7 @@ def test_eacmc_code_switching_annotation() -> None:
     # 係 (is/be): VERB in Cantonese
     assert tag_dict["係"] == "VERB", f"係 tagged as {tag_dict['係']}"
     # 個 (classifier): should be some nominal/classifier tag
-    assert tag_dict["個"] != "X", f"個 tagged as X (unknown)"
+    assert tag_dict["個"] != "X", "個 tagged as X (unknown)"
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +178,9 @@ def test_wct_adult_pos_tagging() -> None:
     assert tag_dict["樂隊"] == "NOUN", f"樂隊 tagged as {tag_dict['樂隊']}"
     # 希望 (hope): PyCantonese tags as AUX in Cantonese (auxiliary "hope to").
     # In Mandarin it's typically VERB/NOUN, but Cantonese uses it as an auxiliary.
-    assert tag_dict["希望"] in ("VERB", "NOUN", "AUX"), f"希望 tagged as {tag_dict['希望']}"
+    assert tag_dict["希望"] in ("VERB", "NOUN", "AUX"), (
+        f"希望 tagged as {tag_dict['希望']}"
+    )
     # 理論 (theory): NOUN
     assert tag_dict["理論"] == "NOUN", f"理論 tagged as {tag_dict['理論']}"
     # 解釋 (explain): VERB

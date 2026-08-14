@@ -2,22 +2,20 @@
 
 from __future__ import annotations
 
+import configparser
 import json
 import logging
 import pathlib
 import time
 import uuid
-import configparser
 from typing import Any
-
-_MAX_POLL_SECONDS = 600  # 10-minute safety timeout for ASR task polling
-
-from batchalign.errors import ConfigError
 
 from batchalign.inference._domain_types import AudioPath, LanguageCode, NumSpeakers
 
 from ._asr_types import AsrGenerationPayload, TimedWord
 from ._common import provider_lang_code, read_asr_config
+
+_MAX_POLL_SECONDS = 600  # 10-minute safety timeout for ASR task polling
 
 L = logging.getLogger("batchalign.hk.tencent")
 
@@ -84,7 +82,9 @@ class TencentRecognizer:
             return "16k_zh_large"
         return f"16k_{self.provider_lang}"
 
-    def transcribe(self, source_path: AudioPath, num_speakers: NumSpeakers = 0) -> list[Any]:
+    def transcribe(
+        self, source_path: AudioPath, num_speakers: NumSpeakers = 0
+    ) -> list[Any]:
         """Upload media, submit ASR task, poll for completion, return ResultDetail."""
         try:
             from tencentcloud.asr.v20190614 import models
@@ -134,7 +134,11 @@ class TencentRecognizer:
                 status = int(getattr(status_resp.Data, "Status", 0))
                 if status in (2, 3):
                     if status == 3:
-                        error_msg = str(getattr(status_resp.Data, "ErrorMsg", "unknown Tencent error"))
+                        error_msg = str(
+                            getattr(
+                                status_resp.Data, "ErrorMsg", "unknown Tencent error"
+                            )
+                        )
                         raise RuntimeError(f"Tencent ASR failed: {error_msg}")
                     result_detail = getattr(status_resp.Data, "ResultDetail", None)
                     return list(result_detail or [])

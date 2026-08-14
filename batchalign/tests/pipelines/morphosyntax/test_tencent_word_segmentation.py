@@ -34,7 +34,9 @@ def test_tencent_cantonese_output_is_per_character() -> None:
     should be updated with fresh evidence from a new API call.
     """
     # Raw Tencent output for yue_hku_clip.mp3 (2026-03-23)
-    tencent_output = "話 就 會 走 神 又 熟 豬 公 土 一 日 喺 度 這 很 多 好 有 啲 人 睇 到 最 早"
+    tencent_output = (
+        "話 就 會 走 神 又 熟 豬 公 土 一 日 喺 度 這 很 多 好 有 啲 人 睇 到 最 早"
+    )
     words = tencent_output.split()
 
     cjk_words = [w for w in words if any("\u4e00" <= c <= "\u9fff" for c in w)]

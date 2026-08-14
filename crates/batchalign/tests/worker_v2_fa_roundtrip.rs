@@ -25,7 +25,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use batchalign::api::DurationMs;
-use batchalign::chat_ops::fa::{FaEngineType, FaInferItem, FaTimingMode, FaWord};
+use batchalign::chat_ops::fa::{FaInferItem, FaWord, WordGapHealing};
 use batchalign::chat_ops::{UtteranceIdx, WordIdx};
 use batchalign::media::tools::MediaTool;
 use batchalign::worker::artifacts_v2::PreparedArtifactStoreV2;
@@ -112,9 +112,9 @@ async fn staged_worker_v2_fa_roundtrip_crosses_rust_and_python() {
                 audio_path: wav_path.to_string_lossy().into_owned(),
                 audio_start_ms: 0,
                 audio_end_ms: 150,
-                timing_mode: FaTimingMode::Continuous,
+                gap_healing: WordGapHealing::Heal,
             },
-            engine: FaEngineType::WhisperFa,
+            engine: batchalign::types::engines::FaEngineName::Whisper,
         },
     )
     .await
@@ -153,13 +153,19 @@ async fn staged_worker_v2_fa_roundtrip_crosses_rust_and_python() {
         &response,
         &make_words(&["hello", "world"]),
         DurationMs(0),
-        FaTimingMode::Continuous,
     )
     .expect("staged response should parse back into Rust FA domain");
 
     assert_eq!(timings.len(), 2);
+    // Both ends asserted `== start_ms` until 2026-08-14. This is the test that
+    // actually crosses into Python and back, so it is the one that could have
+    // caught six weeks of zero-duration `%wor` output, and instead it pinned
+    // the defect as the contract.
+    //
+    // An onset-only engine reports no end, so a word ends where the next
+    // begins; the last has no successor and takes the fallback.
     assert_eq!(timings[0].as_ref().expect("timing").start_ms, 100);
-    assert_eq!(timings[0].as_ref().expect("timing").end_ms, 100);
+    assert_eq!(timings[0].as_ref().expect("timing").end_ms, 250);
     assert_eq!(timings[1].as_ref().expect("timing").start_ms, 250);
-    assert_eq!(timings[1].as_ref().expect("timing").end_ms, 250);
+    assert_eq!(timings[1].as_ref().expect("timing").end_ms, 750);
 }

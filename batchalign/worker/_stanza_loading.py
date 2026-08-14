@@ -14,15 +14,14 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Sequence
-from typing import Any, Protocol
 
 from batchalign.inference._domain_types import LanguageCode, LanguageCode2
-from batchalign.inference.types import StanzaNLP
 from batchalign.inference._italian_mwt import (
     INFINITIVE_ENDINGS,
     ItalianLexicon,
     ItalianMwtPolicy,
 )
+from batchalign.inference.types import StanzaNLP
 from batchalign.worker._stanza_capabilities import (
     _ISO3_OVERRIDES,
     StanzaCapabilityTable,
@@ -37,7 +36,6 @@ L = logging.getLogger("batchalign.worker")
 # private there; a rename upstream surfaces as the empty-lexicon raise below,
 # which is the fail-closed path, not a silent shrink.
 _STANZA_POS_INDEPENDENT = "*"
-
 
 
 class StanzaLexiconUnavailableError(RuntimeError):
@@ -532,10 +530,8 @@ class ItalianMwtPolicyProvider:
         try:
             import stanza
 
-            docs = probe(
-                [stanza.Document([], text=" ".join(u)) for u in utterances]
-            )
-        except Exception as exc:  # noqa: BLE001 - never fail a job over the probe
+            docs = probe([stanza.Document([], text=" ".join(u)) for u in utterances])
+        except Exception as exc:
             L.warning("Italian MWT split probe failed, leaving analysis alone: %s", exc)
             return None
         finally:
@@ -548,9 +544,7 @@ class ItalianMwtPolicyProvider:
             splits: dict[str, tuple[str, ...]] = {}
             for sent in doc.sentences:
                 for token in sent.tokens:
-                    splits.setdefault(
-                        token.text, tuple(w.text for w in token.words)
-                    )
+                    splits.setdefault(token.text, tuple(w.text for w in token.words))
             per_utterance.append(splits)
         # A short probe result would silently misalign utterance to mapping, so
         # pad rather than let zip-by-index quietly judge the wrong sentence.
@@ -588,7 +582,7 @@ class ItalianMwtPolicyProvider:
             self._probe = load_stanza_mwt_probe_model(
                 self._lang, self._force_postprocessor
             )
-        except Exception as exc:  # noqa: BLE001 - the probe is best effort
+        except Exception as exc:
             L.warning("Could not load the Italian MWT probe pipeline: %s", exc)
             self._probe = None
         return self._probe
@@ -743,7 +737,7 @@ def _emit_stanza_lang_download_event_if_missing(
                 if files:
                     is_present = True
                     break
-    except Exception as probe_exc:  # noqa: BLE001, best effort
+    except Exception as probe_exc:
         L.debug("Stanza lang-pack probe failed for %s: %s", alpha2, probe_exc)
 
     if is_present:
@@ -756,5 +750,3 @@ def _emit_stanza_lang_download_event_if_missing(
             "(one-time, ~250-500 MB; future runs will use the local cache)…"
         ),
     )
-
-

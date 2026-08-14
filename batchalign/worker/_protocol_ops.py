@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import cast
 
-import batchalign_core
 from pydantic import ValidationError
 
+import batchalign_core
 from batchalign.worker._execute_v2 import execute_request_v2
 from batchalign.worker._handlers import _capabilities, _ensure_task, _health
 from batchalign.worker._infer import _batch_infer, _infer

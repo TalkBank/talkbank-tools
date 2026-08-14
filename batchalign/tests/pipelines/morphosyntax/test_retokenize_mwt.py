@@ -13,7 +13,6 @@ preventing MWT expansion even when retokenize=True.
 Each test isolates one question about the tokenization/MWT pipeline.
 """
 
-
 import pytest
 
 # Stanza pipeline fixtures are provided by conftest.py in this directory.
@@ -169,12 +168,14 @@ class TestBatchInferRetokenize:
 
         req = BatchInferRequest(
             task="morphosyntax",
-            items=[{
-                "words": ["gonna", "eat", "cookies", "."],
-                "terminator": ".",
-                "special_forms": [[None, None]] * 4,
-                "lang": "eng",
-            }],
+            items=[
+                {
+                    "words": ["gonna", "eat", "cookies", "."],
+                    "terminator": ".",
+                    "special_forms": [[None, None]] * 4,
+                    "lang": "eng",
+                }
+            ],
             lang="eng",
             retokenize=True,
             mwt={},
@@ -233,12 +234,14 @@ class TestWorkerPipelineRetokenize:
 
         req = BatchInferRequest(
             task="morphosyntax",
-            items=[{
-                "words": ["gonna", "eat", "cookies", "."],
-                "terminator": ".",
-                "special_forms": [[None, None]] * 4,
-                "lang": "eng",
-            }],
+            items=[
+                {
+                    "words": ["gonna", "eat", "cookies", "."],
+                    "terminator": ".",
+                    "special_forms": [[None, None]] * 4,
+                    "lang": "eng",
+                }
+            ],
             lang="eng",
             retokenize=True,
             mwt={},
@@ -365,11 +368,17 @@ class TestV2ExecuteHandlerRetokenize:
     """V2 execute handler with retokenize=True preserves MWT expansion."""
 
     def test_gonna_range_token_survives_v2_handler(
-        self, english_pipeline_with_postprocessor, tmp_path,
+        self,
+        english_pipeline_with_postprocessor,
+        tmp_path,
     ):
         nlp, ctx = english_pipeline_with_postprocessor
         token_id = _run_v2_morphosyntax(
-            nlp, ctx, tmp_path, retokenize=True, request_id="retok-v2",
+            nlp,
+            ctx,
+            tmp_path,
+            retokenize=True,
+            request_id="retok-v2",
         )
         assert token_id == [1, 2], (
             f"V2 handler with retokenize=True should preserve Range token "
@@ -377,11 +386,17 @@ class TestV2ExecuteHandlerRetokenize:
         )
 
     def test_retokenize_false_preserves_mwt_range(
-        self, english_pipeline_with_postprocessor, tmp_path,
+        self,
+        english_pipeline_with_postprocessor,
+        tmp_path,
     ):
         nlp, ctx = english_pipeline_with_postprocessor
         token_id = _run_v2_morphosyntax(
-            nlp, ctx, tmp_path, retokenize=False, request_id="no-retok-v2",
+            nlp,
+            ctx,
+            tmp_path,
+            retokenize=False,
+            request_id="no-retok-v2",
         )
         # With retokenize=False (Preserve mode), the postprocessor now
         # preserves Stanza's native MWT hint so Range tokens survive to

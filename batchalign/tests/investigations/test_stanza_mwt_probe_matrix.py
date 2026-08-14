@@ -31,7 +31,8 @@ records the probes support.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -125,8 +126,7 @@ def test_stanza_mwt_probe_with_postprocessor(
     )
     if case.xfail is not None:
         pytest.xfail(
-            f"{case.xfail.defect_slug}: {case.xfail.reason}: "
-            f"observed={observed}"
+            f"{case.xfail.defect_slug}: {case.xfail.reason}: observed={observed}"
         )
     if case.expected_post_mwt_count is not None:
         assert stanza_count == case.expected_post_mwt_count, (

@@ -206,6 +206,7 @@ def _realign_sentence(
         flat_tokens.extend(parts if len(parts) > 1 else [text])
 
     from batchalign_core import align_tokens
+
     merged = align_tokens(original_words, flat_tokens, alpha2)
 
     # Restore Stanza's own MWT hint tuples wherever a merged/aligned token

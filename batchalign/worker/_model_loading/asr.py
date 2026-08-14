@@ -37,7 +37,9 @@ def load_asr_engine(bootstrap: WorkerBootstrapRuntime) -> None:
             L.error("Rev.AI key not configured")
         _state.asr_engine = AsrEngine.REV
     elif backend is AsrEngine.TENCENT:
-        from batchalign.inference.languages.cantonese._tencent_asr import load_tencent_asr
+        from batchalign.inference.languages.cantonese._tencent_asr import (
+            load_tencent_asr,
+        )
 
         load_tencent_asr(lang, engine_overrides)
         _state.asr_engine = AsrEngine.TENCENT
@@ -47,7 +49,9 @@ def load_asr_engine(bootstrap: WorkerBootstrapRuntime) -> None:
         load_aliyun_asr(lang, engine_overrides)
         _state.asr_engine = AsrEngine.ALIYUN
     elif backend is AsrEngine.FUNAUDIO:
-        from batchalign.inference.languages.cantonese._funaudio_asr import load_funaudio_asr
+        from batchalign.inference.languages.cantonese._funaudio_asr import (
+            load_funaudio_asr,
+        )
 
         load_funaudio_asr(lang, engine_overrides)
         _state.asr_engine = AsrEngine.FUNAUDIO
@@ -163,9 +167,10 @@ def resolve_injected_revai_api_key(
             return env_value.strip()
     return None
 
+
 __all__ = [
     "iso3_to_language_name",
     "load_asr_engine",
-    "resolve_injected_revai_api_key",
     "resolve_asr_engine",
+    "resolve_injected_revai_api_key",
 ]

@@ -7,9 +7,14 @@ from dataclasses import dataclass
 import pytest
 
 import batchalign.inference.languages.cantonese._aliyun_asr as aliyun_asr
-from batchalign.inference.asr import AsrBatchItem, AsrElement, AsrMonologue, MonologueAsrResponse
 import batchalign.inference.languages.cantonese._funaudio_asr as funaudio_asr
 import batchalign.inference.languages.cantonese._tencent_asr as tencent_asr
+from batchalign.inference.asr import (
+    AsrBatchItem,
+    AsrElement,
+    AsrMonologue,
+    MonologueAsrResponse,
+)
 from batchalign.worker._types import BatchInferRequest, InferTask
 
 
@@ -53,7 +58,12 @@ class _FakeFunRecognizer:
                         "speaker": 1,
                         "elements": [
                             {"value": "好", "ts": 0.0, "end_ts": 0.2, "type": "text"},
-                            {"value": "   ", "ts": None, "end_ts": None, "type": "text"},
+                            {
+                                "value": "   ",
+                                "ts": None,
+                                "end_ts": None,
+                                "type": "text",
+                            },
                         ],
                     }
                 ]
@@ -156,7 +166,9 @@ def test_infer_funaudio_asr_returns_result_payload(monkeypatch) -> None:
     assert response.results[0].elapsed_s == 1.5
 
 
-def test_funaudio_transcribe_to_monologues_requires_loaded_recognizer(monkeypatch) -> None:
+def test_funaudio_transcribe_to_monologues_requires_loaded_recognizer(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(funaudio_asr, "_recognizer", None)
 
     with pytest.raises(RuntimeError, match="not initialized"):
@@ -233,7 +245,9 @@ def test_infer_tencent_asr_returns_result_payload(monkeypatch) -> None:
     assert response.results[0].elapsed_s == 2.0
 
 
-def test_tencent_transcribe_to_monologues_requires_loaded_recognizer(monkeypatch) -> None:
+def test_tencent_transcribe_to_monologues_requires_loaded_recognizer(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(tencent_asr, "_recognizer", None)
 
     with pytest.raises(RuntimeError, match="not initialized"):

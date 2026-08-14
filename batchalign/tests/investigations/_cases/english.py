@@ -44,7 +44,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 CASES: tuple[ProbeCase, ...] = (
     # ── Standard contractions (MWT should expand to 2 UD words) ─────
     ProbeCase(

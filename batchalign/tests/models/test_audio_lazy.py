@@ -41,7 +41,7 @@ def test_lazy_audio_flag_disables_lazy() -> None:
     try:
         try:
             ASRAudioFile.lazy("fake.wav", 16000)
-            assert False, "Expected lazy audio to be disabled"
+            raise AssertionError("Expected lazy audio to be disabled")
         except RuntimeError:
             pass
     finally:

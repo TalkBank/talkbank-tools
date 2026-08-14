@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
@@ -47,7 +47,7 @@ class WorkerRegistryEntry:
     ownership: str = "external"
     owner_server_instance_id: str = ""
     owner_server_pid: int | None = None
-    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    started_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +167,9 @@ def register_worker(
 
             # Replace existing entry for same (host, port).
             entries = [
-                e for e in entries if not (e.host == entry.host and e.port == entry.port)
+                e
+                for e in entries
+                if not (e.host == entry.host and e.port == entry.port)
             ]
             entries.append(entry)
             _write_entries(path, entries)
@@ -215,9 +217,7 @@ def unregister_worker(
                 return False
 
             before = len(entries)
-            entries = [
-                e for e in entries if not (e.host == host and e.port == port)
-            ]
+            entries = [e for e in entries if not (e.host == host and e.port == port)]
             if len(entries) == before:
                 return False
             _write_entries(path, entries)

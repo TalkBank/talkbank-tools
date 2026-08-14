@@ -10,7 +10,6 @@ They test the segmentation decision logic and input characteristics.
 
 from __future__ import annotations
 
-
 # ---------------------------------------------------------------------------
 # Mandarin corpus characteristics
 # ---------------------------------------------------------------------------
@@ -87,19 +86,16 @@ def test_mandarin_retokenize_decision_logic() -> None:
     """
     scenarios = [
         # (req_lang, item_lang, expected_retok)
-        ("cmn", "cmn", True),   # Mandarin job, Mandarin utterance
-        ("zho", "zho", True),   # Chinese job, Chinese utterance
-        ("cmn", "zho", True),   # Mandarin job, Chinese pre-code
+        ("cmn", "cmn", True),  # Mandarin job, Mandarin utterance
+        ("zho", "zho", True),  # Chinese job, Chinese utterance
+        ("cmn", "zho", True),  # Mandarin job, Chinese pre-code
         ("yue", "zho", False),  # Cantonese job, [- zho] pre-code, MUST NOT retok
         ("yue", "yue", False),  # Cantonese job, uses PyCantonese, not Stanza retok
         ("eng", "cmn", False),  # English job, Mandarin pre-code
     ]
 
     for req_lang, item_lang, expected in scenarios:
-        use_retok = (
-            item_lang in ("zho", "cmn")
-            and req_lang in ("zho", "cmn")
-        )
+        use_retok = item_lang in ("zho", "cmn") and req_lang in ("zho", "cmn")
         assert use_retok == expected, (
             f"req={req_lang}, item={item_lang}: "
             f"expected retok={expected}, got {use_retok}"

@@ -55,7 +55,10 @@ class TestPyCantonesePos:
         """
         checks = [
             ("佢哋好鍾意食嘢", {"佢哋": "PRON", "鍾意": "VERB", "嘢": "NOUN"}),
-            ("我想去買故事書", {"我": "PRON", "想": "AUX", "故事": "NOUN", "書": "NOUN"}),
+            (
+                "我想去買故事書",
+                {"我": "PRON", "想": "AUX", "故事": "NOUN", "書": "NOUN"},
+            ),
             ("你知唔知道", {"你": "PRON", "唔": "ADV", "知道": "VERB"}),
             ("媽媽買咗好多嘢", {"媽媽": "NOUN", "咗": "PART", "嘢": "NOUN"}),
             ("佢係一個好人", {"佢": "PRON"}),
@@ -96,11 +99,46 @@ class TestPyCantonesePosOverride:
 
         # Simulate Stanza UD output with wrong Cantonese POS
         stanza_words = [
-            {"id": (1,), "text": "佢哋", "upos": "PROPN", "lemma": "佢哋", "head": 3, "deprel": "nsubj"},
-            {"id": (2,), "text": "好", "upos": "ADV", "lemma": "好", "head": 3, "deprel": "advmod"},
-            {"id": (3,), "text": "鍾意", "upos": "VERB", "lemma": "鍾意", "head": 0, "deprel": "root"},
-            {"id": (4,), "text": "食", "upos": "VERB", "lemma": "食", "head": 3, "deprel": "xcomp"},
-            {"id": (5,), "text": "嘢", "upos": "PUNCT", "lemma": "嘢", "head": 3, "deprel": "punct"},
+            {
+                "id": (1,),
+                "text": "佢哋",
+                "upos": "PROPN",
+                "lemma": "佢哋",
+                "head": 3,
+                "deprel": "nsubj",
+            },
+            {
+                "id": (2,),
+                "text": "好",
+                "upos": "ADV",
+                "lemma": "好",
+                "head": 3,
+                "deprel": "advmod",
+            },
+            {
+                "id": (3,),
+                "text": "鍾意",
+                "upos": "VERB",
+                "lemma": "鍾意",
+                "head": 0,
+                "deprel": "root",
+            },
+            {
+                "id": (4,),
+                "text": "食",
+                "upos": "VERB",
+                "lemma": "食",
+                "head": 3,
+                "deprel": "xcomp",
+            },
+            {
+                "id": (5,),
+                "text": "嘢",
+                "upos": "PUNCT",
+                "lemma": "嘢",
+                "head": 3,
+                "deprel": "punct",
+            },
         ]
 
         result = _override_pos_with_pycantonese(stanza_words)
@@ -115,7 +153,6 @@ class TestPyCantonesePosOverride:
         assert dep_map["佢哋"] == "nsubj", "deprel should be preserved from Stanza"
         assert dep_map["鍾意"] == "root", "deprel should be preserved from Stanza"
 
-
     def test_override_works_on_presegmented_corpus_words(self) -> None:
         """PyCantonese POS override works on hand-transcribed corpus words.
 
@@ -127,9 +164,30 @@ class TestPyCantonesePosOverride:
 
         # Simulate Stanza UD output for corpus words with wrong POS
         stanza_words = [
-            {"id": (1,), "text": "佢", "upos": "PROPN", "lemma": "佢", "head": 4, "deprel": "nsubj"},
-            {"id": (2,), "text": "踢波", "upos": "VERB", "lemma": "踢波", "head": 0, "deprel": "root"},
-            {"id": (3,), "text": "咗", "upos": "AUX", "lemma": "咗", "head": 2, "deprel": "aux"},
+            {
+                "id": (1,),
+                "text": "佢",
+                "upos": "PROPN",
+                "lemma": "佢",
+                "head": 4,
+                "deprel": "nsubj",
+            },
+            {
+                "id": (2,),
+                "text": "踢波",
+                "upos": "VERB",
+                "lemma": "踢波",
+                "head": 0,
+                "deprel": "root",
+            },
+            {
+                "id": (3,),
+                "text": "咗",
+                "upos": "AUX",
+                "lemma": "咗",
+                "head": 2,
+                "deprel": "aux",
+            },
         ]
 
         result = _override_pos_with_pycantonese(stanza_words)

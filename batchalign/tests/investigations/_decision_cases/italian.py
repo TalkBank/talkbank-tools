@@ -48,7 +48,6 @@ from .._decision_probe_types import (
     TokenMapping,
 )
 
-
 CASES: tuple[DecisionProbeCase, ...] = (
     DecisionProbeCase(
         label="dammela_needs_its_terminator",

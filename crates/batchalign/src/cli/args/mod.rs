@@ -167,8 +167,45 @@ pub struct CommandProfile<'a> {
     pub lang: &'a str,
     /// Requested speaker count for this command.
     pub num_speakers: u32,
-    /// File extensions this command should discover.
-    pub extensions: &'static [&'static str],
+    /// What kind of input this command discovers.
+    pub input_kind: InputKind,
+}
+
+/// What a command consumes.
+///
+/// A closed set of answers, not an arbitrary extension list. It WAS
+/// `&'static [&'static str]`, set to one of exactly two values across eleven
+/// command profiles and nine more entries in the bench harness, and every
+/// media one read `["mp3", "mp4", "wav"]`.
+///
+/// That was narrower than what the pipeline can actually process, and silently:
+/// `MediaExtensions` also accepts `m4a`, `flac`, `ogg`, `aac`, `wma` and
+/// `webm`, and `ensure_wav` will transcode four of those, so pointing
+/// `transcribe` at a directory of `.m4a` files found nothing and copied them
+/// through untouched as non-input. Twenty hardcoded lists is also how the two
+/// extension sets in `media.rs` and `runner::util` came to disagree.
+///
+/// [`InputKind::Media`] resolves through `MediaExtensions`, so widening what
+/// batchalign can ingest widens what its commands will discover, in one edit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputKind {
+    /// CHAT transcripts.
+    Chat,
+    /// Any media the pipeline can consume.
+    Media,
+    /// Everything, whatever its extension.
+    Any,
+}
+
+impl InputKind {
+    /// Whether a lowercased, dot-free extension is an input for this command.
+    pub fn accepts(self, extension: &str) -> bool {
+        match self {
+            Self::Chat => extension == "cha",
+            Self::Media => crate::media::MediaExtensions::is_known(extension),
+            Self::Any => true,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +220,7 @@ impl CommonOpts {
                 command: ReleasedCommand::Align,
                 lang: "eng",
                 num_speakers: 1,
-                extensions: &["cha"],
+                input_kind: InputKind::Chat,
             },
             Commands::Transcribe(a) => {
                 let diarize = if a.diarize {
@@ -202,7 +239,7 @@ impl CommonOpts {
                     command,
                     lang: &a.lang,
                     num_speakers: a.num_speakers,
-                    extensions: &["mp3", "mp4", "wav"],
+                    input_kind: InputKind::Media,
                 }
             }
             Commands::Translate(_a) => CommandProfile {
@@ -220,7 +257,7 @@ impl CommonOpts {
                 // a translate job.
                 lang: "per-file",
                 num_speakers: 1,
-                extensions: &["cha"],
+                input_kind: InputKind::Chat,
             },
             Commands::Morphotag(_a) => CommandProfile {
                 command: ReleasedCommand::Morphotag,
@@ -240,7 +277,7 @@ impl CommonOpts {
                 // language a first-class type-system state.
                 lang: "per-file",
                 num_speakers: 1,
-                extensions: &["cha"],
+                input_kind: InputKind::Chat,
             },
             Commands::Coref(_a) => CommandProfile {
                 command: ReleasedCommand::Coref,
@@ -255,37 +292,37 @@ impl CommonOpts {
                 // English placeholder.
                 lang: "per-file",
                 num_speakers: 1,
-                extensions: &["cha"],
+                input_kind: InputKind::Chat,
             },
             Commands::Compare(a) => CommandProfile {
                 command: ReleasedCommand::Compare,
                 lang: &a.lang,
                 num_speakers: a.num_speakers,
-                extensions: &["cha"],
+                input_kind: InputKind::Chat,
             },
             Commands::Utseg(a) => CommandProfile {
                 command: ReleasedCommand::Utseg,
                 lang: &a.lang,
                 num_speakers: a.num_speakers,
-                extensions: &["cha"],
+                input_kind: InputKind::Chat,
             },
             Commands::Benchmark(a) => CommandProfile {
                 command: ReleasedCommand::Benchmark,
                 lang: &a.lang,
                 num_speakers: a.num_speakers,
-                extensions: &["mp3", "mp4", "wav"],
+                input_kind: InputKind::Media,
             },
             Commands::Opensmile(a) => CommandProfile {
                 command: ReleasedCommand::Opensmile,
                 lang: &a.lang,
                 num_speakers: 1,
-                extensions: &["mp3", "mp4", "wav"],
+                input_kind: InputKind::Media,
             },
             Commands::Avqi(a) => CommandProfile {
                 command: ReleasedCommand::Avqi,
                 lang: &a.lang,
                 num_speakers: 1,
-                extensions: &["mp3", "mp4", "wav"],
+                input_kind: InputKind::Media,
             },
             Commands::Diarize(a) => CommandProfile {
                 command: ReleasedCommand::Diarize,
@@ -294,7 +331,7 @@ impl CommonOpts {
                 // signal is `DiarizeOptions::expected_speakers` (None =
                 // auto), carried through the typed options channel.
                 num_speakers: a.num_speakers.unwrap_or(1),
-                extensions: &["mp3", "mp4", "wav"],
+                input_kind: InputKind::Media,
             },
             // Caller-contract invariant: this method is only called
             // for processing commands (Align, Transcribe, Translate,

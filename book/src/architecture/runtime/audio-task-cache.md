@@ -205,7 +205,7 @@ cleanly, but no code writes or reads entries under those task names.
 
 | Task | Key components |
 |---|---|
-| Forced alignment | audio identity + time window + words + pauses + timing mode + engine |
+| Forced alignment | audio identity + time window + words + gap-healing policy + engine |
 | UTR ASR (full-file) | `"utr_asr"` + audio identity + lang |
 | UTR ASR (segment) | `"utr_asr_segment"` + audio identity + start_ms + end_ms + lang |
 

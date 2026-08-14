@@ -1,3 +1,23 @@
+// Test code is exempt from the workspace's deny-level panic lints, matching
+// `batchalign-transform` and `batchalign`: an `expect()` in a test is how the
+// test states an invariant, and denying it pushes tests toward asserting less.
+//
+// Without this, `cargo clippy --workspace --all-targets` failed on this crate's
+// own tests, which is why no CI job ran clippy across the workspace and why
+// four `#![deny(clippy::wildcard_enum_match_arm)]` attributes added this week
+// were firing only on a developer's machine.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented
+    )
+)]
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::env;
 use std::error::Error;

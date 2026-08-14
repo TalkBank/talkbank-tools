@@ -45,7 +45,7 @@ sequential spawn latency.
 ### Cache reuse
 
 Forced-alignment results are cached per audio window + transcript text +
-timing mode + engine. Re-runs mainly pay for changed groups.
+gap-healing policy + engine. Re-runs mainly pay for changed groups.
 
 ### Largest-first discovery
 

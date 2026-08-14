@@ -253,9 +253,11 @@ class BertUtteranceModel:
             n_inner = int(window_inner_ids.shape[0])
 
             # Build [CLS] inner [SEP] for this window's model call.
-            window_input_ids = torch.cat(
-                [cls_tensor, window_inner_ids, sep_tensor]
-            ).unsqueeze(0).to(DEVICE)
+            window_input_ids = (
+                torch.cat([cls_tensor, window_inner_ids, sep_tensor])
+                .unsqueeze(0)
+                .to(DEVICE)
+            )
             attention_mask = torch.ones_like(window_input_ids)
 
             window_output = self.model(
@@ -264,7 +266,9 @@ class BertUtteranceModel:
             )
             # Shape: (1, n_inner + 2, n_classes). Strip [CLS] (index 0)
             # and [SEP] (last index) to align with the inner positions.
-            window_logits = window_output.logits[0].detach().to("cpu", dtype=torch.float32)
+            window_logits = (
+                window_output.logits[0].detach().to("cpu", dtype=torch.float32)
+            )
             inner_logits = window_logits[1 : n_inner + 1]
 
             accumulated[start:end] += inner_logits
@@ -276,7 +280,9 @@ class BertUtteranceModel:
 
         # Average and argmax at the WordPiece-token level.
         averaged = accumulated / counts.unsqueeze(-1)
-        token_actions = torch.argmax(averaged, dim=1).tolist()  # list[int], len == n_tokens
+        token_actions = torch.argmax(
+            averaged, dim=1
+        ).tolist()  # list[int], len == n_tokens
 
         # Map per-token actions back to per-word actions, taking the
         # action of the first WordPiece token of each word. Matches the

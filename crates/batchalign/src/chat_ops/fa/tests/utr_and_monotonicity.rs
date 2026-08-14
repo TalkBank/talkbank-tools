@@ -85,12 +85,7 @@ fn apply_fa_produces_no_double_bullets_after_utr() {
                 })
                 .sum();
             (0..word_count)
-                .map(|i| {
-                    Some(WordTiming {
-                        start_ms: (i as u64) * 500 + 1000,
-                        end_ms: (i as u64) * 500 + 1400,
-                    })
-                })
+                .map(|i| WordTiming::new((i as u64) * 500 + 1000, (i as u64) * 500 + 1400))
                 .collect()
         })
         .collect();
@@ -99,7 +94,7 @@ fn apply_fa_produces_no_double_bullets_after_utr() {
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::Continuous,
+        WordEndPolicy::measured(WordGapHealing::Heal),
         true,
     );
 

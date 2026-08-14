@@ -6,8 +6,6 @@ from copy import deepcopy
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
 from batchalign.inference.morphosyntax import (
     _is_bogus_lemma,
     batch_infer_morphosyntax,
@@ -55,7 +53,11 @@ class _RecordingNlp:
         self.calls: list[tuple[str, list[list[str]]]] = []
 
     def __call__(self, text: str) -> _FakeDoc:
-        original_words = [] if self.ctx is None else [list(words) for words in self.ctx.original_words]
+        original_words = (
+            []
+            if self.ctx is None
+            else [list(words) for words in self.ctx.original_words]
+        )
         self.calls.append((text, original_words))
         if self.error is not None:
             raise self.error
@@ -108,16 +110,18 @@ def test_is_bogus_lemma_flags_punctuation_only_lemmas() -> None:
 def test_validate_ud_words_falls_back_from_bogus_punctuation_lemma() -> None:
     """Punctuation-only lemmas for lexical words should fall back to the surface form."""
 
-    sentences = [[
-        {
-            "id": 1,
-            "text": "bonjour",
-            "lemma": "...",
-            "upos": "INTJ",
-            "head": 0,
-            "deprel": "root",
-        }
-    ]]
+    sentences = [
+        [
+            {
+                "id": 1,
+                "text": "bonjour",
+                "lemma": "...",
+                "upos": "INTJ",
+                "head": 0,
+                "deprel": "root",
+            }
+        ]
+    ]
 
     validate_ud_words(sentences)
 
@@ -165,10 +169,25 @@ def test_batch_infer_morphosyntax_groups_by_language_and_uses_lock(monkeypatch) 
             task="morphosyntax",
             lang="eng",
             items=[
-                {"words": ["hello", "world"], "terminator": "."},
-                {"words": ["goodbye", "moon"], "terminator": "."},
-                {"words": ["salut"], "terminator": ".", "lang": "fra"},
-                {"words": [], "terminator": "."},
+                {
+                    "words": ["hello", "world"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "eng",
+                },
+                {
+                    "words": ["goodbye", "moon"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "eng",
+                },
+                {
+                    "words": ["salut"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "fra",
+                },
+                {"words": [], "terminator": ".", "special_forms": [], "lang": "eng"},
                 {"bad": "shape"},
             ],
         ),
@@ -188,9 +207,13 @@ def test_batch_infer_morphosyntax_groups_by_language_and_uses_lock(monkeypatch) 
     assert fra_nlp.calls == [("salut .", [["salut", "."]])]
     assert eng_ctx.original_words == []
     assert fra_ctx.original_words == []
-    assert response.results[0].result == {"raw_sentences": [_raw_sentence(["hello", "world"])]}
+    assert response.results[0].result == {
+        "raw_sentences": [_raw_sentence(["hello", "world"])]
+    }
     assert response.results[0].elapsed_s == 3.5
-    assert response.results[1].result == {"raw_sentences": [_raw_sentence(["goodbye", "moon"])]}
+    assert response.results[1].result == {
+        "raw_sentences": [_raw_sentence(["goodbye", "moon"])]
+    }
     assert response.results[2].result == {"raw_sentences": [_raw_sentence(["salut"])]}
     # Each of the three above asserts the CHAT words only: the terminator the
     # fakes returned is gone, which is the contract.
@@ -198,7 +221,9 @@ def test_batch_infer_morphosyntax_groups_by_language_and_uses_lock(monkeypatch) 
     assert response.results[4].error == "Invalid batch item"
 
 
-def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure(monkeypatch) -> None:
+def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure(
+    monkeypatch,
+) -> None:
     """If a lang-specific context is absent, the request-lang context should be used and reset."""
 
     monotonic = iter([1.0, 2.0])
@@ -219,7 +244,14 @@ def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure
         BatchInferRequest(
             task="morphosyntax",
             lang="eng",
-            items=[{"words": ["salut", "toi"], "terminator": ".", "lang": "fra"}],
+            items=[
+                {
+                    "words": ["salut", "toi"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "fra",
+                }
+            ],
         ),
         {"fra": fra_nlp},
         {"eng": fallback_ctx},
@@ -234,7 +266,9 @@ def test_batch_infer_morphosyntax_uses_fallback_context_and_resets_after_failure
     assert response.results[0].elapsed_s == 1.0
 
 
-def test_batch_infer_morphosyntax_leaves_defaults_for_missing_pipelines_and_mismatches(monkeypatch) -> None:
+def test_batch_infer_morphosyntax_leaves_defaults_for_missing_pipelines_and_mismatches(
+    monkeypatch,
+) -> None:
     """Missing pipelines and sentence-count drift should preserve empty fallback results."""
 
     monotonic = iter([20.0, 21.0])
@@ -255,9 +289,24 @@ def test_batch_infer_morphosyntax_leaves_defaults_for_missing_pipelines_and_mism
             task="morphosyntax",
             lang="eng",
             items=[
-                {"words": ["no", "pipeline"], "terminator": ".", "lang": "spa"},
-                {"words": ["hello", "world"], "terminator": "."},
-                {"words": ["goodbye", "moon"], "terminator": "."},
+                {
+                    "words": ["no", "pipeline"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "spa",
+                },
+                {
+                    "words": ["hello", "world"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "eng",
+                },
+                {
+                    "words": ["goodbye", "moon"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "eng",
+                },
             ],
         ),
         {"eng": mismatch_nlp},
@@ -277,7 +326,9 @@ def test_batch_infer_morphosyntax_leaves_defaults_for_missing_pipelines_and_mism
     assert response.results[2].result == {"sentences": []}
 
 
-def test_batch_infer_morphosyntax_returns_early_when_no_nonempty_items(monkeypatch) -> None:
+def test_batch_infer_morphosyntax_returns_early_when_no_nonempty_items(
+    monkeypatch,
+) -> None:
     """All-invalid or empty items should hit the no-work early return."""
 
     monotonic = iter([30.0, 31.0])
@@ -290,7 +341,10 @@ def test_batch_infer_morphosyntax_returns_early_when_no_nonempty_items(monkeypat
         BatchInferRequest(
             task="morphosyntax",
             lang="eng",
-            items=[{"words": [], "terminator": "."}, {"bad": "shape"}],
+            items=[
+                {"words": [], "terminator": ".", "special_forms": [], "lang": "eng"},
+                {"bad": "shape"},
+            ],
         ),
         {},
         {},
@@ -322,21 +376,48 @@ def test_batch_infer_morphosyntax_normalizes_deprels_on_the_production_path() ->
     ctx = SimpleNamespace(original_words=[])
     nlp = _RecordingNlp(
         ctx,
-        [[
-            {"id": 1, "text": "attenzi", "lemma": "attenzare", "upos": "VERB",
-             "head": 0, "deprel": "root"},
-            {"id": 2, "text": "ne", "lemma": "ne", "upos": "PRON",
-             "head": 1, "deprel": "iob"},
-            {"id": 3, "text": ".", "lemma": ".", "upos": "PUNCT",
-             "head": 1, "deprel": "punct"},
-        ]],
+        [
+            [
+                {
+                    "id": 1,
+                    "text": "attenzi",
+                    "lemma": "attenzare",
+                    "upos": "VERB",
+                    "head": 0,
+                    "deprel": "root",
+                },
+                {
+                    "id": 2,
+                    "text": "ne",
+                    "lemma": "ne",
+                    "upos": "PRON",
+                    "head": 1,
+                    "deprel": "iob",
+                },
+                {
+                    "id": 3,
+                    "text": ".",
+                    "lemma": ".",
+                    "upos": "PUNCT",
+                    "head": 1,
+                    "deprel": "punct",
+                },
+            ]
+        ],
     )
 
     resp = batch_infer_morphosyntax(
         BatchInferRequest(
             task="morphosyntax",
             lang="ita",
-            items=[{"words": ["attenzione"], "terminator": "."}],
+            items=[
+                {
+                    "words": ["attenzione"],
+                    "terminator": ".",
+                    "special_forms": [],
+                    "lang": "ita",
+                }
+            ],
         ),
         {"ita": nlp},
         {"ita": ctx},
@@ -397,7 +478,15 @@ def test_words_ending_in_the_terminator_are_rejected_not_silently_deduped() -> N
     the unexpected pathway instead.
     """
     response, nlp = _run_eng(
-        [{"words": ["hello", "."], "terminator": "."}], [_raw_sentence(["hello"])]
+        [
+            {
+                "words": ["hello", "."],
+                "terminator": ".",
+                "special_forms": [],
+                "lang": "eng",
+            }
+        ],
+        [_raw_sentence(["hello"])],
     )
 
     assert response.results[0].error == "Invalid batch item"
@@ -414,7 +503,8 @@ def test_terminator_word_is_stripped_by_position_not_by_recognition() -> None:
     this test would fail.
     """
     response, nlp = _run_eng(
-        [{"words": ["hello"], "terminator": "."}], [_raw_sentence(["hello", "."])]
+        [{"words": ["hello"], "terminator": ".", "special_forms": [], "lang": "eng"}],
+        [_raw_sentence(["hello", "."])],
     )
 
     assert nlp.calls == [("hello .", [["hello", "."]])], (

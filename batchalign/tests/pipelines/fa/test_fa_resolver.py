@@ -29,32 +29,28 @@ class TestResolveFaEngine:
         assert resolve_fa_engine({"fa": "wave2vec"}) is FaEngine.WAVE2VEC
 
     def test_wav2vec_canto_override_wins(self) -> None:
-        assert (
-            resolve_fa_engine({"fa": "wav2vec_canto"})
-            is FaEngine.WAV2VEC_CANTO
-        )
+        assert resolve_fa_engine({"fa": "wav2vec_canto"}) is FaEngine.WAV2VEC_CANTO
 
-    def test_absent_overrides_raise_rather_than_defaulting(self) -> None:
-        """A missing ``fa`` key is a broken boundary, not a request.
+    def test_absence_is_a_boundary_bug_not_a_request_for_a_default(self) -> None:
+        """Nothing may reach here without an engine named.
 
-        These three cases asserted a Whisper default until 2026-08-14, which
-        made this module a second owner of a choice the Rust control plane
-        already makes. The two disagreed silently once Rust changed its
-        default, and only Rust always populating the key kept it from
-        surfacing as wrong-model output.
+        The history is the reason this test is worded as a boundary check
+        rather than a default. It asserted a Whisper default until 2026-08-14,
+        which is how six weeks of onset-only timings shipped; then a raise,
+        which broke profile bootstrap because the control plane genuinely sent
+        no engine; then Wave2Vec, which was correct but left the guess in
+        place.
+
+        The guess is gone because the absence is: `EngineSelection::for_target`
+        names an engine for every task a worker's target preloads, and a
+        lazy-profile worker preloads nothing and names its engine in the
+        `ensure_task` IPC. So an empty selection here means the control plane
+        is broken, and loading *some* model would hide that behind output
+        nobody can tell is wrong.
         """
-        with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
-            resolve_fa_engine(None)
-
-    def test_empty_dict_raises(self) -> None:
-        with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
-            resolve_fa_engine({})
-
-    def test_unrelated_override_keys_do_not_satisfy_the_fa_key(self) -> None:
-        # Only the ``fa`` key matters here; other engine keys belong
-        # to other resolvers, and none of them stands in for a missing one.
-        with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
-            resolve_fa_engine({"asr": "whisper"})
+        for absent in (None, {}, {"asr": "whisper"}):
+            with pytest.raises(ValueError, match="no 'fa' engine"):
+                resolve_fa_engine(absent)
 
     def test_unknown_engine_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="unknown fa engine 'wisper'"):

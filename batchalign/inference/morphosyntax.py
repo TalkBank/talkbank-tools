@@ -20,8 +20,8 @@ from pydantic import BaseModel, ValidationError, model_validator
 from batchalign.inference._domain_types import LanguageCode
 
 if TYPE_CHECKING:
-    from batchalign.inference.types import StanzaNLP
     from batchalign.inference._tokenizer_realign import TokenizerContext
+    from batchalign.inference.types import StanzaNLP
 
 from batchalign.providers import (
     BatchInferRequest,
@@ -36,6 +36,7 @@ L = logging.getLogger("batchalign.worker")
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
+
 
 class Terminator(StrEnum):
     """A CHAT utterance terminator, by its surface form.
@@ -86,8 +87,13 @@ class MorphosyntaxBatchItem(BaseModel):
     # also a legal value, making "the caller sent no terminator"
     # indistinguishable from "the utterance ended in a period".
     terminator: Terminator
-    special_forms: list[list[str | None]] = []
-    lang: LanguageCode = ""
+    # Required, with no defaults, because the Rust schema declares both
+    # required and always sends them. An empty-string language is not a
+    # language: defaulting it would let a caller that forgot to route by
+    # language reach Stanza looking well-formed, which is the failure mode
+    # that silently mixes languages rather than reporting anything.
+    special_forms: list[list[str | None]]
+    lang: LanguageCode
 
     @model_validator(mode="after")
     def _words_must_not_contain_the_terminator(self) -> MorphosyntaxBatchItem:
@@ -272,13 +278,47 @@ def _drops_appended_terminator(mode: RealignmentMode) -> bool:
 # colon are open and language-specific, so only the head is checked. This
 # mirrors the closed set chatter's E761 enforces on the reading side; the two
 # must not drift apart.
-UD_RELATIONS: frozenset[str] = frozenset({
-    "acl", "advcl", "advmod", "amod", "appos", "aux", "case", "cc", "ccomp",
-    "clf", "compound", "conj", "cop", "csubj", "dep", "det", "discourse",
-    "dislocated", "expl", "fixed", "flat", "goeswith", "iobj", "list", "mark",
-    "nmod", "nsubj", "nummod", "obj", "obl", "orphan", "parataxis", "punct",
-    "reparandum", "root", "vocative", "xcomp",
-})
+UD_RELATIONS: frozenset[str] = frozenset(
+    {
+        "acl",
+        "advcl",
+        "advmod",
+        "amod",
+        "appos",
+        "aux",
+        "case",
+        "cc",
+        "ccomp",
+        "clf",
+        "compound",
+        "conj",
+        "cop",
+        "csubj",
+        "dep",
+        "det",
+        "discourse",
+        "dislocated",
+        "expl",
+        "fixed",
+        "flat",
+        "goeswith",
+        "iobj",
+        "list",
+        "mark",
+        "nmod",
+        "nsubj",
+        "nummod",
+        "obj",
+        "obl",
+        "orphan",
+        "parataxis",
+        "punct",
+        "reparandum",
+        "root",
+        "vocative",
+        "xcomp",
+    }
+)
 
 # Known non-UD labels observed from Stanza, mapped to their UD equivalent.
 # `iob` is emitted by the Italian model for clitic pronouns and is
@@ -451,9 +491,7 @@ def _is_bogus_lemma(text: str, lemma: str) -> bool:
     if text == lemma or not lemma:
         return False
     text_has_letters = any(unicodedata.category(c).startswith("L") for c in text)
-    lemma_all_punct = all(
-        unicodedata.category(c).startswith(("P", "S")) for c in lemma
-    )
+    lemma_all_punct = all(unicodedata.category(c).startswith(("P", "S")) for c in lemma)
     return text_has_letters and lemma_all_punct
 
 
@@ -587,13 +625,16 @@ def batch_infer_morphosyntax(
             nlp = nlp_pipelines.get(retok_key)
             if nlp is None:
                 # Lazy-load the retokenize pipeline on first request
-                from batchalign.worker._stanza_loading import load_stanza_retokenize_model
+                from batchalign.worker._stanza_loading import (
+                    load_stanza_retokenize_model,
+                )
 
                 load_stanza_retokenize_model(lang_code)
                 nlp = nlp_pipelines.get(retok_key)
             if nlp is None:
                 L.warning(
-                    "Failed to load retokenize pipeline for %s", lang_code,
+                    "Failed to load retokenize pipeline for %s",
+                    lang_code,
                 )
                 use_retok_pipeline = False
         if not use_retok_pipeline:
@@ -615,7 +656,11 @@ def batch_infer_morphosyntax(
         combined = "\n\n".join(item.text for item in lang_items)
         if use_retok_pipeline:
             retok_key = f"{lang_code}:retok"
-            tok_ctx = contexts.get(retok_key) or contexts.get(lang_code) or contexts.get(req.lang)
+            tok_ctx = (
+                contexts.get(retok_key)
+                or contexts.get(lang_code)
+                or contexts.get(req.lang)
+            )
         else:
             tok_ctx = contexts.get(lang_code) or contexts.get(req.lang)
 

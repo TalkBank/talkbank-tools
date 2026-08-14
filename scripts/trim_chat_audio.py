@@ -20,7 +20,6 @@ Requirements: ffmpeg (for audio trimming)
 """
 
 import argparse
-import os
 import re
 import subprocess
 import sys
@@ -30,14 +29,26 @@ BULLET = "\x15"
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("input", help="Input CHAT file")
-    p.add_argument("--lines", required=True, help="Utterance range, e.g. 20-40 (1-based, main-tier lines only)")
-    p.add_argument("--context", type=int, default=0, help="Extra utterances before/after range")
-    p.add_argument("--ref", help="Reference aligned CHAT for timing (if input is untimed)")
+    p.add_argument(
+        "--lines",
+        required=True,
+        help="Utterance range, e.g. 20-40 (1-based, main-tier lines only)",
+    )
+    p.add_argument(
+        "--context", type=int, default=0, help="Extra utterances before/after range"
+    )
+    p.add_argument(
+        "--ref", help="Reference aligned CHAT for timing (if input is untimed)"
+    )
     p.add_argument("--audio", help="Audio file (default: inferred from @Media header)")
     p.add_argument("--output", default=".", help="Output directory")
-    p.add_argument("--padding-ms", type=int, default=2000, help="Audio padding before/after (ms)")
+    p.add_argument(
+        "--padding-ms", type=int, default=2000, help="Audio padding before/after (ms)"
+    )
     return p.parse_args()
 
 
@@ -85,7 +96,9 @@ def find_time_range(lines, main_indices, start_utt, end_utt):
                 min_ms = min(min_ms, t[0])
                 max_ms = max(max_ms, t[1])
             j += 1
-            if j >= len(lines) or (lines[j].startswith("*") or lines[j].startswith("@")):
+            if j >= len(lines) or (
+                lines[j].startswith("*") or lines[j].startswith("@")
+            ):
                 break
 
     if min_ms == float("inf"):
@@ -124,6 +137,7 @@ def rebase_timing(lines, offset_ms):
     """Subtract offset_ms from all timing bullets so they're relative to trimmed audio."""
     rebased = []
     for line in lines:
+
         def rebase_match(m):
             start = max(0, int(m.group(1)) - offset_ms)
             end = max(0, int(m.group(2)) - offset_ms)
@@ -131,10 +145,14 @@ def rebase_timing(lines, offset_ms):
 
         new_line = re.sub(BULLET + r"(\d+)_(\d+)" + BULLET, rebase_match, line)
         # Also handle bare timing (no bullet markers) at end of main tier lines
-        if line.startswith("*") and not BULLET in line:
-            new_line = re.sub(r"\b(\d{4,})_(\d{4,})\b",
-                              lambda m: f"{max(0, int(m.group(1)) - offset_ms)}_{max(0, int(m.group(2)) - offset_ms)}",
-                              new_line)
+        if line.startswith("*") and BULLET not in line:
+            new_line = re.sub(
+                r"\b(\d{4,})_(\d{4,})\b",
+                lambda m: (
+                    f"{max(0, int(m.group(1)) - offset_ms)}_{max(0, int(m.group(2)) - offset_ms)}"
+                ),
+                new_line,
+            )
         rebased.append(new_line)
     return rebased
 
@@ -163,14 +181,16 @@ def build_trimmed_chat(lines, main_indices, start_utt, end_utt):
 
     # Extend last_line to include continuation/dependent lines
     j = last_line + 1
-    while j < len(lines) and not lines[j].startswith("*") and not lines[j].startswith("@"):
+    while (
+        j < len(lines) and not lines[j].startswith("*") and not lines[j].startswith("@")
+    ):
         j += 1
     last_line = j - 1
 
-    body = lines[first_line:last_line + 1]
+    body = lines[first_line : last_line + 1]
 
     result = headers + g_lines + body
-    if not any(l.strip() == "@End" for l in result):
+    if not any(line.strip() == "@End" for line in result):
         result.append("@End\n")
 
     return result
@@ -183,10 +203,16 @@ def trim_audio(audio_path, start_ms, end_ms, padding_ms, output_path):
     duration = end_s - start_s
 
     cmd = [
-        "ffmpeg", "-y", "-i", str(audio_path),
-        "-ss", f"{start_s:.3f}",
-        "-t", f"{duration:.3f}",
-        "-c", "copy",
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(audio_path),
+        "-ss",
+        f"{start_s:.3f}",
+        "-t",
+        f"{duration:.3f}",
+        "-c",
+        "copy",
         str(output_path),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -222,7 +248,9 @@ def main():
     end_utt = min(end_utt, total_utts)
 
     print(f"Input: {input_path.name} ({total_utts} utterances)")
-    print(f"Selecting utterances {start_utt}-{end_utt} ({end_utt - start_utt + 1} utterances)")
+    print(
+        f"Selecting utterances {start_utt}-{end_utt} ({end_utt - start_utt + 1} utterances)"
+    )
 
     # Determine time range from reference or input
     ref_path = Path(args.ref) if args.ref else input_path
@@ -234,7 +262,9 @@ def main():
         print("WARNING: no timing found in reference, audio will not be trimmed")
     else:
         start_ms, end_ms = time_range
-        print(f"Time range: {start_ms}ms - {end_ms}ms ({(end_ms - start_ms) / 1000:.1f}s)")
+        print(
+            f"Time range: {start_ms}ms - {end_ms}ms ({(end_ms - start_ms) / 1000:.1f}s)"
+        )
 
     # Build trimmed CHAT
     trimmed = build_trimmed_chat(input_lines, main_indices, start_utt, end_utt)
@@ -252,7 +282,7 @@ def main():
     chat_out = output_dir / f"{stem}-trimmed.cha"
     with open(chat_out, "w", encoding="utf-8") as f:
         f.writelines(trimmed)
-    utt_count = sum(1 for l in trimmed if l.startswith("*"))
+    utt_count = sum(1 for line in trimmed if line.startswith("*"))
     print(f"Wrote {chat_out.name} ({utt_count} utterances)")
 
     # Update @Media header to reference trimmed audio
@@ -260,11 +290,15 @@ def main():
 
     # Trim audio
     if time_range:
-        audio_path = Path(args.audio) if args.audio else find_audio_file(input_lines, input_dir)
+        audio_path = (
+            Path(args.audio) if args.audio else find_audio_file(input_lines, input_dir)
+        )
         if audio_path and audio_path.exists():
             audio_out = output_dir / f"{stem}-trimmed{audio_path.suffix}"
             trim_audio(audio_path, start_ms, end_ms, args.padding_ms, audio_out)
-            print(f"Wrote {audio_out.name} ({(end_ms - start_ms + 2 * args.padding_ms) / 1000:.1f}s)")
+            print(
+                f"Wrote {audio_out.name} ({(end_ms - start_ms + 2 * args.padding_ms) / 1000:.1f}s)"
+            )
 
             # Update @Media in trimmed CHAT
             new_lines = []

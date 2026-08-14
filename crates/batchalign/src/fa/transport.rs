@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::api::{DurationMs, WorkerLanguage};
-use crate::chat_ops::fa::{FaEngineType, FaGroup, FaInferItem, FaTimingMode, WordTiming};
+use crate::chat_ops::fa::{FaGroup, FaInferItem, WordGapHealing, WordTiming};
 use crate::error::ServerError;
 use crate::pipeline::PipelineServices;
 use crate::types::traces::FaFallbackEventTrace;
@@ -35,9 +35,9 @@ pub(crate) struct FaWorkerBatch<'a> {
     /// Worker-runtime language hint for FA model bootstrap.
     pub worker_lang: WorkerLanguage,
     /// FA backend selected by the Rust control plane.
-    pub engine: FaEngineType,
-    /// Timing mode selected by the Rust control plane.
-    pub timing_mode: FaTimingMode,
+    pub engine: crate::types::engines::FaEngineName,
+    /// Gap-healing policy for every group in this batch.
+    pub gap_healing: WordGapHealing,
 }
 
 /// Parsed FA timings for one inferred miss group.
@@ -142,7 +142,7 @@ async fn infer_groups_v2(
             Err(other) => return Err(other),
         };
 
-        match parse_group_response(&response, group_index, group, batch.timing_mode) {
+        match parse_group_response(&response, group_index, group) {
             Ok(parsed) => parsed_results.push(parsed),
             Err(error) => {
                 let Some(reason) = whisper_fallback_reason(batch.engine, &error) else {
@@ -178,21 +178,16 @@ async fn infer_groups_v2(
                     &batch,
                     fallback_namespace,
                     group_index,
-                    FaEngineType::WhisperFa,
+                    crate::types::engines::FaEngineName::Whisper,
                 )
                 .await?;
-                match parse_group_response(
-                    &fallback_response,
-                    group_index,
-                    group,
-                    batch.timing_mode,
-                ) {
+                match parse_group_response(&fallback_response, group_index, group) {
                     Ok(parsed) => {
                         parsed_results.push(parsed.with_fallback_event(build_fallback_event(
                             group_index,
                             group,
                             batch.engine,
-                            FaEngineType::WhisperFa,
+                            crate::types::engines::FaEngineName::Whisper,
                             reason,
                         )))
                     }
@@ -253,7 +248,7 @@ async fn dispatch_group_request(
     batch: &FaWorkerBatch<'_>,
     request_namespace: u64,
     group_index: usize,
-    engine: FaEngineType,
+    engine: crate::types::engines::FaEngineName,
 ) -> Result<crate::types::worker_v2::ExecuteResponseV2, ServerError> {
     let infer_item = build_fa_infer_item(batch, group_index);
     let request_ids = build_fa_request_ids(request_namespace, group_index);
@@ -291,13 +286,11 @@ fn parse_group_response(
     response: &crate::types::worker_v2::ExecuteResponseV2,
     group_index: usize,
     group: &FaGroup,
-    timing_mode: FaTimingMode,
 ) -> Result<FaWorkerGroupResult, ServerError> {
     let timings = parse_forced_alignment_result_v2(
         response,
         &group.words,
         DurationMs(group.audio_start_ms()),
-        timing_mode,
     )
     .map_err(|error| {
         ServerError::Validation(format!(
@@ -324,24 +317,23 @@ impl FaWorkerGroupResult {
 fn build_fallback_event(
     group_index: usize,
     group: &FaGroup,
-    from_engine: FaEngineType,
-    to_engine: FaEngineType,
+    from_engine: crate::types::engines::FaEngineName,
+    to_engine: crate::types::engines::FaEngineName,
     reason: &str,
 ) -> FaFallbackEventTrace {
     FaFallbackEventTrace {
         group_index,
-        from_engine: fa_engine_name(from_engine).to_string(),
-        to_engine: fa_engine_name(to_engine).to_string(),
+        from_engine: {
+            use crate::types::engines::EngineBackend;
+            from_engine.wire_name().to_string()
+        },
+        to_engine: {
+            use crate::types::engines::EngineBackend;
+            to_engine.wire_name().to_string()
+        },
         reason: reason.to_string(),
         audio_start_ms: DurationMs(group.audio_start_ms()),
         audio_end_ms: DurationMs(group.audio_end_ms()),
-    }
-}
-
-fn fa_engine_name(engine: FaEngineType) -> &'static str {
-    match engine {
-        FaEngineType::Wave2Vec => "wave2vec",
-        FaEngineType::WhisperFa => "whisper-fa",
     }
 }
 
@@ -431,8 +423,14 @@ fn is_whisper_model_unavailable(error: &ServerError) -> bool {
     )
 }
 
-fn whisper_fallback_reason(engine: FaEngineType, error: &ServerError) -> Option<&'static str> {
-    if engine != FaEngineType::Wave2Vec {
+fn whisper_fallback_reason(
+    engine: crate::types::engines::FaEngineName,
+    error: &ServerError,
+) -> Option<&'static str> {
+    // Both wav2vec-family engines hit the CTC limits below; Whisper is the
+    // fallback target and cannot fall back to itself.
+    use crate::types::engines::FaEngineName;
+    if !matches!(engine, FaEngineName::Wave2Vec | FaEngineName::Wav2vecCanto) {
         return None;
     }
 
@@ -482,7 +480,7 @@ fn build_fa_infer_item(batch: &FaWorkerBatch<'_>, group_index: usize) -> FaInfer
         audio_path: batch.audio_path.to_string_lossy().into_owned(),
         audio_start_ms: group.audio_start_ms(),
         audio_end_ms: group.audio_end_ms(),
-        timing_mode: batch.timing_mode,
+        gap_healing: batch.gap_healing,
     }
 }
 
@@ -535,8 +533,8 @@ mod tests {
             miss_indices: &[0],
             audio_path: Path::new("/tmp/input.wav"),
             worker_lang: WorkerLanguage::from(crate::api::LanguageCode3::eng()),
-            engine: FaEngineType::WhisperFa,
-            timing_mode: FaTimingMode::WithPauses,
+            engine: crate::types::engines::FaEngineName::Whisper,
+            gap_healing: WordGapHealing::PreserveMeasured,
         };
 
         let item = build_fa_infer_item(&batch, 0);
@@ -550,7 +548,7 @@ mod tests {
         assert_eq!(item.audio_path, "/tmp/input.wav");
         assert_eq!(item.audio_start_ms, 100);
         assert_eq!(item.audio_end_ms, 900);
-        assert_eq!(item.timing_mode, FaTimingMode::WithPauses);
+        assert_eq!(item.gap_healing, WordGapHealing::PreserveMeasured);
     }
 
     #[test]
@@ -590,7 +588,7 @@ mod tests {
             elapsed_s: DurationSeconds(0.01),
         };
 
-        let error = parse_group_response(&response, 13, &group, FaTimingMode::Continuous)
+        let error = parse_group_response(&response, 13, &group)
             .expect_err("non-FA payload should fail immediately");
 
         assert!(
@@ -610,11 +608,11 @@ mod tests {
                 .into(),
         );
         assert_eq!(
-            whisper_fallback_reason(FaEngineType::Wave2Vec, &overflow),
+            whisper_fallback_reason(crate::types::engines::FaEngineName::Wave2Vec, &overflow),
             Some("targets length is too long for CTC")
         );
         assert_eq!(
-            whisper_fallback_reason(FaEngineType::WhisperFa, &overflow),
+            whisper_fallback_reason(crate::types::engines::FaEngineName::Whisper, &overflow),
             None
         );
 
@@ -625,11 +623,11 @@ mod tests {
                 .into(),
         );
         assert_eq!(
-            whisper_fallback_reason(FaEngineType::Wave2Vec, &blank_index),
+            whisper_fallback_reason(crate::types::engines::FaEngineName::Wave2Vec, &blank_index),
             Some("targets Tensor shouldn't contain blank index")
         );
         assert_eq!(
-            whisper_fallback_reason(FaEngineType::WhisperFa, &blank_index),
+            whisper_fallback_reason(crate::types::engines::FaEngineName::Whisper, &blank_index),
             None
         );
 
@@ -644,17 +642,23 @@ mod tests {
                 .into(),
         );
         assert_eq!(
-            whisper_fallback_reason(FaEngineType::Wave2Vec, &kernel_too_large),
+            whisper_fallback_reason(
+                crate::types::engines::FaEngineName::Wave2Vec,
+                &kernel_too_large
+            ),
             Some("audio segment too short for Wave2Vec feature extractor")
         );
         assert_eq!(
-            whisper_fallback_reason(FaEngineType::WhisperFa, &kernel_too_large),
+            whisper_fallback_reason(
+                crate::types::engines::FaEngineName::Whisper,
+                &kernel_too_large
+            ),
             None
         );
 
         let other = ServerError::Validation("some other parse failure".into());
         assert_eq!(
-            whisper_fallback_reason(FaEngineType::Wave2Vec, &other),
+            whisper_fallback_reason(crate::types::engines::FaEngineName::Wave2Vec, &other),
             None
         );
     }
@@ -853,14 +857,14 @@ mod tests {
         let event = build_fallback_event(
             13,
             &group,
-            FaEngineType::Wave2Vec,
-            FaEngineType::WhisperFa,
+            crate::types::engines::FaEngineName::Wave2Vec,
+            crate::types::engines::FaEngineName::Whisper,
             "targets length is too long for CTC",
         );
 
         assert_eq!(event.group_index, 13);
-        assert_eq!(event.from_engine, "wave2vec");
-        assert_eq!(event.to_engine, "whisper-fa");
+        assert_eq!(event.from_engine, "wav2vec_fa");
+        assert_eq!(event.to_engine, "whisper_fa");
         assert_eq!(event.reason, "targets length is too long for CTC");
         assert_eq!(event.audio_start_ms.0, 175_765);
         assert_eq!(event.audio_end_ms.0, 176_365);

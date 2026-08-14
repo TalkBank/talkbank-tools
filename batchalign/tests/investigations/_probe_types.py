@@ -118,7 +118,7 @@ class ProbeCase:
         cls,
         word: str,
         phenomenon: Phenomenon = Phenomenon.CLITIC_ELISION,
-    ) -> "ProbeCase":
+    ) -> ProbeCase:
         """Build a single-word observation-only probe with label
         ``f"{word}_alone"`` and words ``(word,)``. Standard shape
         for surface pins where the probe's only job is to record
@@ -139,7 +139,7 @@ class ProbeCase:
         cls,
         word: str,
         phenomenon: Phenomenon = Phenomenon.CONTROL,
-    ) -> "ProbeCase":
+    ) -> ProbeCase:
         """Build a single-word probe with ``expected_post_mwt_count=1``
         - the standard shape for baseline/control tokens that must
         stay 1-to-1 under the postprocessor pipeline. Asserts that

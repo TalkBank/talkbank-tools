@@ -42,11 +42,18 @@ def test_morphotag_retokenize_with_retrace_succeeds() -> None:
 
         result = subprocess.run(
             [
-                "cargo", "run", "-p", "batchalign", "--",
-                "--no-open-dashboard", "--override-media-cache",
-                "morphotag", "--retokenize",
+                "cargo",
+                "run",
+                "-p",
+                "batchalign",
+                "--",
+                "--no-open-dashboard",
+                "--override-media-cache",
+                "morphotag",
+                "--retokenize",
                 str(input_path),
-                "-o", str(output_dir),
+                "-o",
+                str(output_dir),
             ],
             capture_output=True,
             text=True,
@@ -59,7 +66,7 @@ def test_morphotag_retokenize_with_retrace_succeeds() -> None:
 
         if result.returncode != 0:
             # THIS IS THE BUG, if it fails, capture the error
-            assert False, (
+            raise AssertionError(
                 f"morphotag --retokenize failed (exit {result.returncode}):\n"
                 f"STDOUT: {result.stdout[-500:]}\n"
                 f"STDERR: {result.stderr[-500:]}"

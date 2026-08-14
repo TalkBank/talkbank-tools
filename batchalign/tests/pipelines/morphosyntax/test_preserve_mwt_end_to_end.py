@@ -22,7 +22,6 @@ from pathlib import Path
 
 import pytest
 
-
 CHAT_FIXTURE = (
     "@UTF8\n"
     "@Begin\n"
@@ -57,11 +56,17 @@ def morphotag_output() -> str:
 
         result = subprocess.run(
             [
-                "cargo", "run", "-p", "batchalign", "--",
-                "--no-open-dashboard", "--override-media-cache",
+                "cargo",
+                "run",
+                "-p",
+                "batchalign",
+                "--",
+                "--no-open-dashboard",
+                "--override-media-cache",
                 "morphotag",
                 str(input_path),
-                "-o", str(output_dir),
+                "-o",
+                str(output_dir),
                 "--sequential",
             ],
             capture_output=True,
@@ -87,13 +92,15 @@ def test_all_four_copula_contractions_produce_correct_mor(
     """Every ``<subject>'s <present-participle>`` utterance must emit
     tilde-joined ``~aux|be-Fin-Ind-Pres-S3``, no exceptions, no
     possessive readings allowed through."""
-    mor_lines = [line for line in morphotag_output.splitlines() if line.startswith("%mor:")]
+    mor_lines = [
+        line for line in morphotag_output.splitlines() if line.startswith("%mor:")
+    ]
     assert len(mor_lines) == 4, (
         f"Expected 4 %mor lines, got {len(mor_lines)}. Output:\n{morphotag_output}"
     )
 
     surface_labels = ["stool's", "he's", "sink's", "lady's"]
-    for surface, mor_line in zip(surface_labels, mor_lines):
+    for surface, mor_line in zip(surface_labels, mor_lines, strict=True):
         assert REQUIRED_CLITIC_MOR in mor_line, (
             f"[{surface}] BA3 did not produce {REQUIRED_CLITIC_MOR!r} for "
             f"the contracted 's. Full %mor line:\n  {mor_line}\n"
@@ -119,7 +126,9 @@ def test_gra_tier_consistent_with_rewritten_mor(
     """Every utterance's %gra must declare AUX, NSUBJ, and ROOT relations
     matching the rewritten copula-progressive structure. Catches the
     class of bug where %mor and %gra diverge after a rewrite."""
-    gra_lines = [line for line in morphotag_output.splitlines() if line.startswith("%gra:")]
+    gra_lines = [
+        line for line in morphotag_output.splitlines() if line.startswith("%gra:")
+    ]
     assert len(gra_lines) == 4, f"Expected 4 %gra lines, got {len(gra_lines)}"
 
     for gra_line in gra_lines:
@@ -129,6 +138,4 @@ def test_gra_tier_consistent_with_rewritten_mor(
         assert "NSUBJ" in gra_line, (
             f"%gra line missing NSUBJ (subject) relation:\n  {gra_line}"
         )
-        assert "ROOT" in gra_line, (
-            f"%gra line missing ROOT relation:\n  {gra_line}"
-        )
+        assert "ROOT" in gra_line, f"%gra line missing ROOT relation:\n  {gra_line}"

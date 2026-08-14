@@ -39,7 +39,6 @@ from pathlib import Path
 
 import pytest
 
-
 # Minimal Italian CHAT covering the six allowlist entries:
 #
 # * ``parla`` (Defect 6 verb-3sg indicative / 2sg imperative)
@@ -91,11 +90,17 @@ def morphotag_output() -> str:
 
         result = subprocess.run(
             [
-                "cargo", "run", "-p", "batchalign", "--",
-                "--no-open-dashboard", "--override-media-cache",
+                "cargo",
+                "run",
+                "-p",
+                "batchalign",
+                "--",
+                "--no-open-dashboard",
+                "--override-media-cache",
                 "morphotag",
                 str(input_path),
-                "-o", str(output_dir),
+                "-o",
+                str(output_dir),
                 "--sequential",
             ],
             capture_output=True,
@@ -121,13 +126,13 @@ def _mor_lines(output: str) -> list[str]:
 # reconciler had NOT fired. Presence of any of these in the output
 # is a fail; this is what the reconciler is supposed to suppress.
 JUNK_PATTERNS = [
-    "verb|par~",      # parla → par + la (Defect 6 verb)
+    "verb|par~",  # parla → par + la (Defect 6 verb)
     "verb|arancio~",  # arancione → arancio + ne
-    "verb|picco~",    # piccolo → picco + lo
-    "verb|gomito~",   # gomitolo → gomito + lo
-    "verb|diva~",     # divano → diva + no
-    "adj|dammelo",    # dammela mid-sentence mis-tagged ADJ (Defect 8)
-    "adj|prendilo",   # prendilo mid-sentence (Defect 8 corpus-sourced)
+    "verb|picco~",  # piccolo → picco + lo
+    "verb|gomito~",  # gomitolo → gomito + lo
+    "verb|diva~",  # divano → diva + no
+    "adj|dammelo",  # dammela mid-sentence mis-tagged ADJ (Defect 8)
+    "adj|prendilo",  # prendilo mid-sentence (Defect 8 corpus-sourced)
 ]
 
 
@@ -140,10 +145,7 @@ def test_parla_produces_verb_parlare(morphotag_output: str) -> None:
     assert len(lines) >= 1, f"No %mor lines: {morphotag_output}"
     # Find the utterance containing `parla`, should be utterance 0
     # (``parla forte .``) and utterance 5 (``la storia parla...``).
-    parla_lines = [
-        line for line in lines
-        if "parlare" in line or "par~" in line
-    ]
+    parla_lines = [line for line in lines if "parlare" in line or "par~" in line]
     assert parla_lines, (
         f"No %mor line mentions parlare / par~, unexpected.\n"
         f"Output:\n{morphotag_output}"
@@ -172,9 +174,7 @@ def test_arancione_produces_noun(morphotag_output: str) -> None:
 @pytest.mark.integration
 def test_piccolo_produces_adj(morphotag_output: str) -> None:
     lines = _mor_lines(morphotag_output)
-    piccolo_lines = [
-        line for line in lines if "piccolo" in line or "picco~" in line
-    ]
+    piccolo_lines = [line for line in lines if "piccolo" in line or "picco~" in line]
     assert piccolo_lines, f"No line mentions piccolo: {morphotag_output}"
     for line in piccolo_lines:
         assert "verb|picco~" not in line, (
@@ -186,9 +186,7 @@ def test_piccolo_produces_adj(morphotag_output: str) -> None:
 @pytest.mark.integration
 def test_gomitolo_produces_noun(morphotag_output: str) -> None:
     lines = _mor_lines(morphotag_output)
-    relevant = [
-        line for line in lines if "gomitolo" in line or "gomito~" in line
-    ]
+    relevant = [line for line in lines if "gomitolo" in line or "gomito~" in line]
     assert relevant, f"No line mentions gomitolo: {morphotag_output}"
     for line in relevant:
         assert "verb|gomito~" not in line, (
@@ -203,9 +201,7 @@ def test_divano_produces_noun(morphotag_output: str) -> None:
     relevant = [line for line in lines if "divano" in line or "diva~" in line]
     assert relevant, f"No line mentions divano: {morphotag_output}"
     for line in relevant:
-        assert "verb|diva~" not in line, (
-            f"[divano] reconciler did not fire:\n  {line}"
-        )
+        assert "verb|diva~" not in line, f"[divano] reconciler did not fire:\n  {line}"
 
 
 @pytest.mark.golden
@@ -234,7 +230,9 @@ def test_prendilo_mid_sentence_becomes_verb(morphotag_output: str) -> None:
     """Defect 8 (corpus-sourced): `per favore prendilo` must emit
     `verb|prendere`, not `adj|prendilo`."""
     lines = _mor_lines(morphotag_output)
-    prendilo_lines = [line for line in lines if "prendere" in line or "prendilo" in line]
+    prendilo_lines = [
+        line for line in lines if "prendere" in line or "prendilo" in line
+    ]
     assert prendilo_lines, f"No line mentions prendilo/prendere: {morphotag_output}"
     for line in prendilo_lines:
         assert "adj|prendilo" not in line, (

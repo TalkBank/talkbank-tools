@@ -7,11 +7,12 @@ import sys
 import types
 
 import pytest
+
+from batchalign.worker import _stanza_loading
 from batchalign.worker._stanza_capabilities import (
     StanzaCapabilityTable,
     StanzaLanguageCapability,
 )
-from batchalign.worker import _stanza_loading
 from batchalign.worker._stanza_loading import (
     UnsupportedLanguageError,
     iso3_to_alpha2,
@@ -40,7 +41,10 @@ def test_iso3_to_alpha2_leaves_unknown_iso3_unchanged(caplog) -> None:
     with caplog.at_level(logging.WARNING, logger="batchalign.worker"):
         assert iso3_to_alpha2("zzz") == "zzz"
 
-    assert "Unknown ISO-639-3 code 'zzz' - passing through unchanged for Stanza" in caplog.text
+    assert (
+        "Unknown ISO-639-3 code 'zzz' - passing through unchanged for Stanza"
+        in caplog.text
+    )
 
 
 # Regression test for the 2026-05-06 morphotag failure on
@@ -191,7 +195,9 @@ def test_load_stanza_models_rejects_partial_processor_language_before_pipeline(
     fake_stanza.DownloadMethod = types.SimpleNamespace(REUSE_RESOURCES=object())
 
     def _pipeline_should_not_run(*args, **kwargs):
-        raise AssertionError("stanza.Pipeline must not be called for partial processor entries")
+        raise AssertionError(
+            "stanza.Pipeline must not be called for partial processor entries"
+        )
 
     fake_stanza.Pipeline = _pipeline_should_not_run
     monkeypatch.setitem(sys.modules, "stanza", fake_stanza)

@@ -34,9 +34,9 @@ from batchalign.worker._types import (
     BatchInferResponse,
     CapabilitiesResponse,
     HealthResponse,
-    InferTask,
     InferRequest,
     InferResponse,
+    InferTask,
 )
 
 
@@ -51,13 +51,14 @@ def main() -> None:
 
     worker_main()
 
+
 __all__ = [
     "BatchInferRequest",
     "BatchInferResponse",
     "CapabilitiesResponse",
     "HealthResponse",
-    "InferTask",
     "InferRequest",
     "InferResponse",
+    "InferTask",
     "main",
 ]

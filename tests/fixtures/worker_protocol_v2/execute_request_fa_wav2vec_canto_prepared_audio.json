@@ -6,8 +6,7 @@
     "backend": "wav2vec_canto",
     "payload_ref_id": "inline-ref-0004",
     "audio_ref_id": "audio-ref-0004",
-    "text_mode": "char_joined",
-    "pauses": false
+    "text_mode": "char_joined"
   },
   "attachments": [
     {

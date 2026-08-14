@@ -8,7 +8,7 @@ use crate::options::{CommandOptions, UtrEngine};
 use crate::store::{PendingJobFile, RunnerJobSnapshot};
 use batchalign_types::paths::ClientPath;
 
-use super::auto_tune::KNOWN_MEDIA_EXTENSIONS;
+use crate::media::MediaExtensions;
 use crate::media::probe::MediaProbe;
 use tracing::warn;
 
@@ -91,7 +91,7 @@ pub(in crate::runner) async fn preflight_validate_media(
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase());
         if let Some(ref ext) = ext {
-            if !KNOWN_MEDIA_EXTENSIONS.contains(&ext.as_str()) {
+            if !MediaExtensions::is_known(ext) {
                 failures.insert(
                     file.file_index,
                     format!("Unknown media format '.{ext}': {}", path),
@@ -165,44 +165,15 @@ async fn collect_align_preflight_audio_paths(
     paths
 }
 
-/// Resolve the audio file path for a given CHAT file path.
+/// The audio file for a CHAT file sitting beside it.
 ///
-/// Looks for files with the same stem and a known audio extension
-/// in the same directory as the CHAT file.
+/// Kept because preflight still calls it; the `_with_media_dir` variant beside
+/// it is gone, because the FA pipeline's rungs became `MediaSearch` places and
+/// nothing else wanted the two-directory form. This is now a single call to the
+/// verb rather than its own extension loop.
 pub(in crate::runner) async fn resolve_audio_for_chat(chat_path: &Path) -> Option<PathBuf> {
-    resolve_audio_for_chat_with_media_dir(chat_path, None).await
-}
-
-/// Resolve the audio file for a given CHAT file path.
-///
-/// Search order:
-/// 1. Custom `media_dir` if provided (from `--media-dir`)
-/// 2. Alongside the .cha file (same directory)
-pub(in crate::runner) async fn resolve_audio_for_chat_with_media_dir(
-    chat_path: &Path,
-    media_dir: Option<&Path>,
-) -> Option<PathBuf> {
     let stem = chat_path.file_stem()?.to_str()?;
-
-    // 1. Check custom media_dir first
-    if let Some(dir) = media_dir {
-        for ext in KNOWN_MEDIA_EXTENSIONS {
-            let candidate = dir.join(format!("{stem}.{ext}"));
-            if tokio::fs::try_exists(&candidate).await.unwrap_or(false) {
-                return Some(candidate);
-            }
-        }
-    }
-
-    // 2. Alongside the .cha file
-    let dir = chat_path.parent()?;
-    for ext in KNOWN_MEDIA_EXTENSIONS {
-        let candidate = dir.join(format!("{stem}.{ext}"));
-        if tokio::fs::try_exists(&candidate).await.unwrap_or(false) {
-            return Some(candidate);
-        }
-    }
-    None
+    MediaExtensions::find_in(chat_path.parent()?, stem).await
 }
 
 /// Compute audio identity for cache keying.

@@ -21,17 +21,16 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from batchalign.inference._domain_types import AudioPath, LanguageCode
+from batchalign.inference.asr import (
+    AsrBatchItem,
+    MonologueAsrResponse,
+)
 from batchalign.worker._types import (
     BatchInferRequest,
     BatchInferResponse,
     InferResponse,
 )
-from batchalign.inference.asr import (
-    AsrBatchItem,
-    MonologueAsrResponse,
-)
-
-from batchalign.inference._domain_types import AudioPath, LanguageCode
 
 from ._common import (
     EngineOverrides,
@@ -225,7 +224,9 @@ def _get_token(ak_id: str, ak_secret: str) -> str:
     return token
 
 
-def _ensure_wav(source_path: str) -> tuple[str, tempfile.TemporaryDirectory[str] | None]:
+def _ensure_wav(
+    source_path: str,
+) -> tuple[str, tempfile.TemporaryDirectory[str] | None]:
     """Return a WAV path, converting if needed.  Caller must clean up temp_dir."""
     path = pathlib.Path(source_path)
     if path.suffix.lower() == ".wav":
@@ -366,9 +367,7 @@ def infer_aliyun_asr(req: BatchInferRequest) -> BatchInferResponse:
 
         try:
             response = _transcribe_to_monologues(item.audio_path)
-            results.append(
-                InferResponse(result=response.model_dump(), elapsed_s=0.0)
-            )
+            results.append(InferResponse(result=response.model_dump(), elapsed_s=0.0))
         except Exception as e:
             L.warning(
                 "Aliyun ASR failed for item %d (%s): %s",
@@ -383,7 +382,9 @@ def infer_aliyun_asr(req: BatchInferRequest) -> BatchInferResponse:
     if results:
         first = results[0]
         results[0] = InferResponse(
-            result=first.result, error=first.error, elapsed_s=elapsed,
+            result=first.result,
+            error=first.error,
+            elapsed_s=elapsed,
         )
 
     L.info("batch_infer aliyun_asr: %d items, %.3fs", n, elapsed)

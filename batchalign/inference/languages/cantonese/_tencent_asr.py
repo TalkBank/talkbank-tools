@@ -13,19 +13,18 @@ import time
 
 from pydantic import ValidationError
 
-from batchalign.worker._types import (
-    BatchInferRequest,
-    BatchInferResponse,
-    InferResponse,
-)
+from batchalign.inference._domain_types import LanguageCode
 from batchalign.inference.asr import (
     AsrBatchItem,
     AsrElement,
     AsrMonologue,
     MonologueAsrResponse,
 )
-
-from batchalign.inference._domain_types import LanguageCode
+from batchalign.worker._types import (
+    BatchInferRequest,
+    BatchInferResponse,
+    InferResponse,
+)
 
 from ._common import EngineOverrides
 from ._tencent_api import TencentRecognizer
@@ -95,7 +94,10 @@ def infer_tencent_asr(req: BatchInferRequest) -> BatchInferResponse:
             )
         except Exception as exc:
             L.warning(
-                "Tencent ASR failed for item %d: %s", item_idx, exc, exc_info=True,
+                "Tencent ASR failed for item %d: %s",
+                item_idx,
+                exc,
+                exc_info=True,
             )
             results.append(InferResponse(error=str(exc), elapsed_s=0.0))
 
@@ -105,7 +107,9 @@ def infer_tencent_asr(req: BatchInferRequest) -> BatchInferResponse:
     if results:
         first = results[0]
         results[0] = InferResponse(
-            result=first.result, error=first.error, elapsed_s=elapsed,
+            result=first.result,
+            error=first.error,
+            elapsed_s=elapsed,
         )
 
     L.info("batch_infer tencent_asr: %d items, %.3fs", len(req.items), elapsed)

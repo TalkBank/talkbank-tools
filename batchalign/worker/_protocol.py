@@ -214,7 +214,9 @@ def _serve_stdio() -> None:
 
         try:
             dispatch = dispatch_protocol_message(message)
-        except BaseException as exc:  # noqa: BLE001; we WANT broad catch here
+        # A broad catch is the point here: no dispatch failure may kill the
+        # worker loop.
+        except BaseException as exc:
             kind = _classify_dispatch_exception(exc)
             # Log full traceback once for diagnostics; emit a single
             # structured error line back to the orchestrator. Do NOT let
@@ -222,8 +224,7 @@ def _serve_stdio() -> None:
             import traceback
 
             sys.stderr.write(
-                f"--- worker dispatch exception ({kind}) ---\n"
-                + traceback.format_exc()
+                f"--- worker dispatch exception ({kind}) ---\n" + traceback.format_exc()
             )
             sys.stderr.flush()
             _write_error(str(exc) or exc.__class__.__name__, kind=kind)
@@ -266,13 +267,12 @@ def _serve_stdio_concurrent(max_threads: int = 4) -> None:
             return
         try:
             dispatch = dispatch_protocol_message(message)
-        except BaseException as exc:  # noqa: BLE001, see _serve_stdio above
+        except BaseException as exc:
             kind = _classify_dispatch_exception(exc)
             import traceback
 
             sys.stderr.write(
-                f"--- worker dispatch exception ({kind}) ---\n"
-                + traceback.format_exc()
+                f"--- worker dispatch exception ({kind}) ---\n" + traceback.format_exc()
             )
             sys.stderr.flush()
             with _stdout_lock:
@@ -324,13 +324,15 @@ def _print_ready_tcp(host: str, port: TcpPort) -> None:
     transports.
     """
     global _handshake_complete
-    ready = json.dumps({
-        "ready": True,
-        "pid": os.getpid(),
-        "transport": "tcp",
-        "host": host,
-        "port": port,
-    })
+    ready = json.dumps(
+        {
+            "ready": True,
+            "pid": os.getpid(),
+            "transport": "tcp",
+            "host": host,
+            "port": port,
+        }
+    )
     sys.stderr.write(ready + "\n")
     sys.stderr.flush()
     _handshake_complete = True
@@ -367,7 +369,7 @@ def _handle_tcp_connection_sequential(
 
             try:
                 dispatch = dispatch_protocol_message(message)
-            except BaseException as exc:  # noqa: BLE001, see _serve_stdio
+            except BaseException as exc:
                 # Mirrors the stdio handler's contract: catch every dispatch
                 # exception, classify against typed bootstrap error types,
                 # emit a structured ``{"op":"error", "kind":...}`` envelope.
@@ -435,7 +437,7 @@ def _handle_tcp_connection_concurrent(
             return
         try:
             dispatch = dispatch_protocol_message(message)
-        except BaseException as exc:  # noqa: BLE001, see _serve_stdio
+        except BaseException as exc:
             # Same exception-shielding contract as the sequential TCP
             # handler. Classification + structured emit + bootstrap-on-
             # shutdown_event.
@@ -444,8 +446,7 @@ def _handle_tcp_connection_concurrent(
             import traceback
 
             sys.stderr.write(
-                f"--- worker dispatch exception ({kind}) ---\n"
-                + traceback.format_exc()
+                f"--- worker dispatch exception ({kind}) ---\n" + traceback.format_exc()
             )
             sys.stderr.flush()
             with write_lock:
@@ -537,14 +538,18 @@ def _serve_tcp(
     actual_port = server_sock.getsockname()[1]
 
     bootstrap = _state.bootstrap
-    ownership, owner_server_instance_id, owner_server_pid = _registry_ownership_from_env()
+    ownership, owner_server_instance_id, owner_server_pid = (
+        _registry_ownership_from_env()
+    )
     entry = WorkerRegistryEntry(
         pid=os.getpid(),
         host=host,
         port=actual_port,
         profile=bootstrap.profile.value if bootstrap and bootstrap.profile else "",
         lang=bootstrap.lang if bootstrap else "eng",
-        engine_overrides=json.dumps(bootstrap.engine_overrides) if bootstrap and bootstrap.engine_overrides else "",
+        engine_overrides=json.dumps(bootstrap.engine_overrides)
+        if bootstrap and bootstrap.engine_overrides
+        else "",
         ownership=ownership,
         owner_server_instance_id=owner_server_instance_id,
         owner_server_pid=owner_server_pid,
@@ -593,14 +598,18 @@ def _serve_tcp_concurrent(
     actual_port = server_sock.getsockname()[1]
 
     bootstrap = _state.bootstrap
-    ownership, owner_server_instance_id, owner_server_pid = _registry_ownership_from_env()
+    ownership, owner_server_instance_id, owner_server_pid = (
+        _registry_ownership_from_env()
+    )
     entry = WorkerRegistryEntry(
         pid=os.getpid(),
         host=host,
         port=actual_port,
         profile=bootstrap.profile.value if bootstrap and bootstrap.profile else "",
         lang=bootstrap.lang if bootstrap else "eng",
-        engine_overrides=json.dumps(bootstrap.engine_overrides) if bootstrap and bootstrap.engine_overrides else "",
+        engine_overrides=json.dumps(bootstrap.engine_overrides)
+        if bootstrap and bootstrap.engine_overrides
+        else "",
         ownership=ownership,
         owner_server_instance_id=owner_server_instance_id,
         owner_server_pid=owner_server_pid,
@@ -608,7 +617,12 @@ def _serve_tcp_concurrent(
     register_worker(entry, registry_path=registry_path)
 
     _print_ready_tcp(host, actual_port)
-    logger.info("TCP worker listening on %s:%d (concurrent, %d threads)", host, actual_port, max_threads)
+    logger.info(
+        "TCP worker listening on %s:%d (concurrent, %d threads)",
+        host,
+        actual_port,
+        max_threads,
+    )
 
     try:
         while True:

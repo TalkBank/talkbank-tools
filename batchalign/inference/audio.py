@@ -317,7 +317,11 @@ def load_audio_file(
         sample_rate = info.sample_rate
         lazy = ASRAudioFile.lazy(path, sample_rate)
     except Exception:
-        L.debug("Lazy audio load failed for %s, falling back to eager load", path, exc_info=True)
+        L.debug(
+            "Lazy audio load failed for %s, falling back to eager load",
+            path,
+            exc_info=True,
+        )
         audio_arr, rate = load_audio(path)
         if audio_arr.dim() > 1:
             audio_arr = torch.mean(audio_arr.transpose(0, 1), dim=1)
@@ -388,7 +392,9 @@ def _extract_token_timestamps(
             torch.cat([x[i] for x in generate_outputs.cross_attentions], dim=2)
         )
 
-    weights = torch.stack([cross_attentions[l][:, h] for l, h in alignment_heads])
+    weights = torch.stack(
+        [cross_attentions[layer][:, head] for layer, head in alignment_heads]
+    )
     weights = weights.permute([1, 0, 2, 3])
 
     weight_length = None
@@ -426,9 +432,14 @@ def _extract_token_timestamps(
     if num_frames is not None:
         if isinstance(num_frames, int):
             weights = weights[..., : num_frames // 2]
-        elif isinstance(num_frames, (list, tuple, np.ndarray)) and len(np.unique(num_frames)) == 1:
+        elif (
+            isinstance(num_frames, (list, tuple, np.ndarray))
+            and len(np.unique(num_frames)) == 1
+        ):
             weights = weights[..., : num_frames[0] // 2]
-        elif isinstance(num_frames, torch.Tensor) and len(torch.unique(num_frames)) == 1:
+        elif (
+            isinstance(num_frames, torch.Tensor) and len(torch.unique(num_frames)) == 1
+        ):
             weights = weights[..., : num_frames[0] // 2]
         else:
             repeat_time = (
@@ -461,12 +472,15 @@ def _extract_token_timestamps(
         else:
             matrix = weights[batch_idx]
 
-        text_indices, time_indices = _dynamic_time_warping(-matrix.cpu().double().numpy())
+        text_indices, time_indices = _dynamic_time_warping(
+            -matrix.cpu().double().numpy()
+        )
         jumps = np.pad(np.diff(text_indices), (1, 0), constant_values=1).astype(bool)
         jump_times = time_indices[jumps] * time_precision
         timestamps[batch_idx, 1:] = torch.tensor(jump_times)
 
     return timestamps
+
 
 # ---------------------------------------------------------------------------
 # Routing torchaudio's decode entry point away from torchcodec
@@ -630,4 +644,3 @@ if __name__ == "__main__":  # pragma: no cover - the out-of-process entry point
     # contract both out-of-process callers (the Rust doctor and the fleet
     # deploy) consume instead of embedding their own probe.
     print(verify_decode_capability().to_json())
-

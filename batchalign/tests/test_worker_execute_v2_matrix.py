@@ -35,16 +35,16 @@ from batchalign.worker._types_v2 import (
     ForcedAlignmentRequestV2,
     IndexedWordTimingResultV2,
     InferenceTaskV2,
+    MonologueAsrResultV2,
     MorphosyntaxRequestV2,
     MorphosyntaxResultV2,
-    MonologueAsrResultV2,
     PreparedAudioEncodingV2,
     PreparedAudioInputV2,
     PreparedAudioRefV2,
     PreparedTextEncodingV2,
     PreparedTextRefV2,
-    ProviderMediaInputV2,
     ProtocolErrorCodeV2,
+    ProviderMediaInputV2,
     SpeakerBackendV2,
     SpeakerPreparedAudioInputV2,
     SpeakerRequestV2,
@@ -102,7 +102,9 @@ def _make_asr_request(
 
     attachments: list[PreparedAudioRefV2] = []
     if input_kind == "prepared_audio":
-        audio_attachment = _make_prepared_audio_attachment(tmp_path, f"asr-{backend.value}")
+        audio_attachment = _make_prepared_audio_attachment(
+            tmp_path, f"asr-{backend.value}"
+        )
         attachments = [audio_attachment]
         input_payload = PreparedAudioInputV2(audio_ref_id=audio_attachment.id)
     elif input_kind == "provider_media":
@@ -111,7 +113,9 @@ def _make_asr_request(
             num_speakers=2,
         )
     else:
-        input_payload = SubmittedJobInputV2(provider_job_id=f"submitted-{backend.value}-1")
+        input_payload = SubmittedJobInputV2(
+            provider_job_id=f"submitted-{backend.value}-1"
+        )
 
     return ExecuteRequestV2(
         request_id=f"req-asr-{backend.value}-{input_kind}",
@@ -203,8 +207,8 @@ def _fa_host(backend: FaBackendV2) -> ForcedAlignmentExecutionHostV2:
 
     if backend is FaBackendV2.WHISPER:
         return ForcedAlignmentExecutionHostV2(
-            whisper_runner=lambda audio, text, pauses: [
-                (text.split()[0], 0.1 if pauses and audio.shape == (4,) else 0.0),
+            whisper_runner=lambda audio, text: [
+                (text.split()[0], 0.1 if audio.shape == (4,) else 0.0),
                 (text.split()[-1], 0.25),
             ]
         )
@@ -228,10 +232,14 @@ def _fa_host(backend: FaBackendV2) -> ForcedAlignmentExecutionHostV2:
     raise AssertionError(f"unexpected FA backend {backend!s}")
 
 
-def _make_speaker_request(tmp_path: Path, backend: SpeakerBackendV2) -> ExecuteRequestV2:
+def _make_speaker_request(
+    tmp_path: Path, backend: SpeakerBackendV2
+) -> ExecuteRequestV2:
     """Build one speaker execute request for the requested backend."""
 
-    audio_attachment = _make_prepared_audio_attachment(tmp_path, f"speaker-{backend.value}")
+    audio_attachment = _make_prepared_audio_attachment(
+        tmp_path, f"speaker-{backend.value}"
+    )
     return ExecuteRequestV2(
         request_id=f"req-speaker-{backend.value}",
         task=InferenceTaskV2.SPEAKER,
@@ -260,14 +268,14 @@ def _speaker_host(backend: SpeakerBackendV2) -> SpeakerExecutionHostV2:
 
     if backend is SpeakerBackendV2.PYANNOTE:
         return SpeakerExecutionHostV2(
-            pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: _response(
-                f"pyannote-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}"
+            pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+                _response(f"pyannote-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}")
             )
         )
     if backend is SpeakerBackendV2.NEMO:
         return SpeakerExecutionHostV2(
-            nemo_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: _response(
-                f"nemo-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}"
+            nemo_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+                _response(f"nemo-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}")
             )
         )
     raise AssertionError(f"unexpected speaker backend {backend!s}")
@@ -346,7 +354,9 @@ def _make_text_request(tmp_path: Path, task_name: TextTaskName) -> ExecuteReques
     )
 
 
-def _text_host_with_results(task_name: TextTaskName, results: list[InferResponse]) -> TextExecutionHostV2:
+def _text_host_with_results(
+    task_name: TextTaskName, results: list[InferResponse]
+) -> TextExecutionHostV2:
     """Build one text host that returns the supplied batch-infer result list."""
 
     response = BatchInferResponse(results=results)
@@ -382,7 +392,9 @@ def _assert_error_response(
     ],
     ids=lambda backend: backend.value,
 )
-def test_routes_provider_asr_backend_matrix(backend: AsrBackendV2, tmp_path: Path) -> None:
+def test_routes_provider_asr_backend_matrix(
+    backend: AsrBackendV2, tmp_path: Path
+) -> None:
     """Provider ASR backends should route to the matching host runner."""
 
     request = _make_asr_request(tmp_path, backend, "provider_media")
@@ -393,8 +405,10 @@ def test_routes_provider_asr_backend_matrix(backend: AsrBackendV2, tmp_path: Pat
 
     assert isinstance(response.outcome, ExecuteSuccessV2)
     assert isinstance(response.result, MonologueAsrResultV2)
-    assert response.result.monologues[0].elements[0].value.startswith(
-        backend.value.removeprefix("hk_")
+    assert (
+        response.result.monologues[0]
+        .elements[0]
+        .value.startswith(backend.value.removeprefix("hk_"))
     )
 
 
@@ -416,6 +430,13 @@ def test_routes_provider_asr_backend_matrix(backend: AsrBackendV2, tmp_path: Pat
             FaTextModeV2.CHAR_JOINED,
             id="wav2vec_canto-char_joined",
         ),
+        # What `--pauses` selects: the request carries the shaping, and the
+        # host receives text already shaped.
+        pytest.param(
+            FaBackendV2.WHISPER,
+            FaTextModeV2.CHAR_SPACED,
+            id="whisper-char_spaced",
+        ),
     ],
 )
 def test_routes_forced_alignment_backend_matrix(
@@ -434,7 +455,10 @@ def test_routes_forced_alignment_backend_matrix(
     assert isinstance(response.outcome, ExecuteSuccessV2)
     if backend is FaBackendV2.WHISPER:
         assert isinstance(response.result, WhisperTokenTimingResultV2)
-        assert response.result.tokens[0].text == "hello"
+        # The host echoes the first whitespace-separated token of the text it
+        # was given, so this asserts which shaping actually reached it.
+        expected_first = "h" if text_mode is FaTextModeV2.CHAR_SPACED else "hello"
+        assert response.result.tokens[0].text == expected_first
         assert response.result.tokens[1].time_s == 0.25
     else:
         assert isinstance(response.result, IndexedWordTimingResultV2)
@@ -448,7 +472,9 @@ def test_routes_forced_alignment_backend_matrix(
     [SpeakerBackendV2.PYANNOTE, SpeakerBackendV2.NEMO],
     ids=lambda backend: backend.value,
 )
-def test_routes_speaker_backend_matrix(backend: SpeakerBackendV2, tmp_path: Path) -> None:
+def test_routes_speaker_backend_matrix(
+    backend: SpeakerBackendV2, tmp_path: Path
+) -> None:
     """Speaker backends should route to the matching host runner."""
 
     request = _make_speaker_request(tmp_path, backend)
@@ -659,4 +685,6 @@ def test_text_execute_v2_rejects_invalid_result_shapes(
         ),
     )
 
-    _assert_error_response(response, ProtocolErrorCodeV2.RUNTIME_FAILURE, message_fragment)
+    _assert_error_response(
+        response, ProtocolErrorCodeV2.RUNTIME_FAILURE, message_fragment
+    )

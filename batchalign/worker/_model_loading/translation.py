@@ -359,9 +359,7 @@ def _load_tencent_translate() -> None:
         try:
             resp = client.TextTranslate(req)
         except TencentCloudSDKException as exc:
-            raise RuntimeError(
-                f"Tencent TMT translation failed: {exc}"
-            ) from exc
+            raise RuntimeError(f"Tencent TMT translation failed: {exc}") from exc
         return str(resp.TargetText)
 
     _state.translate_backend = TranslationBackend.TENCENT
@@ -480,9 +478,7 @@ def _load_aliyun_translate() -> None:
         try:
             raw = client.do_action_with_exception(req)
         except (ClientException, ServerException) as exc:
-            raise RuntimeError(
-                f"Aliyun MT translation failed: {exc}"
-            ) from exc
+            raise RuntimeError(f"Aliyun MT translation failed: {exc}") from exc
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:

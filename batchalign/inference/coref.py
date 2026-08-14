@@ -71,9 +71,7 @@ def batch_infer_coref(req: BatchInferRequest) -> BatchInferResponse:
         try:
             item = CorefBatchItem.model_validate(raw_item)
         except ValidationError:
-            results.append(
-                InferResponse(error="Invalid CorefBatchItem", elapsed_s=0.0)
-            )
+            results.append(InferResponse(error="Invalid CorefBatchItem", elapsed_s=0.0))
             continue
 
         if not item.sentences:

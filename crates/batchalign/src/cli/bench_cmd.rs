@@ -11,35 +11,26 @@ use crate::options::{
 };
 use serde_json::json;
 
+use crate::cli::args::InputKind;
 use crate::cli::args::{BenchArgs, BenchTarget, GlobalOpts};
 use crate::cli::dispatch;
 use crate::cli::error::CliError;
 
-fn metadata(target: BenchTarget) -> (ReleasedCommand, &'static str, u32, &'static [&'static str]) {
+fn metadata(target: BenchTarget) -> (ReleasedCommand, &'static str, u32, InputKind) {
     match target {
-        BenchTarget::Align => (ReleasedCommand::Align, "eng", 1, &["cha"]),
-        BenchTarget::Transcribe => (
-            ReleasedCommand::Transcribe,
-            "eng",
-            1,
-            &["wav", "mp3", "mp4"],
-        ),
-        BenchTarget::TranscribeS => (
-            ReleasedCommand::TranscribeS,
-            "eng",
-            1,
-            &["wav", "mp3", "mp4"],
-        ),
+        BenchTarget::Align => (ReleasedCommand::Align, "eng", 1, InputKind::Chat),
+        BenchTarget::Transcribe => (ReleasedCommand::Transcribe, "eng", 1, InputKind::Media),
+        BenchTarget::TranscribeS => (ReleasedCommand::TranscribeS, "eng", 1, InputKind::Media),
         // PerFile commands carry the `"per-file"` wire string, matching
         // `command_profile()` for these same commands. Bench harness uses
         // the same profile so dispatch types stay identical.
-        BenchTarget::Morphotag => (ReleasedCommand::Morphotag, "per-file", 1, &["cha"]),
-        BenchTarget::Translate => (ReleasedCommand::Translate, "per-file", 1, &["cha"]),
-        BenchTarget::Coref => (ReleasedCommand::Coref, "per-file", 1, &["cha"]),
-        BenchTarget::Utseg => (ReleasedCommand::Utseg, "eng", 1, &["cha"]),
-        BenchTarget::Benchmark => (ReleasedCommand::Benchmark, "eng", 1, &["wav", "mp3", "mp4"]),
-        BenchTarget::Opensmile => (ReleasedCommand::Opensmile, "eng", 1, &["wav", "mp3", "mp4"]),
-        BenchTarget::Compare => (ReleasedCommand::Compare, "eng", 1, &["cha"]),
+        BenchTarget::Morphotag => (ReleasedCommand::Morphotag, "per-file", 1, InputKind::Chat),
+        BenchTarget::Translate => (ReleasedCommand::Translate, "per-file", 1, InputKind::Chat),
+        BenchTarget::Coref => (ReleasedCommand::Coref, "per-file", 1, InputKind::Chat),
+        BenchTarget::Utseg => (ReleasedCommand::Utseg, "eng", 1, InputKind::Chat),
+        BenchTarget::Benchmark => (ReleasedCommand::Benchmark, "eng", 1, InputKind::Media),
+        BenchTarget::Opensmile => (ReleasedCommand::Opensmile, "eng", 1, InputKind::Media),
+        BenchTarget::Compare => (ReleasedCommand::Compare, "eng", 1, InputKind::Chat),
     }
 }
 
@@ -135,7 +126,7 @@ pub async fn run(global: &GlobalOpts, args: &BenchArgs) -> Result<(), CliError> 
     }
     std::fs::create_dir_all(&args.out_dir)?;
 
-    let (command, lang, num_speakers, extensions) = metadata(args.command);
+    let (command, lang, num_speakers, input_kind) = metadata(args.command);
     let dataset = dataset_label(args);
     let inputs = vec![args.in_dir.clone()];
     let mut elapsed_runs = Vec::with_capacity(args.runs);
@@ -148,7 +139,7 @@ pub async fn run(global: &GlobalOpts, args: &BenchArgs) -> Result<(), CliError> 
                 command,
                 lang,
                 num_speakers,
-                extensions,
+                input_kind,
                 server_arg: global.server.as_deref(),
                 inputs: &inputs,
                 out_dir: Some(args.out_dir.as_path()),
@@ -242,7 +233,7 @@ mod tests {
         assert_eq!(cmd, ReleasedCommand::Align);
         assert_eq!(lang, "eng");
         assert_eq!(n, 1);
-        assert_eq!(exts, &["cha"]);
+        assert_eq!(exts, InputKind::Chat);
     }
 
     #[test]

@@ -167,7 +167,7 @@ pub(crate) async fn run_fa_from_ast(
             chat_text: to_chat_string(&chat_file),
             groups: Vec::new(),
             pre_injection_timings: Vec::new(),
-            timing_mode: fa_params.timing_mode,
+            gap_healing: fa_params.gap_healing,
             violations: Vec::new(),
             fallback_events: Vec::new(),
         });
@@ -188,7 +188,7 @@ pub(crate) async fn run_fa_from_ast(
             chat_text: to_chat_string(&chat_file),
             groups: Vec::new(),
             pre_injection_timings: Vec::new(),
-            timing_mode: fa_params.timing_mode,
+            gap_healing: fa_params.gap_healing,
             violations: Vec::new(),
             fallback_events: Vec::new(),
         });
@@ -227,7 +227,7 @@ pub(crate) async fn run_fa_from_ast(
             chat_text: to_chat_string(&chat_file),
             groups: Vec::new(),
             pre_injection_timings: Vec::new(),
-            timing_mode: fa_params.timing_mode,
+            gap_healing: fa_params.gap_healing,
             violations: Vec::new(),
             fallback_events: Vec::new(),
         });
@@ -274,7 +274,7 @@ pub(crate) async fn run_fa_from_ast(
     // 2c. Group utterances
     let groups = group_utterances(
         &chat_file,
-        fa_params.max_group_ms.0,
+        fa_params.max_group_ms().0,
         audio.total_audio_ms.map(|ms| ms.0),
     );
 
@@ -283,7 +283,7 @@ pub(crate) async fn run_fa_from_ast(
             chat_text: to_chat_string(&chat_file),
             groups: Vec::new(),
             pre_injection_timings: Vec::new(),
-            timing_mode: fa_params.timing_mode,
+            gap_healing: fa_params.gap_healing,
             violations: Vec::new(),
             fallback_events: Vec::new(),
         });
@@ -318,7 +318,7 @@ pub(crate) async fn run_fa_from_ast(
                 audio.audio_identity,
                 g.audio_start_ms(),
                 g.audio_end_ms(),
-                fa_params.timing_mode,
+                fa_params.gap_healing,
                 fa_params.engine,
             )
         })
@@ -411,7 +411,7 @@ pub(crate) async fn run_fa_from_ast(
                 audio_path: audio.audio_path,
                 worker_lang: worker_lang.into(),
                 engine: fa_params.engine,
-                timing_mode: fa_params.timing_mode,
+                gap_healing: fa_params.gap_healing,
             })
             .await?;
 
@@ -481,7 +481,7 @@ pub(crate) async fn run_fa_from_ast(
         &mut chat_file,
         &groups,
         &final_timings,
-        fa_params.timing_mode,
+        fa_params.word_end_policy(),
         write_wor,
     );
 
@@ -569,7 +569,7 @@ pub(crate) async fn run_fa_from_ast(
         chat_text: to_chat_string(&chat_file),
         groups: group_traces,
         pre_injection_timings,
-        timing_mode: fa_params.timing_mode,
+        gap_healing: fa_params.gap_healing,
         violations,
         fallback_events,
     })

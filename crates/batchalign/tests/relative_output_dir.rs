@@ -31,6 +31,7 @@
 use std::path::{Path, PathBuf};
 
 use batchalign::api::{ContentType, FileResult};
+use batchalign::cli::args::InputKind;
 use batchalign::cli::discover::{build_server_names, discover_server_inputs};
 use batchalign::cli::output::write_result;
 
@@ -84,7 +85,7 @@ fn write_one_result(out_dir: &Path) {
     let inputs = vec![PathBuf::from("A")];
 
     let (files, outputs) =
-        discover_server_inputs(&inputs, Some(out_dir), &["cha"]).expect("discover inputs");
+        discover_server_inputs(&inputs, Some(out_dir), InputKind::Chat).expect("discover inputs");
     assert_eq!(files.len(), 1, "one input file was planted");
 
     let (server_names, result_map) =

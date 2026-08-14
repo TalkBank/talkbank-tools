@@ -24,7 +24,9 @@ import re
 
 import pytest
 
-FIXTURE_DIR = pathlib.Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "bilingual"
+FIXTURE_DIR = (
+    pathlib.Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "bilingual"
+)
 CLIP_WAV = FIXTURE_DIR / "herring03_bilingual_clip.wav"
 
 
@@ -67,9 +69,9 @@ class TestBilingualAutoDetect:
     def test_auto_detect_captures_both_languages(self) -> None:
         """With ``--lang auto``, output should contain both English AND Spanish words."""
         from batchalign.inference.asr import (
+            AsrBatchItem,
             WhisperChunksAsrResponse,
             _infer_whisper,
-            AsrBatchItem,
             iso3_to_language_name,
             load_whisper_asr,
         )
@@ -105,8 +107,8 @@ class TestBilingualAutoDetect:
     def test_forced_english_misses_spanish(self) -> None:
         """With ``--lang eng``, Spanish words should be absent or garbled."""
         from batchalign.inference.asr import (
-            _infer_whisper,
             AsrBatchItem,
+            _infer_whisper,
             load_whisper_asr,
         )
 
@@ -127,8 +129,7 @@ class TestBilingualAutoDetect:
 
         # English should still be present
         assert has_english, (
-            f"Expected English words even with --lang eng.\n"
-            f"Full text: {text!r}"
+            f"Expected English words even with --lang eng.\nFull text: {text!r}"
         )
         # Spanish should be absent or significantly reduced compared to auto
         # (We don't assert zero because Whisper sometimes hallucinates,

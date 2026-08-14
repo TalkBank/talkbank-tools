@@ -111,7 +111,9 @@ def test_no_download_opt_outs(pattern: str, reason: str) -> None:
             if _line_is_exempt(line):
                 continue
             if rx.search(line):
-                hits.append((source.relative_to(_PACKAGE_ROOT.parent), lineno, line.strip()))
+                hits.append(
+                    (source.relative_to(_PACKAGE_ROOT.parent), lineno, line.strip())
+                )
 
     if hits:
         formatted = "\n".join(f"  {p}:{ln}: {snippet}" for p, ln, snippet in hits)

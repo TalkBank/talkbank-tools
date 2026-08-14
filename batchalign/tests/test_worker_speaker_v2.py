@@ -51,7 +51,9 @@ def _make_request(
     audio_path = tmp_path / "speaker-audio.pcm"
     _write_pcm_f32le(
         audio_path,
-        np.asarray([float(i) / 10.0 for i in range(1, sample_count + 1)], dtype=np.float32),
+        np.asarray(
+            [float(i) / 10.0 for i in range(1, sample_count + 1)], dtype=np.float32
+        ),
     )
     if byte_len is None:
         byte_len = sample_count * 4
@@ -99,14 +101,16 @@ def test_execute_speaker_request_v2_returns_typed_segments(tmp_path: Path) -> No
     response = execute_speaker_request_v2(
         _make_request(tmp_path),
         SpeakerExecutionHostV2(
-            pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: SpeakerResponse(
-                segments=[
-                    SpeakerSegment(
-                        start_ms=10,
-                        end_ms=25,
-                        speaker=f"SPEAKER_{num_speakers}_{sample_rate_hz}_{audio.shape[0]}",
-                    )
-                ]
+            pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+                SpeakerResponse(
+                    segments=[
+                        SpeakerSegment(
+                            start_ms=10,
+                            end_ms=25,
+                            speaker=f"SPEAKER_{num_speakers}_{sample_rate_hz}_{audio.shape[0]}",
+                        )
+                    ]
+                )
             )
         ),
     )
@@ -117,7 +121,9 @@ def test_execute_speaker_request_v2_returns_typed_segments(tmp_path: Path) -> No
     assert response.result.segments[0].start_ms == 10
 
 
-def test_execute_speaker_request_v2_defaults_expected_speakers_to_two(tmp_path: Path) -> None:
+def test_execute_speaker_request_v2_defaults_expected_speakers_to_two(
+    tmp_path: Path,
+) -> None:
     """Missing expected_speakers should preserve the batchalign default of 2."""
 
     captured: dict[str, object] = {}
@@ -179,7 +185,9 @@ def test_execute_speaker_request_v2_rejects_wrong_task() -> None:
         SpeakerExecutionHostV2(),
     )
 
-    _assert_error_response(response, ProtocolErrorCodeV2.INVALID_PAYLOAD, "expected speaker task")
+    _assert_error_response(
+        response, ProtocolErrorCodeV2.INVALID_PAYLOAD, "expected speaker task"
+    )
 
 
 def test_speaker_provider_media_requests_fail_schema_validation() -> None:
@@ -240,10 +248,16 @@ def test_missing_speaker_attachment_returns_typed_error(tmp_path: Path) -> None:
 
     response = execute_speaker_request_v2(
         request,
-        SpeakerExecutionHostV2(pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])),
+        SpeakerExecutionHostV2(
+            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+        ),
     )
 
-    _assert_error_response(response, ProtocolErrorCodeV2.MISSING_ATTACHMENT, "missing worker protocol V2 attachment")
+    _assert_error_response(
+        response,
+        ProtocolErrorCodeV2.MISSING_ATTACHMENT,
+        "missing worker protocol V2 attachment",
+    )
 
 
 def test_multichannel_speaker_audio_is_rejected(tmp_path: Path) -> None:
@@ -251,10 +265,14 @@ def test_multichannel_speaker_audio_is_rejected(tmp_path: Path) -> None:
 
     response = execute_speaker_request_v2(
         _make_request(tmp_path, channels=2, byte_len=32),
-        SpeakerExecutionHostV2(pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])),
+        SpeakerExecutionHostV2(
+            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+        ),
     )
 
-    _assert_error_response(response, ProtocolErrorCodeV2.INVALID_PAYLOAD, "mono prepared audio")
+    _assert_error_response(
+        response, ProtocolErrorCodeV2.INVALID_PAYLOAD, "mono prepared audio"
+    )
 
 
 def test_malformed_speaker_audio_returns_attachment_unreadable(tmp_path: Path) -> None:
@@ -262,7 +280,9 @@ def test_malformed_speaker_audio_returns_attachment_unreadable(tmp_path: Path) -
 
     response = execute_speaker_request_v2(
         _make_request(tmp_path, byte_len=15),
-        SpeakerExecutionHostV2(pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])),
+        SpeakerExecutionHostV2(
+            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+        ),
     )
 
     _assert_error_response(
@@ -280,7 +300,9 @@ def test_missing_nemo_host_returns_model_unavailable(tmp_path: Path) -> None:
         SpeakerExecutionHostV2(),
     )
 
-    _assert_error_response(response, ProtocolErrorCodeV2.MODEL_UNAVAILABLE, "no NeMo speaker host")
+    _assert_error_response(
+        response, ProtocolErrorCodeV2.MODEL_UNAVAILABLE, "no NeMo speaker host"
+    )
 
 
 def test_speaker_runtime_failures_are_typed(tmp_path: Path) -> None:
@@ -294,7 +316,9 @@ def test_speaker_runtime_failures_are_typed(tmp_path: Path) -> None:
         SpeakerExecutionHostV2(pyannote_prepared_audio_runner=boom),
     )
 
-    _assert_error_response(response, ProtocolErrorCodeV2.RUNTIME_FAILURE, "speaker host exploded")
+    _assert_error_response(
+        response, ProtocolErrorCodeV2.RUNTIME_FAILURE, "speaker host exploded"
+    )
 
 
 def test_invalid_numeric_attachment_becomes_invalid_payload_even_if_validation_is_bypassed(
@@ -315,7 +339,9 @@ def test_invalid_numeric_attachment_becomes_invalid_payload_even_if_validation_i
 
     response = execute_speaker_request_v2(
         bad_request,
-        SpeakerExecutionHostV2(pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])),
+        SpeakerExecutionHostV2(
+            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+        ),
     )
 
     _assert_error_response(

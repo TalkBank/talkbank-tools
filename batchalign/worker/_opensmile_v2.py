@@ -29,7 +29,9 @@ if TYPE_CHECKING:
 class OpenSmileExecutionHostV2:
     """Injected openSMILE execution hooks for the live V2 path."""
 
-    prepared_audio_runner: Callable[[np.ndarray, int, str, str, str], OpenSmileResponse] | None = None
+    prepared_audio_runner: (
+        Callable[[np.ndarray, int, str, str, str], OpenSmileResponse] | None
+    ) = None
 
 
 def build_default_opensmile_execution_host_v2() -> OpenSmileExecutionHostV2:

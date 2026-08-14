@@ -25,8 +25,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._asr_types import AsrElement, AsrGenerationPayload, AsrMonologue, TimedWord
 from batchalign.inference._domain_types import LanguageCode
+
+from ._asr_types import AsrElement, AsrGenerationPayload, AsrMonologue, TimedWord
 
 L = logging.getLogger("batchalign.hk.qwen")
 
@@ -76,9 +77,7 @@ class QwenAsrSegment:
     """
 
     text: str
-    word_timestamps: list[tuple[float, float, str]] = field(
-        default_factory=list
-    )
+    word_timestamps: list[tuple[float, float, str]] = field(default_factory=list)
 
     @classmethod
     def from_raw(cls, raw: Any) -> QwenAsrSegment:
@@ -271,8 +270,6 @@ class QwenRecognizer:
                     )
                 )
 
-        monologues: list[AsrMonologue] = [
-            AsrMonologue(speaker=0, elements=elements)
-        ]
+        monologues: list[AsrMonologue] = [AsrMonologue(speaker=0, elements=elements)]
         payload: AsrGenerationPayload = AsrGenerationPayload(monologues=monologues)
         return payload, timed_words

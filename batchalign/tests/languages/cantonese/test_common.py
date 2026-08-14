@@ -6,6 +6,7 @@ import configparser
 
 import pytest
 
+from batchalign.errors import ConfigError
 from batchalign.inference.languages.cantonese._common import (
     normalize_cantonese_char_tokens,
     normalize_cantonese_text,
@@ -14,8 +15,6 @@ from batchalign.inference.languages.cantonese._common import (
     provider_lang_code,
     read_asr_config,
 )
-from batchalign.errors import ConfigError
-
 
 # ---------------------------------------------------------------------------
 # Cantonese normalization: real examples from 05b.cha
@@ -103,7 +102,11 @@ class TestNormalizeCantoneseCharTokens:
 
     def test_strips_all_punctuation_types(self) -> None:
         assert normalize_cantonese_char_tokens("你。好，啊！呢？「吓」") == [
-            "你", "好", "啊", "呢", "吓",
+            "你",
+            "好",
+            "啊",
+            "呢",
+            "吓",
         ]
 
     def test_empty_string(self) -> None:
@@ -251,7 +254,11 @@ class TestReadAsrConfig:
 
     def test_aliyun_keys(self) -> None:
         values = read_asr_config(
-            ("engine.aliyun.ak_id", "engine.aliyun.ak_secret", "engine.aliyun.ak_appkey"),
+            (
+                "engine.aliyun.ak_id",
+                "engine.aliyun.ak_secret",
+                "engine.aliyun.ak_appkey",
+            ),
             engine="Aliyun",
             config=config_with_asr(
                 **{

@@ -20,7 +20,9 @@ class TestWhisperASRHandle:
     def test_callable_forwards_to_pipe(self) -> None:
         calls: list[tuple[str, dict[str, int | dict[str, str]]]] = []
 
-        def fake_pipe(audio: str, **kwargs: int | dict[str, str]) -> dict[str, list[dict[str, str | tuple[float, float]]]]:
+        def fake_pipe(
+            audio: str, **kwargs: int | dict[str, str]
+        ) -> dict[str, list[dict[str, str | tuple[float, float]]]]:
             calls.append((audio, kwargs))
             return {"chunks": [{"text": "hello", "timestamp": (0.0, 1.0)}]}
 
@@ -30,7 +32,9 @@ class TestWhisperASRHandle:
             lang="english",
             sample_rate=16000,
         )
-        result = handle("audio_data", batch_size=1, generate_kwargs={"task": "transcribe"})
+        result = handle(
+            "audio_data", batch_size=1, generate_kwargs={"task": "transcribe"}
+        )
         assert len(calls) == 1
         assert result["chunks"][0]["text"] == "hello"  # type: ignore[index]
 
@@ -55,7 +59,9 @@ class TestWhisperASRHandle:
             sample_rate=16000,
         )
         kw = handle.gen_kwargs("auto")
-        assert "language" not in kw, "auto-detect must omit 'language' so Whisper detects it"
+        assert "language" not in kw, (
+            "auto-detect must omit 'language' so Whisper detects it"
+        )
         assert kw["generation_config"] == "my_config"
         assert kw["repetition_penalty"] == 1.001
 

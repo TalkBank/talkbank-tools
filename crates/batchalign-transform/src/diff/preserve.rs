@@ -4,6 +4,17 @@
 //! dependent tiers (%mor, %gra, %wor, etc.) from the "before" file can be
 //! copied to the "after" file, avoiding unnecessary reprocessing.
 
+// Denies wildcard matches over closed enums, per chatter's ratchet. This
+// file decides which tiers survive an incremental rerun, so a variant
+// quietly joining the no-match set means a tier the caller asked to preserve
+// is dropped while the call reports success.
+#![deny(clippy::wildcard_enum_match_arm)]
+// Test code is exempt, matching this crate's existing treatment of the panic
+// lints: `other => panic!("unexpected {other:?}")` is how a test says a variant
+// should be unreachable, and denying it there would push tests toward asserting
+// less rather than more.
+#![cfg_attr(test, allow(clippy::wildcard_enum_match_arm))]
+
 use talkbank_model::UtteranceIdx;
 use talkbank_model::model::{ChatFile, DependentTier, Line};
 
@@ -22,15 +33,16 @@ pub enum TierKind {
 
 /// Check if a dependent tier matches any of the requested kinds.
 fn tier_matches(tier: &DependentTier, kinds: &[TierKind]) -> bool {
-    for kind in kinds {
-        match kind {
-            TierKind::Mor if matches!(tier, DependentTier::Mor(_)) => return true,
-            TierKind::Gra if matches!(tier, DependentTier::Gra(_)) => return true,
-            TierKind::Wor if matches!(tier, DependentTier::Wor(_)) => return true,
-            _ => {}
-        }
-    }
-    false
+    // Exhaustive over `TierKind`, so adding a kind stops compiling here until
+    // someone says which tier it names. The guarded form this replaced ended
+    // in `_ => {}`, which reads as "no match" and would also have swallowed a
+    // new kind silently: a caller asking to preserve it would have been told,
+    // truthfully in type and falsely in fact, that no tier matched.
+    kinds.iter().any(|kind| match kind {
+        TierKind::Mor => matches!(tier, DependentTier::Mor(_)),
+        TierKind::Gra => matches!(tier, DependentTier::Gra(_)),
+        TierKind::Wor => matches!(tier, DependentTier::Wor(_)),
+    })
 }
 
 /// Copy specified dependent tiers from a "before" utterance to an "after" utterance.

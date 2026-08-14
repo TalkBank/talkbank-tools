@@ -84,18 +84,18 @@ flowchart TD
     full --> engine_select
 
     engine_select{--fa-engine?}
-    engine_select -->|whisper| whisper_fa[WhisperFa engine\nmax_group_ms=20000]
-    engine_select -->|wav2vec| wav2vec_fa[Wave2Vec engine\nmax_group_ms=15000]
+    engine_select -->|whisper| whisper_fa[Whisper engine\nonset times only\nmax_group_ms from the engine = 20000]
+    engine_select -->|wav2vec / cantonese| wav2vec_fa[Wave2Vec engines\nword start+end\nmax_group_ms from the engine = 15000]
 
-    whisper_fa --> pause_check{--pauses?}
-    pause_check -->|Yes| with_pauses[FaTimingMode::WithPauses]
-    pause_check -->|No| continuous_w[FaTimingMode::Continuous]
+    whisper_fa --> pause_check
+    wav2vec_fa --> pause_check
 
-    wav2vec_fa --> continuous_wv[FaTimingMode::Continuous]
+    pause_check{--pauses?}
+    pause_check -->|Yes| preserve[WordGapHealing::PreserveMeasured\nkeep each word's own end]
+    pause_check -->|No| heal[WordGapHealing::Heal\nbridge small plausible gaps]
 
-    with_pauses --> cache_check
-    continuous_w --> cache_check
-    continuous_wv --> cache_check
+    preserve --> cache_check
+    heal --> cache_check
 
     cache_check[Cache lookup: BLAKE3 keys]
     cache_check --> worker_infer[execute_v2(task="fa") misses → Python FA worker\nprepared audio + prepared text]
@@ -234,14 +234,15 @@ back into the output:
    - the last `%wor` word already overruns the utterance boundary or other
      reuse-shape invariants fail
 
-2. **Continuous smoothing only bridges small gaps by default.** In
-   `FaTimingMode::Continuous`, Batchalign may extend a word to the next word's
-   start to remove tiny pauses, but ordinary smoothing only applies to
+2. **Gap healing only bridges small gaps by default.** Under
+   `WordGapHealing::Heal`, the default, Batchalign may extend a word to the
+   next word's start to remove tiny pauses; pass `--pauses` to keep each
+   word's own end instead. Ordinary smoothing only applies to
    plausibly small internal gaps (currently `<= 1000 ms`). Larger gaps are
    treated as real pauses or mistracks and are left visible unless a more
    specific rerun-healing rule applies.
 
-3. **Continuous smoothing treats boundary-sensitive seams specially.** Several
+3. **Gap healing treats boundary-sensitive seams specially.** Several
    traced rerun bugs showed that some words already have the right FA timing
    *before* postprocess, then become dominant only after smoothing, while
    others need a targeted heal:

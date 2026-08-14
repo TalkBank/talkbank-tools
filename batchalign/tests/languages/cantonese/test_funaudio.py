@@ -8,8 +8,10 @@ import types
 
 import pytest
 
-from batchalign.inference.languages.cantonese._funaudio_common import FunAsrSegment, FunAudioRecognizer
-
+from batchalign.inference.languages.cantonese._funaudio_common import (
+    FunAsrSegment,
+    FunAudioRecognizer,
+)
 
 _S = FunAsrSegment
 
@@ -230,8 +232,7 @@ class TestProtocolSafety:
             if line.strip() and '"op": "progress_v2"' not in line
         ]
         assert non_protocol_lines == [], (
-            f"unexpected non-protocol stdout from _get_model(): "
-            f"{non_protocol_lines}"
+            f"unexpected non-protocol stdout from _get_model(): {non_protocol_lines}"
         )
 
     def test_get_model_uses_paraformer_constructor(self, monkeypatch) -> None:
@@ -309,10 +310,9 @@ class TestFunaudioDownloadEvents:
     on cache miss and the no-event behavior on cache hit.
     """
 
-    def test_first_get_model_emits_start_and_complete_events(
-        self, monkeypatch
-    ) -> None:
+    def test_first_get_model_emits_start_and_complete_events(self, monkeypatch) -> None:
         import sys
+
         from batchalign.inference.languages.cantonese._funaudio_common import (
             FunAudioRecognizer,
         )
@@ -346,16 +346,18 @@ class TestFunaudioDownloadEvents:
             f"got {len(events)} event(s): {events}"
         )
         assert events[0]["stage"] == "downloading_funaudio_asr"
-        assert "FunASR" in events[0]["user_message"] or "FunAudio" in events[0]["user_message"]
+        assert (
+            "FunASR" in events[0]["user_message"]
+            or "FunAudio" in events[0]["user_message"]
+        )
         assert events[1]["stage"] == "downloading_funaudio_asr_complete"
 
-    def test_second_get_model_call_is_cache_hit_no_events(
-        self, monkeypatch
-    ) -> None:
+    def test_second_get_model_call_is_cache_hit_no_events(self, monkeypatch) -> None:
         # Once the model is loaded, subsequent ``_get_model()`` calls
         # MUST NOT re-emit the download events; they would mislead
         # the user into thinking another download is happening.
         import sys
+
         from batchalign.inference.languages.cantonese._funaudio_common import (
             FunAudioRecognizer,
         )

@@ -224,6 +224,17 @@ pub enum FaTextModeV2 {
     SpaceJoined,
     /// Join words as character stream.
     CharJoined,
+    /// Space-join the words, then separate every CHARACTER with a space.
+    ///
+    /// Gives the decoder one token per character, so its onsets land inside
+    /// words rather than only at their starts, which is what makes a real
+    /// silence visible as a gap. Selected by `--pauses`.
+    ///
+    /// This was a second boolean on the request until 2026-08-14, applied by
+    /// the Python host AFTER the mode above had already joined the text. Two
+    /// fields decided one thing, and the boolean was documented as preserving
+    /// pause markers, which it never did.
+    CharSpaced,
 }
 
 /// Runtime information returned during the V2 handshake.
@@ -438,8 +449,6 @@ pub struct ForcedAlignmentRequestV2 {
     pub audio_ref_id: WorkerArtifactIdV2,
     /// Text shaping mode requested by Rust.
     pub text_mode: FaTextModeV2,
-    /// Whether pause markers should be preserved.
-    pub pauses: bool,
 }
 
 /// V2 morphosyntax request payload.

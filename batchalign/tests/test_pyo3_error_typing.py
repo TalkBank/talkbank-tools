@@ -117,6 +117,6 @@ class TestExceptionAttributesShape:
         # the documented behaviour, not a bug.
         exc = CHATValidationException("test")
         # `getattr` with default returns the default for missing attrs
-        #, which is the contract `classify_error` already relies on.
+        # , which is the contract `classify_error` already relies on.
         assert getattr(exc, "errors", None) is None
         assert getattr(exc, "bug_report_id", None) is None

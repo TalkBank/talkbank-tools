@@ -86,4 +86,4 @@ def config_read(
         raise ConfigNotFoundError(
             f"Batchalign cannot find {config_path}. Run 'batchalign3 setup' to "
             "generate the legacy config file (for example when using Rev.AI keys)."
-        )
+        ) from None

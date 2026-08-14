@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-import sys
 
 import numpy as np
 import pytest
@@ -17,7 +17,6 @@ from batchalign.inference.audio import (
     load_audio,
     load_audio_file,
 )
-
 
 TEST_AUDIO = Path(__file__).parent.parent / "support" / "test.mp3"
 
@@ -93,9 +92,7 @@ class _FakeGenerateOutput:
 
 
 def _attention_step(*batch_rows: list[float]) -> list[torch.Tensor]:
-    return [
-        torch.tensor(batch_rows, dtype=torch.float32).unsqueeze(1).unsqueeze(2)
-    ]
+    return [torch.tensor(batch_rows, dtype=torch.float32).unsqueeze(1).unsqueeze(2)]
 
 
 def test_load_audio_supports_dtype_conversion() -> None:
@@ -272,7 +269,9 @@ def test_load_audio_file_returns_lazy_handle_when_rate_matches(monkeypatch) -> N
     )
     monkeypatch.setattr(
         "batchalign.inference.audio.load_audio",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("load_audio should not run")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("load_audio should not run")
+        ),
     )
 
     assert load_audio_file("fake.wav", target_sample_rate=16000) is lazy_handle
@@ -313,7 +312,9 @@ def test_load_audio_file_falls_back_to_eager_on_lazy_failure(monkeypatch) -> Non
     assert resample_calls == [(8000, 16000)]
 
 
-def test_load_audio_file_resamples_when_lazy_sample_rate_mismatches(monkeypatch) -> None:
+def test_load_audio_file_resamples_when_lazy_sample_rate_mismatches(
+    monkeypatch,
+) -> None:
     resample_calls: list[tuple[int, int]] = []
     seen_inputs: list[torch.Tensor] = []
     resampled = torch.tensor([4.0, 5.0], dtype=torch.float32)
@@ -397,7 +398,9 @@ def test_extract_token_timestamps_handles_uniform_list_num_frames(monkeypatch) -
     assert recorded[0].shape == (2, 2)
 
 
-def test_extract_token_timestamps_handles_uniform_tensor_num_frames(monkeypatch) -> None:
+def test_extract_token_timestamps_handles_uniform_tensor_num_frames(
+    monkeypatch,
+) -> None:
     recorded: list[np.ndarray] = []
     _install_whisper_generation_helpers(monkeypatch, recorded_matrices=recorded)
     output = _FakeGenerateOutput(

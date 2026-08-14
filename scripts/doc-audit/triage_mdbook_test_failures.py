@@ -50,9 +50,30 @@ from pathlib import Path
 BOOK_SRC = Path("book/src")
 
 RUST_KEYWORDS = {
-    "fn", "let", "use", "impl", "trait", "struct", "enum", "pub", "mod",
-    "match", "if", "else", "for", "while", "loop", "return", "async",
-    "await", "move", "const", "static", "where", "type", "Self",
+    "fn",
+    "let",
+    "use",
+    "impl",
+    "trait",
+    "struct",
+    "enum",
+    "pub",
+    "mod",
+    "match",
+    "if",
+    "else",
+    "for",
+    "while",
+    "loop",
+    "return",
+    "async",
+    "await",
+    "move",
+    "const",
+    "static",
+    "where",
+    "type",
+    "Self",
 }
 
 # Heuristic: a code block contains "real Rust" if it has at least one
@@ -100,17 +121,18 @@ def find_enclosing_block(file_lines: list[str], reported_line: int) -> Block | N
     # Rust by default. Walk back until we find any opening fence that
     # is not the close of a previous block.
     fence_idx: int | None = None
-    open_re = re.compile(r"^```(?:\s*(rust|edition\w*|ignore|no_run|should_panic|compile_fail)\b)?")
+    open_re = re.compile(
+        r"^```(?:\s*(rust|edition\w*|ignore|no_run|should_panic|compile_fail)\b)?"
+    )
     for idx in range(reported_line - 1, -1, -1):
         line = file_lines[idx].rstrip("\n")
         stripped = line.strip()
-        if open_re.match(stripped) and stripped != "```" or stripped == "```":
+        if (open_re.match(stripped) and stripped != "```") or stripped == "```":
             # Could be an opener or a closer. Distinguish by walking
             # back further: if the count of triple-backticks before
             # this point is even, this is an opener.
             preceding = sum(
-                1 for prior in file_lines[:idx]
-                if prior.strip().startswith("```")
+                1 for prior in file_lines[:idx] if prior.strip().startswith("```")
             )
             if preceding % 2 == 0:
                 fence_idx = idx
@@ -227,7 +249,11 @@ def main(argv: list[str]) -> int:
             print(f"# no enclosing fence: {relpath}:{reported_line}", file=sys.stderr)
             continue
 
-        first_content_line = lines[block.fence_line].rstrip("\n") if block.fence_line < len(lines) else ""
+        first_content_line = (
+            lines[block.fence_line].rstrip("\n")
+            if block.fence_line < len(lines)
+            else ""
+        )
         first_content_line_trimmed = first_content_line[:80]
         kind = classify(block.content)
         print(f"{relpath}\t{block.fence_line}\t{kind}\t{first_content_line_trimmed}")

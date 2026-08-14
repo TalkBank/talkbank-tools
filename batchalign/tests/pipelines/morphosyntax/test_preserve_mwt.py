@@ -35,6 +35,11 @@ Target assertions (from Phase 0 decision gate):
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from batchalign_core import BatchInferRequest
+
 import pytest
 
 # Stanza pipeline fixtures are provided by conftest.py in this directory.
@@ -55,7 +60,7 @@ COPULA_CONTRACTION_SENTENCES = [
 ]
 
 
-def _build_req(words: list[str]) -> "BatchInferRequest":  # noqa: UP037
+def _build_req(words: list[str]) -> BatchInferRequest:
     """Build a Preserve-mode (``retokenize=False``) request.
 
     Import is local to keep module-level imports light, this function
@@ -65,12 +70,14 @@ def _build_req(words: list[str]) -> "BatchInferRequest":  # noqa: UP037
 
     return BatchInferRequest(
         task="morphosyntax",
-        items=[{
-            "words": words,
-            "terminator": ".",
-            "special_forms": [[None, None]] * len(words),
-            "lang": "eng",
-        }],
+        items=[
+            {
+                "words": words,
+                "terminator": ".",
+                "special_forms": [[None, None]] * len(words),
+                "lang": "eng",
+            }
+        ],
         lang="eng",
         retokenize=False,  # Preserve mode: the bug path
         mwt={},
@@ -90,9 +97,7 @@ def _find_contracted_chat_position(words: list[str], head_lemma: str) -> int:
     for idx, w in enumerate(words):
         if w.lower() == contracted:
             return idx + 1  # CHAT positions are 1-based for Stanza
-    raise AssertionError(
-        f"No token {contracted!r} in word list {words}"
-    )
+    raise AssertionError(f"No token {contracted!r} in word list {words}")
 
 
 # ---------------------------------------------------------------------------
@@ -112,8 +117,11 @@ class TestPreserveIPCEmitsRangeTokens:
 
     @pytest.mark.parametrize("label,words,head_lemma", COPULA_CONTRACTION_SENTENCES)
     def test_payload_contains_range_entry_for_contraction(
-        self, english_pipeline_with_postprocessor,
-        label, words, head_lemma,
+        self,
+        english_pipeline_with_postprocessor,
+        label,
+        words,
+        head_lemma,
     ):
         import threading
 
@@ -131,14 +139,13 @@ class TestPreserveIPCEmitsRangeTokens:
         )
 
         first_sent = _first_sentence_raw(response)
-        assert first_sent, (
-            f"[{label}] Empty raw_sentences for request words={words}."
-        )
+        assert first_sent, f"[{label}] Empty raw_sentences for request words={words}."
 
         # The Range entry whose parent span covers the contracted CHAT token.
         expected_chat_pos = _find_contracted_chat_position(words, head_lemma)
         range_entries = [
-            w for w in first_sent
+            w
+            for w in first_sent
             if isinstance(w.get("id"), (list, tuple)) and len(w["id"]) == 2
         ]
         assert range_entries, (
@@ -152,8 +159,11 @@ class TestPreserveIPCEmitsRangeTokens:
 
     @pytest.mark.parametrize("label,words,head_lemma", COPULA_CONTRACTION_SENTENCES)
     def test_payload_has_component_words_for_range(
-        self, english_pipeline_with_postprocessor,
-        label, words, head_lemma,
+        self,
+        english_pipeline_with_postprocessor,
+        label,
+        words,
+        head_lemma,
     ):
         """Every Range parent must be followed by its component words.
 
@@ -193,9 +203,11 @@ class TestPreserveIPCEmitsRangeTokens:
                 comp_ids = [x.get("id") for x in following]
                 expected = list(range(start, end + 1))
                 assert all(
-                    cid == i or (isinstance(cid, (list, tuple))
-                                 and len(cid) == 1 and cid[0] == i)
-                    for cid, i in zip(comp_ids, expected)
+                    cid == i
+                    or (
+                        isinstance(cid, (list, tuple)) and len(cid) == 1 and cid[0] == i
+                    )
+                    for cid, i in zip(comp_ids, expected, strict=True)
                 ), (
                     f"[{label}] Range {wid} component ids mismatch. "
                     f"Expected {expected}, got {comp_ids}"
@@ -233,8 +245,11 @@ class TestPreserveIPCClitcIsAUX:
         ],
     )
     def test_clitic_component_has_aux_be(
-        self, english_pipeline_with_postprocessor,
-        label, words, head_lemma,
+        self,
+        english_pipeline_with_postprocessor,
+        label,
+        words,
+        head_lemma,
     ):
         import threading
 

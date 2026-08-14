@@ -54,8 +54,7 @@ def peak_rss_mb(profile: str) -> int:
         return _PEAK_RSS_MB[profile]
     except KeyError as exc:
         raise BudgetError(
-            f"unknown profile {profile!r}; "
-            f"known: {sorted(_PEAK_RSS_MB)}"
+            f"unknown profile {profile!r}; known: {sorted(_PEAK_RSS_MB)}"
         ) from exc
 
 

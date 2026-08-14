@@ -11,12 +11,12 @@ Marked @pytest.mark.integration because they spawn subprocesses.
 """
 
 from __future__ import annotations
-from typing import Any
 
 import json
 import shutil
 import subprocess
 import sys
+from typing import Any
 
 import pytest
 
@@ -51,7 +51,8 @@ def _start_test_echo_worker() -> subprocess.Popen[str]:
 
 
 def _send_recv(
-    proc: subprocess.Popen[str], request: dict[str, Any],
+    proc: subprocess.Popen[str],
+    request: dict[str, Any],
 ) -> dict[str, Any]:
     """Send a JSON-lines request and read the response envelope.
 
@@ -135,8 +136,15 @@ def test_worker_capabilities() -> None:
         infer_tasks = resp.get("infer_tasks", [])
         assert len(infer_tasks) > 0, "test-echo should advertise all infer tasks"
         assert set(infer_tasks) == {
-            "morphosyntax", "utseg", "coref", "translate", "fa", 
-            "speaker", "opensmile", "avqi", "asr"
+            "morphosyntax",
+            "utseg",
+            "coref",
+            "translate",
+            "fa",
+            "speaker",
+            "opensmile",
+            "avqi",
+            "asr",
         }, f"Unexpected infer_tasks: {infer_tasks}"
         # Test-echo engine versions should all be "test-echo"
         engine_versions = resp.get("engine_versions", {})
@@ -219,14 +227,17 @@ def test_worker_multiple_requests() -> None:
 
         # Send infer
         payload = {"words": ["hello"], "lang": "eng"}
-        resp2 = _send_recv(proc, {
-            "op": "infer",
-            "request": {
-                "task": "morphosyntax",
-                "lang": "eng",
-                "payload": payload,
+        resp2 = _send_recv(
+            proc,
+            {
+                "op": "infer",
+                "request": {
+                    "task": "morphosyntax",
+                    "lang": "eng",
+                    "payload": payload,
+                },
             },
-        })
+        )
         assert resp2.get("result") == payload
 
         # Send capabilities
@@ -235,14 +246,17 @@ def test_worker_multiple_requests() -> None:
 
         # Send batch_infer
         items = [{"words": ["hello", "again"]}]
-        resp4 = _send_recv(proc, {
-            "op": "batch_infer",
-            "request": {
-                "task": "morphosyntax",
-                "lang": "eng",
-                "items": items,
+        resp4 = _send_recv(
+            proc,
+            {
+                "op": "batch_infer",
+                "request": {
+                    "task": "morphosyntax",
+                    "lang": "eng",
+                    "items": items,
+                },
             },
-        })
+        )
         assert resp4.get("results")[0]["result"] == items[0]
     finally:
         _shutdown(proc)

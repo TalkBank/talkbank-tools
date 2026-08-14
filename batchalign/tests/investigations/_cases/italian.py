@@ -279,7 +279,7 @@ CASES: tuple[ProbeCase, ...] = (
         xfail=XfailMark(
             defect_slug="stanza-it-verb-clitic-pos-split",
             reason=(
-                "UD-level pin: `arancione` (noun, \"orange\") is "
+                'UD-level pin: `arancione` (noun, "orange") is '
                 "spuriously split by Stanza's POS layer into "
                 "`arancio + ne` (lemma=`arancio`, clitic=`ne`), "
                 "tagged verb+pron with Part Past features. The "
@@ -297,7 +297,7 @@ CASES: tuple[ProbeCase, ...] = (
         xfail=XfailMark(
             defect_slug="stanza-it-verb-clitic-pos-split",
             reason=(
-                "UD-level pin: `piccolo` (adjective, \"small\" m.sg) "
+                'UD-level pin: `piccolo` (adjective, "small" m.sg) '
                 "is spuriously split into `picco + lo` tagged "
                 "verb+pron with Part Past features. Committed corpus "
                 "ships `verb|picco~pron|lo`; should be "
@@ -313,7 +313,7 @@ CASES: tuple[ProbeCase, ...] = (
         xfail=XfailMark(
             defect_slug="stanza-it-verb-clitic-pos-split",
             reason=(
-                "UD-level pin: `gomitolo` (noun, \"ball of yarn\") is "
+                'UD-level pin: `gomitolo` (noun, "ball of yarn") is '
                 "spuriously split into `gomito + lo`. Committed "
                 "corpus ships `verb|gomito~pron|lo`; should be "
                 "`noun|gomitolo-Masc-Sing`. Defect 6 non-verb subclass."
@@ -328,7 +328,7 @@ CASES: tuple[ProbeCase, ...] = (
         xfail=XfailMark(
             defect_slug="stanza-it-verb-clitic-pos-split",
             reason=(
-                "UD-level pin: `divano` (noun, \"sofa\") is "
+                'UD-level pin: `divano` (noun, "sofa") is '
                 "spuriously split into `diva + no`, `no` is not "
                 "even a valid Italian clitic ending for verbs, yet "
                 "Stanza tags this as verb+pron with Part Past. "

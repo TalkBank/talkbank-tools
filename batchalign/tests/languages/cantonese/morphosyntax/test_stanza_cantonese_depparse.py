@@ -25,6 +25,7 @@ class TestStanzaCantoneseDepparse:
     @staticmethod
     def _load_stanza():
         import stanza
+
         return stanza.Pipeline(
             lang="zh",
             processors="tokenize,pos,lemma,depparse",
@@ -41,12 +42,14 @@ class TestStanzaCantoneseDepparse:
         result = []
         for w in words:
             head_text = "ROOT" if w.head == 0 else words[w.head - 1].text
-            result.append({
-                "text": w.text,
-                "deprel": w.deprel,
-                "head_text": head_text,
-                "upos": w.upos,
-            })
+            result.append(
+                {
+                    "text": w.text,
+                    "deprel": w.deprel,
+                    "head_text": head_text,
+                    "upos": w.upos,
+                }
+            )
         return result
 
     def test_subject_verb_structure(self) -> None:
@@ -73,7 +76,6 @@ class TestStanzaCantoneseDepparse:
         nlp = self._load_stanza()
         deps = self._get_deps(nlp, "佢 食 嘢")
 
-        dep_map = {d["text"]: d for d in deps}
         print(f"SVO deps: {deps}")
 
         # Record what Stanza produces, may or may not be correct
@@ -133,11 +135,11 @@ class TestStanzaCantoneseDepparse:
         nlp = self._load_stanza()
 
         sentences = [
-            "佢 食 嘢",          # he eats stuff
-            "我 想 去",          # I want to go
-            "你 知 唔 知道",     # do you know
-            "媽媽 買 咗 嘢",    # mama bought stuff
-            "佢哋 鍾意 食嘢",   # they like eating
+            "佢 食 嘢",  # he eats stuff
+            "我 想 去",  # I want to go
+            "你 知 唔 知道",  # do you know
+            "媽媽 買 咗 嘢",  # mama bought stuff
+            "佢哋 鍾意 食嘢",  # they like eating
         ]
 
         root_is_verb = 0

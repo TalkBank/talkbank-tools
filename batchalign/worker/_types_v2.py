@@ -4,8 +4,7 @@ These models mirror `crates/batchalign-types/src/worker_v2/` (re-exported via
 `crates/batchalign/src/types/worker_v2.rs`). The ``*_v2`` namespace is
 intentional: Rust and Python still ship the frozen V1 worker surface
 (``worker`` / ``_types.py``), while ``worker_v2`` is the live typed execute
-contract, the JSON Schema layer (``ipc-schema/worker_v2``), and the generated
-Python package namespace (``batchalign/generated/worker_v2``).
+contract, checked against the JSON Schema layer (``ipc-schema/worker_v2``).
 
 - define the canonical V2 protocol shape in Python
 - validate canonical fixture files shared with Rust
@@ -67,7 +66,7 @@ class AsrBackendV2(str, Enum):
 
     LOCAL_WHISPER = "local_whisper"
     # HuggingFace Whisper fine-tune selected by model_id. Same worker-side
-    # runtime shape as LOCAL_WHISPER, both host a ``WhisperASRHandle``, 
+    # runtime shape as LOCAL_WHISPER, both host a ``WhisperASRHandle``,
     # but a distinct backend variant so the control-plane pool key and the
     # worker's engine dispatch select the fine-tune loader at bootstrap.
     WHISPER_HUB = "whisper_hub"
@@ -133,6 +132,9 @@ class FaTextModeV2(str, Enum):
 
     SPACE_JOINED = "space_joined"
     CHAR_JOINED = "char_joined"
+    #: Space-joined, then every character separated by a space. Selected by
+    #: `--pauses`; Rust applies it, so the host receives shaped text.
+    CHAR_SPACED = "char_spaced"
 
 
 class WorkerRuntimeInfoV2(BaseModel):
@@ -277,7 +279,6 @@ class ForcedAlignmentRequestV2(BaseModel):
     payload_ref_id: WorkerArtifactIdV2
     audio_ref_id: WorkerArtifactIdV2
     text_mode: FaTextModeV2
-    pauses: bool
 
 
 class MorphosyntaxRequestV2(BaseModel):
@@ -330,7 +331,7 @@ class SpeakerRequestV2(BaseModel):
 
     kind: Literal["speaker"] = "speaker"
     backend: SpeakerBackendV2
-    input: "SpeakerInputV2"
+    input: SpeakerInputV2
     expected_speakers: NumSpeakers | None = None
 
 
@@ -366,19 +367,6 @@ SpeakerInputV2: TypeAlias = Annotated[
     Field(discriminator="kind"),
 ]
 """Speaker input transport (internally tagged on ``kind``)."""
-
-
-# Backward-compatible aliases: with internally tagged unions, the inner
-# request structs carry the ``kind`` field directly, no wrapper needed.
-AsrTaskRequestV2 = AsrRequestV2
-ForcedAlignmentTaskRequestV2 = ForcedAlignmentRequestV2
-MorphosyntaxTaskRequestV2 = MorphosyntaxRequestV2
-UtsegTaskRequestV2 = UtsegRequestV2
-TranslateTaskRequestV2 = TranslateRequestV2
-CorefTaskRequestV2 = CorefRequestV2
-SpeakerTaskRequestV2 = SpeakerRequestV2
-OpenSmileTaskRequestV2 = OpenSmileRequestV2
-AvqiTaskRequestV2 = AvqiRequestV2
 
 
 TaskRequestV2: TypeAlias = Annotated[
@@ -446,7 +434,11 @@ class AsrElementV2(BaseModel):
 
     @model_validator(mode="after")
     def _validate_range(self) -> AsrElementV2:
-        if self.start_s is not None and self.end_s is not None and self.end_s < self.start_s:
+        if (
+            self.start_s is not None
+            and self.end_s is not None
+            and self.end_s < self.start_s
+        ):
             raise ValueError("ASR element end_s must be >= start_s")
         return self
 

@@ -33,11 +33,17 @@ MEDIA_EXTS = [".wav", ".mp3", ".mp4", ".m4a", ".flac"]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("chat", help="CHAT file under data/*-data (absolute or workspace-relative)")
+    parser.add_argument(
+        "chat", help="CHAT file under data/*-data (absolute or workspace-relative)"
+    )
     parser.add_argument("--lines", required=True, help="Utterance range, e.g. 4-10")
     parser.add_argument("--output", required=True, help="Local output directory")
-    parser.add_argument("--context", type=int, default=0, help="Extra utterances before/after range")
-    parser.add_argument("--padding-ms", type=int, default=2000, help="Audio padding before/after trim")
+    parser.add_argument(
+        "--context", type=int, default=0, help="Extra utterances before/after range"
+    )
+    parser.add_argument(
+        "--padding-ms", type=int, default=2000, help="Audio padding before/after trim"
+    )
     parser.add_argument(
         "--workspace-root",
         help="Workspace root (default: inferred from this script location)",
@@ -105,7 +111,9 @@ def parse_media_name(chat_path: Path) -> str:
     raise SystemExit(f"No @Media header found in {chat_path}")
 
 
-def run_checked(command: list[str], *, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
+def run_checked(
+    command: list[str], *, capture_output: bool = False
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         command,
         check=True,
@@ -115,7 +123,9 @@ def run_checked(command: list[str], *, capture_output: bool = False) -> subproce
 
 
 def fetch_remote_server_config(host: str, config_path: str) -> str:
-    remote_path = config_path if config_path.startswith("~") else shlex.quote(config_path)
+    remote_path = (
+        config_path if config_path.startswith("~") else shlex.quote(config_path)
+    )
     remote_cmd = f"sed -n '1,240p' {remote_path}"
     result = run_checked(
         ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, remote_cmd],
@@ -145,7 +155,9 @@ def parse_media_mappings(yaml_text: str) -> dict[str, str]:
     return mappings
 
 
-def find_remote_media(host: str, remote_dir: PurePosixPath, media_name: str) -> PurePosixPath:
+def find_remote_media(
+    host: str, remote_dir: PurePosixPath, media_name: str
+) -> PurePosixPath:
     find_cmd = (
         f"find {shlex.quote(str(remote_dir))} -maxdepth 1 -type f "
         f"\\( -name {shlex.quote(media_name + '.*')} -o -name {shlex.quote(media_name)} \\)"
@@ -154,11 +166,13 @@ def find_remote_media(host: str, remote_dir: PurePosixPath, media_name: str) -> 
         ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, find_cmd],
         capture_output=True,
     )
-    candidates = [PurePosixPath(line.strip()) for line in result.stdout.splitlines() if line.strip()]
+    candidates = [
+        PurePosixPath(line.strip())
+        for line in result.stdout.splitlines()
+        if line.strip()
+    ]
     if not candidates:
-        raise SystemExit(
-            f"No remote media found for {media_name!r} under {remote_dir}"
-        )
+        raise SystemExit(f"No remote media found for {media_name!r} under {remote_dir}")
 
     def sort_key(path: PurePosixPath) -> tuple[int, str]:
         suffix = path.suffix.lower()

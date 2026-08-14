@@ -16,7 +16,6 @@ from batchalign.worker._stanza_capabilities import (
     get_cached_capability_table,
 )
 
-
 _FIXTURE_RESOURCES = {
     "default": {},
     "en": {
@@ -173,12 +172,8 @@ def test_bootstrap_downloads_catalog_when_missing():
     fake_download = mock.Mock(return_value=None)
 
     with (
-        mock.patch(
-            "stanza.resources.common.load_resources_json", fake_load
-        ),
-        mock.patch(
-            "stanza.resources.common.download_resources_json", fake_download
-        ),
+        mock.patch("stanza.resources.common.load_resources_json", fake_load),
+        mock.patch("stanza.resources.common.download_resources_json", fake_download),
     ):
         table = get_cached_capability_table()
 
@@ -203,17 +198,11 @@ def test_bootstrap_raises_typed_error_on_download_failure():
     fake_load = mock.Mock(
         side_effect=ResourcesFileNotFoundError("/fake/path/resources.json")
     )
-    fake_download = mock.Mock(
-        side_effect=ConnectionError("network unreachable")
-    )
+    fake_download = mock.Mock(side_effect=ConnectionError("network unreachable"))
 
     with (
-        mock.patch(
-            "stanza.resources.common.load_resources_json", fake_load
-        ),
-        mock.patch(
-            "stanza.resources.common.download_resources_json", fake_download
-        ),
+        mock.patch("stanza.resources.common.load_resources_json", fake_load),
+        mock.patch("stanza.resources.common.download_resources_json", fake_download),
     ):
         with pytest.raises(StanzaCatalogDownloadError) as excinfo:
             get_cached_capability_table()

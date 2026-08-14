@@ -17,12 +17,10 @@ from __future__ import annotations
 
 import os
 import re
-import os
 from pathlib import Path
 
 import pycantonese
 import pytest
-
 
 # Corpus path is resolved from an environment variable so this test can
 # run locally against any developer's CHILDES checkout without hardcoding
@@ -34,7 +32,12 @@ import pytest
 _DATA_ROOT_ENV = "BATCHALIGN3_CHILDES_DATA_ROOT"
 _DATA_ROOT = os.environ.get(_DATA_ROOT_ENV)
 CORPUS_DIR = (
-    Path(_DATA_ROOT) / "childes-other-data" / "Biling" / "CHCC" / "Winston" / "Cantonese"
+    Path(_DATA_ROOT)
+    / "childes-other-data"
+    / "Biling"
+    / "CHCC"
+    / "Winston"
+    / "Cantonese"
     if _DATA_ROOT
     else None
 )
@@ -86,13 +89,11 @@ class TestPyCantoneseCorpusQuality:
         """
         words = _extract_pure_cjk_words()
         multichar = [w for w in words if len(w) > 1]
-        assert len(multichar) > 100, f"Expected 100+ multi-char words, got {len(multichar)}"
-
-        preserved = sum(
-            1
-            for w in multichar
-            if pycantonese.segment(w) == [w]
+        assert len(multichar) > 100, (
+            f"Expected 100+ multi-char words, got {len(multichar)}"
         )
+
+        preserved = sum(1 for w in multichar if pycantonese.segment(w) == [w])
         rate = preserved / len(multichar)
         assert rate > 0.85, (
             f"PyCantonese preserved only {rate:.0%} of {len(multichar)} multi-char words "
@@ -102,16 +103,16 @@ class TestPyCantoneseCorpusQuality:
     def test_key_cantonese_words_preserved(self) -> None:
         """Common Cantonese words that users expect to see as single tokens."""
         must_preserve = [
-            "佢哋",   # they
-            "鍾意",   # like
-            "故事",   # story
-            "媽媽",   # mama
-            "爸爸",   # papa
-            "知道",   # know
-            "多謝",   # thank you
-            "聖誕",   # Christmas
-            "飛機",   # airplane
-            "蛋糕",   # cake
+            "佢哋",  # they
+            "鍾意",  # like
+            "故事",  # story
+            "媽媽",  # mama
+            "爸爸",  # papa
+            "知道",  # know
+            "多謝",  # thank you
+            "聖誕",  # Christmas
+            "飛機",  # airplane
+            "蛋糕",  # cake
         ]
         for word in must_preserve:
             result = pycantonese.segment(word)
@@ -122,9 +123,9 @@ class TestPyCantoneseCorpusQuality:
     def test_sentence_segmentation_reduces_char_count(self) -> None:
         """Realistic Cantonese sentences should produce fewer words than characters."""
         sentences = [
-            ("佢哋好鍾意食嘢", 7, 5),     # they really like eating stuff
-            ("媽媽買咗好多嘢", 7, 6),     # mama bought lots of stuff
-            ("故事書好好睇", 6, 5),        # storybook is very good to read
+            ("佢哋好鍾意食嘢", 7, 5),  # they really like eating stuff
+            ("媽媽買咗好多嘢", 7, 6),  # mama bought lots of stuff
+            ("故事書好好睇", 6, 5),  # storybook is very good to read
         ]
         for text, max_chars, max_words in sentences:
             result = pycantonese.segment(text)

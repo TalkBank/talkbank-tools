@@ -9,7 +9,7 @@ use talkbank_model::model::{
 };
 use talkbank_model::model::{BracketedItems, TierContentItems};
 
-use super::FaTimingMode;
+use super::WordEndPolicy;
 use super::injection::inject_timings_for_utterance;
 use super::postprocess::postprocess_utterance_timings;
 use super::{
@@ -29,7 +29,7 @@ pub fn apply_fa_results(
     chat_file: &mut ChatFile,
     groups: &[FaGroup],
     responses: &[Vec<Option<WordTiming>>],
-    timing_mode: FaTimingMode,
+    policy: WordEndPolicy,
     write_wor: bool,
 ) -> Vec<batchalign_transform::decisions::DecisionRecord> {
     let mut decisions = Vec::new();
@@ -84,15 +84,15 @@ pub fn apply_fa_results(
         // it) or attached it to the wrong utterance.
         let line_idx = super::utterance_line_idx(chat_file, utt_idx);
         if let Some(utt) = get_utterance_mut(chat_file, utt_idx) {
-            let words_dropped = postprocess_utterance_timings(utt, timing_mode);
-            if let (true, Some(line_idx)) = (words_dropped > 0, line_idx) {
+            let dropped = postprocess_utterance_timings(utt, policy);
+            if let (true, Some(line_idx)) = (dropped.any(), line_idx) {
                 decisions.push(batchalign_transform::decisions::DecisionRecord {
                     line_idx,
                     speaker: utt.main.speaker.as_str().to_string(),
                     strategy: batchalign_transform::decisions::DecisionStrategy::Fa(
                         batchalign_transform::decisions::FaStrategy::WordsTimingDropped,
                     ),
-                    reason: format!("count={words_dropped} reason=clamped_to_utterance_boundary"),
+                    reason: dropped.reason(),
                     needs_review: true,
                 });
             }
@@ -553,10 +553,10 @@ fn collect_wor_backed_timings(utterance: &Utterance) -> Option<Vec<Option<WordTi
 
     for word in wor_words {
         let bullet = word.inline_bullet.as_ref()?;
-        timings.push(Some(WordTiming::new(
+        timings.push(WordTiming::new(
             bullet.timing.start_ms,
             bullet.timing.end_ms,
-        )));
+        ));
     }
 
     if timings
@@ -604,7 +604,7 @@ pub(super) fn collect_wor_backed_span(utterance: &Utterance) -> Option<WordTimin
             last_end = Some(span.end_ms);
         }
     }
-    Some(WordTiming::new(first_start?, last_end?))
+    WordTiming::new(first_start?, last_end?)
 }
 
 /// Strip timing and %wor from a single utterance.

@@ -26,7 +26,6 @@ Corpora used (all public, non-password-protected):
 from __future__ import annotations
 
 import pycantonese
-import pytest
 
 
 class TestChildesCantonesePosGold:
@@ -105,7 +104,9 @@ class TestChildesCantonesePosGold:
         words = ["邊個", "油罐車", "啊"]
         tagged = dict(pycantonese.pos_tag(words))
 
-        assert tagged["油罐車"] == "NOUN", f"油罐車 should be NOUN, got {tagged['油罐車']}"
+        assert tagged["油罐車"] == "NOUN", (
+            f"油罐車 should be NOUN, got {tagged['油罐車']}"
+        )
         assert tagged["啊"] == "PART", f"啊 (SFP) should be PART, got {tagged['啊']}"
 
 
@@ -135,7 +136,9 @@ class TestAphasiaCantonesePosGold:
             "If NOUN, PyCantonese has improved."
         )
         assert tagged["踢"] == "VERB", f"踢 (kick) should be VERB, got {tagged['踢']}"
-        assert tagged["玻璃"] == "NOUN", f"玻璃 (glass) should be NOUN, got {tagged['玻璃']}"
+        assert tagged["玻璃"] == "NOUN", (
+            f"玻璃 (glass) should be NOUN, got {tagged['玻璃']}"
+        )
 
     def test_par_跟住個朋友(self) -> None:
         """Patient says 'then the friend...'
@@ -154,7 +157,9 @@ class TestAphasiaCantonesePosGold:
             f"跟住: expected CCONJ (PyCantonese's tag), got {tagged['跟住']}. "
             "If VERB/ADV, PyCantonese has changed."
         )
-        assert tagged["朋友"] == "NOUN", f"朋友 (friend) should be NOUN, got {tagged['朋友']}"
+        assert tagged["朋友"] == "NOUN", (
+            f"朋友 (friend) should be NOUN, got {tagged['朋友']}"
+        )
         assert tagged["呢"] == "PART", f"呢 (SFP) should be PART, got {tagged['呢']}"
 
     def test_par_踢波(self) -> None:
@@ -170,7 +175,9 @@ class TestAphasiaCantonesePosGold:
         words = ["佢", "因為", "踢波", "啦"]
         tagged = dict(pycantonese.pos_tag(words))
 
-        assert tagged["踢波"] == "VERB", f"踢波 (kick ball) should be VERB, got {tagged['踢波']}"
+        assert tagged["踢波"] == "VERB", (
+            f"踢波 (kick ball) should be VERB, got {tagged['踢波']}"
+        )
         assert tagged["啦"] == "X", (
             f"啦: expected X (known PyCantonese gap), got {tagged['啦']}. "
             "If PART, PyCantonese has improved."
@@ -194,7 +201,9 @@ class TestAphasiaCantonesePosGold:
             f"踢爛: expected ADJ (known PyCantonese limitation), got {tagged['踢爛']}. "
             "If VERB, PyCantonese has improved."
         )
-        assert tagged["冷氣"] == "NOUN", f"冷氣 (AC) should be NOUN, got {tagged['冷氣']}"
+        assert tagged["冷氣"] == "NOUN", (
+            f"冷氣 (AC) should be NOUN, got {tagged['冷氣']}"
+        )
         assert tagged["呀"] == "PART", f"呀 (SFP) should be PART, got {tagged['呀']}"
 
 
@@ -226,10 +235,10 @@ class TestPyCantonesePosOnCorpusVocabulary:
         # SFPs that PyCantonese gets wrong (document each limitation)
         known_gaps: dict[str, str] = {
             "啊": "INTJ",  # tagged as interjection
-            "啦": "X",     # not in dictionary
-            "噃": "X",     # not in dictionary
-            "呢": "X",     # not in dictionary (should be PART)
-            "囉": "X",     # not in dictionary
+            "啦": "X",  # not in dictionary
+            "噃": "X",  # not in dictionary
+            "呢": "X",  # not in dictionary (should be PART)
+            "囉": "X",  # not in dictionary
             "咩": "PRON",  # tagged as pronoun (it can be 'what?' interrogative)
         }
         for sfp, expected_wrong in known_gaps.items():

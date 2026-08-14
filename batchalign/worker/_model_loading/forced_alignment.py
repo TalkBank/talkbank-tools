@@ -18,7 +18,9 @@ def load_fa_engine(bootstrap: WorkerBootstrapRuntime) -> None:
     backend = resolve_fa_engine(engine_overrides)
 
     if backend is FaEngine.WAV2VEC_CANTO:
-        from batchalign.inference.languages.cantonese._cantonese_fa import load_cantonese_fa
+        from batchalign.inference.languages.cantonese._cantonese_fa import (
+            load_cantonese_fa,
+        )
 
         load_cantonese_fa(
             lang,
@@ -30,9 +32,7 @@ def load_fa_engine(bootstrap: WorkerBootstrapRuntime) -> None:
     elif backend is FaEngine.WHISPER:
         from batchalign.inference.fa import load_whisper_fa
 
-        _state.whisper_fa_model = load_whisper_fa(
-            device_policy=bootstrap.device_policy
-        )
+        _state.whisper_fa_model = load_whisper_fa(device_policy=bootstrap.device_policy)
         _state.fa_engine = FaEngine.WHISPER
         _state.fa_model_name = "whisper-fa-large-v2"
     elif backend is FaEngine.WAVE2VEC:
@@ -79,17 +79,20 @@ def resolve_fa_engine(engine_overrides: dict[str, str] | None) -> FaEngine:
        strings raise ``ValueError`` rather than silently loading
        Wave2Vec: a typo in a per-host override would otherwise
        produce wrong-model output.
-    There is deliberately no default. The Rust control plane always sends an
-    ``fa`` key (``worker/pool/mod.rs`` puts one on every Align worker), so a
-    missing key means the boundary is broken, not that a fallback is wanted. A
-    default here would be a second owner of a decision Rust already makes, and
-    the two silently disagreed for six weeks: this returned Whisper while Rust
-    chose Wave2Vec, and only Rust always populating the key hid it.
+    2. Otherwise a warm preload, because a missing key is not a choice.
+
+    2. Nothing. There is no default, because there is no case left that needs
+       one: the control plane names an engine for every task the worker's
+       target preloads (`EngineSelection::for_target`), and a lazy-profile
+       worker preloads nothing and names its engine per request. A missing
+       ``fa`` key therefore means the boundary is broken, and guessing would
+       load a model the request did not ask for.
     """
     if not engine_overrides or "fa" not in engine_overrides:
         raise ValueError(
-            "no 'fa' engine in overrides; the control plane always sends one, "
-            "so its absence is a boundary bug rather than a request for a default"
+            "no 'fa' engine in overrides; the control plane names one for every "
+            "preloaded task, so its absence is a boundary bug rather than a "
+            "request for a default"
         )
     choice = engine_overrides["fa"]
     legacy = _LEGACY_FA_WIRE_NAMES.get(choice)

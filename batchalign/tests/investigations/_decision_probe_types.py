@@ -51,7 +51,6 @@ from enum import Enum
 
 from ._probe_types import XfailMark
 
-
 # ─── Outcome + candidate-class enums (unchanged from v1) ─────────────
 
 
@@ -363,13 +362,11 @@ def _classify_mapping(
     pre_words = _words_for(pre_tokens, mapping.pre_token_indices, "pre")
     post_words = _words_for(post_tokens, mapping.post_token_indices, "post")
 
-    pre_matches = (
-        not mapping.gold.has_pre_expectation()
-        or _side_matches_gold(pre_words, mapping.gold.pre_upos, mapping.gold.pre_text)
+    pre_matches = not mapping.gold.has_pre_expectation() or _side_matches_gold(
+        pre_words, mapping.gold.pre_upos, mapping.gold.pre_text
     )
-    post_matches = (
-        not mapping.gold.has_post_expectation()
-        or _side_matches_gold(post_words, mapping.gold.post_upos, mapping.gold.post_text)
+    post_matches = not mapping.gold.has_post_expectation() or _side_matches_gold(
+        post_words, mapping.gold.post_upos, mapping.gold.post_text
     )
 
     pre_text = " ".join(w.text for w in pre_words) or "∅"
@@ -389,9 +386,7 @@ def _classify_mapping(
     else:
         verdict = _MappingVerdict.NEUTRAL
         tag = "neither matches"
-    note = (
-        f"[{pre_text} ({pre_upos}) → {post_text} ({post_upos}): {tag}]"
-    )
+    note = f"[{pre_text} ({pre_upos}) → {post_text} ({post_upos}): {tag}]"
     return verdict, note
 
 

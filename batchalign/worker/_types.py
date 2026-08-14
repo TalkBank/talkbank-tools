@@ -17,12 +17,11 @@ Do not add new types to V1. New engines and commands should use V2.
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-import time
 from enum import Enum
 from typing import TYPE_CHECKING
-from typing_extensions import TypeAliasType
 
 from pydantic import BaseModel, Field
 
@@ -49,11 +48,12 @@ if TYPE_CHECKING:
 JSONPrimitive = str | int | float | bool | None
 
 if TYPE_CHECKING:
-    WorkerJSONValue = JSONPrimitive | Sequence["WorkerJSONValue"] | Mapping[str, "WorkerJSONValue"]
+    WorkerJSONValue = (
+        JSONPrimitive | Sequence["WorkerJSONValue"] | Mapping[str, "WorkerJSONValue"]
+    )
 else:
-    WorkerJSONValue = TypeAliasType(
-        "WorkerJSONValue",
-        JSONPrimitive | Sequence["WorkerJSONValue"] | Mapping[str, "WorkerJSONValue"],
+    type WorkerJSONValue = (
+        JSONPrimitive | Sequence["WorkerJSONValue"] | Mapping[str, "WorkerJSONValue"]
     )
 
 
@@ -232,9 +232,10 @@ class _WorkerState:
         self.stanza_version: str = ""
 
         # Utseg config builder (callable from StanzaUtteranceEngine)
-        self.utseg_config_builder: Callable[
-            [list[str]], tuple[list[str], dict[str, dict[str, str | bool]]]
-        ] | None = None
+        self.utseg_config_builder: (
+            Callable[[list[str]], tuple[list[str], dict[str, dict[str, str | bool]]]]
+            | None
+        ) = None
         self.utterance_boundary_model: BertUtteranceModel | None = None
         self.utterance_model_name: str = ""
         self.utseg_version: str = ""

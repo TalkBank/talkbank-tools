@@ -23,7 +23,6 @@ from batchalign.models.utterance.infer import (
     _split_yue_at_particles,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fakes shared with the sliding-window tests, replicated locally so each
 # test module is self-contained.
@@ -172,7 +171,13 @@ class TestSplitYueAtParticles:
         words = ["呀", "啦", "喎", "嘞", "囉", "啊", "嗯"]
         # Each particle is its own chunk.
         assert _split_yue_at_particles(words) == [
-            (0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7),
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 5),
+            (5, 6),
+            (6, 7),
         ]
 
 
@@ -236,5 +241,3 @@ class TestNonYueBranchDoesNotChunk:
         actions = model.predict_actions(words)
         assert len(actions) == 5
         assert model.tokenizer.calls == [["他", "走", "了", "我", "知道"]]
-
-

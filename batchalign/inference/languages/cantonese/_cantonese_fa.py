@@ -11,27 +11,26 @@ non-``yue`` languages, words pass through unchanged.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import re
 import threading
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import ValidationError
 
-from batchalign.worker._types import (
-    BatchInferRequest,
-    BatchInferResponse,
-    InferResponse,
-)
+from batchalign.inference._domain_types import LanguageCode
 from batchalign.inference.fa import (
     FaIndexedTiming,
     FaInferItem,
     Wave2VecIndexedResponse,
 )
-
-from batchalign.inference._domain_types import LanguageCode
+from batchalign.worker._types import (
+    BatchInferRequest,
+    BatchInferResponse,
+    InferResponse,
+)
 
 from ._common import EngineOverrides
 
@@ -48,9 +47,7 @@ L = logging.getLogger("batchalign.hk.fa")
 
 
 class _PyCantonese(Protocol):
-    def characters_to_jyutping(
-        self, text: str
-    ) -> list[tuple[str, str | None]]: ...
+    def characters_to_jyutping(self, text: str) -> list[tuple[str, str | None]]: ...
 
 
 class _AudioFileLoader(Protocol):
@@ -76,6 +73,7 @@ class _Wave2VecFaRunner(Protocol):
 
 _model: Wave2VecFAHandle | None = None
 _pc: _PyCantonese | None = None
+_lang: LanguageCode = "yue"
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +89,21 @@ class CantoneseFaHost:
     romanizer: _PyCantonese
     load_audio_file: _AudioFileLoader
     infer_wave2vec_fa: _Wave2VecFaRunner
+    lang: LanguageCode = "yue"
+
+    def align_words(
+        self, audio: object, words: list[str]
+    ) -> list[tuple[str, tuple[int, int]]]:
+        """Romanize, then align, on audio the caller has already decoded.
+
+        The one step both paths share. Everything above it differs: the batch
+        path loads and chunks a file, the V2 worker path receives a prepared
+        array. Owning the verb here stops each caller reassembling it out of
+        this host's fields, which is how the two came to romanize by different
+        rules.
+        """
+        romanized = [_maybe_romanize(self.romanizer, w, self.lang) for w in words]
+        return self.infer_wave2vec_fa(self.model, audio, romanized)
 
 
 # ---------------------------------------------------------------------------
@@ -125,9 +138,7 @@ def _hanzi_to_jyutping(pc: _PyCantonese, text: str) -> str:
     """
     pairs = pc.characters_to_jyutping(text)
     try:
-        jyut = " ".join(
-            pron for _char, pron in pairs if isinstance(pron, str) and pron
-        )
+        jyut = " ".join(pron for _char, pron in pairs if isinstance(pron, str) and pron)
     except TypeError:
         return text
 
@@ -172,7 +183,7 @@ def load_cantonese_fa(
         Engine overrides (currently unused, reserved for future
         model selection).
     """
-    global _model, _pc  # noqa: PLW0603
+    global _model, _pc
 
     try:
         import pycantonese as pc
@@ -185,6 +196,7 @@ def load_cantonese_fa(
     from batchalign.inference.fa import load_wave2vec_fa
 
     _pc = pc
+    _lang = lang
     _model = load_wave2vec_fa(device_policy=device_policy)
     L.info("Cantonese FA model loaded: lang=%s", lang)
 
@@ -200,6 +212,7 @@ def default_cantonese_fa_host() -> CantoneseFaHost | None:
     return CantoneseFaHost(
         model=_model,
         romanizer=_pc,
+        lang=_lang,
         load_audio_file=load_audio_file,
         infer_wave2vec_fa=infer_wave2vec_fa,
     )
@@ -259,18 +272,14 @@ def infer_cantonese_fa(
         try:
             item = FaInferItem.model_validate(raw_item)
         except ValidationError:
-            results.append(
-                InferResponse(error="Invalid FaInferItem", elapsed_s=0.0)
-            )
+            results.append(InferResponse(error="Invalid FaInferItem", elapsed_s=0.0))
             continue
 
         # --- empty words shortcut ---
         if not item.words:
             results.append(
                 InferResponse(
-                    result=Wave2VecIndexedResponse(
-                        indexed_timings=[]
-                    ).model_dump(),
+                    result=Wave2VecIndexedResponse(indexed_timings=[]).model_dump(),
                     elapsed_s=0.0,
                 )
             )
@@ -279,14 +288,14 @@ def infer_cantonese_fa(
         try:
             # --- load/cache audio ---
             if item.audio_path not in audio_cache:
-                audio_cache[item.audio_path] = resolved_host.load_audio_file(item.audio_path)
+                audio_cache[item.audio_path] = resolved_host.load_audio_file(
+                    item.audio_path
+                )
             audio_file = audio_cache[item.audio_path]
             audio_chunk = audio_file.chunk(item.audio_start_ms, item.audio_end_ms)
 
             # --- romanize words for alignment ---
-            romanized_words = [
-                _maybe_romanize(pc, w, lang) for w in item.words
-            ]
+            romanized_words = [_maybe_romanize(pc, w, lang) for w in item.words]
 
             # --- run Wave2Vec FA ---
             with lock:
@@ -297,15 +306,9 @@ def infer_cantonese_fa(
                 )
 
             # --- build indexed timings ---
-            indexed_timings: list[FaIndexedTiming | None] = [None] * len(
-                item.words
-            )
-            for i, (_, (start, end)) in enumerate(
-                wave2vec_results[: len(item.words)]
-            ):
-                indexed_timings[i] = FaIndexedTiming(
-                    start_ms=start, end_ms=end
-                )
+            indexed_timings: list[FaIndexedTiming | None] = [None] * len(item.words)
+            for i, (_, (start, end)) in enumerate(wave2vec_results[: len(item.words)]):
+                indexed_timings[i] = FaIndexedTiming(start_ms=start, end_ms=end)
 
             results.append(
                 InferResponse(

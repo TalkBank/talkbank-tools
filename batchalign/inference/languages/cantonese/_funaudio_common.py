@@ -9,8 +9,9 @@ from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._asr_types import AsrGenerationPayload, AsrMonologue, TimedWord
 from batchalign.inference._domain_types import LanguageCode
+
+from ._asr_types import AsrGenerationPayload, AsrMonologue, TimedWord
 
 L = logging.getLogger("batchalign.hk.funaudio")
 
@@ -39,7 +40,12 @@ class FunAsrSegment:
 class FunAudioRecognizer:
     """Wrapper around FunASR model invocation plus Rust-owned projection."""
 
-    def __init__(self, lang: LanguageCode = "yue", model: str = "FunAudioLLM/SenseVoiceSmall", device: str = "cpu") -> None:
+    def __init__(
+        self,
+        lang: LanguageCode = "yue",
+        model: str = "FunAudioLLM/SenseVoiceSmall",
+        device: str = "cpu",
+    ) -> None:
         """Store language/model configuration and defer model loading until first use."""
         self.lang = lang
         self.model_name = model
@@ -162,7 +168,9 @@ class FunAudioRecognizer:
 
         return [FunAsrSegment.from_raw(raw) for raw in raw_list]
 
-    def transcribe(self, source_path: str) -> tuple[AsrGenerationPayload, list[TimedWord]]:
+    def transcribe(
+        self, source_path: str
+    ) -> tuple[AsrGenerationPayload, list[TimedWord]]:
         """Return `(monologues_payload, timed_words)` for the source audio.
 
         The Python side only owns model invocation and shallow parsing. Rust

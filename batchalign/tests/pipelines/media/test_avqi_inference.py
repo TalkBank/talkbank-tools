@@ -78,7 +78,9 @@ def test_infer_avqi_item_validates_calculate_avqi_payload(monkeypatch) -> None:
         },
     )
 
-    response = infer_avqi_item(AvqiBatchItem(cs_file="/tmp/cs.wav", sv_file="/tmp/sv.wav"))
+    response = infer_avqi_item(
+        AvqiBatchItem(cs_file="/tmp/cs.wav", sv_file="/tmp/sv.wav")
+    )
 
     assert response.success is True
     assert response.cs_file == "cs.wav"
@@ -147,7 +149,9 @@ def test_infer_avqi_prepared_audio_returns_typed_error(monkeypatch) -> None:
     def boom(cs_sound, sv_sound):
         raise RuntimeError(f"broken:{cs_sound}:{sv_sound}")
 
-    monkeypatch.setattr("batchalign.inference.avqi._calculate_features_from_sounds", boom)
+    monkeypatch.setattr(
+        "batchalign.inference.avqi._calculate_features_from_sounds", boom
+    )
 
     response = infer_avqi_prepared_audio(
         np.asarray([0.1], dtype=np.float32),
@@ -188,7 +192,9 @@ def test_calculate_avqi_uses_file_basenames_in_success_payload(monkeypatch) -> N
             success=True,
         )
 
-    monkeypatch.setattr("batchalign.inference.avqi.infer_avqi_prepared_audio", fake_infer)
+    monkeypatch.setattr(
+        "batchalign.inference.avqi.infer_avqi_prepared_audio", fake_infer
+    )
 
     payload = calculate_avqi("/tmp/session/cs.wav", "/tmp/session/sv.wav")
 
@@ -203,7 +209,9 @@ def test_calculate_avqi_returns_structured_error_payload(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "batchalign.inference.avqi._mono_samples_from_file",
-        lambda path: (_ for _ in ()).throw(RuntimeError(f"cannot open {Path(path).name}")),
+        lambda path: (_ for _ in ()).throw(
+            RuntimeError(f"cannot open {Path(path).name}")
+        ),
     )
 
     payload = calculate_avqi("/tmp/session/cs.wav", "/tmp/session/sv.wav")
@@ -214,7 +222,9 @@ def test_calculate_avqi_returns_structured_error_payload(monkeypatch) -> None:
     assert payload["error"] == "cannot open cs.wav"
 
 
-def test_mono_samples_from_file_downmixes_stereo_and_build_sound_uses_float64(monkeypatch) -> None:
+def test_mono_samples_from_file_downmixes_stereo_and_build_sound_uses_float64(
+    monkeypatch,
+) -> None:
     """Audio helpers should downmix stereo and build parselmouth sounds with float64."""
 
     monkeypatch.setattr(
@@ -386,7 +396,9 @@ def test_calculate_features_from_sounds_handles_trend_line_paths(monkeypatch) ->
     assert avqi == expected_avqi
 
 
-def test_calculate_features_from_sounds_uses_copy_for_short_vowels_and_tilt_fallback(monkeypatch) -> None:
+def test_calculate_features_from_sounds_uses_copy_for_short_vowels_and_tilt_fallback(
+    monkeypatch,
+) -> None:
     """Short SV clips and trend-line failures should take the fallback paths."""
 
     monkeypatch.setattr(

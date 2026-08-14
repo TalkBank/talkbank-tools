@@ -24,6 +24,16 @@
 //! `words`. A mismatch is always a worker-contract bug, not an expected
 //! divergence class.
 
+// Wildcard matches over closed enums are denied in this file, following
+// chatter's per-file ratchet. The reason it is here rather than crate-wide is
+// at `policy_for_tier`, which shipped a defect a `_` arm hid.
+#![deny(clippy::wildcard_enum_match_arm)]
+// Test code is exempt, matching this crate's existing treatment of the panic
+// lints: `other => panic!("unexpected {other:?}")` is how a test says a variant
+// should be unreachable, and denying it there would push tests toward asserting
+// less rather than more.
+#![cfg_attr(test, allow(clippy::wildcard_enum_match_arm))]
+
 use crate::decisions::LineIdx;
 use std::collections::HashMap;
 
@@ -405,7 +415,7 @@ enum TierSplitPolicy {
 ///
 /// Word-positional, context-free tiers (`%wor`) get [`Partition`]. Word-positional
 /// but context-dependent tiers (`%mor`, `%gra`) get [`Drop`], the data is
-/// invalid in the new context. Document- or analysis-scoped tiers (`%coref`)
+/// invalid in the new context. Document- or analysis-scoped tiers (`%xcoref`)
 /// also `Drop`. Other word-positional tiers we don't yet have a partition
 /// implementation for (`%pho`, `%mod`, `%sin`, etc.) `Drop` rather than
 /// `AttachFirst`, because attaching the parent's full per-word data to one
@@ -416,6 +426,12 @@ enum TierSplitPolicy {
 /// [`Partition`]: TierSplitPolicy::Partition
 /// [`Drop`]: TierSplitPolicy::Drop
 /// [`AttachFirst`]: TierSplitPolicy::AttachFirst
+/// The coreference tier `batchalign3 coref` injects.
+///
+/// Named here rather than spelled inline so the policy below and the injector
+/// cannot disagree about which label they mean.
+const XCOREF_LABEL: &str = "xcoref";
+
 fn policy_for_tier(tier: &DependentTier) -> TierSplitPolicy {
     match tier {
         // Per-word timing: partitionable by word index.
@@ -435,9 +451,53 @@ fn policy_for_tier(tier: &DependentTier) -> TierSplitPolicy {
         | DependentTier::Phosyl(_)
         | DependentTier::Phoaln(_) => TierSplitPolicy::Drop,
 
+        // `%xphoint` indexes INTO `%pho`: it is per-phone time intervals
+        // segmenting each `%pho` word. `%pho` is dropped two arms above, so
+        // attaching these to the first child leaves interval bullets for
+        // phones that are no longer in that utterance, and nothing on the
+        // rest. It reached `AttachFirst` through the wildcard this match used
+        // to end with, which is the failure the arm above is written to avoid.
+        DependentTier::Xphoint(_) => TierSplitPolicy::Drop,
+
         // Free-form / loosely-structured utterance-level annotations:
         // preserve on first child rather than silently lose.
-        _ => TierSplitPolicy::AttachFirst,
+        //
+        // Enumerated so a tier added to chatter stops compiling here until
+        // someone decides what splitting it does.
+        DependentTier::Act(_)
+        | DependentTier::Add(_)
+        | DependentTier::Alt(_)
+        | DependentTier::Cod(_)
+        | DependentTier::Coh(_)
+        | DependentTier::Com(_)
+        | DependentTier::Def(_)
+        | DependentTier::Eng(_)
+        | DependentTier::Err(_)
+        | DependentTier::Exp(_)
+        | DependentTier::Fac(_)
+        | DependentTier::Flo(_)
+        | DependentTier::Gls(_)
+        | DependentTier::Gpx(_)
+        | DependentTier::Int(_)
+        | DependentTier::Ort(_)
+        | DependentTier::Par(_)
+        | DependentTier::Sit(_)
+        | DependentTier::Spa(_)
+        | DependentTier::Tim(_)
+        | DependentTier::Unsupported(_) => TierSplitPolicy::AttachFirst,
+
+        // `UserDefined` is a FAMILY, not a policy class, and enumerating the
+        // variants gave it one arm. This pipeline emits exactly two labels:
+        // `%xtra` is free-form utterance-level, but `%xcoref` is coreference
+        // chains, whose links span document positions the split changes, which
+        // is the same reason `%mor` and `%gra` are dropped above. The doc for
+        // this function has always said document-scoped tiers drop; before the
+        // variants were enumerated, `%xcoref` reached `AttachFirst` through the
+        // wildcard and contradicted it silently.
+        DependentTier::UserDefined(tier) if tier.label.as_str() == XCOREF_LABEL => {
+            TierSplitPolicy::Drop
+        }
+        DependentTier::UserDefined(_) => TierSplitPolicy::AttachFirst,
     }
 }
 
@@ -688,12 +748,18 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     let partitioned_wor: Option<Vec<WorTier>> = utt
         .dependent_tiers
         .iter()
-        .find_map(|tier| match &tier.tier {
-            DependentTier::Wor(wor) => {
-                let main_groups = wor_eligible_word_groups(content_items, &content_item_group);
-                Some(partition_wor_tier(wor, &main_groups, num_groups))
-            }
-            _ => None,
+        // A search for one tier, not a policy over all of them, so the
+        // "everything else" case is genuinely "not the tier I am looking for"
+        // and a tier added later is correctly not it. Written as a `let-else`
+        // rather than a match with a wildcard so that distinction is visible:
+        // the file denies wildcard matches precisely because the OTHER one in
+        // it was a policy decision wearing the same syntax.
+        .find_map(|tier| {
+            let DependentTier::Wor(wor) = &tier.tier else {
+                return None;
+            };
+            let main_groups = wor_eligible_word_groups(content_items, &content_item_group);
+            Some(partition_wor_tier(wor, &main_groups, num_groups))
         })
         .flatten();
 

@@ -71,8 +71,10 @@ def test_flaky_test_runs_before_clean_test(tmp_path: Path) -> None:
     nodeid_prefix = "batchalign/tests/" + subprocess_filename
     _seed_history(
         db,
-        [(f"{nodeid_prefix}::test_z_bad", oc) for oc in
-            ("failed", "failed", "failed", "passed", "passed")]
+        [
+            (f"{nodeid_prefix}::test_z_bad", oc)
+            for oc in ("failed", "failed", "failed", "passed", "passed")
+        ]
         + [(f"{nodeid_prefix}::test_a_good", "passed") for _ in range(5)],
     )
 
@@ -133,6 +135,5 @@ def test_ci_env_disables_ordering(tmp_path: Path) -> None:
     assert bad_pos != -1 and good_pos != -1, result.stdout
     # Collection order preserved: test_a_good appears BEFORE test_z_bad.
     assert good_pos < bad_pos, (
-        "CI runs must preserve collection order for reproducibility:\n"
-        + result.stdout
+        "CI runs must preserve collection order for reproducibility:\n" + result.stdout
     )

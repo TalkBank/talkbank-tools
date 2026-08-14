@@ -1,5 +1,6 @@
 use super::*;
 use crate::api::ReleasedCommand;
+use crate::cli::args::InputKind;
 use crate::options::{
     AsrEngineName, CommandOptions, FaEngineName, TranslateEngineName, UtrEngine as AppUtrEngine,
 };
@@ -1038,7 +1039,18 @@ fn build_options_transcribe_diarize_matches_batchalign2_baseline_defaults() {
     assert_eq!(profile.command, ReleasedCommand::TranscribeS);
     assert_eq!(profile.lang, "eng");
     assert_eq!(profile.num_speakers, 2);
-    assert_eq!(profile.extensions, &["mp3", "mp4", "wav"]);
+    // The KIND, not a list. Asserting the list pinned `["mp3","mp4","wav"]`
+    // and so locked in a set narrower than what the pipeline can process:
+    // `m4a`, `flac`, `ogg`, `aac`, `wma` and `webm` were silently skipped.
+    assert_eq!(profile.input_kind, InputKind::Media);
+    assert!(
+        profile.input_kind.accepts("m4a"),
+        "a format the pipeline reads"
+    );
+    assert!(
+        !profile.input_kind.accepts("cha"),
+        "a transcript is not media"
+    );
 }
 
 #[test]
@@ -1563,29 +1575,29 @@ fn build_options_override_media_cache_global() {
 // -----------------------------------------------------------------------
 
 #[rstest]
-#[case(&["batchalign3", "align", "corpus/"], ReleasedCommand::Align, "eng", 1, &["cha"])]
-#[case(&["batchalign3", "transcribe", "audio/"], ReleasedCommand::Transcribe, "eng", 2, &["mp3", "mp4", "wav"])]
-#[case(&["batchalign3", "transcribe", "--diarize", "audio/"], ReleasedCommand::TranscribeS, "eng", 2, &["mp3", "mp4", "wav"])]
+#[case(&["batchalign3", "align", "corpus/"], ReleasedCommand::Align, "eng", 1, InputKind::Chat)]
+#[case(&["batchalign3", "transcribe", "audio/"], ReleasedCommand::Transcribe, "eng", 2, InputKind::Media)]
+#[case(&["batchalign3", "transcribe", "--diarize", "audio/"], ReleasedCommand::TranscribeS, "eng", 2, InputKind::Media)]
 // per-file commands: translate/morphotag/coref. The `lang` field on
 // CommandProfile carries the wire string `"per-file"`, which parses to
 // `LanguageSpec::PerFile` at submission. No English placeholder ever
 // appears for these commands in job records, dashboards, or worker
 // pre-warming.
-#[case(&["batchalign3", "translate", "corpus/"], ReleasedCommand::Translate, "per-file", 1, &["cha"])]
-#[case(&["batchalign3", "morphotag", "corpus/"], ReleasedCommand::Morphotag, "per-file", 1, &["cha"])]
-#[case(&["batchalign3", "coref", "corpus/"], ReleasedCommand::Coref, "per-file", 1, &["cha"])]
-#[case(&["batchalign3", "compare", "corpus/"], ReleasedCommand::Compare, "eng", 2, &["cha"])]
-#[case(&["batchalign3", "compare", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Compare, "spa", 3, &["cha"])]
-#[case(&["batchalign3", "utseg", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Utseg, "spa", 3, &["cha"])]
-#[case(&["batchalign3", "benchmark", "audio/"], ReleasedCommand::Benchmark, "eng", 2, &["mp3", "mp4", "wav"])]
-#[case(&["batchalign3", "opensmile", "in/", "out/"], ReleasedCommand::Opensmile, "eng", 1, &["mp3", "mp4", "wav"])]
-#[case(&["batchalign3", "avqi", "in/", "out/", "--lang", "yue"], ReleasedCommand::Avqi, "yue", 1, &["mp3", "mp4", "wav"])]
+#[case(&["batchalign3", "translate", "corpus/"], ReleasedCommand::Translate, "per-file", 1, InputKind::Chat)]
+#[case(&["batchalign3", "morphotag", "corpus/"], ReleasedCommand::Morphotag, "per-file", 1, InputKind::Chat)]
+#[case(&["batchalign3", "coref", "corpus/"], ReleasedCommand::Coref, "per-file", 1, InputKind::Chat)]
+#[case(&["batchalign3", "compare", "corpus/"], ReleasedCommand::Compare, "eng", 2, InputKind::Chat)]
+#[case(&["batchalign3", "compare", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Compare, "spa", 3, InputKind::Chat)]
+#[case(&["batchalign3", "utseg", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Utseg, "spa", 3, InputKind::Chat)]
+#[case(&["batchalign3", "benchmark", "audio/"], ReleasedCommand::Benchmark, "eng", 2, InputKind::Media)]
+#[case(&["batchalign3", "opensmile", "in/", "out/"], ReleasedCommand::Opensmile, "eng", 1, InputKind::Media)]
+#[case(&["batchalign3", "avqi", "in/", "out/", "--lang", "yue"], ReleasedCommand::Avqi, "yue", 1, InputKind::Media)]
 fn command_profile_matches_expected(
     #[case] args: &[&str],
     #[case] expected_cmd: ReleasedCommand,
     #[case] expected_lang: &str,
     #[case] expected_speakers: u32,
-    #[case] expected_exts: &[&str],
+    #[case] expected_kind: InputKind,
 ) {
     let cli = Cli::parse_from(args);
     let profile = CommonOpts::command_profile(&cli.command);
@@ -1599,8 +1611,8 @@ fn command_profile_matches_expected(
         "num_speakers mismatch for {args:?}"
     );
     assert_eq!(
-        profile.extensions, expected_exts,
-        "extensions mismatch for {args:?}"
+        profile.input_kind, expected_kind,
+        "input kind mismatch for {args:?}"
     );
 }
 

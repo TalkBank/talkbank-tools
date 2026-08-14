@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 CASES: tuple[ProbeCase, ...] = (
     ProbeCase("ban_alone", ("บ้าน",), Phenomenon.CONTROL, expected_post_mwt_count=1),
     ProbeCase("maeo_alone", ("แมว",), Phenomenon.CONTROL, expected_post_mwt_count=1),

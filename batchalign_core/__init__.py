@@ -6,4 +6,4 @@ from pkgutil import extend_path
 # the wheel-installed extension module under site-packages.
 __path__ = extend_path(__path__, __name__)
 
-from .batchalign_core import *  # noqa: F401,F403
+from .batchalign_core import *  # noqa: F403

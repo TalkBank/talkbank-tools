@@ -57,15 +57,20 @@ def _extract_provenance(cha_path: Path) -> str:
     for line in text.splitlines():
         lower = line.lower()
         if line.startswith("@Comment:") and (
-            "batchalign" in lower or "clan" in lower or "morpho" in lower
-            or "annotat" in lower or "transcri" in lower
+            "batchalign" in lower
+            or "clan" in lower
+            or "morpho" in lower
+            or "annotat" in lower
+            or "transcri" in lower
         ):
             return line.strip()
     return "no provenance comment"
 
 
 def _extract_mor_pairs(
-    corpus_path: Path, max_files: int = 5, max_utts: int = 20,
+    corpus_path: Path,
+    max_files: int = 5,
+    max_utts: int = 20,
 ) -> list[dict]:
     """Extract (words, existing_pos, file, provenance) from CHAT files."""
     results = []
@@ -84,9 +89,17 @@ def _extract_mor_pairs(
                 # Find %mor
                 mor = None
                 j = i + 1
-                while j < len(lines) and not lines[j].startswith("*") and not lines[j].startswith("@"):
+                while (
+                    j < len(lines)
+                    and not lines[j].startswith("*")
+                    and not lines[j].startswith("@")
+                ):
                     if lines[j].startswith("%mor:"):
-                        mor = lines[j].split("\t", 1)[1].strip() if "\t" in lines[j] else lines[j][5:].strip()
+                        mor = (
+                            lines[j].split("\t", 1)[1].strip()
+                            if "\t" in lines[j]
+                            else lines[j][5:].strip()
+                        )
                     j += 1
                 if mor and any("\u4e00" <= c <= "\u9fff" for c in main):
                     # Parse existing %mor: extract POS|word pairs
@@ -102,15 +115,20 @@ def _extract_mor_pairs(
                         # Get main tier CJK words
                         clean_main = re.sub(r"\[.*?\]", "", main)
                         clean_main = re.sub(r"@\S+", "", clean_main)
-                        words = [w for w in clean_main.split()
-                                 if any("\u4e00" <= c <= "\u9fff" for c in w)
-                                 and all(c > "\u2e80" or c.isascii() for c in w)]
-                        results.append({
-                            "file": f.name,
-                            "provenance": provenance,
-                            "words": words,
-                            "existing_pos": existing_pos,
-                        })
+                        words = [
+                            w
+                            for w in clean_main.split()
+                            if any("\u4e00" <= c <= "\u9fff" for c in w)
+                            and all(c > "\u2e80" or c.isascii() for c in w)
+                        ]
+                        results.append(
+                            {
+                                "file": f.name,
+                                "provenance": provenance,
+                                "words": words,
+                                "existing_pos": existing_pos,
+                            }
+                        )
                         collected += 1
                 i = j if j > i else i + 1
             else:
@@ -169,7 +187,7 @@ class TestMorComparison:
             f"{pyc_unknown} PyCantonese unknown"
         )
         if disagreements:
-            print(f"  Sample disagreements:")
+            print("  Sample disagreements:")
             for lemma, existing, pyc in disagreements[:5]:
                 print(f"    {lemma}: existing={existing} pycantonese={pyc}")
 

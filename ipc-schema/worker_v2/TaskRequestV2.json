@@ -323,6 +323,11 @@
           "description": "Join words as character stream.",
           "type": "string",
           "const": "char_joined"
+        },
+        {
+          "description": "Space-join the words, then separate every CHARACTER with a space.\n\nGives the decoder one token per character, so its onsets land inside\nwords rather than only at their starts, which is what makes a real\nsilence visible as a gap. Selected by `--pauses`.\n\nThis was a second boolean on the request until 2026-08-14, applied by\nthe Python host AFTER the mode above had already joined the text. Two\nfields decided one thing, and the boolean was documented as preserving\npause markers, which it never did.",
+          "type": "string",
+          "const": "char_spaced"
         }
       ]
     },
@@ -338,10 +343,6 @@
           "description": "Backend selected by Rust.",
           "$ref": "#/$defs/FaBackendV2"
         },
-        "pauses": {
-          "description": "Whether pause markers should be preserved.",
-          "type": "boolean"
-        },
         "payload_ref_id": {
           "description": "Reference to the prepared text/JSON payload for the word arrays.",
           "$ref": "#/$defs/WorkerArtifactIdV2"
@@ -355,8 +356,7 @@
         "backend",
         "payload_ref_id",
         "audio_ref_id",
-        "text_mode",
-        "pauses"
+        "text_mode"
       ]
     },
     "LanguageCode3": {

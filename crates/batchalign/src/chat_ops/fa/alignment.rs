@@ -2,7 +2,7 @@
 
 use crate::chat_ops::nlp::{FaIndexedTiming, FaRawResponse, FaRawToken};
 
-use super::{FaTimingMode, FaWord, WordTiming};
+use super::{FaWord, LAST_WORD_FALLBACK_MS, WordTiming};
 
 /// Typed error returned by [`parse_fa_response`].
 ///
@@ -54,7 +54,6 @@ pub fn parse_fa_response(
     json_str: &str,
     original_words: &[FaWord],
     audio_start_ms: u64,
-    timing_mode: FaTimingMode,
 ) -> Result<Vec<Option<WordTiming>>, FaAlignmentError> {
     let raw_resp: FaRawResponse =
         serde_json::from_str(json_str).map_err(|e| FaAlignmentError::JsonParse {
@@ -75,12 +74,9 @@ pub fn parse_fa_response(
                 audio_start_ms,
             ))
         }
-        FaRawResponse::TokenLevel { tokens } => Ok(align_token_timings(
-            original_words,
-            &tokens,
-            audio_start_ms,
-            timing_mode,
-        )),
+        FaRawResponse::TokenLevel { tokens } => {
+            Ok(align_token_timings(original_words, &tokens, audio_start_ms))
+        }
     }
 }
 
@@ -91,13 +87,29 @@ fn apply_indexed_timings(
     audio_offset_ms: u64,
 ) -> Vec<Option<WordTiming>> {
     let mut results = vec![None; original.len()];
+    let mut degenerate = 0usize;
     for (idx, maybe_timing) in indexed_timings.iter().enumerate() {
         if let Some(timing) = maybe_timing {
-            results[idx] = Some(WordTiming {
-                start_ms: timing.start_ms + audio_offset_ms,
-                end_ms: timing.end_ms + audio_offset_ms,
-            });
+            // A word-interval engine reports both ends, so this is the model's
+            // own answer. When it does not describe an extent there is nothing
+            // to salvage, and an unusable timing is worse than none: it reads
+            // as a real measurement everywhere downstream.
+            results[idx] = WordTiming::new(
+                timing.start_ms + audio_offset_ms,
+                timing.end_ms + audio_offset_ms,
+            );
+            if results[idx].is_none() {
+                degenerate += 1;
+            }
         }
+    }
+
+    if degenerate > 0 {
+        tracing::warn!(
+            degenerate,
+            total = indexed_timings.len(),
+            "engine returned word timings with no extent; those words are left unaligned"
+        );
     }
 
     results
@@ -119,7 +131,6 @@ fn align_token_timings(
     original: &[FaWord],
     tokens: &[FaRawToken],
     audio_offset_ms: u64,
-    timing_mode: FaTimingMode,
 ) -> Vec<Option<WordTiming>> {
     if original.is_empty() || tokens.is_empty() {
         return vec![None; original.len()];
@@ -175,15 +186,23 @@ fn align_token_timings(
             acc = next_acc;
             token_idx += 1;
             if acc == *word_norm {
-                let end_ms = match timing_mode {
-                    FaTimingMode::WithPauses => token_starts_ms
-                        .get(token_idx)
-                        .copied()
-                        .unwrap_or(start_ms + 500)
-                        .max(start_ms + 1),
-                    FaTimingMode::Continuous => start_ms,
-                };
-                results[word_idx] = Some(WordTiming { start_ms, end_ms });
+                // An onset-only engine reports when a word STARTS and never
+                // when it ends, so the only end available is the next word's
+                // onset. The last word has no successor, hence the fallback;
+                // the `max` keeps a word that shares an onset with the next
+                // one from claiming zero duration.
+                //
+                // There is deliberately no second treatment. Setting the end
+                // to the word's own start was once selectable here, and it is
+                // what a `%wor` tier full of 0-duration words is made of: a
+                // word cannot start and end at the same instant, so that was
+                // never a mode, only a defect with a name.
+                let end_ms = token_starts_ms
+                    .get(token_idx)
+                    .copied()
+                    .unwrap_or(start_ms + LAST_WORD_FALLBACK_MS)
+                    .max(start_ms + 1);
+                results[word_idx] = WordTiming::new(start_ms, end_ms);
                 matched_words += 1;
                 matched = true;
                 break;

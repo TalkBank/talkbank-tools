@@ -22,5 +22,5 @@ expression: item
   "audio_path": "/data/test.mp3",
   "audio_start_ms": 1500,
   "audio_end_ms": 3200,
-  "timing_mode": "WithPauses"
+  "gap_healing": "PreserveMeasured"
 }

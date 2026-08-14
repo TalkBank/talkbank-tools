@@ -1,15 +1,9 @@
-//! Per-job file parallelism auto-tuning and media constants.
+//! Per-job file parallelism auto-tuning.
 
 use crate::api::{NumWorkers, ReleasedCommand};
 use crate::config::ServerConfig;
 use crate::host_facts::EffectiveConfig;
 use crate::runtime;
-
-/// Known audio/video file extensions for media pre-validation.
-/// Known audio/video file extensions for media resolution.
-pub const KNOWN_MEDIA_EXTENSIONS: &[&str] = &[
-    "wav", "mp3", "mp4", "m4a", "flac", "ogg", "aac", "wma", "webm",
-];
 
 /// Compute the number of parallel file workers for a job.
 ///

@@ -57,7 +57,7 @@ The server auto-chains forced alignment + UTR + disfluency + retrace.
 (~1.6 GB, loaded at startup, from PyTorch Hub, not HF Hub).
 
 **Result caching:**
-- Forced alignment: SQLite. Key = `BLAKE3(audio_chunk + text + pauses)`.
+- Forced alignment: SQLite. Key = `BLAKE3(audio identity + time window + words + gap-healing policy + engine)`.
 - UTR: SQLite. Key = `BLAKE3(realpath + filesize)`. Protected from pruning.
 
 ---

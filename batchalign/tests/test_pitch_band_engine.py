@@ -31,14 +31,18 @@ def sine(frequency_hz: float, seconds: float) -> np.ndarray:
 
 
 def test_child_tone_bands_child() -> None:
-    result = band_audio_span(sine(CHILD_TONE_HZ, TONE_SECONDS), SAMPLE_RATE, 0.0, TONE_SECONDS)
+    result = band_audio_span(
+        sine(CHILD_TONE_HZ, TONE_SECONDS), SAMPLE_RATE, 0.0, TONE_SECONDS
+    )
     assert result.verdict is PitchBandVerdict.CHILD
     assert result.f0_median_hz is not None
     assert result.f0_median_hz == pytest.approx(CHILD_TONE_HZ, rel=0.05)
 
 
 def test_adult_tone_bands_adult() -> None:
-    result = band_audio_span(sine(ADULT_TONE_HZ, TONE_SECONDS), SAMPLE_RATE, 0.0, TONE_SECONDS)
+    result = band_audio_span(
+        sine(ADULT_TONE_HZ, TONE_SECONDS), SAMPLE_RATE, 0.0, TONE_SECONDS
+    )
     assert result.verdict is PitchBandVerdict.ADULT
     assert result.f0_median_hz is not None
     assert result.f0_median_hz == pytest.approx(ADULT_TONE_HZ, rel=0.05)

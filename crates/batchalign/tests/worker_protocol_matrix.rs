@@ -453,13 +453,16 @@ fn validate_forced_alignment_request(
         (FaBackendV2::Whisper, FaTextModeV2::SpaceJoined)
         | (FaBackendV2::Wave2vec, FaTextModeV2::SpaceJoined)
         | (FaBackendV2::Wav2vecCanto, FaTextModeV2::CharJoined) => Ok(()),
+        // `--pauses` on the onset-only decoder: one token per character, so
+        // onsets land inside words. Only Whisper reads this text at all.
+        (FaBackendV2::Whisper, FaTextModeV2::CharSpaced) => Ok(()),
         (FaBackendV2::Whisper, FaTextModeV2::CharJoined) => {
-            Err("forced-alignment backend whisper requires space_joined text".into())
+            Err("forced-alignment backend whisper requires space_joined or char_spaced text".into())
         }
-        (FaBackendV2::Wave2vec, FaTextModeV2::CharJoined) => {
+        (FaBackendV2::Wave2vec, FaTextModeV2::CharJoined | FaTextModeV2::CharSpaced) => {
             Err("forced-alignment backend wave2vec requires space_joined text".into())
         }
-        (FaBackendV2::Wav2vecCanto, FaTextModeV2::SpaceJoined) => {
+        (FaBackendV2::Wav2vecCanto, FaTextModeV2::SpaceJoined | FaTextModeV2::CharSpaced) => {
             Err("forced-alignment backend wav2vec_canto requires char_joined text".into())
         }
     }

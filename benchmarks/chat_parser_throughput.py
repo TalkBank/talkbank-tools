@@ -63,14 +63,22 @@ def _run(chat_text: str, iterations: int, warmup: int) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--chat-file", type=str, default=None,
-                        help="Optional CHAT file to benchmark")
-    parser.add_argument("--iterations", type=int, default=500,
-                        help="Number of parse+serialize iterations")
-    parser.add_argument("--warmup", type=int, default=25,
-                        help="Warmup iterations (excluded from timing)")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit JSON only")
+    parser.add_argument(
+        "--chat-file", type=str, default=None, help="Optional CHAT file to benchmark"
+    )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=500,
+        help="Number of parse+serialize iterations",
+    )
+    parser.add_argument(
+        "--warmup",
+        type=int,
+        default=25,
+        help="Warmup iterations (excluded from timing)",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit JSON only")
     args = parser.parse_args()
 
     if args.iterations <= 0:

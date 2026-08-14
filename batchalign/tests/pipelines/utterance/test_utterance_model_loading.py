@@ -20,6 +20,7 @@ def test_load_utterance_model_loads_zho_boundary_model(monkeypatch) -> None:
     old_name = _state.utterance_model_name
 
     try:
+
         class FakeBoundaryModel:
             def __init__(self, model_name: str, *, lang: str | None = None) -> None:
                 captured.append((model_name, lang))
@@ -46,6 +47,7 @@ def test_load_utterance_model_loads_yue_boundary_model(monkeypatch) -> None:
     old_name = _state.utterance_model_name
 
     try:
+
         class FakeBoundaryModel:
             def __init__(self, model_name: str, *, lang: str | None = None) -> None:
                 captured.append((model_name, lang))
@@ -77,6 +79,7 @@ def test_load_utterance_model_loads_cmn_boundary_model(monkeypatch) -> None:
     old_name = _state.utterance_model_name
 
     try:
+
         class FakeBoundaryModel:
             def __init__(self, model_name: str, *, lang: str | None = None) -> None:
                 captured.append((model_name, lang))

@@ -13,9 +13,9 @@ Typical usage from the CLI layer::
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
-import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

@@ -33,11 +33,16 @@ from typing import TYPE_CHECKING
 import numpy as np
 from pydantic import BaseModel
 
-from batchalign.worker._types_v2 import ExecuteRequestV2, ExecuteResponseV2, ForcedAlignmentRequestV2
+from batchalign.worker._types_v2 import (
+    ExecuteRequestV2,
+    ExecuteResponseV2,
+    ForcedAlignmentRequestV2,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from batchalign.inference.languages.cantonese._cantonese_fa import CantoneseFaHost
     from batchalign.inference.types import Wave2VecFAHandle, WhisperFAHandle
 
 # Serialize all FA inference calls within a single worker process.
@@ -64,8 +69,10 @@ class PreparedFaPayloadV2(BaseModel):
 class ForcedAlignmentExecutionHostV2:
     """Injected FA execution hooks for the live V2 path."""
 
-    whisper_runner: Callable[[np.ndarray, str, bool], list[tuple[str, float]]] | None = None
-    wave2vec_runner: Callable[[np.ndarray, list[str]], list[tuple[str, tuple[int, int]]]] | None = None
+    whisper_runner: Callable[[np.ndarray, str], list[tuple[str, float]]] | None = None
+    wave2vec_runner: (
+        Callable[[np.ndarray, list[str]], list[tuple[str, tuple[int, int]]]] | None
+    ) = None
     canto_runner: (
         Callable[
             [np.ndarray, PreparedFaPayloadV2, ForcedAlignmentRequestV2],
@@ -79,11 +86,17 @@ def build_default_fa_execution_host_v2(
     *,
     whisper_model: WhisperFAHandle | None,
     wave2vec_model: Wave2VecFAHandle | None,
+    canto_host: CantoneseFaHost | None,
 ) -> ForcedAlignmentExecutionHostV2:
-    """Build the live V2 FA host from already loaded model handles."""
+    """Build the live V2 FA host from already loaded model handles.
+
+    `canto_host` is passed in rather than read from module globals so the seam
+    stays explicit and a test can supply a fake.
+    """
+
+    import torch
 
     from batchalign.inference.fa import infer_wave2vec_fa, infer_whisper_fa
-    import torch
 
     def _as_tensor(audio: np.ndarray) -> torch.Tensor:
         return torch.from_numpy(np.asarray(audio, dtype=np.float32))
@@ -91,8 +104,12 @@ def build_default_fa_execution_host_v2(
     whisper_runner = None
     if whisper_model is not None:
 
-        def _run_whisper(audio: np.ndarray, text: str, pauses: bool) -> list[tuple[str, float]]:
-            return infer_whisper_fa(whisper_model, _as_tensor(audio), text, pauses=pauses)
+        def _run_whisper(audio: np.ndarray, text: str) -> list[tuple[str, float]]:
+            # `text` arrives shaped: Rust applied the request's `FaTextModeV2`,
+            # including the character-spacing that `--pauses` selects. This
+            # used to take a `pauses` flag and reshape the text a second time
+            # here, which split one decision across two languages.
+            return infer_whisper_fa(whisper_model, _as_tensor(audio), text)
 
         whisper_runner = _run_whisper
 
@@ -107,14 +124,30 @@ def build_default_fa_execution_host_v2(
 
         wave2vec_runner = _run_wave2vec
 
+    canto_runner = None
+    if canto_host is not None:
+
+        def _run_canto(
+            audio: np.ndarray,
+            payload: PreparedFaPayloadV2,
+            _request: ForcedAlignmentRequestV2,
+        ) -> list[tuple[str, tuple[int, int]]]:
+            return canto_host.align_words(_as_tensor(audio), payload.words)
+
+        canto_runner = _run_canto
+
     return ForcedAlignmentExecutionHostV2(
         whisper_runner=whisper_runner,
         wave2vec_runner=wave2vec_runner,
+        canto_runner=canto_runner,
     )
 
 
 def _wrap_canto_runner(
-    runner: Callable[[np.ndarray, PreparedFaPayloadV2, ForcedAlignmentRequestV2], object] | None,
+    runner: Callable[
+        [np.ndarray, PreparedFaPayloadV2, ForcedAlignmentRequestV2], object
+    ]
+    | None,
 ) -> Callable[[np.ndarray, str, str], object] | None:
     """Adapt the typed Cantonese host hook to the Rust bridge shape."""
 

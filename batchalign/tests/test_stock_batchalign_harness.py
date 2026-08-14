@@ -21,7 +21,6 @@ DEFAULT_MANIFEST = ROOT / "test-fixtures" / "stock_batchalign" / "manifest.json"
 DEFAULT_ALLOWLIST = ROOT / "test-fixtures" / "stock_batchalign" / "allowlist.json"
 
 
-
 def _write_fake_runner(
     path: Path,
     *,
@@ -48,10 +47,20 @@ def _write_fake_runner(
     compare_wer = wer if compare_wer is None else compare_wer
     compare_accuracy = accuracy if compare_accuracy is None else compare_accuracy
     compare_matches = matches if compare_matches is None else compare_matches
-    compare_insertions = insertions if compare_insertions is None else compare_insertions
+    compare_insertions = (
+        insertions if compare_insertions is None else compare_insertions
+    )
     compare_deletions = deletions if compare_deletions is None else compare_deletions
-    compare_total_gold_words = total_gold_words if compare_total_gold_words is None else compare_total_gold_words
-    compare_total_main_words = total_main_words if compare_total_main_words is None else compare_total_main_words
+    compare_total_gold_words = (
+        total_gold_words
+        if compare_total_gold_words is None
+        else compare_total_gold_words
+    )
+    compare_total_main_words = (
+        total_main_words
+        if compare_total_main_words is None
+        else compare_total_main_words
+    )
     script = f'''#!/usr/bin/env python3
 from __future__ import annotations
 
@@ -164,7 +173,6 @@ if __name__ == "__main__":
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
-
 def _write_case_manifest(tmp_path: Path) -> Path:
     """Create a one-case manifest rooted in temporary fixture files."""
     audio_path = tmp_path / "clip.mp3"
@@ -196,7 +204,6 @@ def _write_case_manifest(tmp_path: Path) -> Path:
     return manifest_path
 
 
-
 def _write_allowlist(tmp_path: Path, entries: list[dict[str, str | float]]) -> Path:
     """Write one harness allowlist file for the synthetic test case."""
     path = tmp_path / "allowlist.json"
@@ -205,7 +212,6 @@ def _write_allowlist(tmp_path: Path, entries: list[dict[str, str | float]]) -> P
         encoding="utf-8",
     )
     return path
-
 
 
 def _run_harness(
@@ -247,7 +253,6 @@ def _run_harness(
     )
 
 
-
 def test_default_manifest_points_at_in_repo_cantonese_fixture() -> None:
     """The checked-in manifest should stay wired to the audited in-repo fixture pair."""
     manifest = json.loads(DEFAULT_MANIFEST.read_text(encoding="utf-8"))
@@ -257,7 +262,9 @@ def test_default_manifest_points_at_in_repo_cantonese_fixture() -> None:
     audio_path = (DEFAULT_MANIFEST.parent / case["audio_path"]).resolve()
     gold_path = (DEFAULT_MANIFEST.parent / case["gold_path"]).resolve()
 
-    cantonese_fixtures = ROOT / "batchalign" / "tests" / "languages" / "cantonese" / "fixtures"
+    cantonese_fixtures = (
+        ROOT / "batchalign" / "tests" / "languages" / "cantonese" / "fixtures"
+    )
     assert case["id"] == "cantonese-05b-clip-whisper"
     assert audio_path == cantonese_fixtures / "05b_clip.mp3"
     assert gold_path == cantonese_fixtures / "benchmark" / "05b_clip.cha"
@@ -265,7 +272,6 @@ def test_default_manifest_points_at_in_repo_cantonese_fixture() -> None:
     assert audio_path.is_file()
     assert gold_path.is_file()
     assert allowlist == {"schema_version": 1, "entries": []}
-
 
 
 def test_harness_separates_allowlisted_baseline_differences(tmp_path: Path) -> None:
@@ -312,12 +318,13 @@ def test_harness_separates_allowlisted_baseline_differences(tmp_path: Path) -> N
     assert "wer improved by 0.2000" in result.stdout
     assert "unexpected regressions:" not in result.stdout
     baseline_cmd_line = next(
-        line for line in result.stdout.splitlines() if line.startswith("  baseline cmd:")
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith("  baseline cmd:")
     )
     assert "--output" not in baseline_cmd_line
     assert "/synthetic-case/baseline/input " in baseline_cmd_line
     assert "/synthetic-case/baseline/output" in baseline_cmd_line
-
 
 
 def test_harness_flags_unexpected_regressions(tmp_path: Path) -> None:
@@ -357,7 +364,6 @@ def test_harness_flags_unexpected_regressions(tmp_path: Path) -> None:
     assert "wer regressed by 0.3000" in result.stdout
 
 
-
 def test_harness_skips_missing_baseline_but_runs_current_case(tmp_path: Path) -> None:
     """Baseline absence should stay graceful while the current benchmark still runs."""
     current_runner = tmp_path / "current-runner.py"
@@ -386,7 +392,9 @@ def test_harness_skips_missing_baseline_but_runs_current_case(tmp_path: Path) ->
     assert "current     : wer=0.2000" in result.stdout
 
 
-def test_harness_rescores_legacy_asr_output_with_current_compare(tmp_path: Path) -> None:
+def test_harness_rescores_legacy_asr_output_with_current_compare(
+    tmp_path: Path,
+) -> None:
     """Legacy runners without `.compare.csv` should be rescored via current compare."""
     current_runner = tmp_path / "current-runner.py"
     baseline_runner = tmp_path / "baseline-runner.py"
@@ -427,13 +435,25 @@ def test_harness_rescores_legacy_asr_output_with_current_compare(tmp_path: Path)
     )
 
     assert result.returncode == 0, result.stderr
-    assert "baseline    : wer=0.3000 accuracy=0.7000 matches=7 insertions=2 deletions=1" in result.stdout
-    recovered_metrics = tmp_path / "runs" / "synthetic-case" / "baseline" / "output" / "clip.compare.csv"
+    assert (
+        "baseline    : wer=0.3000 accuracy=0.7000 matches=7 insertions=2 deletions=1"
+        in result.stdout
+    )
+    recovered_metrics = (
+        tmp_path
+        / "runs"
+        / "synthetic-case"
+        / "baseline"
+        / "output"
+        / "clip.compare.csv"
+    )
     assert recovered_metrics.is_file()
     assert "wer,0.3000" in recovered_metrics.read_text(encoding="utf-8")
 
 
-def test_harness_rescores_legacy_plain_chat_output_with_current_compare(tmp_path: Path) -> None:
+def test_harness_rescores_legacy_plain_chat_output_with_current_compare(
+    tmp_path: Path,
+) -> None:
     """Legacy runners that only emit one transcript `.cha` should still be rescored."""
     current_runner = tmp_path / "current-runner.py"
     baseline_runner = tmp_path / "baseline-runner.py"
@@ -474,13 +494,25 @@ def test_harness_rescores_legacy_plain_chat_output_with_current_compare(tmp_path
     )
 
     assert result.returncode == 0, result.stderr
-    assert "baseline    : wer=0.3000 accuracy=0.7000 matches=7 insertions=2 deletions=1" in result.stdout
-    recovered_metrics = tmp_path / "runs" / "synthetic-case" / "baseline" / "output" / "clip.compare.csv"
+    assert (
+        "baseline    : wer=0.3000 accuracy=0.7000 matches=7 insertions=2 deletions=1"
+        in result.stdout
+    )
+    recovered_metrics = (
+        tmp_path
+        / "runs"
+        / "synthetic-case"
+        / "baseline"
+        / "output"
+        / "clip.compare.csv"
+    )
     assert recovered_metrics.is_file()
     assert "wer,0.3000" in recovered_metrics.read_text(encoding="utf-8")
 
 
-def test_harness_flags_copied_gold_plain_chat_as_baseline_failure(tmp_path: Path) -> None:
+def test_harness_flags_copied_gold_plain_chat_as_baseline_failure(
+    tmp_path: Path,
+) -> None:
     """A copied gold `.cha` with no metrics should surface as a silent baseline failure."""
     current_runner = tmp_path / "current-runner.py"
     baseline_runner = tmp_path / "baseline-runner.py"
@@ -561,7 +593,9 @@ def test_prepare_runner_env_copies_explicit_config_source(tmp_path: Path) -> Non
     from scripts.stock_batchalign_harness import _prepare_runner_env
 
     source = tmp_path / "source.ini"
-    source.write_text("[asr]\nengine = rev\nengine.rev.key = test-key\n", encoding="utf-8")
+    source.write_text(
+        "[asr]\nengine = rev\nengine.rev.key = test-key\n", encoding="utf-8"
+    )
     previous = os.environ.get("BATCHALIGN_STOCK_CONFIG_SOURCE")
     os.environ["BATCHALIGN_STOCK_CONFIG_SOURCE"] = str(source)
     try:

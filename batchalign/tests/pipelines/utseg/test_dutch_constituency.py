@@ -13,8 +13,8 @@ def test_utseg_config_builder_skips_constituency_for_dutch_when_table_missing(
     monkeypatch,
 ):
     """The safe fallback must not guess constituency for Dutch."""
-    from batchalign.worker._stanza_loading import load_utseg_builder
     from batchalign.worker import _stanza_capabilities
+    from batchalign.worker._stanza_loading import load_utseg_builder
     from batchalign.worker._types import _state
 
     monkeypatch.setattr(
@@ -38,8 +38,8 @@ def test_utseg_config_builder_skips_constituency_for_dutch_when_table_missing(
 
 def test_utseg_config_builder_includes_constituency_for_english(monkeypatch):
     """English SHOULD include constituency when the table reports it."""
-    from batchalign.worker._stanza_loading import load_utseg_builder
     from batchalign.worker import _stanza_capabilities
+    from batchalign.worker._stanza_loading import load_utseg_builder
     from batchalign.worker._types import _state
 
     monkeypatch.setattr(

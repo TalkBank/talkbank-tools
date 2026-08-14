@@ -128,6 +128,7 @@ def test_python_and_bash_peak_rss_tables_agree() -> None:
             bash_table[name] = value
 
     from batchalign.tests._memory_budget import _PEAK_RSS_MB
+
     # Every profile present in both tables must match.
     shared = set(bash_table) & set(_PEAK_RSS_MB)
     assert shared, "bash parser found no profiles, case-regex broken?"

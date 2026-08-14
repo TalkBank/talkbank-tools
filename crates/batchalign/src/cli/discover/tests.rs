@@ -1,4 +1,5 @@
 use super::*;
+use crate::cli::args::InputKind;
 use std::fs;
 use std::path::PathBuf;
 
@@ -10,7 +11,7 @@ fn discover_filters_by_extension() {
     fs::write(dir.path().join("b.txt"), "text").unwrap();
     fs::write(dir.path().join("c.cha"), "@Begin\n*CHI:\tworld .\n@End").unwrap();
 
-    let (files, outputs) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, outputs) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
     assert_eq!(files.len(), 2);
     assert_eq!(outputs.len(), 2);
     // Both should be .cha files
@@ -26,7 +27,7 @@ fn discover_skips_appledouble_sidecars() {
     fs::write(dir.path().join("real.cha"), "@Begin\n*CHI:\thello .\n@End").unwrap();
     fs::write(dir.path().join("._real.cha"), b"\0\x05AppleDouble metadata").unwrap();
 
-    let (files, outputs) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, outputs) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
     assert_eq!(files.len(), 1);
     assert_eq!(outputs.len(), 1);
     assert_eq!(files[0].file_name().unwrap(), "real.cha");
@@ -44,7 +45,7 @@ fn discover_skips_dummy() {
     )
     .unwrap();
 
-    let (files, _) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, _) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
     assert_eq!(files.len(), 1);
     assert!(
         files[0]
@@ -66,7 +67,7 @@ fn discover_sorted_largest_first() {
     fs::write(dir.path().join("small.cha"), "x").unwrap();
     fs::write(dir.path().join("large.cha"), "x".repeat(1000)).unwrap();
 
-    let (files, _) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, _) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
     assert_eq!(files.len(), 2);
     // Largest first
     assert!(
@@ -88,7 +89,13 @@ fn copy_nonmatching_preserves_structure() {
     fs::write(dir.path().join("a.cha"), "cha").unwrap();
     fs::write(sub.join("b.txt"), "txt").unwrap();
 
-    copy_nonmatching(dir.path(), out.path(), &["cha"], ReleasedCommand::Morphotag).unwrap();
+    copy_nonmatching(
+        dir.path(),
+        out.path(),
+        InputKind::Chat,
+        ReleasedCommand::Morphotag,
+    )
+    .unwrap();
     assert!(out.path().join("sub").join("b.txt").exists());
     // .cha should NOT have been copied
     assert!(!out.path().join("a.cha").exists());
@@ -103,7 +110,7 @@ fn copy_nonmatching_skips_generation() {
     copy_nonmatching(
         dir.path(),
         out.path(),
-        &["mp3"],
+        InputKind::Media,
         ReleasedCommand::Transcribe,
     )
     .unwrap();
@@ -175,7 +182,8 @@ fn discover_server_inputs_dir_and_file() {
 
     let out = tempfile::tempdir().unwrap();
     let inputs = vec![sub.to_path_buf(), loose.to_path_buf()];
-    let (files, outputs) = discover_server_inputs(&inputs, Some(out.path()), &["cha"]).unwrap();
+    let (files, outputs) =
+        discover_server_inputs(&inputs, Some(out.path()), InputKind::Chat).unwrap();
     assert_eq!(files.len(), 2);
     assert_eq!(outputs.len(), 2);
 }
@@ -188,7 +196,8 @@ fn discover_server_inputs_file_only() {
 
     let out = tempfile::tempdir().unwrap();
     let inputs = vec![f.to_path_buf()];
-    let (files, outputs) = discover_server_inputs(&inputs, Some(out.path()), &["cha"]).unwrap();
+    let (files, outputs) =
+        discover_server_inputs(&inputs, Some(out.path()), InputKind::Chat).unwrap();
     assert_eq!(files.len(), 1);
     assert_eq!(outputs.len(), 1);
     assert_eq!(
@@ -200,7 +209,7 @@ fn discover_server_inputs_file_only() {
 #[test]
 fn discover_server_inputs_nonexistent_is_error() {
     let inputs = vec![PathBuf::from("/nonexistent/path")];
-    let result = discover_server_inputs(&inputs, None, &["cha"]);
+    let result = discover_server_inputs(&inputs, None, InputKind::Chat);
     assert!(matches!(
         result,
         Err(crate::cli::error::CliError::InputMissing(_))
@@ -214,7 +223,7 @@ fn discover_server_inputs_in_place() {
     fs::write(&f, "@Begin\n@End").unwrap();
 
     let inputs = vec![f.to_path_buf()];
-    let (files, outputs) = discover_server_inputs(&inputs, None, &["cha"]).unwrap();
+    let (files, outputs) = discover_server_inputs(&inputs, None, InputKind::Chat).unwrap();
     assert_eq!(files.len(), 1);
     // No out_dir → output path = input path (in-place)
     assert_eq!(outputs[0], files[0]);
@@ -228,7 +237,7 @@ fn discover_client_files_wildcard() {
     fs::write(dir.path().join("b.txt"), "text").unwrap();
     fs::write(dir.path().join("c.mp3"), "audio").unwrap();
 
-    let (files, _) = discover_client_files(dir.path(), out.path(), &["*"]).unwrap();
+    let (files, _) = discover_client_files(dir.path(), out.path(), InputKind::Any).unwrap();
     assert_eq!(files.len(), 3);
 }
 
@@ -239,7 +248,7 @@ fn discover_client_files_in_place_dummy() {
     fs::write(dir.path().join("dummy.cha"), "@Options:\tdummy\n").unwrap();
 
     // in-place: in_dir == out_dir → dummy should NOT be copied
-    let (files, _) = discover_client_files(dir.path(), dir.path(), &["cha"]).unwrap();
+    let (files, _) = discover_client_files(dir.path(), dir.path(), InputKind::Chat).unwrap();
     assert_eq!(files.len(), 1);
     assert!(files[0].to_str().unwrap().contains("real"));
 }
@@ -312,7 +321,13 @@ fn copy_nonmatching_in_place_skips() {
     fs::write(dir.path().join("a.txt"), "text").unwrap();
 
     // in_dir == out_dir → nothing copied (early return)
-    copy_nonmatching(dir.path(), dir.path(), &["cha"], ReleasedCommand::Morphotag).unwrap();
+    copy_nonmatching(
+        dir.path(),
+        dir.path(),
+        InputKind::Chat,
+        ReleasedCommand::Morphotag,
+    )
+    .unwrap();
     // No error, no crash, just a no-op
 }
 
@@ -323,7 +338,7 @@ fn copy_nonmatching_all_generation_commands() {
         let out = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("extra.txt"), "text").unwrap();
 
-        copy_nonmatching(dir.path(), out.path(), &["cha"], cmd).unwrap();
+        copy_nonmatching(dir.path(), out.path(), InputKind::Chat, cmd).unwrap();
         // Generation commands skip all copying
         assert!(
             !out.path().join("extra.txt").exists(),
@@ -366,7 +381,7 @@ fn discover_recursive_nested_three_levels() {
     let out = tempfile::tempdir().unwrap();
     make_nested_tree(dir.path());
 
-    let (files, outputs) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, outputs) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
 
     // 4 .cha files at various depths
     assert_eq!(files.len(), 4);
@@ -401,7 +416,7 @@ fn discover_recursive_mixed_extensions() {
     let out = tempfile::tempdir().unwrap();
     make_nested_tree(dir.path());
 
-    let (files, _) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, _) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
 
     // Only .cha files
     assert_eq!(files.len(), 4);
@@ -410,7 +425,13 @@ fn discover_recursive_mixed_extensions() {
     }
 
     // Non-matching notes.txt should be copied preserving structure
-    copy_nonmatching(dir.path(), out.path(), &["cha"], ReleasedCommand::Morphotag).unwrap();
+    copy_nonmatching(
+        dir.path(),
+        out.path(),
+        InputKind::Chat,
+        ReleasedCommand::Morphotag,
+    )
+    .unwrap();
     assert!(out.path().join("session1/notes.txt").exists());
     assert_eq!(
         fs::read_to_string(out.path().join("session1/notes.txt")).unwrap(),
@@ -430,7 +451,7 @@ fn discover_recursive_audio_extensions() {
     fs::write(dir.path().join("session2/deep/nested.mp4"), b"fake mp4").unwrap();
     fs::write(dir.path().join("session2/notes.txt"), "notes").unwrap();
 
-    let (files, _) = discover_client_files(dir.path(), out.path(), &["mp3", "mp4", "wav"]).unwrap();
+    let (files, _) = discover_client_files(dir.path(), out.path(), InputKind::Media).unwrap();
 
     assert_eq!(files.len(), 3);
     let mut basenames: Vec<_> = files
@@ -450,7 +471,7 @@ fn discover_recursive_skips_nested_dummy() {
     fs::write(dir.path().join("real.cha"), "@Begin\n*CHI:\thello .\n@End").unwrap();
     fs::write(dir.path().join("sub/dummy.cha"), "@Options:\tdummy\n").unwrap();
 
-    let (files, _) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, _) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
 
     assert_eq!(files.len(), 1);
     assert!(files[0].to_str().unwrap().contains("real"));
@@ -463,7 +484,7 @@ fn discover_recursive_in_place() {
     let dir = tempfile::tempdir().unwrap();
     make_nested_tree(dir.path());
 
-    let (files, outputs) = discover_client_files(dir.path(), dir.path(), &["cha"]).unwrap();
+    let (files, outputs) = discover_client_files(dir.path(), dir.path(), InputKind::Chat).unwrap();
 
     assert_eq!(files.len(), 4);
     // Output paths should equal input paths (in-place)
@@ -491,7 +512,7 @@ fn discover_recursive_output_preserves_structure() {
     let out = tempfile::tempdir().unwrap();
     make_nested_tree(dir.path());
 
-    let (files, outputs) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    let (files, outputs) = discover_client_files(dir.path(), out.path(), InputKind::Chat).unwrap();
 
     // Every output path's relative structure matches input
     for (f, o) in files.iter().zip(outputs.iter()) {
@@ -507,7 +528,7 @@ fn discover_server_inputs_recursive_directory() {
     make_nested_tree(dir.path());
 
     let inputs = vec![dir.path().to_path_buf()];
-    let (files, _) = discover_server_inputs(&inputs, None, &["cha"]).unwrap();
+    let (files, _) = discover_server_inputs(&inputs, None, InputKind::Chat).unwrap();
 
     assert_eq!(files.len(), 4);
     let mut basenames: Vec<_> = files
@@ -528,7 +549,8 @@ fn discover_server_inputs_recursive_with_output() {
     make_nested_tree(dir.path());
 
     let inputs = vec![dir.path().to_path_buf()];
-    let (files, outputs) = discover_server_inputs(&inputs, Some(out.path()), &["cha"]).unwrap();
+    let (files, outputs) =
+        discover_server_inputs(&inputs, Some(out.path()), InputKind::Chat).unwrap();
 
     assert_eq!(files.len(), 4);
     assert_eq!(outputs.len(), 4);

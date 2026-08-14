@@ -40,7 +40,7 @@ with open(_TOML_PATH, "rb") as _tf:
 # ---------------------------------------------------------------------------
 
 _version_path = Path(__file__).parent / "version"
-with open(_version_path, "r", encoding="utf-8") as _vf:
+with open(_version_path, encoding="utf-8") as _vf:
     VERSION_NUMBER, RELEASE_DATE, RELEASE_NOTES = [
         line.strip() for line in _vf.readlines()[:3]
     ]
@@ -92,9 +92,7 @@ PROCESS_COMMANDS: frozenset[str] = frozenset(
 )
 
 # GPU-bound commands where MPS/CUDA is the bottleneck, not CPU.
-GPU_HEAVY_COMMANDS: frozenset[str] = frozenset(
-    _TOML["gpu_heavy_commands"]["commands"]
-)
+GPU_HEAVY_COMMANDS: frozenset[str] = frozenset(_TOML["gpu_heavy_commands"]["commands"])
 
 # ---------------------------------------------------------------------------
 # Memory tuning constants (from TOML)
@@ -147,7 +145,7 @@ def available_memory_mb() -> int | None:
 
     if system == "Linux":
         try:
-            with open("/proc/meminfo", "r") as f:
+            with open("/proc/meminfo") as f:
                 for line in f:
                     if line.startswith("MemAvailable:"):
                         # Value is in kB
@@ -159,6 +157,7 @@ def available_memory_mb() -> int | None:
     if system == "Darwin":
         try:
             import psutil
+
             avail = psutil.virtual_memory().available
             return int(avail * 0.70) // (1024 * 1024)
         except (ImportError, OSError, AttributeError):

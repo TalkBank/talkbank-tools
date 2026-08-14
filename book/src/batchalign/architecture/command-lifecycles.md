@@ -195,7 +195,7 @@ sequenceDiagram
 5c. The server **groups** utterances into time windows (max 20s for Whisper,
    15s for Wave2Vec).
 6. **Cache lookup** uses BLAKE3 hashes of (words + audio identity + time window
-   + timing mode + engine version). Cache hits skip worker IPC entirely.
+   + gap-healing policy + engine). Cache hits skip worker IPC entirely.
 7. **Cache misses** are sent to a checked-out worker via typed `execute_v2`
    requests. The `CheckedOutWorker` RAII guard returns the worker to the pool on
    drop.

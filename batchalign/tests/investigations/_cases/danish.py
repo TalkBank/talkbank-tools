@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 CASES: tuple[ProbeCase, ...] = (
     ProbeCase.strict_alone("hus"),
     ProbeCase.strict_alone("huset"),

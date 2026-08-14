@@ -33,13 +33,20 @@ from pathlib import Path
 from typing import Literal
 
 REPO = Path(__file__).resolve().parents[1]
-DEFAULT_POLICY = REPO / "test-fixtures" / "comparison-policies" / "morphotag-default.json"
+DEFAULT_POLICY = (
+    REPO / "test-fixtures" / "comparison-policies" / "morphotag-default.json"
+)
 DEFAULT_STOCK_MANIFEST = REPO / "test-fixtures" / "stock_batchalign" / "manifest.json"
 DEFAULT_STOCK_ALLOWLIST = REPO / "test-fixtures" / "stock_batchalign" / "allowlist.json"
 JAN9_BASELINE_CANDIDATES = (
     Path.home() / "bin" / "batchalign-jan84ad500",
     Path.home() / "bin" / "batchalign2-jan84ad500" / "batchalign",
-    Path.home() / "bin" / "batchalign-pins" / "repos" / "batchalign2-jan84ad500" / "batchalign",
+    Path.home()
+    / "bin"
+    / "batchalign-pins"
+    / "repos"
+    / "batchalign2-jan84ad500"
+    / "batchalign",
 )
 
 LOWER_IS_BETTER = {"wer", "insertions", "deletions"}
@@ -59,7 +66,7 @@ class RewriteRule:
     line_prefixes: tuple[str, ...]
 
     @classmethod
-    def from_json(cls, data: dict[str, object]) -> "RewriteRule":
+    def from_json(cls, data: dict[str, object]) -> RewriteRule:
         raw_line_prefixes = data.get("line_prefixes")
         line_prefixes = (
             tuple(str(v) for v in raw_line_prefixes)
@@ -84,7 +91,7 @@ class ComparisonPolicy:
     source_path: Path | None
 
     @classmethod
-    def empty(cls) -> "ComparisonPolicy":
+    def empty(cls) -> ComparisonPolicy:
         return cls("", (), (), None)
 
 
@@ -194,8 +201,12 @@ def load_stock_cases(path: Path) -> list[StockCase]:
     base_dir = path.parent
     cases: list[StockCase] = []
     for raw in data.get("cases", []):
-        current_argv = tuple(str(v) for v in raw.get("current_argv", raw.get("argv", [])))
-        baseline_argv = tuple(str(v) for v in raw.get("baseline_argv", raw.get("argv", [])))
+        current_argv = tuple(
+            str(v) for v in raw.get("current_argv", raw.get("argv", []))
+        )
+        baseline_argv = tuple(
+            str(v) for v in raw.get("baseline_argv", raw.get("argv", []))
+        )
         cases.append(
             StockCase(
                 id=str(raw["id"]),
@@ -295,7 +306,9 @@ def run_command(
         argv.extend(["--output", str(output_dir)])
         argv.extend(str(path) for path in inputs)
     else:
-        legacy_root = legacy_input_dir or stage_legacy_inputs(inputs, workdir / f"{label}-input")
+        legacy_root = legacy_input_dir or stage_legacy_inputs(
+            inputs, workdir / f"{label}-input"
+        )
         argv.extend(common_args)
         argv.extend(extra_args)
         argv.extend([str(legacy_root), str(output_dir)])
@@ -366,7 +379,9 @@ def plan_benchmark_case(case: StockCase, case_root: Path) -> PreparedBenchmarkCa
     input_dir = case_root / "input"
     output_dir = case_root / "output"
     copied_input = input_dir / case.input_path.name
-    return PreparedBenchmarkCase(input_dir=input_dir, output_dir=output_dir, copied_input=copied_input)
+    return PreparedBenchmarkCase(
+        input_dir=input_dir, output_dir=output_dir, copied_input=copied_input
+    )
 
 
 def prepare_benchmark_case(case: StockCase, case_root: Path) -> PreparedBenchmarkCase:
@@ -384,7 +399,9 @@ def prepare_benchmark_case(case: StockCase, case_root: Path) -> PreparedBenchmar
     return prepared
 
 
-def compare_metric(metric: str, current: float, baseline: float) -> tuple[str, float] | None:
+def compare_metric(
+    metric: str, current: float, baseline: float
+) -> tuple[str, float] | None:
     if metric in LOWER_IS_BETTER:
         if current < baseline:
             return "improved", baseline - current
@@ -409,7 +426,9 @@ def parse_args() -> argparse.Namespace:
             "baseline using either raw output file diffing or a benchmark manifest."
         )
     )
-    parser.add_argument("inputs", nargs="*", help="Input files or directories for raw file-diff mode")
+    parser.add_argument(
+        "inputs", nargs="*", help="Input files or directories for raw file-diff mode"
+    )
     parser.add_argument(
         "--command",
         default="morphotag",
@@ -501,7 +520,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_file_compare_mode(args: argparse.Namespace, current_bin: str, baseline_bin: str) -> int:
+def run_file_compare_mode(
+    args: argparse.Namespace, current_bin: str, baseline_bin: str
+) -> int:
     inputs = [Path(value).expanduser().resolve() for value in args.inputs]
     missing_inputs = [str(path) for path in inputs if not path.exists()]
     if missing_inputs:
@@ -513,7 +534,9 @@ def run_file_compare_mode(args: argparse.Namespace, current_bin: str, baseline_b
         print(f"Policy file not found: {policy_path}", file=sys.stderr)
         return 1
     policy = load_policy(policy_path)
-    compare_prefixes = tuple(args.compare_prefix) if args.compare_prefix else policy.line_prefixes
+    compare_prefixes = (
+        tuple(args.compare_prefix) if args.compare_prefix else policy.line_prefixes
+    )
 
     workdir = Path(tempfile.mkdtemp(prefix="batchalign-compare-"))
     current_out = workdir / "current"
@@ -599,8 +622,12 @@ def run_file_compare_mode(args: argparse.Namespace, current_bin: str, baseline_b
                 )
                 continue
 
-            normalized_current, current_rules = normalize_lines(current_lines, policy, "current")
-            normalized_baseline, baseline_rules = normalize_lines(baseline_lines, policy, "baseline")
+            normalized_current, current_rules = normalize_lines(
+                current_lines, policy, "current"
+            )
+            normalized_baseline, baseline_rules = normalize_lines(
+                baseline_lines, policy, "baseline"
+            )
             applied_rules = sorted(set(current_rules + baseline_rules))
 
             diff_lines = list(
@@ -862,7 +889,9 @@ def run_manifest_mode(
             for metric in TRACKED_BENCHMARK_METRICS:
                 if metric not in current_metrics or metric not in baseline_metrics:
                     continue
-                comparison = compare_metric(metric, current_metrics[metric], baseline_metrics[metric])
+                comparison = compare_metric(
+                    metric, current_metrics[metric], baseline_metrics[metric]
+                )
                 if comparison is None:
                     continue
                 direction, delta = comparison
@@ -873,7 +902,9 @@ def run_manifest_mode(
                             f"{metric} improved by {delta:.4f} ({entry.reason})"
                         )
                     else:
-                        baseline_difference_messages.append(f"{metric} improved by {delta:.4f}")
+                        baseline_difference_messages.append(
+                            f"{metric} improved by {delta:.4f}"
+                        )
                 elif direction == "regressed":
                     regression_messages.append(f"{metric} regressed by {delta:.4f}")
 
@@ -933,7 +964,10 @@ def main() -> int:
         print("Cannot combine --manifest with positional inputs.", file=sys.stderr)
         return 1
     if not args.manifest and not args.inputs:
-        print("Provide positional inputs for raw mode or --manifest for benchmark mode.", file=sys.stderr)
+        print(
+            "Provide positional inputs for raw mode or --manifest for benchmark mode.",
+            file=sys.stderr,
+        )
         return 1
 
     current_candidate = args.current_bin or default_current_bin()
@@ -956,7 +990,9 @@ def main() -> int:
             return 1
         baseline_bin = resolve_executable(baseline_candidate)
         if baseline_bin is None:
-            print(f"Baseline executable not found: {baseline_candidate}", file=sys.stderr)
+            print(
+                f"Baseline executable not found: {baseline_candidate}", file=sys.stderr
+            )
             return 1
 
     if args.manifest:

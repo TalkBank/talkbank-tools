@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
@@ -15,14 +14,9 @@ import torch
 from batchalign.device import DevicePolicy
 from batchalign.inference.fa import (
     FaInferItem,
-    FaRawToken,
-    Wave2VecIndexedResponse,
-    WhisperFaResponse,
-    batch_infer_fa,
     infer_wave2vec_fa,
     infer_whisper_fa,
 )
-from batchalign.providers import BatchInferRequest
 
 
 class _FakeAudioFile:
@@ -40,7 +34,7 @@ class _FakeAudioFile:
 class _FeatureBatch(dict[str, torch.Tensor]):
     """Mapping returned by the fake Whisper processor."""
 
-    def to(self, _device: torch.device) -> "_FeatureBatch":
+    def to(self, _device: torch.device) -> _FeatureBatch:
         return self
 
 
@@ -50,7 +44,9 @@ class _FakeWhisperProcessor:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    def __call__(self, *, audio, text: str, sampling_rate: int, return_tensors: str) -> _FeatureBatch:
+    def __call__(
+        self, *, audio, text: str, sampling_rate: int, return_tensors: str
+    ) -> _FeatureBatch:
         self.calls.append(
             {
                 "audio": audio.clone(),
@@ -146,6 +142,7 @@ def _install_torchaudio_alignment_helpers(
         ]
 
     functional = ModuleType("torchaudio.functional")
+
     def _forced_align(emission, transcript):
         if capture is not None:
             capture["transcript"] = transcript.clone()
@@ -175,7 +172,6 @@ def _fa_item(
     audio_path: str = "/tmp/audio.wav",
     audio_start_ms: int = 0,
     audio_end_ms: int = 4000,
-    pauses: bool = False,
 ) -> dict[str, Any]:
     """Build one valid raw FA item."""
 
@@ -187,7 +183,6 @@ def _fa_item(
         "audio_path": audio_path,
         "audio_start_ms": audio_start_ms,
         "audio_end_ms": audio_end_ms,
-        "pauses": pauses,
     }
 
 
@@ -196,7 +191,11 @@ def _fa_item(
     [
         ("word_ids", ["u0:w0"], "word_ids length mismatch"),
         ("word_utterance_indices", [0], "word_utterance_indices length mismatch"),
-        ("word_utterance_word_indices", [0], "word_utterance_word_indices length mismatch"),
+        (
+            "word_utterance_word_indices",
+            [0],
+            "word_utterance_word_indices length mismatch",
+        ),
     ],
 )
 def test_fa_infer_item_rejects_parallel_array_mismatch(
@@ -214,7 +213,13 @@ def test_fa_infer_item_rejects_parallel_array_mismatch(
 
 
 @pytest.mark.parametrize(
-    ("force_cpu", "cuda_available", "mps_available", "expected_device", "expected_dtype"),
+    (
+        "force_cpu",
+        "cuda_available",
+        "mps_available",
+        "expected_device",
+        "expected_dtype",
+    ),
     [
         (True, False, False, "cpu", torch.float32),
         (False, True, False, "cuda", torch.float16),
@@ -281,7 +286,11 @@ def test_load_whisper_fa_selects_device_and_dtype(
 
     from batchalign.inference.fa import load_whisper_fa
 
-    handle = load_whisper_fa(model="openai/fake-whisper", target_sample_rate=22050, device_policy=DevicePolicy(force_cpu=force_cpu))
+    handle = load_whisper_fa(
+        model="openai/fake-whisper",
+        target_sample_rate=22050,
+        device_policy=DevicePolicy(force_cpu=force_cpu),
+    )
 
     assert handle.sample_rate == 22050
     assert handle.processor.name == "openai/fake-whisper"
@@ -335,12 +344,16 @@ def test_load_wave2vec_fa_selects_expected_device(
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: mps_available)
     monkeypatch.setattr(
         "batchalign.inference.types.Wave2VecFAHandle",
-        lambda model, sample_rate: SimpleNamespace(model=model, sample_rate=sample_rate),
+        lambda model, sample_rate: SimpleNamespace(
+            model=model, sample_rate=sample_rate
+        ),
     )
 
     from batchalign.inference.fa import load_wave2vec_fa
 
-    handle = load_wave2vec_fa(target_sample_rate=8000, device_policy=DevicePolicy(force_cpu=force_cpu))
+    handle = load_wave2vec_fa(
+        target_sample_rate=8000, device_policy=DevicePolicy(force_cpu=force_cpu)
+    )
 
     assert handle.sample_rate == 8000
     assert captured["bundle_get_model"] is True
@@ -348,7 +361,13 @@ def test_load_wave2vec_fa_selects_expected_device(
 
 
 @pytest.mark.parametrize(
-    ("force_cpu", "cuda_available", "mps_available", "expected_device", "expect_float32_cast"),
+    (
+        "force_cpu",
+        "cuda_available",
+        "mps_available",
+        "expected_device",
+        "expect_float32_cast",
+    ),
     [
         (True, False, False, "cpu", False),
         (False, True, False, "cuda", False),
@@ -403,12 +422,16 @@ def test_load_wave2vec_fa_forces_float32_on_mps(
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: mps_available)
     monkeypatch.setattr(
         "batchalign.inference.types.Wave2VecFAHandle",
-        lambda model, sample_rate: SimpleNamespace(model=model, sample_rate=sample_rate),
+        lambda model, sample_rate: SimpleNamespace(
+            model=model, sample_rate=sample_rate
+        ),
     )
 
     from batchalign.inference.fa import load_wave2vec_fa
 
-    handle = load_wave2vec_fa(target_sample_rate=16000, device_policy=DevicePolicy(force_cpu=force_cpu))
+    load_wave2vec_fa(
+        target_sample_rate=16000, device_policy=DevicePolicy(force_cpu=force_cpu)
+    )
 
     assert captured["device"].type == expected_device
     if expect_float32_cast:
@@ -436,10 +459,13 @@ def test_infer_whisper_fa_decodes_tokens_from_alignment_heads(monkeypatch) -> No
         handle,
         torch.tensor([0.1, 0.2, 0.3], dtype=torch.float32),
         "ab",
-        pauses=True,
     )
 
-    assert handle.processor.calls[0]["text"] == "a b"
+    # The text reaches the processor exactly as given. This asserted "a b" from
+    # a `pauses=True` argument until 2026-08-14; that reshaping is now
+    # `FaTextModeV2::CharSpaced`, applied in Rust before this is called, and is
+    # covered there.
+    assert handle.processor.calls[0]["text"] == "ab"
     assert handle.processor.calls[0]["sampling_rate"] == 16000
     assert result == [("tok-10", 0.04), ("tok-20", 0.12)]
 
@@ -514,134 +540,3 @@ def test_infer_wave2vec_fa_uses_wildcard_when_blank_sanitization_empties_word(
 
     assert captured["transcript"].tolist() == [[28, 1]]
     assert result == [("-", (10, 20)), ("a", (20, 30))]
-
-
-def test_batch_infer_fa_whisper_reuses_audio_cache_and_shapes_token_results(monkeypatch) -> None:
-    """Whisper batch FA should cache audio loads and always return raw token payloads."""
-
-    monotonic = iter([10.0, 14.0])
-    monkeypatch.setattr("batchalign.inference.fa.time.monotonic", lambda: next(monotonic))
-
-    audio_files: dict[str, _FakeAudioFile] = {}
-    load_calls: list[str] = []
-    whisper_calls: list[tuple[tuple[float, ...], str, bool]] = []
-
-    def fake_load_audio_file(path: str) -> _FakeAudioFile:
-        load_calls.append(path)
-        audio_files[path] = _FakeAudioFile(path)
-        return audio_files[path]
-
-    def fake_infer_whisper_fa(_model, audio_chunk: torch.Tensor, text: str, pauses: bool) -> list[tuple[str, float]]:
-        whisper_calls.append((tuple(float(v) for v in audio_chunk.tolist()), text, pauses))
-        return [("hello", 0.1), ("world", 0.3)]
-
-    monkeypatch.setattr("batchalign.inference.audio.load_audio_file", fake_load_audio_file)
-    monkeypatch.setattr("batchalign.inference.fa.infer_whisper_fa", fake_infer_whisper_fa)
-
-    response = batch_infer_fa(
-        BatchInferRequest(
-            task="fa",
-            lang="eng",
-            items=[
-                _fa_item(words=["hello_world", "again"], pauses=True),
-                _fa_item(words=["bye"], audio_end_ms=2000),
-                _fa_item(words=["hello", "world"], audio_path="/tmp/other.wav"),
-            ],
-        ),
-        whisper_model=object(),
-        wave2vec_model=None,
-    )
-
-    assert load_calls == ["/tmp/audio.wav", "/tmp/other.wav"]
-    assert audio_files["/tmp/audio.wav"].chunk_calls == [(0, 4000), (0, 2000)]
-    assert whisper_calls[0][1] == "hello world again"
-    assert whisper_calls[0][2] is True
-    assert response.results[0].result == WhisperFaResponse(
-        tokens=[FaRawToken(text="hello", time_s=0.1), FaRawToken(text="world", time_s=0.3)]
-    ).model_dump()
-    assert response.results[0].elapsed_s == 4.0
-    assert response.results[1].result["tokens"][0]["text"] == "hello"
-    assert response.results[2].result["tokens"][1]["time_s"] == 0.3
-
-
-def test_batch_infer_fa_wave2vec_reports_runtime_item_errors(monkeypatch) -> None:
-    """Wave2Vec batch FA must distinguish empty work from failed inference."""
-
-    monotonic = iter([1.0, 2.5])
-    monkeypatch.setattr("batchalign.inference.fa.time.monotonic", lambda: next(monotonic))
-
-    def fake_load_audio_file(path: str) -> _FakeAudioFile:
-        return _FakeAudioFile(path)
-
-    def fake_infer_wave2vec_fa(_model, _audio_chunk: torch.Tensor, words: list[str]) -> list[tuple[str, tuple[int, int]]]:
-        if words == ["boom", "now"]:
-            raise RuntimeError("wave2vec exploded")
-        return [("hello", (10, 40)), ("world", (40, 90)), ("extra", (90, 120))]
-
-    monkeypatch.setattr("batchalign.inference.audio.load_audio_file", fake_load_audio_file)
-    monkeypatch.setattr("batchalign.inference.fa.infer_wave2vec_fa", fake_infer_wave2vec_fa)
-
-    response = batch_infer_fa(
-        BatchInferRequest(
-            task="fa",
-            lang="eng",
-            items=[
-                {"bad": "shape"},
-                _fa_item(words=[]),
-                _fa_item(words=["hello", "world"]),
-                _fa_item(words=["boom", "now"], audio_path="/tmp/boom.wav"),
-            ],
-        ),
-        whisper_model=None,
-        wave2vec_model=object(),
-    )
-
-    assert response.results[0].error == "Invalid FaInferItem"
-    assert response.results[0].elapsed_s == 1.5
-    assert response.results[1].result == Wave2VecIndexedResponse(indexed_timings=[]).model_dump()
-    assert response.results[2].result == Wave2VecIndexedResponse(
-        indexed_timings=[
-            {"start_ms": 10, "end_ms": 40, "confidence": None},
-            {"start_ms": 40, "end_ms": 90, "confidence": None},
-        ]
-    ).model_dump()
-    assert response.results[3].result is None
-    assert response.results[3].error == "Forced alignment inference failed: wave2vec exploded"
-
-
-def test_batch_infer_fa_whisper_reports_runtime_item_errors(monkeypatch) -> None:
-    """Whisper batch FA must distinguish empty work from failed inference."""
-
-    monotonic = iter([50.0, 53.0])
-    monkeypatch.setattr("batchalign.inference.fa.time.monotonic", lambda: next(monotonic))
-
-    load_calls: list[str] = []
-
-    def fake_load_audio_file(path: str) -> _FakeAudioFile:
-        load_calls.append(path)
-        return _FakeAudioFile(path)
-
-    def boom(_model, _audio_chunk: torch.Tensor, _text: str, pauses: bool) -> list[tuple[str, float]]:
-        raise RuntimeError("whisper exploded")
-
-    monkeypatch.setattr("batchalign.inference.audio.load_audio_file", fake_load_audio_file)
-    monkeypatch.setattr("batchalign.inference.fa.infer_whisper_fa", boom)
-
-    response = batch_infer_fa(
-        BatchInferRequest(
-            task="fa",
-            lang="eng",
-            items=[
-                _fa_item(words=[]),
-                _fa_item(words=["boom"], audio_path="/tmp/boom.wav"),
-            ],
-        ),
-        whisper_model=object(),
-        wave2vec_model=None,
-    )
-
-    assert load_calls == ["/tmp/boom.wav"]
-    assert response.results[0].result == WhisperFaResponse(tokens=[]).model_dump()
-    assert response.results[0].elapsed_s == 3.0
-    assert response.results[1].result is None
-    assert response.results[1].error == "Forced alignment inference failed: whisper exploded"

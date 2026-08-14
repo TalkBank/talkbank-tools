@@ -181,8 +181,10 @@ pub struct FaTimelineTrace {
     pub pre_injection_timings: Vec<Vec<Option<TimingTrace>>>,
     /// Post-injection timings after post-processing fixes.
     pub post_injection_timings: Vec<Vec<Option<TimingTrace>>>,
-    /// Timing mode used ("continuous" or "with_pauses").
-    pub timing_mode: String,
+    /// Gap-healing policy, as the `Debug` spelling of `WordGapHealing`
+    /// (`"Heal"` / `"PreserveMeasured"`). A string because this trace is a
+    /// serialization boundary shared with the dashboard.
+    pub gap_healing: String,
     /// Validation violations detected (e.g. E362, E704).
     pub violations: Vec<ViolationTrace>,
     /// Engine fallback events that occurred while aligning this file.

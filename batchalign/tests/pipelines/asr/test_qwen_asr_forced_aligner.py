@@ -39,6 +39,7 @@ import pytest
 def _has_torch() -> bool:
     try:
         import torch  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -54,7 +55,9 @@ def _integration_audio() -> Path | None:
 
 
 @pytest.mark.skipif(not _has_torch(), reason="torch not installed")
-def test_qwen_recognizer_warm_passes_forced_aligner_to_from_pretrained(monkeypatch) -> None:
+def test_qwen_recognizer_warm_passes_forced_aligner_to_from_pretrained(
+    monkeypatch,
+) -> None:
     """``QwenRecognizer.warm()`` must pass a non-empty ``forced_aligner``
     argument to ``Qwen3ASRModel.from_pretrained``.
 
@@ -70,7 +73,7 @@ def test_qwen_recognizer_warm_passes_forced_aligner_to_from_pretrained(monkeypat
         """Records ``from_pretrained`` kwargs without loading the real model."""
 
         @classmethod
-        def from_pretrained(cls, model_id, **kwargs):  # noqa: ANN001, match library signature
+        def from_pretrained(cls, model_id, **kwargs):
             captured_kwargs["model_id"] = model_id
             captured_kwargs.update(kwargs)
             return cls()

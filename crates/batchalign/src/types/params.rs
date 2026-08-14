@@ -9,8 +9,9 @@ use std::path::Path;
 
 use crate::api::{DurationMs, LanguageCode3};
 use crate::chat_ops::CacheTaskName;
-use crate::chat_ops::fa::{AudioIdentity, FaEngineType, FaTimingMode};
+use crate::chat_ops::fa::{AudioIdentity, WordGapHealing};
 use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
+use crate::types::engines::FaEngineName;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -277,12 +278,12 @@ pub struct AudioContext<'a> {
 /// through `process_fa` and `process_fa_incremental`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FaParams {
-    /// How to handle pause timing (`Continuous` vs `WithPauses`).
-    pub timing_mode: FaTimingMode,
-    /// Maximum FA group duration in milliseconds.
-    pub max_group_ms: DurationMs,
-    /// Which FA engine to use (`WhisperFa` or `Wave2Vec`).
-    pub engine: FaEngineType,
+    /// Whether post-processing heals small gaps between words (`--pauses`
+    /// selects `PreserveMeasured`).
+    pub gap_healing: WordGapHealing,
+    /// Which FA engine to use: the engine itself, never a strategy derived
+    /// from it. See [`FaEngineName`] for why that distinction matters.
+    pub engine: FaEngineName,
     /// Cache lookup policy.
     pub cache_policy: CachePolicy,
     /// Whether to generate `%wor` tier.
@@ -291,6 +292,26 @@ pub struct FaParams {
     pub bullet_repair: bool,
     /// Review tier verbosity.
     pub review_level: crate::chat_ops::fa::ReviewLevel,
+}
+
+impl FaParams {
+    /// What post-processing may do to a word's end, for THIS run's engine.
+    ///
+    /// Derived rather than stored: the engine is already here, so the pairing
+    /// cannot disagree with it.
+    pub fn word_end_policy(&self) -> crate::chat_ops::fa::WordEndPolicy {
+        crate::chat_ops::fa::WordEndPolicy::for_engine(self.engine, self.gap_healing)
+    }
+
+    /// Longest audio window handed to this run's engine in one dispatch.
+    ///
+    /// Derived rather than stored, so it cannot disagree with the engine
+    /// beside it. It was a field until 2026-08-14, which meant the value could
+    /// be set from one engine and read beside another, and made the test that
+    /// checked them equal a test of nothing.
+    pub fn max_group_ms(&self) -> DurationMs {
+        self.engine.max_group_ms()
+    }
 }
 
 #[cfg(test)]

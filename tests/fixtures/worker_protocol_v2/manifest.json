@@ -46,6 +46,10 @@
     },
     {
       "schema": "execute_request",
+      "file": "execute_request_fa_char_spaced_prepared_audio.json"
+    },
+    {
+      "schema": "execute_request",
       "file": "execute_request_translate_prepared_text.json"
     },
     {

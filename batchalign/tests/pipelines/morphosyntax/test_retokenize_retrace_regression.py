@@ -27,11 +27,13 @@ def test_retokenize_retrace_utterance_returns_correct_count() -> None:
     The words are: 呢 度 食飯 啦 飯 啦 (retrace <下次> [/] already removed
     by Rust before reaching Python).
     """
-    import stanza
     import threading
+
+    import stanza
     from stanza import DownloadMethod
-    from batchalign.inference.morphosyntax import batch_infer_morphosyntax
+
     from batchalign.inference._tokenizer_realign import TokenizerContext
+    from batchalign.inference.morphosyntax import batch_infer_morphosyntax
     from batchalign.worker._types import BatchInferRequest, InferTask
 
     nlp = stanza.Pipeline(

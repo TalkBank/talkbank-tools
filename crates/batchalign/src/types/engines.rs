@@ -380,7 +380,7 @@ impl<'de> Deserialize<'de> for UtrEngine {
 /// The wire format still uses the legacy string tokens (`"wav2vec_fa"`,
 /// `"whisper_fa"`, or a plugin-provided name), but the control plane works
 /// with this enum so dispatch does not branch on anonymous strings.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FaEngineName {
     /// MMS Wave2Vec forced alignment.
     Wave2Vec,
@@ -413,6 +413,20 @@ impl FaEngineName {
             Self::Whisper => FaTimingResolution::TokenOnsets,
         }
     }
+
+    /// Longest audio window handed to this engine in one dispatch.
+    ///
+    /// A per-engine fact, so it lives on the engine rather than in a match at
+    /// the dispatch site: a new engine then cannot be added without stating
+    /// its window.
+    pub fn max_group_ms(&self) -> batchalign_types::domain::DurationMs {
+        match self {
+            // The CTC decoder's target length grows with the audio window, so
+            // wav2vec takes the shorter one.
+            Self::Wave2Vec | Self::Wav2vecCanto => batchalign_types::domain::DurationMs(15_000),
+            Self::Whisper => batchalign_types::domain::DurationMs(20_000),
+        }
+    }
 }
 
 impl EngineBackend for FaEngineName {
@@ -432,7 +446,7 @@ impl EngineBackend for FaEngineName {
         Self::ACCEPTED_NAMES
             .iter()
             .find(|(accepted, _)| *accepted == name)
-            .map(|(_, engine)| engine.clone())
+            .map(|(_, engine)| *engine)
     }
 }
 
@@ -440,9 +454,11 @@ impl SelectableEngine for FaEngineName {
     type Selected = Self;
     const ALL: &'static [Self] = &[Self::Wave2Vec, Self::Whisper, Self::Wav2vecCanto];
     // Wave2Vec returns word-level start AND end; Whisper FA returns token
-    // onsets only, so defaulting to it makes every aligned word zero-duration.
-    // Pinned by `default_fa_engine_returns_word_intervals_not_onsets`, which
-    // carries the measurement.
+    // onsets only, so an end has to be derived from the next onset and the
+    // last word of a group has none to derive from. Measured beats derived,
+    // which is why the default is the engine that measures. Pinned by
+    // `default_fa_engine_reports_word_intervals`, which asserts the PROPERTY
+    // rather than the variant.
     const DEFAULT: Self = Self::Wave2Vec;
     const CATEGORY: &'static str = "FA";
 
@@ -1775,6 +1791,32 @@ mod selectable_engine_tests {
             FaTimingResolution::WordIntervals,
             "the default aligner must report a word's end, not only its start"
         );
+    }
+
+    /// Every FA engine reports the shape its model actually produces.
+    ///
+    /// `Wav2vecCanto` is the case worth pinning: it is a wav2vec model and
+    /// returns index-aligned word spans, but its wire name is `cantonese_fa`.
+    /// Classification used to be a substring test for "wav2vec" on that name,
+    /// so it fell through to the onset-only branch and its word spans were
+    /// read as token onsets on the wrong grouping window.
+    #[test]
+    fn every_fa_engine_reports_the_shape_its_model_produces() {
+        for (engine, expected) in [
+            (FaEngineName::Wave2Vec, FaTimingResolution::WordIntervals),
+            (
+                FaEngineName::Wav2vecCanto,
+                FaTimingResolution::WordIntervals,
+            ),
+            (FaEngineName::Whisper, FaTimingResolution::TokenOnsets),
+        ] {
+            assert_eq!(
+                engine.timing_resolution(),
+                expected,
+                "{} classified wrongly",
+                engine.wire_name()
+            );
+        }
     }
 
     /// The default is a member of its own category.

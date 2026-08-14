@@ -9,10 +9,11 @@ description = "Transcription, alignment, and language-sample analysis for TalkBa
 readme = "batchalign/README.md"
 license = "BSD-3-Clause"
 requires-python = ">=3.13"
+# Primary author first, matching the Cargo manifests and the commit history.
 authors = [
+    { name = "Franklin Chen", email = "franklinchen@franklinchen.com" },
     { name = "Brian MacWhinney", email = "macw@cmu.edu" },
     { name = "Houjun Liu", email = "houjun@cmu.edu" },
-    { name = "Franklin Chen", email = "franklinchen@franklinchen.com" },
 ]
 keywords = ["nlp", "linguistics", "chat", "talkbank", "transcription", "forced-alignment", "morphosyntax"]
 classifiers = [
@@ -126,6 +127,7 @@ dev = [
     "pytest-asyncio",
     "pytest-cov>=5.0",
     "pytest-xdist",
+    "ruff",
     "ty",
     "types-requests>=2.32.4.20260107",
 ]
@@ -157,3 +159,68 @@ dev = [
 # selected on any platform, which is the only way to drop a transitive
 # dependency we do not control.
 override-dependencies = ["torchcodec ; sys_platform == 'batchalign-never'"]
+
+[tool.ruff]
+# Ruff is a GATE here, not a convenience: `make lint-python` and CI run these
+# exact settings, so an editor, a local run and CI cannot disagree. It must be
+# invoked through the project environment (`uv run ruff`) so the version comes
+# from `uv.lock`. Before this section existed, `uv run ruff` resolved to
+# whatever copy happened to be on the machine and applied an inherited rule
+# set, which is a measurement nobody can reproduce.
+target-version = "py313"
+# Generated, vendored, or not-ours. `.venv` and `target` are build output;
+# `frontend` is TypeScript with an incidental script or two.
+extend-exclude = ["frontend", "book", ".venv", "target"]
+
+[tool.ruff.lint]
+# Deliberately a SUBSET, and widening it is a real task rather than a
+# permanent default (measured 2026-08-14, over 343 tracked files).
+#
+# What is in, and why: `F` and `E4/E7/E9` are correctness rather than taste
+# (undefined names, unused imports, star-import shadowing). `I` keeps import
+# blocks from churning between contributors. `UP` and `B` earn their place on
+# this codebase specifically: `B905` is the zip-without-`strict` truncation
+# class, which matters where words are zipped against timings.
+#
+# What is out, and why: `E1/E2/E3/E501` are whitespace and line length, which
+# the formatter owns; selecting them makes the two tools argue. The remaining
+# families (`N`, `ANN`, `D`, `PL`, ...) are not judged worthless, only
+# unassessed, and turning one on is a piece of work with a diff.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "RUF"]
+ignore = [
+    # CHAT is a Unicode format. CA overlap markers, the 0x15 bullet and IPA
+    # are DATA, so "ambiguous character" is the wrong question to ask of this
+    # tree: the characters are load-bearing and must stay exactly as written.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+
+    # DEFERRED, each with the count measured on 2026-08-14. These are not
+    # judged wrong; they are unfixed, and the gate stays green so that it can
+    # fail for a real reason. Removing an entry here is the unit of work.
+    #
+    # The two at the top are deferred for a REASON, not just for volume, and
+    # neither should be bulk-applied:
+    #   UP042 (17): `class X(str, Enum)` -> `StrEnum` changes what `str(x)`
+    #     returns, and these enums carry wire names that cross the Rust/Python
+    #     boundary. A mechanical fix here would silently change dispatch
+    #     strings. Convert one at a time, checking each serialization site.
+    #   UP040 (29): `TypeAlias` -> the PEP 695 `type` statement produces a lazy
+    #     `TypeAliasType` rather than the object itself, which pydantic and
+    #     `isinstance` treat differently. Worth doing, needs verifying per site.
+    "UP042",
+    "UP040",
+    # RUF012 (8): mutable class attributes wanting `ClassVar`.
+    "RUF012",
+    # RUF059 (7): unpacked-but-unused locals wanting a `_` prefix.
+    "RUF059",
+    # RUF046 (4): int() around an already-integral value.
+    "RUF046",
+    # UP047 (1): one generic function still on the TypeVar spelling.
+    "UP047",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# A package `__init__` exists to re-export; an import with no local use is the
+# point, not an oversight.
+"__init__.py" = ["F401"]

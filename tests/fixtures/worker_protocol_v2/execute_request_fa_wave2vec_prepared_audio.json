@@ -6,8 +6,7 @@
     "backend": "wave2vec",
     "payload_ref_id": "inline-ref-0003",
     "audio_ref_id": "audio-ref-0003",
-    "text_mode": "space_joined",
-    "pauses": false
+    "text_mode": "space_joined"
   },
   "attachments": [
     {

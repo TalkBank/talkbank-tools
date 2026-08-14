@@ -7,15 +7,18 @@ from types import SimpleNamespace
 
 import pytest
 
+from batchalign.errors import ConfigError
 from batchalign.inference.languages.cantonese._common import (
     normalize_cantonese_char_tokens,
     parse_timestamp_pair,
     provider_lang_code,
     read_asr_config,
 )
-from batchalign.inference.languages.cantonese._funaudio_common import FunAsrSegment, FunAudioRecognizer
+from batchalign.inference.languages.cantonese._funaudio_common import (
+    FunAsrSegment,
+    FunAudioRecognizer,
+)
 from batchalign.inference.languages.cantonese._tencent_api import TencentRecognizer
-from batchalign.errors import ConfigError
 
 
 def config_with_asr(**entries: str) -> configparser.ConfigParser:

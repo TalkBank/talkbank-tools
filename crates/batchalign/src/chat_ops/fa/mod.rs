@@ -22,6 +22,7 @@ pub mod utr;
 #[cfg(test)]
 mod tests;
 
+use crate::types::engines::FaTimingResolution;
 use serde::{Deserialize, Serialize};
 use talkbank_model::alignment::helpers::{TierDomain, WordItem, counts_for_tier, walk_words};
 use talkbank_model::model::{
@@ -60,9 +61,13 @@ pub use self::utr::{
 
 /// A time interval in milliseconds.
 ///
-/// NOT guaranteed `start <= end`: [`Self::new`] accepts any pair, and an
-/// onset-only engine produces `start == end`. Callers that require a real
-/// extent must check.
+/// NOT guaranteed `start <= end`: [`Self::new`] accepts any pair. Callers that
+/// require a real extent must check.
+///
+/// The constructor cannot enforce it because post-processing holds spans whose
+/// extent is not resolved yet, and those are legitimate. [`WordTiming`] is the
+/// other half of that split: it is what a settled extent looks like, and it is
+/// the only thing a word's bullet can be written from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeSpan {
     /// Start time in milliseconds.
@@ -83,8 +88,73 @@ impl TimeSpan {
     }
 }
 
-/// A timing result for a single word (alias for [`TimeSpan`]).
-pub type WordTiming = TimeSpan;
+/// A word's timing, guaranteed to cover a positive extent.
+///
+/// [`TimeSpan`] deliberately carries no invariant, because post-processing
+/// works with spans whose extent is not settled yet. This is the type that
+/// leaves that computation: a word occupies time, so `end > start` holds for
+/// every value that reaches a `%wor` tier or the cache.
+///
+/// The invariant is enforced at CONSTRUCTION, which is the only way in;
+/// `TimeSpan::new` accepts any pair and always did. Reads are unchanged: this
+/// derefs to the span it wraps.
+///
+/// `postprocess_continuous::a_word_is_not_healed_backwards_into_an_earlier_neighbour`
+/// is the executable account of why this type exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "TimeSpan", into = "TimeSpan")]
+pub struct WordTiming(TimeSpan);
+
+impl WordTiming {
+    /// A timing for a word that occupies `start_ms..end_ms`.
+    ///
+    /// `None` when the pair does not describe a positive extent. A caller that
+    /// cannot build one has learned something real: the engine gave no usable
+    /// timing for that word, and the honest result is no timing rather than a
+    /// zero-length or backwards one.
+    pub fn new(start_ms: u64, end_ms: u64) -> Option<Self> {
+        (end_ms > start_ms).then_some(Self(TimeSpan::new(start_ms, end_ms)))
+    }
+}
+
+impl std::ops::Deref for WordTiming {
+    type Target = TimeSpan;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<WordTiming> for TimeSpan {
+    fn from(timing: WordTiming) -> Self {
+        timing.0
+    }
+}
+
+/// Rejects a stored span that does not describe a positive extent.
+///
+/// This is what makes the FA cache self-cleaning: a pre-2026-08-14 entry
+/// holding zero-duration timings fails to deserialize, the read path treats
+/// that as a miss, and the group is recomputed with the fixed parser.
+#[derive(Debug, thiserror::Error)]
+#[error("a word timing must cover a positive extent, got {start_ms}..{end_ms}")]
+pub struct DegenerateWordTiming {
+    /// Start of the rejected span.
+    pub start_ms: u64,
+    /// End of the rejected span.
+    pub end_ms: u64,
+}
+
+impl TryFrom<TimeSpan> for WordTiming {
+    type Error = DegenerateWordTiming;
+
+    fn try_from(span: TimeSpan) -> Result<Self, Self::Error> {
+        Self::new(span.start_ms, span.end_ms).ok_or(DegenerateWordTiming {
+            start_ms: span.start_ms,
+            end_ms: span.end_ms,
+        })
+    }
+}
 
 /// Split a compound filler's cleaned text at underscores, or return the
 /// text as a single element. Only applies to `WordCategory::Filler` words;
@@ -148,18 +218,139 @@ impl FaGroup {
     }
 }
 
-/// Controls how word end times are set during FA post-processing.
+/// Duration given to a word whose end nothing could measure or derive.
 ///
-/// Names no engine: which engine reports which shape is owned by
-/// [`crate::types::engines::FaEngineName::timing_resolution`].
+/// The last word of a group has no successor onset, and an utterance may have
+/// no bullet to borrow an end from. It is a stand-in for an unmeasured
+/// quantity, which is why it is named once here rather than written as a bare
+/// number at each of the places that need it.
+pub const LAST_WORD_FALLBACK_MS: u64 = 500;
+
+/// Whether FA post-processing heals small gaps between consecutive words.
+///
+/// This used to be `FaTimingMode`, a name that covered two unrelated
+/// decisions: how the token-level parser derived a word's END, and whether
+/// the gap-healing pass ran. One flag drove both, so asking for one asked for
+/// the other. That is how `--fa-engine whisper` without `--pauses` came to
+/// request word ends set to their own starts, which is the shape of a `%wor`
+/// tier full of 0-duration words.
+///
+/// The parser no longer has a choice to make: an onset-only engine reports no
+/// end, so the next word's onset is the only end available, and it always uses
+/// it. What remains is genuinely a policy, and this type names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FaTimingMode {
-    /// End of each word = start of next word (no silence between words).
-    /// For engines that report only when a word STARTS.
-    Continuous,
-    /// End of each word = engine-provided end time (preserves pauses).
-    /// For engines that report a word's start AND its end.
-    WithPauses,
+pub enum WordGapHealing {
+    /// Extend a word to the next word's start when the gap between them is
+    /// small and plausible, so words read as contiguous speech.
+    ///
+    /// See `postprocess::postprocess_utterance_timings` for the plausibility
+    /// caps; the healing is bounded, not unconditional.
+    Heal,
+    /// Leave each word ending where the engine said it ended, so silence
+    /// between words survives into `%wor`.
+    PreserveMeasured,
+}
+
+/// What post-processing may do to a word's end time.
+///
+/// Two independent facts that must describe the SAME run: whether the user
+/// asked for gaps to be healed, and whether this engine measured word ends or
+/// had them derived from the next onset. They were separate arguments until
+/// 2026-08-14, which type-checked happily with one engine's healing policy and
+/// another engine's resolution.
+///
+/// Constructed where both facts are already in hand, so a consumer cannot pair
+/// them wrongly: [`crate::types::params::FaParams::word_end_policy`] derives
+/// the resolution from the engine it already holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WordEndPolicy {
+    gap_healing: WordGapHealing,
+    resolution: crate::types::engines::FaTimingResolution,
+}
+
+impl WordEndPolicy {
+    /// Derive the policy for an engine, given what the user asked for.
+    pub fn for_engine(
+        engine: crate::types::engines::FaEngineName,
+        gap_healing: WordGapHealing,
+    ) -> Self {
+        Self {
+            gap_healing,
+            resolution: engine.timing_resolution(),
+        }
+    }
+
+    /// A word-interval engine: ends came from the model.
+    #[cfg(test)]
+    pub fn measured(gap_healing: WordGapHealing) -> Self {
+        Self {
+            gap_healing,
+            resolution: crate::types::engines::FaTimingResolution::WordIntervals,
+        }
+    }
+
+    /// An onset-only engine: ends were derived from the next onset.
+    #[cfg(test)]
+    pub fn onset_only(gap_healing: WordGapHealing) -> Self {
+        Self {
+            gap_healing,
+            resolution: crate::types::engines::FaTimingResolution::TokenOnsets,
+        }
+    }
+
+    /// Whether small gaps between words may be closed.
+    pub fn heals(self) -> bool {
+        self.gap_healing == WordGapHealing::Heal
+    }
+
+    /// Whether this engine's word ends were derived rather than measured.
+    ///
+    /// A derived end may be replaced by a better one, such as the utterance
+    /// bullet; a measured end is the model's own answer and is left alone.
+    pub fn ends_are_derived(self) -> bool {
+        self.resolution == crate::types::engines::FaTimingResolution::TokenOnsets
+    }
+}
+
+/// Words that lost their timing during post-processing, by cause.
+///
+/// Two counts rather than one total, because a reviewer reads the reason. The
+/// caller used to receive a bare `usize` and stamp
+/// `reason=clamped_to_utterance_boundary` on every one, which became false as
+/// soon as a second cause existed.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct DroppedWordTimings {
+    /// Clamping to an authoritative utterance bullet left no extent.
+    pub clamped_to_utterance_boundary: usize,
+    /// The span reaching the write-back did not describe an extent.
+    pub without_extent: usize,
+}
+
+impl DroppedWordTimings {
+    /// Whether any word lost its timing.
+    pub fn any(self) -> bool {
+        self.total() > 0
+    }
+
+    /// How many words lost their timing, for any reason.
+    pub fn total(self) -> usize {
+        self.clamped_to_utterance_boundary + self.without_extent
+    }
+
+    /// A decision-record reason naming only the causes that actually fired.
+    pub fn reason(self) -> String {
+        let mut causes = Vec::new();
+        if self.clamped_to_utterance_boundary > 0 {
+            causes.push(format!(
+                "clamped_to_utterance_boundary={}",
+                self.clamped_to_utterance_boundary
+            ));
+        }
+        if self.without_extent > 0 {
+            causes.push(format!("no_extent={}", self.without_extent));
+        }
+        format!("count={} {}", self.total(), causes.join(" "))
+    }
 }
 
 /// Wire type for the FA infer protocol -- one group sent to a Python worker.
@@ -180,50 +371,13 @@ pub struct FaInferItem {
     /// End of the audio window (ms).
     pub audio_end_ms: u64,
     /// How to handle word end times during post-processing.
-    pub timing_mode: FaTimingMode,
+    pub gap_healing: WordGapHealing,
 }
 
 impl FaInferItem {
     /// Audio window as a [`TimeSpan`].
     pub fn audio_span(&self) -> TimeSpan {
         TimeSpan::new(self.audio_start_ms, self.audio_end_ms)
-    }
-}
-
-/// The forced alignment engine that produced word timings.
-///
-/// Determines how FA responses are interpreted:
-/// - WhisperFa returns token-level onset times → requires DP alignment
-/// - Wave2Vec returns word-level start+end pairs → index-aligned
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FaEngineType {
-    /// Whisper token-level FA. Onset times only; Hirschberg DP alignment
-    /// maps tokens to words.
-    WhisperFa,
-    /// Wav2Vec word-level FA. Start+end times per word, 1:1 index-aligned
-    /// with input words.
-    Wave2Vec,
-}
-
-impl FaEngineType {
-    /// Wire-format string for cache keys and serialization.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::WhisperFa => "whisper_fa",
-            Self::Wave2Vec => "wave2vec",
-        }
-    }
-
-    /// Parse from a wire-format string.
-    ///
-    /// Matches both `"wav2vec"` and `"wave2vec"` spellings, since the CLI
-    /// generates `"wav2vec_fa"` while some older code used `"wave2vec"`.
-    pub fn from_str_lossy(s: &str) -> Self {
-        if s.contains("wav2vec") || s.contains("wave2vec") {
-            Self::Wave2Vec
-        } else {
-            Self::WhisperFa
-        }
     }
 }
 
@@ -301,7 +455,7 @@ pub fn find_reusable_utterance_indices(chat_file: &ChatFile) -> std::collections
     struct ReuseCandidate {
         utt_idx: usize,
         has_alignable_words: bool,
-        wor_span: Option<TimeSpan>,
+        wor_span: Option<WordTiming>,
         main_start_ms: Option<u64>,
     }
 
@@ -510,7 +664,9 @@ pub fn collect_existing_fa_word_timings(utterance: &Utterance) -> Vec<Option<Wor
         &mut |leaf| match leaf {
             WordItem::Word(word) => {
                 if counts_for_tier(word, TierDomain::Wor) {
-                    timings.push(get_word_timing(word));
+                    timings.push(
+                        get_word_timing(word).and_then(|span| WordTiming::try_from(span).ok()),
+                    );
                 }
             }
             WordItem::ReplacedWord(replaced) => {
@@ -520,7 +676,10 @@ pub fn collect_existing_fa_word_timings(utterance: &Utterance) -> Vec<Option<Wor
                 // miscount vs. collect_fa_words → collect_preserved_group_timings
                 // would return None and needlessly bypass the %wor preservation path.
                 if counts_for_tier(&replaced.word, TierDomain::Wor) {
-                    timings.push(get_word_timing(&replaced.word));
+                    timings.push(
+                        get_word_timing(&replaced.word)
+                            .and_then(|span| WordTiming::try_from(span).ok()),
+                    );
                 }
             }
             WordItem::Separator(_) => {}
@@ -620,23 +779,53 @@ impl std::fmt::Display for AudioIdentity {
 
 /// Compute cache key for an FA result.
 ///
-/// Key = `BLAKE3("{audio_identity}|{start}|{end}|{text}|{timing_flag}|{engine}")`.
+/// Key = `BLAKE3("{audio_identity}|{start}|{end}|{text}|{healing_flag}|{engine}")`.
 pub fn cache_key(
     words: &[String],
     audio_identity: &AudioIdentity,
     start_ms: u64,
     end_ms: u64,
-    timing_mode: FaTimingMode,
-    engine: FaEngineType,
+    gap_healing: WordGapHealing,
+    engine: crate::types::engines::FaEngineName,
 ) -> crate::chat_ops::CacheKey {
     let text = words.join(" ");
-    let timing_flag = match timing_mode {
-        FaTimingMode::Continuous => "no_pauses",
-        FaTimingMode::WithPauses => "pauses",
+    // What is CACHED is the parsed `Vec<Option<WordTiming>>`, not the raw
+    // worker response, so this key must cover everything those timings depend
+    // on and nothing they do not. Gap healing is applied later, in
+    // post-processing, and never reaches the stored value.
+    //
+    // The two resolutions therefore differ, and collapsing them is what makes
+    // the difference expensive:
+    //
+    // - WORD-INTERVAL engines take their start and end from the model. The
+    //   stored timings do not depend on the healing policy at all, and
+    //   the healing policy cannot change what the model returns, so one
+    //   constant is correct. (The Cantonese request does carry `pauses` on the
+    //   wire; its runner binds it unused, so it changes no output today.) It keeps the literal the old code always hashed for these
+    //   engines, which is what lets the fleet's existing entries stay
+    //   reachable: re-running them would spend GPU hours to recompute
+    //   byte-identical values.
+    //
+    // - TOKEN-ONSET engines get their ends derived by the parser, and that
+    //   derivation changed on 2026-08-14: entries written before it hold ends
+    //   equal to their own starts, which is no duration at all. New strings
+    //   retire exactly those, and the flag additionally stands in for the
+    //   tokenization, since the same `--pauses` value selects it.
+    let healing_flag = match engine.timing_resolution() {
+        FaTimingResolution::WordIntervals => "no_pauses",
+        FaTimingResolution::TokenOnsets => match gap_healing {
+            WordGapHealing::Heal => "heal_gaps",
+            WordGapHealing::PreserveMeasured => "preserve_measured",
+        },
     };
-    let engine_str = engine.as_str();
+    // The ENGINE, so two models that share a parse strategy cannot share
+    // cache entries for the same audio and words.
+    let engine_str = {
+        use crate::types::engines::EngineBackend;
+        engine.wire_name()
+    };
     let input = format!(
-        "{}|{start_ms}|{end_ms}|{text}|{timing_flag}|{engine_str}",
+        "{}|{start_ms}|{end_ms}|{text}|{healing_flag}|{engine_str}",
         audio_identity.0
     );
     crate::chat_ops::CacheKey::from_content(&input)

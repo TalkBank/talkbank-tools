@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from types import ModuleType, SimpleNamespace
 import sys
 import wave
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 import numpy as np
 import pytest
@@ -31,9 +31,7 @@ from batchalign.inference.speaker import (
 def test_parse_rttm_line_extracts_numeric_suffix() -> None:
     """RTTM parsing should normalize speaker labels into SPEAKER_N form."""
 
-    segment = _parse_rttm_line(
-        "SPEAKER file 1 0.25 0.50 <NA> <NA> speaker_7 <NA> <NA>"
-    )
+    segment = _parse_rttm_line("SPEAKER file 1 0.25 0.50 <NA> <NA> speaker_7 <NA> <NA>")
 
     assert segment == SpeakerSegment(start_ms=250, end_ms=750, speaker="SPEAKER_7")
 
@@ -71,7 +69,9 @@ def test_infer_speaker_prepared_audio_routes_pyannote(monkeypatch) -> None:
     assert response.segments[0].speaker == "SPEAKER_0"
     assert captured["sample_rate_hz"] == 22050
     assert captured["num_speakers"] == 3
-    assert np.array_equal(captured["audio"], np.asarray([0.1, 0.2, 0.3], dtype=np.float32))
+    assert np.array_equal(
+        captured["audio"], np.asarray([0.1, 0.2, 0.3], dtype=np.float32)
+    )
 
 
 def test_infer_speaker_prepared_audio_routes_nemo(monkeypatch) -> None:
@@ -138,7 +138,9 @@ def test_write_prepared_audio_wav_writes_mono_pcm(tmp_path: Path) -> None:
     """Prepared audio should be written as 16-bit mono WAV for downstream runtimes."""
 
     out = tmp_path / "prepared.wav"
-    _write_prepared_audio_wav(np.asarray([0.0, 0.5, -0.5], dtype=np.float32), 8000, str(out))
+    _write_prepared_audio_wav(
+        np.asarray([0.0, 0.5, -0.5], dtype=np.float32), 8000, str(out)
+    )
 
     with wave.open(str(out), "rb") as handle:
         assert handle.getnchannels() == 1
@@ -248,7 +250,9 @@ def test_get_pyannote_pipeline_caches_loaded_pipeline(monkeypatch) -> None:
     assert loaded == ["talkbank/dia-fork"]
 
 
-def test_infer_pyannote_speaker_prepared_audio_shapes_waveform_and_labels(monkeypatch) -> None:
+def test_infer_pyannote_speaker_prepared_audio_shapes_waveform_and_labels(
+    monkeypatch,
+) -> None:
     """Prepared-audio Pyannote inference should build mono waveforms and normalize labels."""
 
     captured: dict[str, object] = {}
@@ -271,7 +275,9 @@ def test_infer_pyannote_speaker_prepared_audio_shapes_waveform_and_labels(monkey
             captured["num_speakers"] = num_speakers
             return _FakeResult()
 
-    monkeypatch.setattr("batchalign.inference.speaker._get_pyannote_pipeline", lambda: _FakePipe())
+    monkeypatch.setattr(
+        "batchalign.inference.speaker._get_pyannote_pipeline", lambda: _FakePipe()
+    )
 
     segments = infer_pyannote_speaker_prepared_audio(
         np.asarray([0.1, 0.2, 0.3], dtype=np.float64),
@@ -290,7 +296,9 @@ def test_infer_pyannote_speaker_prepared_audio_shapes_waveform_and_labels(monkey
     ]
 
 
-def test_infer_pyannote_speaker_prepared_audio_supports_diarize_output_api(monkeypatch) -> None:
+def test_infer_pyannote_speaker_prepared_audio_supports_diarize_output_api(
+    monkeypatch,
+) -> None:
     """Prepared-audio Pyannote inference should handle the newer DiarizeOutput shape."""
 
     captured: dict[str, object] = {}
@@ -308,7 +316,9 @@ def test_infer_pyannote_speaker_prepared_audio_supports_diarize_output_api(monke
             captured["num_speakers"] = num_speakers
             return _FakeDiarizeOutput()
 
-    monkeypatch.setattr("batchalign.inference.speaker._get_pyannote_pipeline", lambda: _FakePipe())
+    monkeypatch.setattr(
+        "batchalign.inference.speaker._get_pyannote_pipeline", lambda: _FakePipe()
+    )
 
     segments = infer_pyannote_speaker_prepared_audio(
         np.asarray([0.1, 0.2, 0.3], dtype=np.float64),
@@ -327,7 +337,9 @@ def test_infer_pyannote_speaker_prepared_audio_supports_diarize_output_api(monke
     ]
 
 
-def test_infer_nemo_speaker_prepared_audio_writes_temp_wav_and_forwards(monkeypatch) -> None:
+def test_infer_nemo_speaker_prepared_audio_writes_temp_wav_and_forwards(
+    monkeypatch,
+) -> None:
     """Prepared-audio NeMo inference should materialize one WAV and delegate to file-path inference."""
 
     captured: dict[str, object] = {}
@@ -343,8 +355,12 @@ def test_infer_nemo_speaker_prepared_audio_writes_temp_wav_and_forwards(monkeypa
         captured["device_policy"] = device_policy
         return [SpeakerSegment(start_ms=0, end_ms=100, speaker="SPEAKER_0")]
 
-    monkeypatch.setattr("batchalign.inference.speaker._write_prepared_audio_wav", fake_write)
-    monkeypatch.setattr("batchalign.inference.speaker._infer_nemo_speaker_from_audio_file", fake_infer)
+    monkeypatch.setattr(
+        "batchalign.inference.speaker._write_prepared_audio_wav", fake_write
+    )
+    monkeypatch.setattr(
+        "batchalign.inference.speaker._infer_nemo_speaker_from_audio_file", fake_infer
+    )
 
     segments = infer_nemo_speaker_prepared_audio(
         np.asarray([0.4, 0.5], dtype=np.float32),
@@ -362,7 +378,9 @@ def test_infer_nemo_speaker_prepared_audio_writes_temp_wav_and_forwards(monkeypa
     assert segments == [SpeakerSegment(start_ms=0, end_ms=100, speaker="SPEAKER_0")]
 
 
-def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(monkeypatch) -> None:
+def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(
+    monkeypatch,
+) -> None:
     """NeMo file-path inference should build the manifest, run diarization, and parse RTTM output."""
 
     captured: dict[str, object] = {}
@@ -394,9 +412,9 @@ def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(monk
     class _FakeNeuralDiarizer:
         def __init__(self, *, cfg) -> None:
             captured["manifest_path"] = cfg.diarizer.manifest_filepath
-            captured["manifest_text"] = Path(cfg.diarizer.manifest_filepath).read_text(
-                encoding="utf-8"
-            ).strip()
+            captured["manifest_text"] = (
+                Path(cfg.diarizer.manifest_filepath).read_text(encoding="utf-8").strip()
+            )
             captured["out_dir"] = cfg.diarizer.out_dir
             captured["device"] = cfg.device
 
@@ -434,15 +452,25 @@ def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(monk
     monkeypatch.setitem(sys.modules, "nemo.collections", nemo_collections)
     monkeypatch.setitem(sys.modules, "nemo.collections.asr", nemo_asr)
     monkeypatch.setitem(sys.modules, "nemo.collections.asr.models", nemo_models)
-    monkeypatch.setitem(sys.modules, "nemo.collections.asr.models.msdd_models", nemo_msdd_models)
+    monkeypatch.setitem(
+        sys.modules, "nemo.collections.asr.models.msdd_models", nemo_msdd_models
+    )
     monkeypatch.setitem(sys.modules, "nemo.collections.asr.modules", nemo_modules)
-    monkeypatch.setitem(sys.modules, "nemo.collections.asr.modules.msdd_diarizer", nemo_msdd_diarizer)
+    monkeypatch.setitem(
+        sys.modules, "nemo.collections.asr.modules.msdd_diarizer", nemo_msdd_diarizer
+    )
 
     pydub = ModuleType("pydub")
     pydub.AudioSegment = _FakeAudioSegment
     monkeypatch.setitem(sys.modules, "pydub", pydub)
-    monkeypatch.setattr("batchalign.inference.speaker._resolve_speaker_config", lambda: "/tmp/speaker-config.yaml")
-    monkeypatch.setattr("batchalign.inference.speaker._device_for_speaker_runtime", lambda _policy=None: "cpu")
+    monkeypatch.setattr(
+        "batchalign.inference.speaker._resolve_speaker_config",
+        lambda: "/tmp/speaker-config.yaml",
+    )
+    monkeypatch.setattr(
+        "batchalign.inference.speaker._device_for_speaker_runtime",
+        lambda _policy=None: "cpu",
+    )
 
     segments = _infer_nemo_speaker_from_audio_file(
         "/tmp/input.wav",

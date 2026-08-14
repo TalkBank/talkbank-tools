@@ -61,6 +61,26 @@ pub enum WorkerTarget {
 }
 
 impl WorkerTarget {
+    /// Every task a worker for this target loads models for at bootstrap.
+    ///
+    /// Derived from [`WorkerProfile::for_task`], the existing task-to-profile
+    /// map, rather than restating the bundle. Callers use it to guarantee that
+    /// a preloaded task arrives with an engine named, so the worker never has
+    /// to guess which model to load.
+    ///
+    /// Lazy-profile workers preload nothing and are not described here: they
+    /// name an engine per request via `ensure_task`.
+    pub fn preloaded_tasks(&self) -> Vec<InferTask> {
+        match self {
+            Self::Profile(profile) => InferTask::ALL
+                .iter()
+                .copied()
+                .filter(|task| WorkerProfile::for_task(*task) == *profile)
+                .collect(),
+            Self::InferTask(task) => vec![*task],
+        }
+    }
+
     /// Build a profile bootstrap target.
     pub fn profile(profile: WorkerProfile) -> Self {
         Self::Profile(profile)

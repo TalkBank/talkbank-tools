@@ -30,29 +30,85 @@ from batchalign.inference._italian_mwt import (
 # A stand-in for Stanza's shipped lexicon carrying only the entries these cases
 # exercise. Real one is ~50k surface forms and ~13k verb forms.
 LEXICON = ItalianLexicon(
-    surface_forms=frozenset({
-        # Ordinary words that must never be split.
-        "cavallo", "bello", "giallo", "quello", "palla", "attenzione",
-        "uccelli", "spaghetti", "dondolo", "cancello", "viola", "scivola",
-        "disegna", "cielo", "pentola", "cavolo", "coltello", "macchine",
-        "gallina", "persone",
-        # A real imperative that Stanza's lexicon also lists as a word, which is
-        # why the real rule under-splits it. Measured, not aspirational.
-        "svegliati",
-        # Verb forms are words too.
-        "cava", "cavo", "pento", "gira", "apri", "prendi", "guarda", "da",
-        "di", "fa", "sta", "va", "chiama", "tagliate", "ecco",
-        "leggi", "butta",
-        # UD Italian tokenizes `fammi` as *fam* + *mi*, so the GEMINATED bases
-        # are themselves lexicon entries. That is why the pre-filter can see
-        # through gemination without knowing the rule.
-        "fam", "dim", "dam",
-    }),
-    verb_forms=frozenset({
-        "cava", "cavo", "pento", "gira", "apri", "prendi", "guarda", "da",
-        "di", "fa", "sta", "va", "chiama", "tagliate", "scivola", "disegna",
-        "svegliati", "caricare", "leggi", "butta", "fam", "dim", "dam",
-    }),
+    surface_forms=frozenset(
+        {
+            # Ordinary words that must never be split.
+            "cavallo",
+            "bello",
+            "giallo",
+            "quello",
+            "palla",
+            "attenzione",
+            "uccelli",
+            "spaghetti",
+            "dondolo",
+            "cancello",
+            "viola",
+            "scivola",
+            "disegna",
+            "cielo",
+            "pentola",
+            "cavolo",
+            "coltello",
+            "macchine",
+            "gallina",
+            "persone",
+            # A real imperative that Stanza's lexicon also lists as a word, which is
+            # why the real rule under-splits it. Measured, not aspirational.
+            "svegliati",
+            # Verb forms are words too.
+            "cava",
+            "cavo",
+            "pento",
+            "gira",
+            "apri",
+            "prendi",
+            "guarda",
+            "da",
+            "di",
+            "fa",
+            "sta",
+            "va",
+            "chiama",
+            "tagliate",
+            "ecco",
+            "leggi",
+            "butta",
+            # UD Italian tokenizes `fammi` as *fam* + *mi*, so the GEMINATED bases
+            # are themselves lexicon entries. That is why the pre-filter can see
+            # through gemination without knowing the rule.
+            "fam",
+            "dim",
+            "dam",
+        }
+    ),
+    verb_forms=frozenset(
+        {
+            "cava",
+            "cavo",
+            "pento",
+            "gira",
+            "apri",
+            "prendi",
+            "guarda",
+            "da",
+            "di",
+            "fa",
+            "sta",
+            "va",
+            "chiama",
+            "tagliate",
+            "scivola",
+            "disegna",
+            "svegliati",
+            "caricare",
+            "leggi",
+            "butta",
+            "fam",
+            "dim",
+            "dam",
+        }
+    ),
 )
 
 
@@ -75,7 +131,9 @@ LEXICON = ItalianLexicon(
         ("eccomi", ("ecco", "mi")),
     ],
 )
-def test_genuine_multi_word_tokens_are_allowed(word: str, split: tuple[str, ...]) -> None:
+def test_genuine_multi_word_tokens_are_allowed(
+    word: str, split: tuple[str, ...]
+) -> None:
     assert decide_expansion(word, split, LEXICON) is MwtExpansion.ALLOW
 
 
@@ -83,7 +141,11 @@ def test_genuine_multi_word_tokens_are_allowed(word: str, split: tuple[str, ...]
     ("word", "split", "why"),
     [
         # Rejected because the split does not account for the whole word.
-        ("cavallo", ("cava", "lo"), "cavalo is not cavallo, and cava does not geminate"),
+        (
+            "cavallo",
+            ("cava", "lo"),
+            "cavalo is not cavallo, and cava does not geminate",
+        ),
         ("cavalla", ("cava", "la"), "cavala is not cavalla; a mare, not an imperative"),
         ("hallo", ("ha", "lo"), "ha is not a geminating host, so halo is not hallo"),
         ("tagliatelle", ("tagliate", "le"), "tagliatele is not tagliatelle; pasta"),
@@ -110,7 +172,9 @@ def test_genuine_multi_word_tokens_are_allowed(word: str, split: tuple[str, ...]
         ("cavolo", ("cavo", "lo"), "cavo is a real verb but cavolo is a cabbage"),
     ],
 )
-def test_over_splits_are_suppressed(word: str, split: tuple[str, ...], why: str) -> None:
+def test_over_splits_are_suppressed(
+    word: str, split: tuple[str, ...], why: str
+) -> None:
     assert decide_expansion(word, split, LEXICON) is MwtExpansion.SUPPRESS, why
 
 
@@ -132,9 +196,9 @@ def test_each_of_the_four_tests_is_load_bearing() -> None:
     ), "enclitic test: gna is not a clitic"
     # Verb-base only: `lo` is a clitic, `iblo` reconstructs and is not a known
     # word, so nothing else rejects it.
-    assert decide_expansion("iblo", ("ib", "lo"), LEXICON) is (
-        MwtExpansion.SUPPRESS
-    ), "verb-base test: ib is not an attested verb"
+    assert decide_expansion("iblo", ("ib", "lo"), LEXICON) is (MwtExpansion.SUPPRESS), (
+        "verb-base test: ib is not an attested verb"
+    )
     # Lexicality only: reconstructs exactly, real clitic, real verb base.
     assert decide_expansion("pentola", ("pento", "la"), LEXICON) is (
         MwtExpansion.SUPPRESS
@@ -144,18 +208,20 @@ def test_each_of_the_four_tests_is_load_bearing() -> None:
 @pytest.mark.parametrize(
     ("word", "split"),
     [
-        ("dammelo", ("da", "me", "lo")),   # da' + mmelo
-        ("dillo", ("di", "lo")),           # di' + llo
-        ("fallo", ("fa", "lo")),           # fa' + llo
-        ("vallo", ("va", "lo")),           # va' + llo
-        ("dagli", ("da", "gli")),          # gli is the documented non-doubler
+        ("dammelo", ("da", "me", "lo")),  # da' + mmelo
+        ("dillo", ("di", "lo")),  # di' + llo
+        ("fallo", ("fa", "lo")),  # fa' + llo
+        ("vallo", ("va", "lo")),  # va' + llo
+        ("dagli", ("da", "gli")),  # gli is the documented non-doubler
     ],
 )
 def test_gemination_after_apocopated_imperatives_reconstructs(
     word: str, split: tuple[str, ...]
 ) -> None:
     """Only da'/di'/fa'/sta'/va' double the following clitic, and gli never does."""
-    assert split_reconstructs_word(word, split), f"{word} should reconstruct from {split}"
+    assert split_reconstructs_word(word, split), (
+        f"{word} should reconstruct from {split}"
+    )
 
 
 def test_gemination_is_not_granted_to_other_hosts() -> None:
@@ -183,9 +249,7 @@ def test_unavailable_inputs_preserve_stanza_behaviour() -> None:
     the closed-class allowlist caused, and would do it invisibly.
     """
     assert decide_expansion("dammelo", None, LEXICON) is MwtExpansion.ALLOW
-    assert decide_expansion("dammelo", ("da", "me", "lo"), None) is (
-        MwtExpansion.ALLOW
-    )
+    assert decide_expansion("dammelo", ("da", "me", "lo"), None) is (MwtExpansion.ALLOW)
     assert decide_expansion("cavallo", None, None) is MwtExpansion.ALLOW
 
 
@@ -201,9 +265,7 @@ def test_case_is_normalized() -> None:
     assert decide_expansion("Cavallo", ("Cava", "lo"), LEXICON) is (
         MwtExpansion.SUPPRESS
     )
-    assert decide_expansion("Giralo", ("Gira", "lo"), LEXICON) is (
-        MwtExpansion.ALLOW
-    )
+    assert decide_expansion("Giralo", ("Gira", "lo"), LEXICON) is (MwtExpansion.ALLOW)
 
 
 @pytest.mark.parametrize(
@@ -282,12 +344,12 @@ def test_clitic_clusters_are_allowed_end_to_end() -> None:
     [
         # Surfaces outside the contracted paradigm that the tagger can
         # nevertheless label ADP+DET (splits are what raw Stanza proposed).
-        ("well", ("In", "l")),      # English
+        ("well", ("In", "l")),  # English
         ("wel", ("In", "il")),
-        ("dem", ("di", "i")),       # German
-        ("au", ("a", "i")),         # French
-        ("all", ("a", "l")),        # English
-        ("dài", ("di", "i")),       # Italian verb "give!", not a contraction
+        ("dem", ("di", "i")),  # German
+        ("au", ("a", "i")),  # French
+        ("all", ("a", "l")),  # English
+        ("dài", ("di", "i")),  # Italian verb "give!", not a contraction
     ],
 )
 def test_foreign_lookalikes_are_not_contractions(
@@ -368,7 +430,6 @@ def test_pre_filter_finds_forcing_candidates(
     is not force-probed on every batch only to be rejected later.
     """
     assert could_be_enclisis(word, LEXICON) is plausible, why
-
 
 
 class TestGeminatedSplitDetection:

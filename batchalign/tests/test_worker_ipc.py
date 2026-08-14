@@ -18,9 +18,9 @@ from batchalign.worker import (
     BatchInferResponse,
     CapabilitiesResponse,
     HealthResponse,
-    InferTask,
     InferRequest,
     InferResponse,
+    InferTask,
 )
 
 
@@ -79,7 +79,12 @@ def test_infer_request_serialization() -> None:
     req = InferRequest(
         task=InferTask.MORPHOSYNTAX,
         lang="eng",
-        payload={"words": ["the", "dog", "runs"], "terminator": "."},
+        payload={
+            "words": ["the", "dog", "runs"],
+            "terminator": ".",
+            "special_forms": [],
+            "lang": "eng",
+        },
     )
     data = json.loads(req.model_dump_json())
     assert data["task"] == "morphosyntax"
@@ -116,8 +121,8 @@ def test_batch_infer_request_serialization() -> None:
         task=InferTask.MORPHOSYNTAX,
         lang="eng",
         items=[
-            {"words": ["hello"], "terminator": "."},
-            {"words": ["world"], "terminator": "."},
+            {"words": ["hello"], "terminator": ".", "special_forms": [], "lang": "eng"},
+            {"words": ["world"], "terminator": ".", "special_forms": [], "lang": "eng"},
         ],
     )
     data = json.loads(req.model_dump_json())
@@ -142,11 +147,18 @@ def test_batch_infer_response_serialization() -> None:
 
 def test_rust_can_parse_python_infer_request() -> None:
     """Verify the JSON shape Python produces matches what Rust expects."""
-    rust_json = json.dumps({
-        "task": "morphosyntax",
-        "lang": "eng",
-        "payload": {"words": ["hello", "world"], "terminator": "."},
-    })
+    rust_json = json.dumps(
+        {
+            "task": "morphosyntax",
+            "lang": "eng",
+            "payload": {
+                "words": ["hello", "world"],
+                "terminator": ".",
+                "special_forms": [],
+                "lang": "eng",
+            },
+        }
+    )
     req = InferRequest.model_validate_json(rust_json)
     assert req.task == InferTask.MORPHOSYNTAX
     assert req.payload["words"] == ["hello", "world"]  # type: ignore[index]
@@ -154,13 +166,14 @@ def test_rust_can_parse_python_infer_request() -> None:
 
 def test_python_can_parse_rust_infer_response() -> None:
     """Verify Python can parse the JSON that Rust produces for InferResponse."""
-    rust_json = json.dumps({
-        "result": {"mor": "n|hello n|world", "gra": "1|2|SUBJ 2|0|ROOT"},
-        "error": None,
-        "elapsed_s": 0.123,
-    })
+    rust_json = json.dumps(
+        {
+            "result": {"mor": "n|hello n|world", "gra": "1|2|SUBJ 2|0|ROOT"},
+            "error": None,
+            "elapsed_s": 0.123,
+        }
+    )
     resp = InferResponse.model_validate_json(rust_json)
     assert resp.result is not None
     assert resp.error is None
     assert resp.elapsed_s == 0.123
-

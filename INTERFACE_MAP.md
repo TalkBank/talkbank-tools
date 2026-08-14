@@ -17,7 +17,6 @@ This document is the unified reference for all Python/Rust interface boundaries 
 | Shared schema | `ipc-schema/worker_v2/` (JSON Schema) |
 | IPC types | `crates/batchalign-types/src/worker_v2/mod.rs` |
 | Python types | `batchalign/worker/_types_v2.py` (hand-written + validated) |
-| Generated Python | `batchalign/generated/worker_v2/` |
 | Tests | `crates/batchalign/tests/worker_protocol_v2_compat.rs`, `batchalign/tests/test_ipc_type_conformance.py` |
 
 **Cross-references:**
@@ -203,7 +202,6 @@ This document is the unified reference for all Python/Rust interface boundaries 
 | Rust types | `crates/batchalign-types/src/worker_v2/` |
 | Re-exported by | `crates/batchalign/src/types/worker_v2.rs` |
 | JSON Schema (generated) | `ipc-schema/worker_v2/` |
-| Python generated types | `batchalign/generated/worker_v2/` |
 | Python hand-written | `batchalign/worker/_types_v2.py` (with validators) |
 | Conformance tests | `crates/batchalign/tests/worker_protocol_v2_compat.rs`, `batchalign/tests/test_ipc_type_conformance.py` |
 
@@ -226,7 +224,6 @@ This document is the unified reference for all Python/Rust interface boundaries 
 |--------|----------|
 | Rust types | `crates/batchalign-types/src/worker_v2/` |
 | Schema generator | `crates/batchalign/src/ipc_schema.rs` |
-| Generated Python | `batchalign/generated/worker_v2/` + `batchalign/generated/batch_items/` |
 | Hand-written overlays | `batchalign/worker/_types_v2.py` (validators, aliases) |
 | Drift tests | `crates/batchalign/tests/worker_protocol_v2_compat.rs` |
 | Conformance tests | `batchalign/tests/test_ipc_type_conformance.py` |

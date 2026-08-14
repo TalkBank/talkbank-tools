@@ -88,9 +88,7 @@ class TestMwtCapabilityDriven:
         """
         from pathlib import Path
 
-        loader = (
-            Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
-        )
+        loader = Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
         source = loader.read_text()
 
         # Tolerate doc references in module docstrings or comments, we
@@ -103,10 +101,7 @@ class TestMwtCapabilityDriven:
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
-                    if (
-                        isinstance(target, ast.Name)
-                        and target.id == "MWT_LANGS"
-                    ):
+                    if isinstance(target, ast.Name) and target.id == "MWT_LANGS":
                         raise AssertionError(
                             "MWT_LANGS was reintroduced in _stanza_loading.py. "
                             "Use the capability table (should_request_mwt) "
@@ -123,7 +118,9 @@ class TestStanzaPipelineShape:
         """
         from pathlib import Path
 
-        stanza_loading = Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
+        stanza_loading = (
+            Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
+        )
         source = stanza_loading.read_text()
 
         # Verify "gum" appears in the English pipeline config
@@ -140,7 +137,9 @@ class TestStanzaPipelineShape:
         """
         from pathlib import Path
 
-        stanza_loading = Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
+        stanza_loading = (
+            Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
+        )
         source = stanza_loading.read_text()
 
         # The non-MWT branch must have pretokenized=True
@@ -167,14 +166,13 @@ class TestJapaneseProcessorConfig:
         """Japanese must use 'combined' processor packages."""
         from pathlib import Path
 
-        stanza_loading = Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
+        stanza_loading = (
+            Path(__file__).resolve().parents[3] / "worker" / "_stanza_loading.py"
+        )
         source = stanza_loading.read_text()
 
         # Check if the Japanese combined processor config exists
-        has_ja_combined = (
-            '"combined"' in source
-            and "ja" in source
-        )
+        has_ja_combined = '"combined"' in source and "ja" in source
 
         assert has_ja_combined, (
             "Japanese 'combined' processor not configured in _stanza_loading.py. "

@@ -5,9 +5,9 @@
 //!
 //! The `worker_v2` suffix is intentional. The older JSON-lines `worker` surface remains
 //! in-tree as a frozen compatibility contract, so the Rust module (`crates/batchalign-types/src/worker_v2/`),
-//! schema directory (`ipc-schema/worker_v2/`), generated Python package
-//! (`batchalign/generated/worker_v2/`), and hand-written Pydantic overlays
-//! (`batchalign/worker/_types_v2.py`) stay versioned together until V1 is removed as a whole.
+//! schema directory (`ipc-schema/worker_v2/`) and hand-written Pydantic
+//! models (`batchalign/worker/_types_v2.py`) stay versioned together until V1
+//! is removed as a whole.
 //!
 //! ## Protocol Ownership & Responsibility Boundaries
 //!

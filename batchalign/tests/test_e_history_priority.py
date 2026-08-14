@@ -163,9 +163,15 @@ def test_load_stats_non_pytest_rows_excluded(tmp_path: Path) -> None:
 
 def test_order_by_priority_fails_first() -> None:
     stats = {
-        "a::slow_but_reliable": HistoryStats("a::slow_but_reliable", fails=0, total=10, avg_duration_s=5.0),
-        "b::fast_flaky": HistoryStats("b::fast_flaky", fails=3, total=10, avg_duration_s=0.1),
-        "c::slow_flaky": HistoryStats("c::slow_flaky", fails=3, total=10, avg_duration_s=2.0),
+        "a::slow_but_reliable": HistoryStats(
+            "a::slow_but_reliable", fails=0, total=10, avg_duration_s=5.0
+        ),
+        "b::fast_flaky": HistoryStats(
+            "b::fast_flaky", fails=3, total=10, avg_duration_s=0.1
+        ),
+        "c::slow_flaky": HistoryStats(
+            "c::slow_flaky", fails=3, total=10, avg_duration_s=2.0
+        ),
     }
     ordered = order_by_priority(
         ["a::slow_but_reliable", "b::fast_flaky", "c::slow_flaky"],

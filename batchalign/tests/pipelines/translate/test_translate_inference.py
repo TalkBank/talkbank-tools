@@ -27,7 +27,9 @@ class TestTranslateModels:
 class TestBatchInferTranslate:
     """Verify the thin Python translation adapter behavior."""
 
-    def test_uses_request_language_and_rewrites_first_elapsed(self, monkeypatch) -> None:
+    def test_uses_request_language_and_rewrites_first_elapsed(
+        self, monkeypatch
+    ) -> None:
         calls: list[tuple[str, str]] = []
         monotonic = _monotonic_values(100.0, 104.5)
 
@@ -84,7 +86,9 @@ class TestBatchInferTranslate:
         assert response.results[0].elapsed_s == 2.0
         assert response.results[1].result == {"raw_translation": "eng:hello"}
 
-    def test_reports_invalid_and_runtime_error_items_and_google_sleeps(self, monkeypatch) -> None:
+    def test_reports_invalid_and_runtime_error_items_and_google_sleeps(
+        self, monkeypatch
+    ) -> None:
         calls: list[tuple[str, str]] = []
         sleep_calls: list[float] = []
         monotonic = _monotonic_values(0.0, 3.0)
@@ -127,7 +131,9 @@ class TestBatchInferTranslate:
         assert response.results[2].error == "Translation failed: translator exploded"
         assert response.results[3].result == {"raw_translation": ""}
 
-    def test_handles_empty_batches_without_touching_translation(self, monkeypatch) -> None:
+    def test_handles_empty_batches_without_touching_translation(
+        self, monkeypatch
+    ) -> None:
         touched: list[str] = []
         monotonic = _monotonic_values(5.0, 5.0)
 

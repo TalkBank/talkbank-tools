@@ -13,10 +13,10 @@ than in an oversized `main()`.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 import logging
 import os
 import sys
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,10 +32,6 @@ from batchalign.worker._model_loading import (
     parse_engine_overrides,
     resolve_injected_revai_api_key,
 )
-from batchalign.worker._stanza_capabilities import (
-    refresh_resources_manifest_if_present,
-)
-from batchalign.worker._types import InferTask, WorkerProfile
 from batchalign.worker._protocol import (
     _print_ready,
     _serve_stdio,
@@ -43,7 +39,15 @@ from batchalign.worker._protocol import (
     _serve_tcp,
     _serve_tcp_concurrent,
 )
-from batchalign.worker._types import WorkerBootstrapRuntime, _state
+from batchalign.worker._stanza_capabilities import (
+    refresh_resources_manifest_if_present,
+)
+from batchalign.worker._types import (
+    InferTask,
+    WorkerBootstrapRuntime,
+    WorkerProfile,
+    _state,
+)
 
 L = logging.getLogger("batchalign.worker")
 
@@ -72,7 +76,9 @@ def build_arg_parser():
     parser.add_argument("--task", default="", help="Infer task bootstrap target")
     parser.add_argument("--lang", default="eng", help="Language code")
     parser.add_argument("--num-speakers", type=int, default=1)
-    parser.add_argument("--engine-overrides", default="", help="JSON dict of engine overrides")
+    parser.add_argument(
+        "--engine-overrides", default="", help="JSON dict of engine overrides"
+    )
     parser.add_argument(
         "--test-echo",
         action="store_true",
@@ -273,12 +279,8 @@ def main() -> None:
     #   thread-level concurrency does not cause OpenMP oversubscription
     # On GIL=1, Stanza workers use sequential serving (one process per slot).
     use_concurrent = (
-        bootstrap.profile == WorkerProfile.GPU
-        and _gpu_has_cuda_device(args.force_cpu)
-    ) or (
-        bootstrap.profile == WorkerProfile.STANZA
-        and FREE_THREADED
-    )
+        bootstrap.profile == WorkerProfile.GPU and _gpu_has_cuda_device(args.force_cpu)
+    ) or (bootstrap.profile == WorkerProfile.STANZA and FREE_THREADED)
     if use_concurrent and bootstrap.profile == WorkerProfile.GPU:
         L.info(
             "GPU profile with CUDA: concurrent serving (pool=%d)",
@@ -299,7 +301,9 @@ def main() -> None:
     if args.transport == "tcp":
         port = args.port if args.port != 0 else _auto_assign_port(args.host)
         if use_concurrent:
-            _serve_tcp_concurrent(args.host, port, max_threads=max(1, args.gpu_thread_pool_size))
+            _serve_tcp_concurrent(
+                args.host, port, max_threads=max(1, args.gpu_thread_pool_size)
+            )
         else:
             _serve_tcp(args.host, port)
     else:

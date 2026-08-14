@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 # ---------------------------------------------------------------------------
 # Wire type tests
 # ---------------------------------------------------------------------------
@@ -13,7 +12,11 @@ def test_morphosyntax_request_v2_accepts_retokenize():
     from batchalign.worker._types_v2 import MorphosyntaxRequestV2
 
     req = MorphosyntaxRequestV2(
-        kind="morphosyntax", lang="yue", payload_ref_id="p1", item_count=1, retokenize=True
+        kind="morphosyntax",
+        lang="yue",
+        payload_ref_id="p1",
+        item_count=1,
+        retokenize=True,
     )
     assert req.retokenize is True
 
@@ -32,7 +35,9 @@ def test_batch_infer_request_accepts_retokenize():
     """BatchInferRequest must accept the retokenize field."""
     from batchalign.worker._types import BatchInferRequest, InferTask
 
-    req = BatchInferRequest(task=InferTask.MORPHOSYNTAX, lang="eng", items=[], retokenize=True)
+    req = BatchInferRequest(
+        task=InferTask.MORPHOSYNTAX, lang="eng", items=[], retokenize=True
+    )
     assert req.retokenize is True
 
 
@@ -83,9 +88,7 @@ def test_segment_cantonese_preserves_existing_multichar():
     result = _segment_cantonese(words)
 
     # 食飯 must remain as one token, not merged with neighbors
-    assert "食飯" in result, (
-        f"食飯 should be preserved as one token, got {result}"
-    )
+    assert "食飯" in result, f"食飯 should be preserved as one token, got {result}"
     # 啦飯啦 must NOT appear, that's the bug
     assert "啦飯啦" not in result, (
         f"啦飯啦 should not exist: words were wrongly merged: {result}"

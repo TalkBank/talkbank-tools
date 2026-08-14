@@ -16,7 +16,7 @@ from batchalign.worker._model_loading.bootstrap import (
     ensure_task_loaded,
     load_worker_profile_lazy,
 )
-from batchalign.worker._types import WorkerProfile, _WorkerState, _state
+from batchalign.worker._types import WorkerProfile, _state
 
 
 def _reset_state() -> None:

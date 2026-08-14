@@ -38,8 +38,13 @@ def _infer(req: InferRequest) -> InferResponse:
 
     batch_req = BatchInferRequest(task=req.task, lang=req.lang, items=[req.payload])
     batch_resp = _batch_infer(batch_req)
-    return batch_resp.results[0] if batch_resp.results else InferResponse(
-        error="Empty batch response", elapsed_s=0.0,
+    return (
+        batch_resp.results[0]
+        if batch_resp.results
+        else InferResponse(
+            error="Empty batch response",
+            elapsed_s=0.0,
+        )
     )
 
 
@@ -72,6 +77,7 @@ def _dispatch_coref(req: BatchInferRequest) -> BatchInferResponse:
     from batchalign.inference.coref import batch_infer_coref
 
     return batch_infer_coref(req)
+
 
 _STATIC_BATCH_INFER_DISPATCH = {
     InferTask.COREF: _dispatch_coref,

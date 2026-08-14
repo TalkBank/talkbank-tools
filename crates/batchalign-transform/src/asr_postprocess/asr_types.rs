@@ -45,6 +45,16 @@
 //!
 //! [`AsrElement`]: super::AsrElement
 //! [`AsrWord`]: super::AsrWord
+// Denies wildcard matches over closed enums, per chatter's ratchet. This is
+// the boundary where ASR text becomes CHAT words, so a swallowed variant here
+// is a wrong word in every transcript the pipeline produces.
+#![deny(clippy::wildcard_enum_match_arm)]
+// Test code is exempt, matching this crate's existing treatment of the panic
+// lints: `other => panic!("unexpected {other:?}")` is how a test says a variant
+// should be unreachable, and denying it there would push tests toward asserting
+// less rather than more.
+#![cfg_attr(test, allow(clippy::wildcard_enum_match_arm))]
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -209,9 +219,13 @@ fn structural_check(
     let errors = talkbank_model::ErrorCollector::new();
     let outcome = parser.parse_word_fragment(s, 0, &errors);
     let collected = errors.into_vec();
+    // Enumerated for the file's ratchet; both remaining cases are the same
+    // failure here, and `ParseOutcome` has only these two variants.
     match outcome {
         talkbank_model::ParseOutcome::Parsed(w) if collected.is_empty() => Ok(Some(w)),
-        _ => Err(collected),
+        talkbank_model::ParseOutcome::Parsed(_) | talkbank_model::ParseOutcome::Rejected => {
+            Err(collected)
+        }
     }
 }
 

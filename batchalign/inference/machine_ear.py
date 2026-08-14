@@ -117,7 +117,9 @@ def load_machine_ear(
     if "qwen2-audio" in lowered:
         from transformers import Qwen2AudioForConditionalGeneration
 
-        model = Qwen2AudioForConditionalGeneration.from_pretrained(model_id, dtype=dtype)
+        model = Qwen2AudioForConditionalGeneration.from_pretrained(
+            model_id, dtype=dtype
+        )
     elif "audio-flamingo-3" in lowered:
         try:
             from transformers import AudioFlamingo3ForConditionalGeneration
@@ -129,7 +131,9 @@ def load_machine_ear(
             )
             raise ValueError(msg) from err
 
-        model = AudioFlamingo3ForConditionalGeneration.from_pretrained(model_id, dtype=dtype)
+        model = AudioFlamingo3ForConditionalGeneration.from_pretrained(
+            model_id, dtype=dtype
+        )
     else:
         msg = f"no loader for {model_id}; add a family branch (no trust_remote_code)"
         raise ValueError(msg)
@@ -154,10 +158,13 @@ def ask_clip(handle: MachineEarHandle, wav: Path, text: str) -> ClipEarAnswer:
         msg = f"{wav}: machine ear is calibrated at {SAMPLE_RATE} Hz; got {rate}"
         raise ValueError(msg)
     conversation = [
-        {"role": "user", "content": [
-            {"type": "audio", "audio_url": str(wav)},
-            {"type": "text", "text": ear_prompt(text)},
-        ]},
+        {
+            "role": "user",
+            "content": [
+                {"type": "audio", "audio_url": str(wav)},
+                {"type": "text", "text": ear_prompt(text)},
+            ],
+        },
     ]
     prompt = handle.processor.apply_chat_template(
         conversation, add_generation_prompt=True, tokenize=False
@@ -176,6 +183,6 @@ def ask_clip(handle: MachineEarHandle, wav: Path, text: str) -> ClipEarAnswer:
             **inputs, max_new_tokens=MAX_ANSWER_TOKENS, do_sample=False
         )
     answer = handle.processor.batch_decode(
-        generated[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True
+        generated[:, inputs["input_ids"].shape[1] :], skip_special_tokens=True
     )[0].strip()
     return ClipEarAnswer(verdict=parse_verdict(answer), raw_answer=answer)

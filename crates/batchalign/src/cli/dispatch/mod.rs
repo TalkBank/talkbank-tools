@@ -29,6 +29,7 @@ use crate::cli::error::CliError;
 use crate::cli::progress::BatchProgress;
 use crate::cli::python::resolve_python_executable;
 
+use crate::cli::args::InputKind;
 use helpers::{DirectProgressTracker, file_error_details, finish_terminal_job};
 use paths::prepare_paths_submission;
 use single::dispatch_single_server;
@@ -47,7 +48,7 @@ pub struct DispatchRequest<'a> {
     /// Requested number of speakers.
     pub num_speakers: u32,
     /// File extensions to discover.
-    pub extensions: &'static [&'static str],
+    pub input_kind: InputKind,
     /// Explicit remote server URL, if any.
     pub server_arg: Option<&'a str>,
     /// Input paths supplied on the CLI.
@@ -133,7 +134,7 @@ pub async fn dispatch(
         command,
         lang,
         num_speakers,
-        extensions,
+        input_kind,
         server_arg,
         inputs,
         out_dir,
@@ -191,7 +192,7 @@ pub async fn dispatch(
                 command,
                 lang,
                 num_speakers,
-                extensions,
+                input_kind,
                 inputs,
                 out_dir,
                 options.as_ref(),
@@ -246,7 +247,7 @@ pub async fn dispatch(
             command,
             lang,
             num_speakers,
-            extensions,
+            input_kind,
             inputs,
             out_dir,
             options.as_ref(),
@@ -277,7 +278,7 @@ pub async fn dispatch(
                 command,
                 lang,
                 num_speakers,
-                extensions,
+                input_kind,
                 inputs,
                 out_dir,
                 options.as_ref(),
@@ -315,7 +316,7 @@ pub async fn dispatch(
             command,
             lang,
             num_speakers,
-            extensions,
+            input_kind,
             inputs,
             out_dir,
             options.as_ref(),
@@ -346,7 +347,7 @@ pub async fn dispatch(
         command,
         lang,
         num_speakers,
-        extensions,
+        input_kind,
         inputs,
         out_dir,
         options.as_ref(),
@@ -390,7 +391,7 @@ async fn dispatch_direct_mode(
     command: ReleasedCommand,
     lang: &str,
     num_speakers: u32,
-    extensions: &[&str],
+    input_kind: InputKind,
     inputs: &[std::path::PathBuf],
     out_dir: Option<&std::path::Path>,
     options: Option<&CommandOptions>,
@@ -423,7 +424,7 @@ async fn dispatch_direct_mode(
         command,
         lang,
         num_speakers,
-        extensions,
+        input_kind,
         inputs,
         out_dir,
         options,
@@ -432,7 +433,7 @@ async fn dispatch_direct_mode(
         &mapping_keys,
     )?
     else {
-        eprintln!("warning: no files found with extensions {extensions:?}");
+        eprintln!("warning: no files found for {input_kind:?} input");
         return Ok(());
     };
 
@@ -734,7 +735,7 @@ mod tests {
                 command: ReleasedCommand::Morphotag,
                 lang: "eng",
                 num_speakers: 0,
-                extensions: &["cha"],
+                input_kind: InputKind::Chat,
                 server_arg: Some("http://server-01:8001"),
                 inputs: &[],
                 out_dir: None,

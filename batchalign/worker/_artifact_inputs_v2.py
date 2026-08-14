@@ -23,14 +23,14 @@ from batchalign.errors import BatchalignError
 from batchalign.worker._types_v2 import (
     ArtifactRefV2,
     InlineJsonRefV2,
-    PreparedAudioEncodingV2,
     PreparedAudioRefV2,
-    PreparedTextEncodingV2,
     PreparedTextRefV2,
     WorkerArtifactIdV2,
 )
 
-_AttachmentT = TypeVar("_AttachmentT", PreparedAudioRefV2, PreparedTextRefV2, InlineJsonRefV2)
+_AttachmentT = TypeVar(
+    "_AttachmentT", PreparedAudioRefV2, PreparedTextRefV2, InlineJsonRefV2
+)
 _ARTIFACT_REF_ADAPTER: TypeAdapter[ArtifactRefV2] = TypeAdapter(ArtifactRefV2)
 
 

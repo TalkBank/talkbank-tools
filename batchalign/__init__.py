@@ -26,4 +26,7 @@ logging.getLogger("batchalign").addHandler(logging.NullHandler())
 for _name in ("nemo_logger", "nemo", "pytorch_lightning"):
     logging.getLogger(_name).setLevel(logging.WARNING)
 
-from .errors import *
+# Re-exports the public error surface. The star is deliberate, and this import
+# deliberately follows the logging configuration above so that importing the
+# package cannot emit a "no handlers" warning before the NullHandler is set.
+from .errors import *  # noqa: F403, E402

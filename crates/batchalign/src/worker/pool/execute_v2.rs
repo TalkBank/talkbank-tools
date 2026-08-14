@@ -256,7 +256,6 @@ mod tests {
                 payload_ref_id: WorkerArtifactIdV2::from("payload-1"),
                 audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 text_mode: FaTextModeV2::SpaceJoined,
-                pauses: false,
             }),
         );
 
@@ -311,7 +310,6 @@ mod tests {
                 payload_ref_id: WorkerArtifactIdV2::from("payload-1"),
                 audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 text_mode: FaTextModeV2::SpaceJoined,
-                pauses: false,
             }),
         );
 

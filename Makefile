@@ -18,6 +18,8 @@ help:
 	@echo "  make batchalign-build-pyo3         Imported standalone PyO3 crate"
 	@echo "  make batchalign-build-wheel        Imported Batchalign wheel"
 	@echo "  make batchalign-test-python        Imported Batchalign Python pytest gate"
+	@echo "  make batchalign-lint-python        Imported Batchalign Python ruff gate"
+	@echo "  make batchalign-ipc-schema-check   IPC schema vs Rust types drift gate"
 	@echo "  make batchalign-typecheck-python   Imported Batchalign Python typecheck gate"
 	@echo "  make batchalign-ci-python          Imported Batchalign Python wheel/test/type gate"
 	@echo "  make batchalign-dashboard-build       Imported dashboard frontend build"
@@ -171,7 +173,21 @@ _batchalign-test-python:
 batchalign-test-python: batchalign-python-prepare
 	@$(MAKE) _batchalign-test-python
 
+batchalign-ipc-schema-check:
+	@echo "==> Verifying IPC schema matches the Rust types..."
+	bash scripts/check_ipc_type_drift.sh
+
+_batchalign-lint-python:
+	@echo "==> Running imported Batchalign Python lint (ruff)..."
+	uv run --no-sync ruff check .
+	@echo "==> Checking imported Batchalign Python formatting (ruff)..."
+	uv run --no-sync ruff format --check .
+
+batchalign-lint-python: batchalign-python-prepare
+	@$(MAKE) _batchalign-lint-python
+
 _batchalign-typecheck-python:
+	@$(MAKE) batchalign-ipc-schema-check
 	@echo "==> Verifying imported Batchalign retirement gates..."
 	test ! -e batchalign/cli/cli.py
 	test ! -e batchalign/serve/app.py
@@ -187,6 +203,7 @@ batchalign-typecheck-python: batchalign-python-prepare
 
 batchalign-ci-python: batchalign-python-prepare
 	@$(MAKE) _batchalign-test-python
+	@$(MAKE) _batchalign-lint-python
 	@$(MAKE) _batchalign-typecheck-python
 
 batchalign-runtime-check:
@@ -220,6 +237,24 @@ batchalign-dashboard-e2e-real:
 # nobody runs, so its table drifted for two months. Adding a sixth lint is now
 # one line here.
 lint:
+	@echo "==> clippy (CI-gated crates)"
+	@# CI runs `lint` via `batchalign-ci-rust`, and until now nothing in that
+	@# chain ran clippy, so every `#![deny(clippy::...)]` in the tree fired
+	@# only on a developer's machine.
+	@#
+	@# Scoped to the same crates `batchalign-check` names, NOT `--workspace`:
+	@# the workspace includes `apps/dashboard-desktop`, whose Tauri stack needs
+	@# GTK/glib system libraries the CI runner does not have. A `--workspace`
+	@# clippy therefore passed locally and failed CI with a `glib-sys` build
+	@# error, which is why every other CI-gated target here enumerates crates.
+	cargo clippy -p batchalign-types -p batchalign-core -p batchalign-fa-core \
+		-p batchalign -p batchalign-transform -p batchalign-pyo3 \
+		--all-targets -- -D warnings
+	@echo "==> push gate covers CI"
+	@# Static check that scripts/pre-push.sh runs what the workflow runs. The
+	@# hook drifted into a weaker subset and reported success for three pushes
+	@# CI rejected on 2026-08-14.
+	@python3 scripts/check_push_gate_sync.py
 	@echo "==> batchalign-core purity gate"
 	@cargo run -q -p xtask -- lint-core-purity
 	@echo "==> wide struct audit"

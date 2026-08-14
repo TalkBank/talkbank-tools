@@ -23,7 +23,7 @@ class _FakeTree:
     def __init__(
         self,
         label: str | None = None,
-        children: list["_FakeTree"] | None = None,
+        children: list[_FakeTree] | None = None,
     ) -> None:
         self.label = label
         self.children = children or []
@@ -55,11 +55,21 @@ class TestUtsegModels:
     """Verify the typed utseg wire models remain stable."""
 
     def test_utseg_batch_item_roundtrip(self) -> None:
-        item = UtsegBatchItem(words=["I", "eat", "cookies"], lang="eng")
+        """Wire-format roundtrip, which no type pins on its own.
+
+        `text` is supplied because the Rust schema declares it required and
+        always sends it. This asserted `text == ""` until 2026-08-14, which
+        pinned a default that made "the item lost its text" and "the text is
+        empty" the same value.
+
+        The item carried a `lang` field too, which Rust never sent and nothing
+        read; it was removed the same day along with the conformance check's
+        extra-field allowance that existed for it.
+        """
+        item = UtsegBatchItem(words=["I", "eat", "cookies"], text="I eat cookies")
         assert item.model_dump() == {
             "words": ["I", "eat", "cookies"],
-            "text": "",
-            "lang": "eng",
+            "text": "I eat cookies",
         }
         assert UtsegBatchItem.model_validate(item.model_dump()) == item
 
@@ -70,7 +80,9 @@ class TestBatchInferUtseg:
     def test_short_circuits_invalid_and_single_word_items(self) -> None:
         calls: list[list[str]] = []
 
-        def build_stanza_config(langs: list[str]) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
+        def build_stanza_config(
+            langs: list[str],
+        ) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
             calls.append(langs)
             return ["en"], {"en": {"processors": "tokenize,constituency"}}
 
@@ -78,7 +90,7 @@ class TestBatchInferUtseg:
             BatchInferRequest(
                 task="utseg",
                 lang="eng",
-                items=[{"words": ["hello"]}, {"bad": "shape"}],
+                items=[{"words": ["hello"], "text": "hello"}, {"bad": "shape"}],
             ),
             build_stanza_config,
         )
@@ -88,7 +100,9 @@ class TestBatchInferUtseg:
         assert response.results[0].elapsed_s == 0.0
         assert response.results[1].error == "Invalid batch item"
 
-    def test_builds_single_language_pipeline_and_serializes_trees(self, monkeypatch) -> None:
+    def test_builds_single_language_pipeline_and_serializes_trees(
+        self, monkeypatch
+    ) -> None:
         # The Stanza branch is opt-in via the request-level typed field
         # `allow_stanza_fallback`; the CLI surface is
         # `--utseg-fallback-stanza` on every utseg-invoking subcommand.
@@ -116,7 +130,9 @@ class TestBatchInferUtseg:
 
         _install_fake_stanza(monkeypatch, pipeline_factory=_FakePipeline)
 
-        def build_stanza_config(langs: list[str]) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
+        def build_stanza_config(
+            langs: list[str],
+        ) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
             assert langs == ["eng"]
             return ["en"], {"en": {"processors": "tokenize,constituency"}}
 
@@ -124,7 +140,7 @@ class TestBatchInferUtseg:
             BatchInferRequest(
                 task="utseg",
                 lang="",
-                items=[{"words": ["I", "eat", "cookies"]}],
+                items=[{"words": ["I", "eat", "cookies"], "text": "I eat cookies"}],
                 allow_stanza_fallback=True,
             ),
             build_stanza_config,
@@ -157,7 +173,9 @@ class TestBatchInferUtseg:
                 BatchInferRequest(
                     task="utseg",
                     lang="spa",
-                    items=[{"words": ["hola", "como", "estas"]}],
+                    items=[
+                        {"words": ["hola", "como", "estas"], "text": "hola como estas"}
+                    ],
                 ),
                 lambda langs: (_ for _ in ()).throw(
                     AssertionError(f"refusal must skip Stanza load: {langs}")
@@ -174,9 +192,7 @@ class TestBatchInferUtseg:
         # typed protocol field + CLI flag.
         assert "BA3_UTSEG_FALLBACK_STANZA" not in message
 
-    def test_emits_loud_fallback_notice_when_opted_in(
-        self, monkeypatch
-    ) -> None:
+    def test_emits_loud_fallback_notice_when_opted_in(self, monkeypatch) -> None:
         """Opt-in fallback path: request field set → Stanza loads, notice fires."""
         emit_calls: list[tuple[str, str | None]] = []
 
@@ -197,7 +213,9 @@ class TestBatchInferUtseg:
 
         _install_fake_stanza(monkeypatch, pipeline_factory=_FakePipeline)
 
-        def build_stanza_config(langs: list[str]) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
+        def build_stanza_config(
+            langs: list[str],
+        ) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
             assert langs == ["spa"]
             return ["es"], {"es": {"processors": "tokenize,constituency"}}
 
@@ -205,7 +223,7 @@ class TestBatchInferUtseg:
             BatchInferRequest(
                 task="utseg",
                 lang="spa",
-                items=[{"words": ["hola", "como", "estas"]}],
+                items=[{"words": ["hola", "como", "estas"], "text": "hola como estas"}],
                 allow_stanza_fallback=True,
             ),
             build_stanza_config,
@@ -243,7 +261,9 @@ class TestBatchInferUtseg:
         utseg_module._emit_stanza_fallback_notice("deu", "de")
         assert emit_count[0] == 2
 
-    def test_builds_multilingual_pipeline_and_handles_runtime_failure(self, monkeypatch) -> None:
+    def test_builds_multilingual_pipeline_and_handles_runtime_failure(
+        self, monkeypatch
+    ) -> None:
         # Multilingual Stanza pipeline is also opt-in, no BERT was loaded here.
         init_kwargs: list[dict[str, Any]] = []
         seen_texts: list[str] = []
@@ -272,7 +292,9 @@ class TestBatchInferUtseg:
             multilingual_factory=_FakeMultilingualPipeline,
         )
 
-        def build_stanza_config(langs: list[str]) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
+        def build_stanza_config(
+            langs: list[str],
+        ) -> tuple[list[str], dict[str, dict[str, str | bool]]]:
             assert langs == ["eng"]
             return [
                 "en",
@@ -286,7 +308,10 @@ class TestBatchInferUtseg:
             BatchInferRequest(
                 task="utseg",
                 lang="eng",
-                items=[{"words": ["good", "path"]}, {"words": ["boom", "now"]}],
+                items=[
+                    {"words": ["good", "path"], "text": "good path"},
+                    {"words": ["boom", "now"], "text": "boom now"},
+                ],
                 allow_stanza_fallback=True,
             ),
             build_stanza_config,
@@ -316,7 +341,7 @@ class TestBatchInferUtseg:
             BatchInferRequest(
                 task="utseg",
                 lang="",
-                items=[{"words": ["still", "works"]}],
+                items=[{"words": ["still", "works"], "text": "still works"}],
                 allow_stanza_fallback=True,
             ),
             lambda langs: ([], {}),
@@ -335,9 +360,16 @@ class TestBatchInferUtseg:
             BatchInferRequest(
                 task="utseg",
                 lang="eng",
-                items=[{"words": ["On", "television", "Have", "you"]}],
+                items=[
+                    {
+                        "words": ["On", "television", "Have", "you"],
+                        "text": "On television Have you",
+                    }
+                ],
             ),
-            lambda langs: (_ for _ in ()).throw(AssertionError(f"unexpected Stanza load: {langs}")),
+            lambda langs: (_ for _ in ()).throw(
+                AssertionError(f"unexpected Stanza load: {langs}")
+            ),
             utterance_boundary_model=_FakeBoundaryModel(),
         )
 
@@ -346,15 +378,19 @@ class TestBatchInferUtseg:
     def test_boundary_model_short_circuits_single_word_items(self) -> None:
         class _FakeBoundaryModel:
             def predict_assignments(self, words: list[str]) -> list[int]:
-                raise AssertionError(f"single-word item should not reach model: {words}")
+                raise AssertionError(
+                    f"single-word item should not reach model: {words}"
+                )
 
         response = batch_infer_utseg(
             BatchInferRequest(
                 task="utseg",
                 lang="eng",
-                items=[{"words": ["hello"]}],
+                items=[{"words": ["hello"], "text": "hello"}],
             ),
-            lambda langs: (_ for _ in ()).throw(AssertionError(f"unexpected Stanza load: {langs}")),
+            lambda langs: (_ for _ in ()).throw(
+                AssertionError(f"unexpected Stanza load: {langs}")
+            ),
             utterance_boundary_model=_FakeBoundaryModel(),
         )
 
@@ -428,7 +464,9 @@ class TestUtsegTreeHelpers:
 
         assert assignments == [0, 0, 0, 1, 1, 1, 1]
 
-    def test_compute_assignments_backfills_trailing_unassigned_words(self, monkeypatch) -> None:
+    def test_compute_assignments_backfills_trailing_unassigned_words(
+        self, monkeypatch
+    ) -> None:
         monkeypatch.setattr(
             "batchalign.inference.utseg._parse_tree_indices",
             lambda _subtree, _offset: [[0, 1, 2]],
@@ -446,7 +484,9 @@ class TestUtsegTreeHelpers:
 
         assert assignments == [0, 0, 0, 0]
 
-    def test_compute_assignments_merges_short_trailing_groups(self, monkeypatch) -> None:
+    def test_compute_assignments_merges_short_trailing_groups(
+        self, monkeypatch
+    ) -> None:
         monkeypatch.setattr(
             "batchalign.inference.utseg._parse_tree_indices",
             lambda _subtree, _offset: [[0, 1, 2], [3, 4]],
@@ -464,7 +504,9 @@ class TestUtsegTreeHelpers:
 
         assert assignments == [0, 0, 0, 0, 0]
 
-    def test_compute_assignments_merges_all_short_groups_into_one_pending_group(self, monkeypatch) -> None:
+    def test_compute_assignments_merges_all_short_groups_into_one_pending_group(
+        self, monkeypatch
+    ) -> None:
         monkeypatch.setattr(
             "batchalign.inference.utseg._parse_tree_indices",
             lambda _subtree, _offset: [[0, 1], [2, 3]],
@@ -482,7 +524,9 @@ class TestUtsegTreeHelpers:
 
         assert assignments == [0, 0, 0, 0]
 
-    def test_compute_assignments_returns_zeroes_for_single_words_or_singleton_ranges(self, monkeypatch) -> None:
+    def test_compute_assignments_returns_zeroes_for_single_words_or_singleton_ranges(
+        self, monkeypatch
+    ) -> None:
         def fake_nlp(_text: str):
             return SimpleNamespace(
                 sentences=[SimpleNamespace(constituency=_FakeTree(label="ROOT"))]
@@ -496,7 +540,9 @@ class TestUtsegTreeHelpers:
         )
         assert compute_assignments(["hello", "world"], fake_nlp) == [0, 0]
 
-    def test_compute_assignments_returns_zeroes_when_phrase_mapping_stays_unassigned(self, monkeypatch) -> None:
+    def test_compute_assignments_returns_zeroes_when_phrase_mapping_stays_unassigned(
+        self, monkeypatch
+    ) -> None:
         monkeypatch.setattr(
             "batchalign.inference.utseg._parse_tree_indices",
             lambda _subtree, _offset: [[0], [10, 11]],

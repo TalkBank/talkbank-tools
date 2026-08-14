@@ -10,8 +10,8 @@ from typing import Any
 
 import pycountry
 
-from batchalign.errors import ConfigError
 from batchalign.config import config_read
+from batchalign.errors import ConfigError
 from batchalign.inference._domain_types import LanguageCode
 
 L = logging.getLogger("batchalign.hk")
@@ -34,6 +34,7 @@ _ASR_ENV_KEYS: dict[str, str] = {
 # Cantonese normalization: delegated to Rust (batchalign_core)
 # ---------------------------------------------------------------------------
 
+
 def normalize_cantonese_text(text: str) -> str:
     """Apply HK normalization: simplified→HK traditional + domain replacements.
 
@@ -41,6 +42,7 @@ def normalize_cantonese_text(text: str) -> str:
     OpenCC rules + Aho-Corasick replacement table).
     """
     import batchalign_core
+
     return batchalign_core.normalize_cantonese(text)
 
 
@@ -57,6 +59,7 @@ def normalize_cantonese_char_tokens(text: str) -> list[str]:
     Delegates to ``batchalign_core.cantonese_char_tokens()`` (pure Rust).
     """
     import batchalign_core
+
     return batchalign_core.cantonese_char_tokens(text)
 
 
@@ -118,9 +121,7 @@ def read_asr_config(
     for k in keys:
         value = resolved_config.get("asr", k).strip()
         if not value:
-            raise ConfigError(
-                f"Empty {engine} config value in ~/.batchalign.ini: {k}"
-            )
+            raise ConfigError(f"Empty {engine} config value in ~/.batchalign.ini: {k}")
         values[k] = value
     return values
 

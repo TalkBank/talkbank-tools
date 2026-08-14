@@ -9,7 +9,6 @@ import pytest
 
 from batchalign.inference.languages.cantonese._cantonese_fa import CantoneseFaHost
 
-
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 CLIP_MP3 = FIXTURES / "05b_clip.mp3"
 CLIP_WAV = FIXTURES / "05b_clip.wav"
@@ -52,6 +51,7 @@ def pc_real():
     Tests using this fixture exercise the actual jyutping dictionary.
     """
     import pycantonese
+
     return pycantonese
 
 
@@ -62,6 +62,7 @@ def pc_real():
 
 class _FakeAudioChunk:
     """Stand-in for audio chunk returned by ASRAudioFile.chunk()."""
+
     pass
 
 

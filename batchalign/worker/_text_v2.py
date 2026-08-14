@@ -16,15 +16,14 @@ and CHAT semantics. Python remains a thin model-host boundary.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, ValidationError
 
 from batchalign.errors import BatchalignError
-
 from batchalign.inference.coref import (
     CorefBatchItem,
     batch_infer_coref,
@@ -53,8 +52,8 @@ from batchalign.worker._types_v2 import (
     MorphosyntaxRequestV2,
     MorphosyntaxResultPayloadV2,
     ProtocolErrorCodeV2,
-    TranslationResultPayloadV2,
     TranslateRequestV2,
+    TranslationResultPayloadV2,
     UtsegRequestV2,
     UtsegResultPayloadV2,
 )
@@ -120,9 +119,13 @@ def execute_morphosyntax_request_v2(
     try:
         morphosyntax_request = _extract_morphosyntax_request(request)
         batch = MorphosyntaxPreparedBatchV2.model_validate(
-            load_json_attachment_v2(request.attachments, morphosyntax_request.payload_ref_id)
+            load_json_attachment_v2(
+                request.attachments, morphosyntax_request.payload_ref_id
+            )
         )
-        _validate_item_count(batch.items, morphosyntax_request.item_count, "morphosyntax")
+        _validate_item_count(
+            batch.items, morphosyntax_request.item_count, "morphosyntax"
+        )
 
         # Set up progress emission: the morphosyntax handler reads the
         # progress callback from worker state (thread-local-safe because
@@ -156,7 +159,9 @@ def execute_morphosyntax_request_v2(
         return ExecuteResponseV2(
             request_id=request.request_id,
             outcome=ExecuteSuccessV2(),
-            result=_build_morphosyntax_result(response, morphosyntax_request.item_count),
+            result=_build_morphosyntax_result(
+                response, morphosyntax_request.item_count
+            ),
             elapsed_s=time.monotonic() - started_at,
         )
     except ArtifactInputErrorV2 as error:
@@ -273,7 +278,9 @@ def execute_translate_request_v2(
     try:
         translate_request = _extract_translate_request(request)
         batch = TranslatePreparedBatchV2.model_validate(
-            load_json_attachment_v2(request.attachments, translate_request.payload_ref_id)
+            load_json_attachment_v2(
+                request.attachments, translate_request.payload_ref_id
+            )
         )
         _validate_item_count(batch.items, translate_request.item_count, "translate")
         response = _require_runner(host.translate_runner, "translate")(
@@ -488,7 +495,9 @@ def _build_coref_result(
         raise RuntimeError(f"invalid coref host output: {error}") from error
 
 
-def _validate_item_count(items: Sequence[object], expected_count: int, task: str) -> None:
+def _validate_item_count(
+    items: Sequence[object], expected_count: int, task: str
+) -> None:
     """Require that a prepared batch payload length matches the request metadata."""
 
     actual_count = len(items)

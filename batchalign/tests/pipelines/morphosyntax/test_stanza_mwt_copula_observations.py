@@ -124,16 +124,25 @@ def _find_contraction(sent: list[dict], head_lemma: str) -> tuple[dict, dict | N
 class TestFreeTokenizeBaseline:
     """Stanza-with-MWT, unconstrained, MUST split ``X's`` as MWT Range."""
 
-    @pytest.mark.parametrize("label,text,_words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES)
+    @pytest.mark.parametrize(
+        "label,text,_words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES
+    )
     def test_contraction_becomes_mwt_range(
-        self, english_pipeline_free_tokenize, label, text, _words, _upos, _lemma,
+        self,
+        english_pipeline_free_tokenize,
+        label,
+        text,
+        _words,
+        _upos,
+        _lemma,
     ):
         doc = english_pipeline_free_tokenize(text)
         sent = doc.to_dict()[0]
 
         # Locate the first appearance of a Range id; this is the MWT token.
         range_entries = [
-            w for w in sent
+            w
+            for w in sent
             if isinstance(w.get("id"), (list, tuple)) and len(w["id"]) == 2
         ]
         assert range_entries, (
@@ -143,11 +152,17 @@ class TestFreeTokenizeBaseline:
         )
 
     @pytest.mark.parametrize(
-        "label,text,_words,expected_upos,expected_lemma", COPULA_CONTRACTION_SENTENCES,
+        "label,text,_words,expected_upos,expected_lemma",
+        COPULA_CONTRACTION_SENTENCES,
     )
     def test_clitic_tagging_matches_observation(
-        self, english_pipeline_free_tokenize,
-        label, text, _words, expected_upos, expected_lemma,
+        self,
+        english_pipeline_free_tokenize,
+        label,
+        text,
+        _words,
+        expected_upos,
+        expected_lemma,
     ):
         """Encode Stanza's *actual* tagging per-sentence as ground truth.
 
@@ -208,10 +223,17 @@ class TestPostprocessorWithOriginalWords:
     to produce tilde-joined MOR.
     """
 
-    @pytest.mark.parametrize("label,text,words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES)
+    @pytest.mark.parametrize(
+        "label,text,words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES
+    )
     def test_contraction_preserved_as_range_token(
-        self, english_pipeline_with_postprocessor,
-        label, text, words, _upos, _lemma,
+        self,
+        english_pipeline_with_postprocessor,
+        label,
+        text,
+        words,
+        _upos,
+        _lemma,
     ):
         nlp, ctx = english_pipeline_with_postprocessor
         ctx.original_words = [words]
@@ -227,7 +249,8 @@ class TestPostprocessorWithOriginalWords:
         # sees MWT structure and cannot emit tilde-joined MOR.
         contracted = f"{label}'s"
         range_entries = [
-            w for w in sent
+            w
+            for w in sent
             if (w.get("text") or "").lower() == contracted
             and isinstance(w.get("id"), (list, tuple))
             and len(w["id"]) == 2
@@ -241,7 +264,8 @@ class TestPostprocessorWithOriginalWords:
         )
 
     def test_preceding_merge_does_not_strip_following_contraction_range(
-        self, english_pipeline_with_postprocessor,
+        self,
+        english_pipeline_with_postprocessor,
     ):
         """A merged filled-pause token must not kill a later contraction MWT.
 
@@ -257,13 +281,10 @@ class TestPostprocessorWithOriginalWords:
             ctx.original_words = []
 
         sent = doc.to_dict()[0]
-        thats_entries = [
-            w for w in sent
-            if (w.get("text") or "").lower() == "that's"
-        ]
-        assert thats_entries, f"Expected surface token \"that's\" in {sent!r}"
+        thats_entries = [w for w in sent if (w.get("text") or "").lower() == "that's"]
+        assert thats_entries, f'Expected surface token "that\'s" in {sent!r}'
         assert isinstance(thats_entries[0].get("id"), (list, tuple)), (
-            "Expected \"that's\" to remain a Range token even when an earlier "
+            'Expected "that\'s" to remain a Range token even when an earlier '
             "token in the sentence required merging. If this fails, "
             "_realign_sentence is still dropping Stanza's native MWT hint "
             "after unrelated merges."
@@ -289,10 +310,17 @@ class TestPostprocessorWithoutOriginalWords:
     is that the reason-to-merge is always present in Preserve mode.
     """
 
-    @pytest.mark.parametrize("label,text,_words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES)
+    @pytest.mark.parametrize(
+        "label,text,_words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES
+    )
     def test_contraction_stays_range(
-        self, english_pipeline_with_postprocessor,
-        label, text, _words, _upos, _lemma,
+        self,
+        english_pipeline_with_postprocessor,
+        label,
+        text,
+        _words,
+        _upos,
+        _lemma,
     ):
         nlp, ctx = english_pipeline_with_postprocessor
         # Explicitly clear: some prior test may have leaked state.
@@ -301,7 +329,8 @@ class TestPostprocessorWithoutOriginalWords:
 
         sent = doc.to_dict()[0]
         range_entries = [
-            w for w in sent
+            w
+            for w in sent
             if isinstance(w.get("id"), (list, tuple)) and len(w["id"]) == 2
         ]
         assert range_entries, (
@@ -311,11 +340,17 @@ class TestPostprocessorWithoutOriginalWords:
         )
 
     @pytest.mark.parametrize(
-        "label,text,_words,expected_upos,expected_lemma", COPULA_CONTRACTION_SENTENCES,
+        "label,text,_words,expected_upos,expected_lemma",
+        COPULA_CONTRACTION_SENTENCES,
     )
     def test_clitic_tagging_matches_observation(
-        self, english_pipeline_with_postprocessor,
-        label, text, _words, expected_upos, expected_lemma,
+        self,
+        english_pipeline_with_postprocessor,
+        label,
+        text,
+        _words,
+        expected_upos,
+        expected_lemma,
     ):
         """Same tagging observation as the free-tokenize baseline.
 
@@ -394,13 +429,9 @@ class TestPostprocessorEmitsMWTHint:
         assert len(out) == 1, f"Expected one sentence, got {len(out)}"
         tokens = out[0]
         # The merged contraction should be a (text, True) tuple.
-        matches = [
-            t for t in tokens
-            if isinstance(t, tuple) and t[0] == contracted
-        ]
+        matches = [t for t in tokens if isinstance(t, tuple) and t[0] == contracted]
         assert matches, (
-            f"Postprocessor did not emit a tuple for {contracted!r}. "
-            f"Output: {tokens!r}"
+            f"Postprocessor did not emit a tuple for {contracted!r}. Output: {tokens!r}"
         )
         text, hint = matches[0]
         assert hint is True, (
@@ -431,10 +462,17 @@ class TestBatchInferPreservePayloadToRust:
     on the Python side.
     """
 
-    @pytest.mark.parametrize("label,text,words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES)
+    @pytest.mark.parametrize(
+        "label,text,words,_upos,_lemma", COPULA_CONTRACTION_SENTENCES
+    )
     def test_preserve_payload_has_range_tokens(
-        self, english_pipeline_with_postprocessor,
-        label, text, words, _upos, _lemma,
+        self,
+        english_pipeline_with_postprocessor,
+        label,
+        text,
+        words,
+        _upos,
+        _lemma,
     ):
         """Post-fix behavior: ``retokenize=False`` preserves MWT structure.
 
@@ -457,12 +495,14 @@ class TestBatchInferPreservePayloadToRust:
 
         req = BatchInferRequest(
             task="morphosyntax",
-            items=[{
-                "words": words,
-                "terminator": ".",
-                "special_forms": [[None, None]] * len(words),
-                "lang": "eng",
-            }],
+            items=[
+                {
+                    "words": words,
+                    "terminator": ".",
+                    "special_forms": [[None, None]] * len(words),
+                    "lang": "eng",
+                }
+            ],
             lang="eng",
             retokenize=False,
             mwt={},
@@ -483,7 +523,8 @@ class TestBatchInferPreservePayloadToRust:
         # The Range entry whose surface matches the contracted token.
         contracted = f"{label}'s"
         range_entries = [
-            w for w in first_sent
+            w
+            for w in first_sent
             if (w.get("text") or "").lower() == contracted
             and isinstance(w.get("id"), (list, tuple))
             and len(w["id"]) == 2

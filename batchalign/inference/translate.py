@@ -27,7 +27,6 @@ class TranslateBatchItem(BaseModel):
     text: str
 
 
-
 def batch_infer_translate(
     req: BatchInferRequest,
     translate_fn: Callable[[str, str], str],

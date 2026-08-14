@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from typing import Any
@@ -75,17 +76,19 @@ def _run_fa(core: Any, iterations: int) -> float:
 def _run_morphosyntax(core: Any, iterations: int) -> float:
     def callback(payload: Any, lang: str) -> Any:
         return {
-            "raw_sentences": [[
-                {
-                    "id": i + 1,
-                    "text": word,
-                    "lemma": word,
-                    "upos": "INTJ" if i == 0 else "NOUN",
-                    "head": 0 if i == 0 else 1,
-                    "deprel": "root" if i == 0 else "obj",
-                }
-                for i, word in enumerate(payload["words"])
-            ]]
+            "raw_sentences": [
+                [
+                    {
+                        "id": i + 1,
+                        "text": word,
+                        "lemma": word,
+                        "upos": "INTJ" if i == 0 else "NOUN",
+                        "head": 0 if i == 0 else 1,
+                        "deprel": "root" if i == 0 else "obj",
+                    }
+                    for i, word in enumerate(payload["words"])
+                ]
+            ]
         }
 
     start = time.perf_counter()
@@ -100,9 +103,7 @@ def main() -> int:
     parser.add_argument(
         "--iterations", type=int, default=200, help="Iterations per benchmark mode"
     )
-    parser.add_argument(
-        "--json", action="store_true", help="Emit JSON only"
-    )
+    parser.add_argument("--json", action="store_true", help="Emit JSON only")
     args = parser.parse_args()
 
     if args.iterations <= 0:

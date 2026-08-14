@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 CASES: tuple[ProbeCase, ...] = (
     # ── d'água idiomatic elision (BA2 ForceMwt target; now 1-to-1) ─
     ProbeCase(

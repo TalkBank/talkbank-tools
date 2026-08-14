@@ -33,9 +33,9 @@ ordering.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 # Minimum divisor in the priority formula so a zero-duration test
 # (never ran in the call phase, or the history was seeded with 0)

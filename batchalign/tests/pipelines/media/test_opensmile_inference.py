@@ -35,7 +35,9 @@ class _FakeFrame:
         return len(self._records)
 
 
-def test_feature_set_map_caches_and_build_smile_engine_normalizes_level(monkeypatch) -> None:
+def test_feature_set_map_caches_and_build_smile_engine_normalizes_level(
+    monkeypatch,
+) -> None:
     """Feature-set lookup should cache once and normalize non-functional levels."""
 
     captured: list[dict[str, object]] = []
@@ -115,7 +117,9 @@ def test_build_response_rejects_empty_results() -> None:
         raise AssertionError("expected ValueError for empty features")
 
 
-def test_infer_opensmile_item_and_extract_features_wrap_engine_results(monkeypatch) -> None:
+def test_infer_opensmile_item_and_extract_features_wrap_engine_results(
+    monkeypatch,
+) -> None:
     """File-path inference should normalize levels and expose feature samples."""
 
     class _FakeSmile:
@@ -148,7 +152,9 @@ def test_infer_opensmile_prepared_audio_success_path(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     class _FakeSmile:
-        def process_signal(self, audio: np.ndarray, *, sampling_rate: int) -> _FakeFrame:
+        def process_signal(
+            self, audio: np.ndarray, *, sampling_rate: int
+        ) -> _FakeFrame:
             captured["dtype"] = audio.dtype
             captured["sampling_rate"] = sampling_rate
             captured["values"] = audio.tolist()
@@ -175,14 +181,18 @@ def test_infer_opensmile_prepared_audio_success_path(monkeypatch) -> None:
     assert response.success is True
 
 
-def test_infer_opensmile_item_and_prepared_audio_return_typed_errors(monkeypatch) -> None:
+def test_infer_opensmile_item_and_prepared_audio_return_typed_errors(
+    monkeypatch,
+) -> None:
     """Both file-path and prepared-audio paths should surface extraction failures."""
 
     class _ExplodingSmile:
         def process_file(self, _path: str) -> _FakeFrame:
             raise RuntimeError("file extraction exploded")
 
-        def process_signal(self, _audio: np.ndarray, *, sampling_rate: int) -> _FakeFrame:
+        def process_signal(
+            self, _audio: np.ndarray, *, sampling_rate: int
+        ) -> _FakeFrame:
             assert sampling_rate == 16000
             raise RuntimeError("signal extraction exploded")
 
@@ -191,9 +201,7 @@ def test_infer_opensmile_item_and_prepared_audio_return_typed_errors(monkeypatch
         lambda feature_set, feature_level: (_ExplodingSmile(), "functionals"),
     )
 
-    file_response = infer_opensmile_item(
-        OpenSmileBatchItem(audio_path="/tmp/bad.wav")
-    )
+    file_response = infer_opensmile_item(OpenSmileBatchItem(audio_path="/tmp/bad.wav"))
     prepared_response = infer_opensmile_prepared_audio(
         np.asarray([0.1, 0.2], dtype=np.float64),
         16000,

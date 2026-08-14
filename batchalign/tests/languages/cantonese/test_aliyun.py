@@ -8,13 +8,12 @@ import json
 import pytest
 
 from batchalign.inference.languages.cantonese._aliyun_asr import (
-    _AliyunRunner,
-    _project_results,
     AliyunSentenceResult,
     AliyunWord,
+    _AliyunRunner,
+    _project_results,
     load_aliyun_asr,
 )
-
 
 # ---------------------------------------------------------------------------
 # _AliyunRunner sentence parsing (via Pydantic models)
@@ -153,9 +152,11 @@ class TestAliyunProjection:
             ]
         )
 
-        assert [
-            element.value for element in response.monologues[0].elements
-        ] == ["真", "係", "啊"]
+        assert [element.value for element in response.monologues[0].elements] == [
+            "真",
+            "係",
+            "啊",
+        ]
         assert all(
             element.ts is None and element.end_ts is None
             for element in response.monologues[0].elements

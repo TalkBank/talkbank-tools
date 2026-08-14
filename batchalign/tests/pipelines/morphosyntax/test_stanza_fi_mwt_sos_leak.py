@@ -110,7 +110,10 @@ def _collect_control_token_leaks(
             for word in tok.words:
                 if CONTROL_TOKEN_SUBSTRING in word.text.lower():
                     leaks.append(("word.text", word.text, word.lemma))
-                if word.lemma is not None and CONTROL_TOKEN_SUBSTRING in word.lemma.lower():
+                if (
+                    word.lemma is not None
+                    and CONTROL_TOKEN_SUBSTRING in word.lemma.lower()
+                ):
                     leaks.append(("word.lemma", word.text, word.lemma))
     return leaks
 

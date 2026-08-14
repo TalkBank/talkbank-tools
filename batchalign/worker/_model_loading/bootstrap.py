@@ -30,7 +30,6 @@ from batchalign.worker._types import (
     PROFILE_TASKS,
     InferTask,
     WorkerBootstrapRuntime,
-    WorkerProfile,
     _state,
 )
 
@@ -80,6 +79,7 @@ def _configure_loaded_tasks(
     _state.num_speakers = num_speakers
     _state.ready = True
     L.info("Models ready: target=%s pid=%d", target_label, os.getpid())
+
 
 def load_worker_profile(bootstrap: WorkerBootstrapRuntime) -> None:
     """Load the ML/runtime state for a profile-based worker.
@@ -199,7 +199,9 @@ def ensure_task_loaded(
         if bootstrap is None:
             raise RuntimeError("ensure_task_loaded called before worker bootstrap")
 
-        merged_overrides = dict(bootstrap.engine_overrides) if bootstrap.engine_overrides else {}
+        merged_overrides = (
+            dict(bootstrap.engine_overrides) if bootstrap.engine_overrides else {}
+        )
         if engine_overrides:
             merged_overrides.update(engine_overrides)
 
@@ -214,8 +216,12 @@ def ensure_task_loaded(
         )
 
         t0 = _time.monotonic()
-        L.info("Loading task on demand: task=%s engine_overrides=%s pid=%d",
-               task, merged_overrides, os.getpid())
+        L.info(
+            "Loading task on demand: task=%s engine_overrides=%s pid=%d",
+            task,
+            merged_overrides,
+            os.getpid(),
+        )
         _load_single_task(task, task_bootstrap)
 
         elapsed = _time.monotonic() - t0
@@ -283,7 +289,11 @@ def _load_single_task(task: str, bootstrap: WorkerBootstrapRuntime) -> None:
         load_fa_engine(bootstrap)
     elif task == InferTask.ASR.value:
         load_asr_engine(bootstrap)
-    elif task in (InferTask.SPEAKER.value, InferTask.OPENSMILE.value, InferTask.AVQI.value):
+    elif task in (
+        InferTask.SPEAKER.value,
+        InferTask.OPENSMILE.value,
+        InferTask.AVQI.value,
+    ):
         # These tasks use lazy loading at request time, no startup model load.
         pass
     else:

@@ -14,16 +14,7 @@ fn test_inject_timings_simple() {
     let mut chat = parse_chat(input);
     let utt = get_test_utterance(&mut chat, 0);
 
-    let timings = vec![
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 500,
-        }),
-        Some(WordTiming {
-            start_ms: 600,
-            end_ms: 1000,
-        }),
-    ];
+    let timings = vec![WordTiming::new(100, 500), WordTiming::new(600, 1000)];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
     assert_eq!(offset, 2);
@@ -49,8 +40,8 @@ fn test_fa_cache_key() {
         &AudioIdentity::from_metadata("test.mp3", 1234, 5678),
         0,
         5000,
-        FaTimingMode::WithPauses,
-        FaEngineType::WhisperFa,
+        WordGapHealing::PreserveMeasured,
+        crate::types::engines::FaEngineName::Whisper,
     );
     // Verify it's a valid hex BLAKE3 (64 chars)
     assert_eq!(key.as_str().len(), 64);
@@ -62,8 +53,8 @@ fn test_fa_cache_key() {
         &AudioIdentity::from_metadata("test.mp3", 1234, 5678),
         0,
         5000,
-        FaTimingMode::WithPauses,
-        FaEngineType::WhisperFa,
+        WordGapHealing::PreserveMeasured,
+        crate::types::engines::FaEngineName::Whisper,
     );
     assert_eq!(key, key2);
 
@@ -73,8 +64,8 @@ fn test_fa_cache_key() {
         &AudioIdentity::from_metadata("test.mp3", 1234, 5678),
         0,
         5000,
-        FaTimingMode::Continuous,
-        FaEngineType::WhisperFa,
+        WordGapHealing::Heal,
+        crate::types::engines::FaEngineName::Whisper,
     );
     assert_ne!(key, key3);
 }
@@ -107,25 +98,16 @@ fn test_apply_fa_results() {
     }];
 
     let responses = vec![vec![
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 1000,
-        }),
-        Some(WordTiming {
-            start_ms: 1500,
-            end_ms: 3000,
-        }),
-        Some(WordTiming {
-            start_ms: 5500,
-            end_ms: 8000,
-        }),
+        WordTiming::new(100, 1000),
+        WordTiming::new(1500, 3000),
+        WordTiming::new(5500, 8000),
     ]];
 
     apply_fa_results(
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::WithPauses,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         true,
     );
 
@@ -231,22 +213,16 @@ fn test_parse_fa_response_token_level() {
             {"text": "world", "time_s": 0.6}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 0, FaTimingMode::Continuous).unwrap();
+    let timings = parse_fa_response(json, &words, 0).unwrap();
     assert_eq!(timings.len(), 2);
-    assert_eq!(
-        timings[0],
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 100
-        })
-    );
-    assert_eq!(
-        timings[1],
-        Some(WordTiming {
-            start_ms: 600,
-            end_ms: 600
-        })
-    );
+    // Until 2026-08-14 both words asserted `end_ms == start_ms`. That is not
+    // a timing, it is the absence of one, and the six-week run of
+    // zero-duration `%wor` tiers is what it looks like in the output. An
+    // onset-only engine gives no end, so each word ends where the next
+    // begins, and the last takes the named fallback because it has no
+    // successor.
+    assert_eq!(timings[0], WordTiming::new(100, 600));
+    assert_eq!(timings[1], WordTiming::new(600, 1100));
 }
 
 #[test]
@@ -257,21 +233,9 @@ fn test_parse_fa_response_token_level_punctuation_token_is_ignored() {
             {"text": "world", "time_s": 0.6}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 3000, FaTimingMode::Continuous).unwrap();
-    assert_eq!(
-        timings[0],
-        Some(WordTiming {
-            start_ms: 3100,
-            end_ms: 3100
-        })
-    );
-    assert_eq!(
-        timings[1],
-        Some(WordTiming {
-            start_ms: 3600,
-            end_ms: 3600
-        })
-    );
+    let timings = parse_fa_response(json, &words, 3000).unwrap();
+    assert_eq!(timings[0], WordTiming::new(3100, 3600));
+    assert_eq!(timings[1], WordTiming::new(3600, 4100));
 }
 
 #[test]
@@ -282,14 +246,11 @@ fn test_parse_fa_response_token_level_mismatch_does_not_skip_tokens() {
             {"text": "world", "time_s": 0.6}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 0, FaTimingMode::Continuous).unwrap();
-    assert_eq!(
-        timings[0],
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 100
-        })
-    );
+    let timings = parse_fa_response(json, &words, 0).unwrap();
+    // "hello" ends at the next token's onset even though that token is the
+    // unmatched "there": the end comes from the audio, not from whether
+    // stitching went on to succeed.
+    assert_eq!(timings[0], WordTiming::new(100, 200));
     assert_eq!(timings[1], None);
 }
 
@@ -300,7 +261,7 @@ fn test_parse_fa_response_indexed_word_level() {
             {"start_ms": 600, "end_ms": 1000}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 5000, FaTimingMode::Continuous).unwrap();
+    let timings = parse_fa_response(json, &words, 5000).unwrap();
     assert_eq!(timings.len(), 2);
     assert_eq!(timings[0].as_ref().unwrap().start_ms, 5100);
     assert_eq!(timings[0].as_ref().unwrap().end_ms, 5500);
@@ -313,7 +274,7 @@ fn test_parse_fa_response_indexed_length_mismatch_rejected() {
     use crate::chat_ops::fa::alignment::FaAlignmentError;
     let json = r#"{"indexed_timings": [{"start_ms": 100, "end_ms": 500}]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let err = parse_fa_response(json, &words, 0, FaTimingMode::Continuous).unwrap_err();
+    let err = parse_fa_response(json, &words, 0).unwrap_err();
     // Wave 5 consolidation: typed error replaces the previous stringly
     // "length mismatch" substring check. Assert on the variant shape so
     // a refactor that re-introduces a stringly path fails loudly.
@@ -384,7 +345,7 @@ fn snapshot_fa_infer_item() {
         audio_path: "/data/test.mp3".into(),
         audio_start_ms: 1500,
         audio_end_ms: 3200,
-        timing_mode: FaTimingMode::WithPauses,
+        gap_healing: WordGapHealing::PreserveMeasured,
     };
     insta::assert_json_snapshot!(item);
 }
@@ -442,33 +403,18 @@ fn test_apply_fa_results_excludes_xxx_from_wor_tier() {
 
     // FA response: 5 timings for the 5 real words.
     let responses = vec![vec![
-        Some(WordTiming {
-            start_ms: 27602,
-            end_ms: 27762,
-        }),
-        Some(WordTiming {
-            start_ms: 27762,
-            end_ms: 27942,
-        }),
-        Some(WordTiming {
-            start_ms: 27942,
-            end_ms: 28002,
-        }),
-        Some(WordTiming {
-            start_ms: 28002,
-            end_ms: 28203,
-        }),
-        Some(WordTiming {
-            start_ms: 28203,
-            end_ms: 28323,
-        }),
+        WordTiming::new(27602, 27762),
+        WordTiming::new(27762, 27942),
+        WordTiming::new(27942, 28002),
+        WordTiming::new(28002, 28203),
+        WordTiming::new(28203, 28323),
     ]];
 
     apply_fa_results(
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::WithPauses,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         true,
     );
 

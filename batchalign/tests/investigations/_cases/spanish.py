@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 CASES: tuple[ProbeCase, ...] = (
     ProbeCase("al_alone", ("al",), Phenomenon.NATIVE_MWT, 1),
     ProbeCase("del_alone", ("del",), Phenomenon.NATIVE_MWT, 1),

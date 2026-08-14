@@ -100,7 +100,9 @@ def classify_error(exc: BaseException) -> str:
             return "validation"
         return "input"
 
-    if isinstance(exc, ValueError) and ("CHAT" in str(exc) or "Parse error" in str(exc)):
+    if isinstance(exc, ValueError) and (
+        "CHAT" in str(exc) or "Parse error" in str(exc)
+    ):
         return "input"
 
     if isinstance(exc, FileNotFoundError):

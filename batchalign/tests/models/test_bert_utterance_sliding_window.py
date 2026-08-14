@@ -27,7 +27,6 @@ import torch
 
 from batchalign.models.utterance.infer import BertUtteranceModel
 
-
 # ---------------------------------------------------------------------------
 # Fake tokenizer + model that mimic the HF contract
 # ---------------------------------------------------------------------------
@@ -50,7 +49,7 @@ class _FakeEncoding:
         assert batch_idx == 0
         return self._word_ids
 
-    def to(self, device: torch.device) -> "_FakeEncoding":
+    def to(self, device: torch.device) -> _FakeEncoding:
         return _FakeEncoding(
             input_ids=self.input_ids.to(device),
             attention_mask=self.attention_mask.to(device),
@@ -128,7 +127,7 @@ class _FakeModel:
     def __call__(
         self,
         input_ids: torch.Tensor,
-        attention_mask: torch.Tensor | None = None,  # noqa: ARG002, required by HF signature
+        attention_mask: torch.Tensor | None = None,
     ) -> SimpleNamespace:
         del attention_mask
         seq_len = input_ids.shape[1]

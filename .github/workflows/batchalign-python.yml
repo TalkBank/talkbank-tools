@@ -219,6 +219,24 @@ jobs:
         run: cargo run -q -p xtask -- lint-ci-hygiene
       - name: Verify runtime constants
         run: uv run --no-sync python scripts/check_runtime_drift.py
+      - name: Verify IPC schema matches the Rust types
+        # The schema is generated from the Rust types and committed. Nothing
+        # ran this before, so a schema stale against its own source could sit
+        # in the tree indefinitely; the conformance test reads the SCHEMA, so a
+        # stale one silently checks Python against yesterday's contract.
+        #
+        # Through `uv run`, so the check uses the release binary bundled in the
+        # wheel this job already installed. A bare `cargo run` would compile
+        # the crate again in the debug profile, which is the cost the CI
+        # hygiene step above was rewritten to avoid.
+        run: uv run --no-sync batchalign3 ipc-schema --check --output ipc-schema/
+      - name: Ruff lint
+        # Config lives in pyproject.toml, and ruff comes from the dev group in
+        # uv.lock, so this run and a developer's `make batchalign-lint-python`
+        # resolve the same version and the same rules.
+        run: uv run --no-sync ruff check .
+      - name: Ruff format check
+        run: uv run --no-sync ruff format --check .
       - name: Strict mypy
         run: uv run --no-sync mypy
 

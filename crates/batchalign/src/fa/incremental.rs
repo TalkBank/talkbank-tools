@@ -89,7 +89,7 @@ pub(crate) async fn process_fa_incremental(
             chat_text: to_chat_string(&chat_file),
             groups: Vec::new(),
             pre_injection_timings: Vec::new(),
-            timing_mode: fa_params.timing_mode,
+            gap_healing: fa_params.gap_healing,
             violations: Vec::new(),
             fallback_events: Vec::new(),
         });
@@ -115,7 +115,7 @@ pub(crate) async fn process_fa_incremental(
 
     let groups = group_utterances(
         &chat_file,
-        fa_params.max_group_ms.0,
+        fa_params.max_group_ms().0,
         audio.total_audio_ms.map(|ms| ms.0),
     );
     if groups.is_empty() {
@@ -123,7 +123,7 @@ pub(crate) async fn process_fa_incremental(
             chat_text: to_chat_string(&chat_file),
             groups: Vec::new(),
             pre_injection_timings: Vec::new(),
-            timing_mode: fa_params.timing_mode,
+            gap_healing: fa_params.gap_healing,
             violations: Vec::new(),
             fallback_events: Vec::new(),
         });
@@ -169,7 +169,7 @@ pub(crate) async fn process_fa_incremental(
                 audio.audio_identity,
                 g.audio_start_ms(),
                 g.audio_end_ms(),
-                fa_params.timing_mode,
+                fa_params.gap_healing,
                 fa_params.engine,
             )
         })
@@ -250,7 +250,7 @@ pub(crate) async fn process_fa_incremental(
                 audio_path: audio.audio_path,
                 worker_lang: worker_lang.into(),
                 engine: fa_params.engine,
-                timing_mode: fa_params.timing_mode,
+                gap_healing: fa_params.gap_healing,
             })
             .await?;
 
@@ -311,7 +311,7 @@ pub(crate) async fn process_fa_incremental(
         &mut chat_file,
         &groups,
         &final_timings,
-        fa_params.timing_mode,
+        fa_params.word_end_policy(),
         fa_params.wor_tier.should_write(),
     );
 
@@ -373,7 +373,7 @@ pub(crate) async fn process_fa_incremental(
         chat_text: to_chat_string(&chat_file),
         groups: group_traces,
         pre_injection_timings,
-        timing_mode: fa_params.timing_mode,
+        gap_healing: fa_params.gap_healing,
         violations,
         fallback_events,
     })
@@ -485,7 +485,7 @@ fn get_utterance_mut(chat_file: &mut ChatFile, idx: usize) -> Option<&mut Uttera
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chat_ops::fa::{FaTimingMode, FaWord, TimeSpan, apply_fa_results};
+    use crate::chat_ops::fa::{FaWord, TimeSpan, WordEndPolicy, WordGapHealing, apply_fa_results};
     use crate::chat_ops::{UtteranceIdx, WordIdx};
     use batchalign_transform::diff::diff_chat;
 
@@ -630,14 +630,8 @@ mod tests {
         // Group 0: forward timing (correct).
         // Group 1: backward timing, earlier than group 0's end time (639095 < 733418).
         let timings = vec![
-            vec![Some(crate::chat_ops::fa::WordTiming {
-                start_ms: 731556,
-                end_ms: 733418,
-            })],
-            vec![Some(crate::chat_ops::fa::WordTiming {
-                start_ms: 639095,
-                end_ms: 639300,
-            })],
+            vec![crate::chat_ops::fa::WordTiming::new(731556, 733418)],
+            vec![crate::chat_ops::fa::WordTiming::new(639095, 639300)],
         ];
 
         // Replicate what the FIXED `process_fa_incremental` does: apply results,
@@ -646,7 +640,7 @@ mod tests {
             &mut chat,
             &groups,
             &timings,
-            FaTimingMode::Continuous,
+            WordEndPolicy::measured(WordGapHealing::Heal),
             false,
         );
         // `process_fa_incremental` must call this after `apply_fa_results`;

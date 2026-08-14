@@ -59,9 +59,7 @@ def build_drift_report(db_path: Path, *, since_ts: int) -> DriftReport:
     (first-ever run) or the window has no rows.
     """
     if not db_path.exists():
-        return DriftReport(
-            total_probes=0, passes=0, fails=0, drift_outcomes=[]
-        )
+        return DriftReport(total_probes=0, passes=0, fails=0, drift_outcomes=[])
 
     conn = sqlite3.connect(db_path)
     try:
@@ -120,16 +118,21 @@ def format_markdown(report: DriftReport, *, run_date: str) -> str:
     header += "\n\n"
 
     if not report.fails:
-        return header + "No drift detected, all probe expectations match "\
+        return (
+            header + "No drift detected, all probe expectations match "
             "current Stanza behavior.\n"
+        )
 
     body = "## Drift outcomes\n\n"
-    body += "Each entry below is a probe whose most recent outcome is "\
+    body += (
+        "Each entry below is a probe whose most recent outcome is "
         "not `passed`. Adjudicate whether the Stanza behavior change is:\n"
+    )
     body += "\n"
     body += "* acceptable → update the probe expectation to the new baseline\n"
-    body += "* regression → file an upstream issue and pin the affected "\
-        "Stanza version\n"
+    body += (
+        "* regression → file an upstream issue and pin the affected Stanza version\n"
+    )
     body += "* our mistake → fix BA3's postprocessor and re-run the probes\n"
     body += "\n"
     body += "| test_id | outcome | duration_s |\n"

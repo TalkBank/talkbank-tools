@@ -28,9 +28,7 @@ from batchalign.tests._drift_report import (
 from batchalign.tests._test_history import SCHEMA_DDL
 
 
-def _seed_probe_runs(
-    db: Path, rows: list[tuple[int, str, str, float]]
-) -> None:
+def _seed_probe_runs(db: Path, rows: list[tuple[int, str, str, float]]) -> None:
     """Seed the Phase B history DB with probe runs.
 
     rows: ``(ts, test_id, outcome, duration_s)``.
@@ -103,7 +101,7 @@ def test_only_most_recent_run_per_probe_counts(tmp_path: Path) -> None:
         db,
         [
             (now - 3600, "p::t", "failed", 0.3),  # earlier
-            (now, "p::t", "passed", 0.3),          # latest, dominates
+            (now, "p::t", "passed", 0.3),  # latest, dominates
         ],
     )
     report = build_drift_report(db, since_ts=now - 7200)

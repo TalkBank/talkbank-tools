@@ -28,6 +28,7 @@ use batchalign::cli::client::BatchalignClient;
 use batchalign::cli::{jobs_cmd, serve_cmd};
 use batchalign::options::{CommandOptions, CommonOptions, TranscribeOptions};
 
+use batchalign::cli::args::InputKind;
 use cli_common::poll_job_done;
 use common::test_server_fixture::acquire_test_server_session;
 
@@ -273,7 +274,7 @@ async fn dispatch_no_server() {
             command: batchalign::ReleasedCommand::Morphotag,
             lang: "eng",
             num_speakers: 1,
-            extensions: &["cha"],
+            input_kind: InputKind::Chat,
             server_arg: None,
             inputs: &inputs,
             out_dir: None,

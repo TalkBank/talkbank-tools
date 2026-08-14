@@ -162,12 +162,36 @@ pub struct StanzaLanguageProcessors {
 // Pure inference protocol (CHAT-divorced)
 // ---------------------------------------------------------------------------
 
-/// Supported inference tasks for the CHAT-divorced worker protocol.
+/// Declare `InferTask` and its complete list from ONE source.
 ///
-/// This enum is serialized as snake_case strings on the wire.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[serde(rename_all = "snake_case")]
-pub enum InferTask {
+/// The variants and `ALL` used to be written separately, with a test holding
+/// them equal. That test could never catch the case it existed for: a new
+/// variant added to the enum and omitted from `ALL` left every arm accounted
+/// for and every listed task present, so it passed. Generating both from this
+/// invocation removes the possibility instead of checking for it, and removes
+/// the test with it.
+macro_rules! infer_tasks {
+    ($( $(#[$doc:meta])* $variant:ident ),+ $(,)?) => {
+        /// Supported inference tasks for the CHAT-divorced worker protocol.
+        ///
+        /// This enum is serialized as snake_case strings on the wire.
+        #[derive(
+            Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord,
+        )]
+        #[serde(rename_all = "snake_case")]
+        pub enum InferTask {
+            $( $(#[$doc])* $variant, )+
+        }
+
+        impl InferTask {
+            /// Every task, in declaration order, so code deriving a per-task
+            /// fact cannot silently miss one.
+            pub const ALL: &'static [Self] = &[ $( Self::$variant, )+ ];
+        }
+    };
+}
+
+infer_tasks! {
     /// Stanza morphosyntax tagging (`morphotag` command path).
     Morphosyntax,
     /// Utterance segmentation.

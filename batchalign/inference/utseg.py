@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError
 
-from batchalign.inference._domain_types import LanguageCode
-
 if TYPE_CHECKING:
     from batchalign.inference.types import ConstituencyTree, StanzaNLP
     from batchalign.models.utterance import BertUtteranceModel
@@ -103,14 +101,17 @@ class UtsegBatchItem(BaseModel):
     """
 
     words: list[str]
-    text: str = ""
-    lang: LanguageCode = ""
+    # Required, matching the Rust schema: an empty default would let an item
+    # that lost its text segment silently rather than reporting anything.
+    text: str
 
 
 def batch_infer_utseg(
     req: BatchInferRequest,
-    build_stanza_config: Callable[[list[str]], tuple[list[str], dict[str, dict[str, str | bool]]]],
-    utterance_boundary_model: "BertUtteranceModel | None" = None,
+    build_stanza_config: Callable[
+        [list[str]], tuple[list[str], dict[str, dict[str, str | bool]]]
+    ],
+    utterance_boundary_model: BertUtteranceModel | None = None,
 ) -> BatchInferResponse:
     """Batch Stanza constituency inference: (words) -> tree strings.
 
@@ -164,7 +165,9 @@ def batch_infer_utseg(
                     elapsed_s=0.0,
                 )
             except (IndexError, AttributeError, TypeError, ValueError) as error:
-                L.warning("Utseg boundary-model infer failed for item %d: %s", idx, error)
+                L.warning(
+                    "Utseg boundary-model infer failed for item %d: %s", idx, error
+                )
                 results[idx] = InferResponse(
                     result={"assignments": [0] * len(item.words)},
                     elapsed_s=0.0,
@@ -313,13 +316,8 @@ def _parse_tree_indices(subtree: ConstituencyTree, offset: int) -> list[list[int
     children = subtree.children
 
     result: list[list[int]] = []
-    subtree_labels = [
-        c.label.lower() if c.label else ""
-        for c in children
-    ]
-    has_coordination = any(
-        lbl in ("cc", "conj") for lbl in subtree_labels
-    )
+    subtree_labels = [c.label.lower() if c.label else "" for c in children]
+    has_coordination = any(lbl in ("cc", "conj") for lbl in subtree_labels)
 
     child_offset = offset
     for child in children:
@@ -358,7 +356,7 @@ def compute_assignments(words: list[str], nlp: StanzaNLP) -> list[int]:
     phrase_ranges = sorted(phrase_ranges, key=len)
 
     unique_ranges: list[list[int]] = []
-    for rng in list(reversed(phrase_ranges)) + [list(range(n))]:
+    for rng in [*reversed(phrase_ranges), list(range(n))]:
         rng_set = set(rng)
         for existing in unique_ranges:
             rng_set -= set(existing)

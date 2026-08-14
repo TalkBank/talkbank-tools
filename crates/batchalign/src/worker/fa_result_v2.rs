@@ -11,7 +11,7 @@
 //! That keeps model-output interpretation on the Rust side while the transport
 //! migration is still staged.
 
-use crate::chat_ops::fa::{FaTimingMode, FaWord, WordTiming, parse_fa_response};
+use crate::chat_ops::fa::{FaWord, WordTiming, parse_fa_response};
 use crate::chat_ops::nlp::{FaIndexedTiming, FaRawResponse, FaRawToken};
 
 use crate::api::DurationMs;
@@ -23,7 +23,6 @@ pub fn parse_forced_alignment_result_v2(
     response: &ExecuteResponseV2,
     original_words: &[FaWord],
     audio_start_ms: DurationMs,
-    timing_mode: FaTimingMode,
 ) -> Result<Vec<Option<WordTiming>>, String> {
     match &response.outcome {
         ExecuteOutcomeV2::Success => {}
@@ -122,14 +121,13 @@ pub fn parse_forced_alignment_result_v2(
     // `Result<_, String>`; convert at this boundary so the adapter
     // contract stays stable. A future follow-up can propagate the
     // typed error further up.
-    parse_fa_response(&raw_json, original_words, audio_start_ms.0, timing_mode)
-        .map_err(|e| e.to_string())
+    parse_fa_response(&raw_json, original_words, audio_start_ms.0).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chat_ops::fa::{FaTimingMode, FaWord};
+    use crate::chat_ops::fa::FaWord;
     use crate::chat_ops::{UtteranceIdx, WordIdx};
 
     use crate::api::{DurationMs, DurationSeconds};
@@ -177,7 +175,6 @@ mod tests {
             &response,
             &make_words(&["hello", "world"]),
             DurationMs(1_000),
-            FaTimingMode::Continuous,
         )
         .expect("V2 whisper token result should parse");
 
@@ -210,7 +207,6 @@ mod tests {
             &response,
             &make_words(&["hello", "world"]),
             DurationMs(500),
-            FaTimingMode::WithPauses,
         )
         .expect("V2 indexed timing result should parse");
 
@@ -234,13 +230,9 @@ mod tests {
             elapsed_s: DurationSeconds(0.01),
         };
 
-        let error = parse_forced_alignment_result_v2(
-            &response,
-            &make_words(&["hello"]),
-            DurationMs(0),
-            FaTimingMode::Continuous,
-        )
-        .expect_err("translation result should be rejected");
+        let error =
+            parse_forced_alignment_result_v2(&response, &make_words(&["hello"]), DurationMs(0))
+                .expect_err("translation result should be rejected");
 
         assert!(error.contains("translation data"));
     }

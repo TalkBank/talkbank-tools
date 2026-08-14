@@ -35,8 +35,7 @@ class TestResolveTranslateEngine:
 
     def test_nllb_override_wins(self) -> None:
         assert (
-            resolve_translate_engine({"translate": "nllb"})
-            is TranslationBackend.NLLB
+            resolve_translate_engine({"translate": "nllb"}) is TranslationBackend.NLLB
         )
 
     def test_tencent_override_wins(self) -> None:
@@ -65,8 +64,7 @@ class TestResolveTranslateEngine:
         # Only the ``translate`` key matters here; other engine keys
         # belong to other resolvers.
         assert (
-            resolve_translate_engine({"asr": "seamless"})
-            is TranslationBackend.GOOGLE
+            resolve_translate_engine({"asr": "seamless"}) is TranslationBackend.GOOGLE
         )
 
     def test_unknown_engine_raises_value_error(self) -> None:
@@ -255,7 +253,9 @@ class TestLoadAliyunTranslate:
         from batchalign.worker._types import _state
 
         def _must_not_call(_req: object) -> bytes:
-            raise AssertionError("Aliyun client must not be called for unmapped language")
+            raise AssertionError(
+                "Aliyun client must not be called for unmapped language"
+            )
 
         _patch_aliyun_sdk(monkeypatch, do_action=_must_not_call)
         _reset_translate_state()
@@ -415,7 +415,9 @@ class TestSeamlessEdgeCases:
         # empty utterances upstream of the worker, but a defensive
         # check here documents what happens if one slips through.
         result = seamless_translate_fn("", "spa")
-        assert isinstance(result, str), f"expected str on empty input, got {type(result).__name__}"
+        assert isinstance(result, str), (
+            f"expected str on empty input, got {type(result).__name__}"
+        )
 
     def test_single_word_translates(self, seamless_translate_fn) -> None:
         result = seamless_translate_fn("perro", "spa")
@@ -430,9 +432,7 @@ class TestSeamlessEdgeCases:
     def test_multi_sentence_input(self, seamless_translate_fn) -> None:
         # Real CHAT utterances are typically one sentence each, but
         # nothing prevents a worker from getting a longer string.
-        result = seamless_translate_fn(
-            "Hola mundo. ¿Cómo estás? Me llamo Juan.", "spa"
-        )
+        result = seamless_translate_fn("Hola mundo. ¿Cómo estás? Me llamo Juan.", "spa")
         assert isinstance(result, str)
         assert result.strip()
         # Should contain SOMETHING that maps to one of the source
@@ -580,16 +580,14 @@ class TestNllbTranslatesPerLanguage:
     def test_german_to_english(self, nllb_translate_fn) -> None:
         result = nllb_translate_fn("Guten Tag", "deu")
         lower = result.lower()
-        assert any(w in lower for w in ("hello", "hi", "good", "day", "morning", "afternoon")), (
-            f"NLLB deu→eng didn't produce expected words: {result!r}"
-        )
+        assert any(
+            w in lower for w in ("hello", "hi", "good", "day", "morning", "afternoon")
+        ), f"NLLB deu→eng didn't produce expected words: {result!r}"
 
     def test_mandarin_long_form_to_english(self, nllb_translate_fn) -> None:
         # Long-form input: NLLB handles real sentences; short greetings
         # are a documented weakness handled in TestNllbRuntimeInvariants.
-        result = nllb_translate_fn(
-            "今天天气很好，我想去公园散步。", "cmn"
-        )
+        result = nllb_translate_fn("今天天气很好，我想去公园散步。", "cmn")
         lower = result.lower()
         assert any(
             w in lower for w in ("weather", "today", "park", "walk", "nice", "good")
@@ -598,9 +596,9 @@ class TestNllbTranslatesPerLanguage:
     def test_japanese_long_form_to_english(self, nllb_translate_fn) -> None:
         result = nllb_translate_fn("今日はとても良い天気ですね。", "jpn")
         lower = result.lower()
-        assert any(
-            w in lower for w in ("weather", "today", "day", "nice", "good")
-        ), f"NLLB jpn→eng (long-form) didn't produce expected words: {result!r}"
+        assert any(w in lower for w in ("weather", "today", "day", "nice", "good")), (
+            f"NLLB jpn→eng (long-form) didn't produce expected words: {result!r}"
+        )
 
 
 @pytest.mark.integration
@@ -634,9 +632,7 @@ class TestNllbRuntimeInvariants:
             _state.translate_backend = saved_backend
             _state.translate_fn = saved_fn
 
-    def test_unsupported_language_raises_clear_error(
-        self, nllb_translate_fn
-    ) -> None:
+    def test_unsupported_language_raises_clear_error(self, nllb_translate_fn) -> None:
         # The FLORES-200 mapping is a closed set, an unmapped source
         # language must raise rather than silently produce wrong-language
         # output. "xyz" is not a valid ISO-639-3 code anywhere.

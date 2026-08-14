@@ -61,11 +61,11 @@ post-processing). The rule is simple:
 | Tier 1: check reusable %wor timing | Outside (bypasses cache entirely) | `fa/mod.rs` |
 | Group utterances by time windows | Outside (pre-cache) | `fa/mod.rs` |
 | Word extraction per group | Outside (pre-cache) | `fa/mod.rs` |
-| Cache key: `BLAKE3(audio_identity \| start_ms \| end_ms \| text \| timing_flag \| engine)` |, | `fa/mod.rs` |
+| Cache key: `BLAKE3(audio_identity \| start_ms \| end_ms \| text \| healing_flag \| engine)` | | `fa/mod.rs` |
 | Whisper/Wave2Vec inference → `Vec<Option<WordTiming>>` | **Inside** | Python `fa.py` |
 | `postprocess_utterance_timings()` | Outside | `fa/postprocess.rs` |
-| - Continuous mode: backward end-time propagation | Outside | `fa/postprocess.rs` |
-| - WithPauses mode: use engine end times | Outside | `fa/postprocess.rs` |
+| - `WordGapHealing::Heal`: backward end-time propagation, bounded by plausibility caps | Outside | `fa/postprocess.rs` |
+| - `WordGapHealing::PreserveMeasured` (`--pauses`): leave each word's end alone | Outside | `fa/postprocess.rs` |
 | - Clamp to utterance bullet range | Outside | `fa/postprocess.rs` |
 | `update_utterance_bullet()` (overwrite UTR hints; union with authoritative) | Outside | `fa/orchestrate.rs` |
 | %wor tier generation | Outside | `fa/orchestrate.rs` |

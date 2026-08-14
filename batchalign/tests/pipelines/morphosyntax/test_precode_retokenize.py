@@ -25,9 +25,7 @@ def test_retok_pipeline_not_activated_for_precode_language() -> None:
 
     # Fixed logic: must check job-level language too
     use_retok = (
-        retokenize
-        and item_lang in ("zho", "cmn")
-        and req_lang in ("zho", "cmn")
+        retokenize and item_lang in ("zho", "cmn") and req_lang in ("zho", "cmn")
     )
     assert use_retok is False, (
         "retok pipeline must NOT activate for [- zho] items when job lang is yue"
@@ -41,8 +39,6 @@ def test_retok_pipeline_activated_for_mandarin_job() -> None:
     item_lang = "cmn"
 
     use_retok = (
-        retokenize
-        and item_lang in ("zho", "cmn")
-        and req_lang in ("zho", "cmn")
+        retokenize and item_lang in ("zho", "cmn") and req_lang in ("zho", "cmn")
     )
     assert use_retok is True

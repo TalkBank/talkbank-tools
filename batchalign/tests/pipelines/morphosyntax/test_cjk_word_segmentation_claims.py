@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # =============================================================================
 # Assumption 1: FunASR/SenseVoice outputs per-character tokens for Cantonese
 # =============================================================================
@@ -104,7 +103,9 @@ class TestClaim2_Tencent_WordSegmented:
         """
         from types import SimpleNamespace
 
-        from batchalign.inference.languages.cantonese._tencent_api import TencentRecognizer
+        from batchalign.inference.languages.cantonese._tencent_api import (
+            TencentRecognizer,
+        )
 
         rec = TencentRecognizer.__new__(TencentRecognizer)
         rec.lang_code = "yue"
@@ -134,9 +135,7 @@ class TestClaim2_Tencent_WordSegmented:
             "Tencent's multi-character word '故事' should be preserved as one token, "
             "not split into '故' and '事'"
         )
-        assert len(values) == 3, (
-            "Should have 3 words (故事, 係, 好), not 4 characters"
-        )
+        assert len(values) == 3, "Should have 3 words (故事, 係, 好), not 4 characters"
 
 
 # =============================================================================
@@ -194,8 +193,7 @@ class TestClaim3_PyCantonese_Segmentation:
 
         # '佢哋' should be one word, not split into '佢' + '哋'
         assert "佢哋" in result, (
-            "'佢哋' (they) is a two-character word, "
-            "PyCantonese should keep it together"
+            "'佢哋' (they) is a two-character word, PyCantonese should keep it together"
         )
 
         # '鍾意' should be one word, not split into '鍾' + '意'

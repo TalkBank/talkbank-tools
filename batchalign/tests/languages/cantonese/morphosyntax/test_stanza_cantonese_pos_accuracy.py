@@ -39,6 +39,7 @@ class TestStanzaCantonesePos:
     @staticmethod
     def _load_stanza():
         import stanza
+
         return stanza.Pipeline(
             lang="zh",
             processors="tokenize,pos,lemma,depparse",
@@ -102,10 +103,19 @@ class TestStanzaCantonesePos:
 
         checks = [
             ("佢哋 好 鍾意 食 嘢", {"佢哋": "PRON", "鍾意": "VERB", "嘢": "NOUN"}),
-            ("我 想 去 買 故事 書", {"我": "PRON", "想": "AUX", "故事": "NOUN", "書": "NOUN"}),
+            (
+                "我 想 去 買 故事 書",
+                {"我": "PRON", "想": "AUX", "故事": "NOUN", "書": "NOUN"},
+            ),
             ("你 知 唔 知道", {"你": "PRON", "唔": "ADV", "知道": "VERB"}),
-            ("媽媽 買 咗 好多 嘢", {"媽媽": "NOUN", "咗": "PART", "好多": "ADJ", "嘢": "NOUN"}),
-            ("佢 係 一 個 好 人", {"佢": "PRON", "係": "AUX", "好": "ADJ", "人": "NOUN"}),
+            (
+                "媽媽 買 咗 好多 嘢",
+                {"媽媽": "NOUN", "咗": "PART", "好多": "ADJ", "嘢": "NOUN"},
+            ),
+            (
+                "佢 係 一 個 好 人",
+                {"佢": "PRON", "係": "AUX", "好": "ADJ", "人": "NOUN"},
+            ),
         ]
 
         total = 0

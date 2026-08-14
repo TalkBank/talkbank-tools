@@ -15,17 +15,15 @@ Rust-prepared mono PCM and dispatches to the appropriate backend.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 import logging
 import wave
-from pathlib import Path
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import numpy as np
 from pydantic import BaseModel
 
 from batchalign.inference._domain_types import (
-    AudioPath,
     NumSpeakers,
     SpeakerId,
     TimestampMs,
@@ -46,7 +44,7 @@ def infer_speaker_prepared_audio(
     num_speakers: NumSpeakers = 2,
     engine: str = "pyannote",
     device_policy=None,
-) -> "SpeakerResponse":
+) -> SpeakerResponse:
     """Run one prepared-audio diarization item through the requested backend."""
 
     if engine == "nemo":
@@ -57,7 +55,9 @@ def infer_speaker_prepared_audio(
             device_policy=device_policy,
         )
     else:
-        segments = infer_pyannote_speaker_prepared_audio(audio, sample_rate_hz, num_speakers)
+        segments = infer_pyannote_speaker_prepared_audio(
+            audio, sample_rate_hz, num_speakers
+        )
     return SpeakerResponse(segments=segments)
 
 
@@ -127,7 +127,7 @@ def _conv_scale_weights(
     The ``self`` parameter is an MSDD_module instance with dynamic attributes
     (conv, conv_bn, conv_repeat, batch_size, etc.) that mypy cannot see.
     """
-    import torch  # noqa: F811
+    import torch
     import torch.nn.functional as F
 
     ms_cnn_input_seq = torch.cat([ms_avg_embs_perm, ms_emb_seq_single], dim=2)
@@ -136,7 +136,10 @@ def _conv_scale_weights(
     # All attribute accesses below: nn.Module.__getattr__ returns
     # Tensor | Module, but at runtime these are MSDD dynamic attributes.
     conv_out = self.conv_forward(
-        ms_cnn_input_seq, conv_module=self.conv[0], bn_module=self.conv_bn[0], first_layer=True
+        ms_cnn_input_seq,
+        conv_module=self.conv[0],
+        bn_module=self.conv_bn[0],
+        first_layer=True,
     )
     for conv_idx in range(1, self.conv_repeat + 1):
         conv_out = self.conv_forward(
@@ -146,7 +149,9 @@ def _conv_scale_weights(
             first_layer=False,
         )
 
-    lin_input_seq = conv_out.reshape(self.batch_size, self.length, self.cnn_output_ch * self.emb_dim)
+    lin_input_seq = conv_out.reshape(
+        self.batch_size, self.length, self.cnn_output_ch * self.emb_dim
+    )
     hidden_seq = self.conv_to_linear(lin_input_seq)
     hidden_seq = self.dropout(F.leaky_relu(hidden_seq))
     scale_weights = self.softmax(self.linear_to_weights(hidden_seq))
@@ -157,6 +162,7 @@ def _conv_scale_weights(
 def _resolve_speaker_config() -> str:
     """Return path to the NeMo speaker diarization config.yaml."""
     import os
+
     return os.path.join(os.path.dirname(__file__), "speaker_config.yaml")
 
 
@@ -166,12 +172,12 @@ def _temporary_conv_scale_weights_override(msdd_module: object):
 
     had_original = hasattr(msdd_module, "conv_scale_weights")
     original = getattr(msdd_module, "conv_scale_weights", None)
-    setattr(msdd_module, "conv_scale_weights", _conv_scale_weights)
+    msdd_module.conv_scale_weights = _conv_scale_weights
     try:
         yield
     finally:
         if had_original:
-            setattr(msdd_module, "conv_scale_weights", original)
+            msdd_module.conv_scale_weights = original
         else:
             delattr(msdd_module, "conv_scale_weights")
 
@@ -225,9 +231,9 @@ def _infer_nemo_speaker_from_audio_file(
     import os
     import tempfile
 
-    from omegaconf import OmegaConf
     from nemo.collections.asr.models.msdd_models import NeuralDiarizer
     from nemo.collections.asr.modules.msdd_diarizer import MSDD_module
+    from omegaconf import OmegaConf
     from pydub import AudioSegment
 
     base_config = OmegaConf.load(_resolve_speaker_config())
@@ -261,7 +267,9 @@ def _infer_nemo_speaker_from_audio_file(
             msdd_model.diarize()
 
         segments: list[SpeakerSegment] = []
-        with open(os.path.join(workdir, "pred_rttms", "mono_file.rttm"), encoding="utf-8") as f:
+        with open(
+            os.path.join(workdir, "pred_rttms", "mono_file.rttm"), encoding="utf-8"
+        ) as f:
             for line in f:
                 segments.append(_parse_rttm_line(line))
         return segments
@@ -298,7 +306,9 @@ def infer_pyannote_speaker_prepared_audio(
 
     waveform = torch.from_numpy(np.asarray(audio, dtype=np.float32)).unsqueeze(0)
     pipe = _get_pyannote_pipeline()
-    result = pipe({"waveform": waveform, "sample_rate": sample_rate_hz}, num_speakers=num_speakers)
+    result = pipe(
+        {"waveform": waveform, "sample_rate": sample_rate_hz}, num_speakers=num_speakers
+    )
 
     segments: list[SpeakerSegment] = []
     for turn, speaker in _iter_pyannote_turns_and_speakers(result):
@@ -356,9 +366,7 @@ def _get_pyannote_pipeline():
 
         from batchalign.worker._progress import emit_hf_download_if_missing
 
-        emit_hf_download_if_missing(
-            "talkbank/dia-fork", kind="speaker diarization"
-        )
+        emit_hf_download_if_missing("talkbank/dia-fork", kind="speaker diarization")
 
         _PYANNOTE_PIPELINE = PyannotePipeline.from_pretrained("talkbank/dia-fork")
     return _PYANNOTE_PIPELINE

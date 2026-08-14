@@ -26,8 +26,8 @@ import filecmp
 import json
 import os
 import shlex
-import signal
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -37,12 +37,21 @@ from pathlib import Path
 from typing import Final, Literal
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
-DEFAULT_MANIFEST: Final[Path] = REPO_ROOT / "test-fixtures" / "stock_batchalign" / "manifest.json"
-DEFAULT_ALLOWLIST: Final[Path] = REPO_ROOT / "test-fixtures" / "stock_batchalign" / "allowlist.json"
+DEFAULT_MANIFEST: Final[Path] = (
+    REPO_ROOT / "test-fixtures" / "stock_batchalign" / "manifest.json"
+)
+DEFAULT_ALLOWLIST: Final[Path] = (
+    REPO_ROOT / "test-fixtures" / "stock_batchalign" / "allowlist.json"
+)
 JAN9_BASELINE_CANDIDATES: Final[tuple[Path, ...]] = (
     Path.home() / "bin" / "batchalign-jan84ad500",
     Path.home() / "bin" / "batchalign2-jan84ad500" / "batchalign",
-    Path.home() / "bin" / "batchalign-pins" / "repos" / "batchalign2-jan84ad500" / "batchalign",
+    Path.home()
+    / "bin"
+    / "batchalign-pins"
+    / "repos"
+    / "batchalign2-jan84ad500"
+    / "batchalign",
 )
 CONFIG_SOURCE_ENV: Final[str] = "BATCHALIGN_STOCK_CONFIG_SOURCE"
 
@@ -247,7 +256,6 @@ class HarnessExecutionError(Exception):
     """Raised when the harness cannot resolve the requested runner command."""
 
 
-
 def _parse_metric_name(raw: str, context: str) -> ClassifiedMetricName:
     """Parse one classified metric name with explicit schema validation."""
     if raw == "wer":
@@ -261,14 +269,12 @@ def _parse_metric_name(raw: str, context: str) -> ClassifiedMetricName:
     raise HarnessConfigError(f"Unsupported metric {raw!r} in {context}")
 
 
-
 def _resolve_input_path(raw: str, base_dir: Path) -> Path:
     """Resolve manifest paths relative to the manifest directory when needed."""
     candidate = Path(raw).expanduser()
     if candidate.is_absolute():
         return candidate
     return (base_dir / candidate).resolve()
-
 
 
 def _expect_dict(value: JSONValue | None, context: str) -> dict[str, JSONValue]:
@@ -278,13 +284,11 @@ def _expect_dict(value: JSONValue | None, context: str) -> dict[str, JSONValue]:
     return value
 
 
-
 def _expect_list(value: JSONValue | None, context: str) -> list[JSONValue]:
     """Require a JSON list at one schema boundary."""
     if not isinstance(value, list):
         raise HarnessConfigError(f"Expected {context} to be a list")
     return value
-
 
 
 def _expect_str(value: JSONValue | None, context: str) -> str:
@@ -294,13 +298,13 @@ def _expect_str(value: JSONValue | None, context: str) -> str:
     return value
 
 
-
 def _expect_number(value: JSONValue | None, context: str) -> float:
     """Require a JSON number at one schema boundary."""
-    if isinstance(value, bool) or not (isinstance(value, int) or isinstance(value, float)):
+    if isinstance(value, bool) or not (
+        isinstance(value, int) or isinstance(value, float)
+    ):
         raise HarnessConfigError(f"Expected {context} to be a number")
     return float(value)
-
 
 
 def _expect_optional_number(value: JSONValue | None, context: str) -> float | None:
@@ -310,14 +314,14 @@ def _expect_optional_number(value: JSONValue | None, context: str) -> float | No
     return _expect_number(value, context)
 
 
-
-def _expect_optional_list_of_str(value: JSONValue | None, context: str) -> tuple[str, ...]:
+def _expect_optional_list_of_str(
+    value: JSONValue | None, context: str
+) -> tuple[str, ...]:
     """Accept a JSON string list or null for argv-like fields."""
     if value is None:
         return ()
     items = _expect_list(value, context)
     return tuple(_expect_str(item, f"{context}[]") for item in items)
-
 
 
 def _parse_case_tolerances(
@@ -336,11 +340,12 @@ def _parse_case_tolerances(
     return tolerances
 
 
-
 def load_cases(manifest_path: Path) -> list[BenchmarkCase]:
     """Load curated benchmark cases from the repo-local manifest."""
     root = _expect_dict(json.loads(manifest_path.read_text()), "manifest")
-    schema_version = _expect_number(root.get("schema_version"), "manifest schema_version")
+    schema_version = _expect_number(
+        root.get("schema_version"), "manifest schema_version"
+    )
     if int(schema_version) != 1:
         raise HarnessConfigError(
             f"Unsupported manifest schema_version {schema_version} in {manifest_path}"
@@ -348,7 +353,9 @@ def load_cases(manifest_path: Path) -> list[BenchmarkCase]:
 
     base_dir = manifest_path.parent
     cases: list[BenchmarkCase] = []
-    for index, raw_case in enumerate(_expect_list(root.get("cases"), "manifest cases"), start=1):
+    for index, raw_case in enumerate(
+        _expect_list(root.get("cases"), "manifest cases"), start=1
+    ):
         case_dict = _expect_dict(raw_case, f"case #{index}")
         case_id = _expect_str(case_dict.get("id"), f"case #{index} id")
         audio_path = _resolve_input_path(
@@ -360,9 +367,13 @@ def load_cases(manifest_path: Path) -> list[BenchmarkCase]:
             base_dir,
         )
         if not audio_path.is_file():
-            raise HarnessConfigError(f"Case {case_id} audio fixture does not exist: {audio_path}")
+            raise HarnessConfigError(
+                f"Case {case_id} audio fixture does not exist: {audio_path}"
+            )
         if not gold_path.is_file():
-            raise HarnessConfigError(f"Case {case_id} gold fixture does not exist: {gold_path}")
+            raise HarnessConfigError(
+                f"Case {case_id} gold fixture does not exist: {gold_path}"
+            )
         if audio_path.stem != gold_path.stem:
             raise HarnessConfigError(
                 f"Case {case_id} expects matching audio/gold stems, got {audio_path.name} and {gold_path.name}"
@@ -370,29 +381,38 @@ def load_cases(manifest_path: Path) -> list[BenchmarkCase]:
         cases.append(
             BenchmarkCase(
                 id=case_id,
-                description=_expect_str(case_dict.get("description"), f"case {case_id} description"),
-                command=_expect_str(case_dict.get("command"), f"case {case_id} command"),
+                description=_expect_str(
+                    case_dict.get("description"), f"case {case_id} description"
+                ),
+                command=_expect_str(
+                    case_dict.get("command"), f"case {case_id} command"
+                ),
                 audio_path=audio_path,
                 gold_path=gold_path,
-                argv=_expect_optional_list_of_str(case_dict.get("argv"), f"case {case_id} argv"),
+                argv=_expect_optional_list_of_str(
+                    case_dict.get("argv"), f"case {case_id} argv"
+                ),
                 tolerances=_parse_case_tolerances(case_dict.get("tolerances"), case_id),
             )
         )
     return cases
 
 
-
 def load_allowlist(allowlist_path: Path) -> list[AllowlistEntry]:
     """Load known Jan 9 legacy baseline bug entries from JSON."""
     root = _expect_dict(json.loads(allowlist_path.read_text()), "allowlist")
-    schema_version = _expect_number(root.get("schema_version"), "allowlist schema_version")
+    schema_version = _expect_number(
+        root.get("schema_version"), "allowlist schema_version"
+    )
     if int(schema_version) != 1:
         raise HarnessConfigError(
             f"Unsupported allowlist schema_version {schema_version} in {allowlist_path}"
         )
 
     entries: list[AllowlistEntry] = []
-    for index, raw_entry in enumerate(_expect_list(root.get("entries"), "allowlist entries"), start=1):
+    for index, raw_entry in enumerate(
+        _expect_list(root.get("entries"), "allowlist entries"), start=1
+    ):
         entry_dict = _expect_dict(raw_entry, f"allowlist entry #{index}")
         metric = _parse_metric_name(
             _expect_str(entry_dict.get("metric"), f"allowlist entry #{index} metric"),
@@ -400,9 +420,13 @@ def load_allowlist(allowlist_path: Path) -> list[AllowlistEntry]:
         )
         entries.append(
             AllowlistEntry(
-                case_id=_expect_str(entry_dict.get("case_id"), f"allowlist entry #{index} case_id"),
+                case_id=_expect_str(
+                    entry_dict.get("case_id"), f"allowlist entry #{index} case_id"
+                ),
                 metric=metric,
-                reason=_expect_str(entry_dict.get("reason"), f"allowlist entry #{index} reason"),
+                reason=_expect_str(
+                    entry_dict.get("reason"), f"allowlist entry #{index} reason"
+                ),
                 max_delta=_expect_optional_number(
                     entry_dict.get("max_delta"),
                     f"allowlist entry #{index} max_delta",
@@ -410,7 +434,6 @@ def load_allowlist(allowlist_path: Path) -> list[AllowlistEntry]:
             )
         )
     return entries
-
 
 
 def _resolve_explicit_executable(raw: str) -> str:
@@ -422,7 +445,6 @@ def _resolve_explicit_executable(raw: str) -> str:
     if discovered is not None:
         return discovered
     raise HarnessExecutionError(f"Could not resolve executable {raw!r}")
-
 
 
 def resolve_current_runner(explicit: str | None) -> list[str]:
@@ -448,13 +470,15 @@ def resolve_current_runner(explicit: str | None) -> list[str]:
     )
 
 
-
 def resolve_baseline_runner(explicit: str | None) -> list[str] | None:
     """Resolve the optional Jan 9 2026 legacy baseline executable."""
     if explicit is not None:
         return [_resolve_explicit_executable(explicit)]
 
-    for env_name in ("BATCHALIGN2_BASELINE_EXECUTABLE", "BATCHALIGN_BASELINE_EXECUTABLE"):
+    for env_name in (
+        "BATCHALIGN2_BASELINE_EXECUTABLE",
+        "BATCHALIGN_BASELINE_EXECUTABLE",
+    ):
         env_value = os.environ.get(env_name)
         if env_value:
             return [_resolve_explicit_executable(env_value)]
@@ -466,16 +490,19 @@ def resolve_baseline_runner(explicit: str | None) -> list[str] | None:
     return None
 
 
-
 def plan_benchmark_case(case: BenchmarkCase, case_root: Path) -> PreparedBenchmarkCase:
     """Compute one benchmark case layout without touching the filesystem."""
     input_dir = case_root / "input"
     output_dir = case_root / "output"
     copied_input = input_dir / case.audio_path.name
-    return PreparedBenchmarkCase(input_dir=input_dir, output_dir=output_dir, copied_input=copied_input)
+    return PreparedBenchmarkCase(
+        input_dir=input_dir, output_dir=output_dir, copied_input=copied_input
+    )
 
 
-def prepare_benchmark_case(case: BenchmarkCase, case_root: Path) -> PreparedBenchmarkCase:
+def prepare_benchmark_case(
+    case: BenchmarkCase, case_root: Path
+) -> PreparedBenchmarkCase:
     """Copy one benchmark fixture pair into an isolated case root."""
     prepared = plan_benchmark_case(case, case_root)
     prepared.input_dir.mkdir(parents=True, exist_ok=True)
@@ -490,7 +517,9 @@ def plan_compare_case(case: BenchmarkCase, case_root: Path) -> PreparedBenchmark
     input_dir = case_root / "input"
     output_dir = case_root / "output"
     copied_input = input_dir / f"{case.output_stem()}.cha"
-    return PreparedBenchmarkCase(input_dir=input_dir, output_dir=output_dir, copied_input=copied_input)
+    return PreparedBenchmarkCase(
+        input_dir=input_dir, output_dir=output_dir, copied_input=copied_input
+    )
 
 
 def prepare_compare_case(
@@ -522,10 +551,19 @@ def build_case_command(
     return tuple(argv)
 
 
-def build_compare_command(runner: list[str], prepared: PreparedBenchmarkCase) -> tuple[str, ...]:
+def build_compare_command(
+    runner: list[str], prepared: PreparedBenchmarkCase
+) -> tuple[str, ...]:
     """Build one current `compare` invocation for rescoring a legacy transcript."""
-    return tuple([*runner, "compare", "--output", str(prepared.output_dir), str(prepared.input_dir)])
-
+    return tuple(
+        [
+            *runner,
+            "compare",
+            "--output",
+            str(prepared.output_dir),
+            str(prepared.input_dir),
+        ]
+    )
 
 
 def _seed_runner_config(home_dir: Path) -> None:
@@ -545,7 +583,6 @@ def _seed_runner_config(home_dir: Path) -> None:
     config_path.write_text("[asr]\nengine = whisper\n", encoding="utf-8")
 
 
-
 def _prepare_runner_env(case_root: Path, label: str) -> dict[str, str]:
     """Isolate runner HOME/state roots so live caches do not bleed across runs."""
     env = dict(os.environ)
@@ -563,14 +600,17 @@ def _prepare_runner_env(case_root: Path, label: str) -> dict[str, str]:
     env["BATCHALIGN_NO_BROWSER"] = "1"
     env["HOME"] = str(home_dir)
     env["BATCHALIGN_STATE_DIR"] = str(state_dir)
-    repo_python = REPO_ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python3")
+    repo_python = (
+        REPO_ROOT
+        / ".venv"
+        / ("Scripts/python.exe" if os.name == "nt" else "bin/python3")
+    )
     if repo_python.is_file():
         env["BATCHALIGN_PYTHON"] = str(repo_python)
         env.setdefault("BATCHALIGN_SIDECAR_PYTHON", str(repo_python))
     if os.name == "nt":
         env["USERPROFILE"] = str(home_dir)
     return env
-
 
 
 def _kill_exact_pid(pid: int) -> None:
@@ -591,7 +631,6 @@ def _kill_exact_pid(pid: int) -> None:
         return
 
 
-
 def _cleanup_runner_daemons(case_root: Path, label: str) -> None:
     """Kill any exact daemon PIDs left behind by one isolated runner root."""
     state_dir = case_root / label / "state"
@@ -606,7 +645,6 @@ def _cleanup_runner_daemons(case_root: Path, label: str) -> None:
         pid = payload.get("pid")
         if isinstance(pid, int):
             _kill_exact_pid(pid)
-
 
 
 def _execute_command(argv: tuple[str, ...], env: dict[str, str]) -> CommandExecution:
@@ -628,11 +666,12 @@ def _execute_command(argv: tuple[str, ...], env: dict[str, str]) -> CommandExecu
     )
 
 
-
 def _parse_metrics_csv(path: Path) -> BenchmarkMetrics:
     """Parse the benchmark `.compare.csv` emitted by batchalign's compare pipeline."""
     if not path.is_file():
-        raise HarnessExecutionError(f"Expected benchmark metrics file was not written: {path}")
+        raise HarnessExecutionError(
+            f"Expected benchmark metrics file was not written: {path}"
+        )
 
     metrics: dict[str, str] = {}
     with path.open(newline="", encoding="utf-8") as handle:
@@ -670,10 +709,13 @@ def _parse_metrics_csv(path: Path) -> BenchmarkMetrics:
     )
 
 
-
 def _available_output_artifacts(output_dir: Path) -> str:
     """Summarize the files currently present in one runner output directory."""
-    artifacts = sorted(path.name for path in output_dir.iterdir()) if output_dir.is_dir() else []
+    artifacts = (
+        sorted(path.name for path in output_dir.iterdir())
+        if output_dir.is_dir()
+        else []
+    )
     return ", ".join(artifacts) if artifacts else "<none>"
 
 
@@ -745,7 +787,6 @@ def _match_allowlist(
     return None
 
 
-
 def _classify_metric(
     case: BenchmarkCase,
     metric: ClassifiedMetricName,
@@ -805,7 +846,6 @@ def _classify_metric(
     return None
 
 
-
 def classify_case(
     case: BenchmarkCase,
     current: BenchmarkMetrics,
@@ -818,7 +858,9 @@ def classify_case(
     regressions: list[MetricDifference] = []
 
     for metric in CLASSIFIED_METRICS:
-        difference = _classify_metric(case, metric, current, baseline, allowlist_entries)
+        difference = _classify_metric(
+            case, metric, current, baseline, allowlist_entries
+        )
         if difference is None:
             continue
         if difference.direction == "current_worse":
@@ -829,7 +871,6 @@ def classify_case(
             improvements.append(difference)
 
     return allowlisted, improvements, regressions
-
 
 
 def run_harness(
@@ -890,7 +931,9 @@ def run_harness(
             continue
 
         try:
-            report.current_metrics = _parse_metrics_csv(current_prepared.metrics_path(case))
+            report.current_metrics = _parse_metrics_csv(
+                current_prepared.metrics_path(case)
+            )
         except HarnessExecutionError as exc:
             report.status = "current_failed"
             report.current_error = str(exc)
@@ -911,7 +954,9 @@ def run_harness(
         report.baseline_execution = baseline_execution
         if baseline_execution.failed():
             report.status = "baseline_failed"
-            report.baseline_error = baseline_execution.failure_summary("baseline runner")
+            report.baseline_error = baseline_execution.failure_summary(
+                "baseline runner"
+            )
             reports.append(report)
             continue
 
@@ -948,7 +993,6 @@ def run_harness(
     return HarnessReport(cases=reports, run_root=run_root, dry_run=dry_run)
 
 
-
 def _print_case_listing(cases: list[BenchmarkCase]) -> None:
     """Print the curated comparison cases without executing anything."""
     for case in cases:
@@ -958,7 +1002,6 @@ def _print_case_listing(cases: list[BenchmarkCase]) -> None:
         print(f"  audio   : {case.audio_path}")
         print(f"  gold    : {case.gold_path}")
         print(f"  argv    : {args}")
-
 
 
 def _print_report(report: HarnessReport, baseline_runner: list[str] | None) -> None:
@@ -1016,7 +1059,6 @@ def _print_report(report: HarnessReport, baseline_runner: list[str] | None) -> N
                 print(f"    - {difference.summary()}")
 
 
-
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse CLI flags for the Jan 9 legacy comparison harness."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -1070,7 +1112,6 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         help="Print curated case metadata and exit.",
     )
     return parser.parse_args(argv)
-
 
 
 def main(argv: list[str] | None = None) -> int:

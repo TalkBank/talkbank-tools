@@ -29,10 +29,7 @@ def unsupported_batch_infer(message: str) -> BatchInferHandler:
     def _handler(req: BatchInferRequest) -> BatchInferResponse:
         """Return the same structured error for every batch item."""
         return BatchInferResponse(
-            results=[
-                InferResponse(error=message, elapsed_s=0.0)
-                for _ in req.items
-            ]
+            results=[InferResponse(error=message, elapsed_s=0.0) for _ in req.items]
         )
 
     return _handler

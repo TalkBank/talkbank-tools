@@ -9,17 +9,17 @@ matching Python master's tokenizer_processor rules exactly:
 from __future__ import annotations
 
 from batchalign.inference._tokenizer_realign import (
+    TokenizerContext,
     _conform,
     _is_contraction,
     _realign_sentence,
-    TokenizerContext,
     make_tokenizer_postprocessor,
 )
-
 
 # ---------------------------------------------------------------------------
 # _is_contraction
 # ---------------------------------------------------------------------------
+
 
 class TestIsContraction:
     """Replicates Python master ud.py lines 680-685 logic."""
@@ -82,6 +82,7 @@ class TestIsContraction:
 # ---------------------------------------------------------------------------
 # _realign_sentence: merged token tuples
 # ---------------------------------------------------------------------------
+
 
 class TestRealignSentenceMwtTuples:
     """Verify merged tokens become (text, bool) tuples with correct MWT hint."""
@@ -171,6 +172,7 @@ class TestRealignSentenceMwtTuples:
 # ---------------------------------------------------------------------------
 # make_tokenizer_postprocessor: alpha2 threading
 # ---------------------------------------------------------------------------
+
 
 class TestMakeTokenizerPostprocessor:
     """Verify alpha2 is captured in the closure and applied correctly."""

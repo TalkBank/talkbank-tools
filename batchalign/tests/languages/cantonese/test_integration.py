@@ -26,7 +26,6 @@ from batchalign.worker._types import BatchInferRequest, InferTask
 
 from .conftest import CLIP_MP3, CLIP_WAV
 
-
 # ---------------------------------------------------------------------------
 # Dependency probes
 # ---------------------------------------------------------------------------
@@ -35,6 +34,7 @@ from .conftest import CLIP_MP3, CLIP_WAV
 def _has_funasr() -> bool:
     try:
         import funasr  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -43,6 +43,7 @@ def _has_funasr() -> bool:
 def _has_pycantonese() -> bool:
     try:
         import pycantonese  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -51,6 +52,7 @@ def _has_pycantonese() -> bool:
 def _has_opencc() -> bool:
     try:
         import opencc  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -58,8 +60,9 @@ def _has_opencc() -> bool:
 
 def _has_tencent_sdk() -> bool:
     try:
-        from tencentcloud.asr.v20190614.asr_client import AsrClient  # noqa: F401
         from qcloud_cos import CosS3Client  # noqa: F401
+        from tencentcloud.asr.v20190614.asr_client import AsrClient  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -69,6 +72,7 @@ def _has_aliyun_sdk() -> bool:
     try:
         import nls  # noqa: F401
         from aliyunsdkcore.client import AcsClient  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -83,9 +87,7 @@ def _has_tencent_credentials() -> bool:
         "engine.tencent.region",
         "engine.tencent.bucket",
     )
-    return all(
-        cfg.has_option("asr", k) and cfg.get("asr", k).strip() for k in keys
-    )
+    return all(cfg.has_option("asr", k) and cfg.get("asr", k).strip() for k in keys)
 
 
 def _has_aliyun_credentials() -> bool:
@@ -96,9 +98,7 @@ def _has_aliyun_credentials() -> bool:
         "engine.aliyun.ak_secret",
         "engine.aliyun.ak_appkey",
     )
-    return all(
-        cfg.has_option("asr", k) and cfg.get("asr", k).strip() for k in keys
-    )
+    return all(cfg.has_option("asr", k) and cfg.get("asr", k).strip() for k in keys)
 
 
 def _require_fixtures() -> bool:
@@ -132,8 +132,8 @@ def _extract_tokens(response: object) -> list[dict[str, object]]:
     a flattened shared token schema. This helper mirrors the Rust-side
     normalization only as far as these integration assertions need.
     """
-    from batchalign.worker._types import BatchInferResponse
     from batchalign.inference.asr import MonologueAsrResponse
+    from batchalign.worker._types import BatchInferResponse
 
     assert isinstance(response, BatchInferResponse)
     assert len(response.results) == 1, f"Expected 1 result, got {len(response.results)}"
@@ -174,7 +174,11 @@ def _extract_tokens(response: object) -> list[dict[str, object]]:
 class TestFunAudioASR:
     @pytest.fixture(autouse=True)
     def _load_engine(self) -> None:
-        from batchalign.inference.languages.cantonese._funaudio_asr import load_funaudio_asr, infer_funaudio_asr
+        from batchalign.inference.languages.cantonese._funaudio_asr import (
+            infer_funaudio_asr,
+            load_funaudio_asr,
+        )
+
         load_funaudio_asr("yue", None)
         self._infer = infer_funaudio_asr
 
@@ -230,13 +234,19 @@ class TestFunAudioASR:
 
 @pytest.mark.integration
 @pytest.mark.skipif(not _has_tencent_sdk(), reason="Tencent SDK not installed")
-@pytest.mark.skipif(not _has_tencent_credentials(), reason="Tencent credentials not found")
+@pytest.mark.skipif(
+    not _has_tencent_credentials(), reason="Tencent credentials not found"
+)
 @pytest.mark.skipif(not _has_opencc(), reason="opencc not installed")
 @pytest.mark.skipif(not _require_fixtures(), reason="fixtures not found")
 class TestTencentASR:
     @pytest.fixture(autouse=True)
     def _load_engine(self) -> None:
-        from batchalign.inference.languages.cantonese._tencent_asr import load_tencent_asr, infer_tencent_asr
+        from batchalign.inference.languages.cantonese._tencent_asr import (
+            infer_tencent_asr,
+            load_tencent_asr,
+        )
+
         load_tencent_asr("yue", None)
         self._infer = infer_tencent_asr
 
@@ -284,13 +294,19 @@ class TestTencentASR:
 
 @pytest.mark.integration
 @pytest.mark.skipif(not _has_aliyun_sdk(), reason="Aliyun SDK not installed")
-@pytest.mark.skipif(not _has_aliyun_credentials(), reason="Aliyun credentials not found")
+@pytest.mark.skipif(
+    not _has_aliyun_credentials(), reason="Aliyun credentials not found"
+)
 @pytest.mark.skipif(not _has_opencc(), reason="opencc not installed")
 @pytest.mark.skipif(not _require_fixtures(), reason="fixtures not found")
 class TestAliyunASR:
     @pytest.fixture(autouse=True)
     def _load_engine(self) -> None:
-        from batchalign.inference.languages.cantonese._aliyun_asr import load_aliyun_asr, infer_aliyun_asr
+        from batchalign.inference.languages.cantonese._aliyun_asr import (
+            infer_aliyun_asr,
+            load_aliyun_asr,
+        )
+
         load_aliyun_asr("yue", None)
         self._infer = infer_aliyun_asr
 
@@ -322,6 +338,7 @@ class TestAliyunASR:
 
     def test_rejects_non_cantonese(self) -> None:
         from batchalign.inference.languages.cantonese._aliyun_asr import load_aliyun_asr
+
         with pytest.raises(ValueError, match="yue"):
             load_aliyun_asr("eng", None)
 
@@ -337,7 +354,11 @@ class TestAliyunASR:
 class TestCantoneseFAProvider:
     @pytest.fixture(autouse=True)
     def _load_engine(self) -> None:
-        from batchalign.inference.languages.cantonese._cantonese_fa import load_cantonese_fa, infer_cantonese_fa
+        from batchalign.inference.languages.cantonese._cantonese_fa import (
+            infer_cantonese_fa,
+            load_cantonese_fa,
+        )
+
         load_cantonese_fa("yue", None)
         self._infer = infer_cantonese_fa
 
@@ -400,17 +421,29 @@ class TestCantoneseNormalization:
     """Normalization is now pure Rust (embedded OpenCC + Aho-Corasick)."""
 
     def test_simplified_to_hk_traditional(self) -> None:
-        from batchalign.inference.languages.cantonese._common import normalize_cantonese_text
+        from batchalign.inference.languages.cantonese._common import (
+            normalize_cantonese_text,
+        )
+
         assert normalize_cantonese_text("联系") == "聯繫"
 
     def test_replacement_table(self) -> None:
-        from batchalign.inference.languages.cantonese._common import normalize_cantonese_text
+        from batchalign.inference.languages.cantonese._common import (
+            normalize_cantonese_text,
+        )
+
         assert normalize_cantonese_text("松") == "鬆"
 
     def test_idempotent_on_hk_text(self) -> None:
-        from batchalign.inference.languages.cantonese._common import normalize_cantonese_text
+        from batchalign.inference.languages.cantonese._common import (
+            normalize_cantonese_text,
+        )
+
         assert normalize_cantonese_text("你好") == "你好"
 
     def test_full_sentence_normalization(self) -> None:
-        from batchalign.inference.languages.cantonese._common import normalize_cantonese_text
+        from batchalign.inference.languages.cantonese._common import (
+            normalize_cantonese_text,
+        )
+
         assert normalize_cantonese_text("你真系好吵呀") == "你真係好嘈啊"

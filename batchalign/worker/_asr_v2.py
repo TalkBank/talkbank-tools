@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -32,7 +32,9 @@ if TYPE_CHECKING:
 class AsrExecutionHostV2:
     """Injected ASR execution hooks for the live V2 path."""
 
-    local_whisper_runner: Callable[[np.ndarray, LanguageCode], WhisperChunkResultPayloadV2] | None = None
+    local_whisper_runner: (
+        Callable[[np.ndarray, LanguageCode], WhisperChunkResultPayloadV2] | None
+    ) = None
     hk_tencent_runner: Callable[[AsrBatchItem], MonologueAsrResponse] | None = None
     hk_aliyun_runner: Callable[[AsrBatchItem], MonologueAsrResponse] | None = None
     hk_funaudio_runner: Callable[[AsrBatchItem], MonologueAsrResponse] | None = None
@@ -55,10 +57,7 @@ def build_default_asr_execution_host_v2(
             audio: np.ndarray,
             lang: LanguageCode,
         ) -> WhisperChunkResultPayloadV2:
-            return cast(
-                WhisperChunkResultPayloadV2,
-                infer_whisper_prepared_audio(whisper_model, audio, lang),
-            )
+            return infer_whisper_prepared_audio(whisper_model, audio, lang)
 
         local_whisper_runner = _run_local_whisper
 
@@ -68,15 +67,21 @@ def build_default_asr_execution_host_v2(
     hk_qwen_runner = None
 
     if asr_engine is AsrEngine.TENCENT:
-        from batchalign.inference.languages.cantonese._tencent_asr import infer_tencent_asr_v2
+        from batchalign.inference.languages.cantonese._tencent_asr import (
+            infer_tencent_asr_v2,
+        )
 
         hk_tencent_runner = infer_tencent_asr_v2
     elif asr_engine is AsrEngine.ALIYUN:
-        from batchalign.inference.languages.cantonese._aliyun_asr import infer_aliyun_asr_v2
+        from batchalign.inference.languages.cantonese._aliyun_asr import (
+            infer_aliyun_asr_v2,
+        )
 
         hk_aliyun_runner = infer_aliyun_asr_v2
     elif asr_engine is AsrEngine.FUNAUDIO:
-        from batchalign.inference.languages.cantonese._funaudio_asr import infer_funaudio_asr_v2
+        from batchalign.inference.languages.cantonese._funaudio_asr import (
+            infer_funaudio_asr_v2,
+        )
 
         hk_funaudio_runner = infer_funaudio_asr_v2
     elif asr_engine is AsrEngine.QWEN:

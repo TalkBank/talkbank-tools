@@ -116,7 +116,7 @@ def band_audio_span(
             verdict=PitchBandVerdict.AMBIGUOUS,
         )
     child_fraction = round(float(np.mean(voiced_f0 > CHILD_BAND_FLOOR_HZ)), 3)
-    voiced_frames = int(len(voiced_f0))
+    voiced_frames = len(voiced_f0)
     return SpanPitchBand(
         voiced_frames=voiced_frames,
         f0_median_hz=round(float(np.median(voiced_f0)), 1),

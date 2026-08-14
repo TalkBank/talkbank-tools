@@ -52,6 +52,7 @@ mod diarize_turns;
 mod fa_pipeline;
 mod kernel_plan;
 mod media_analysis_v2;
+mod media_search;
 mod options;
 mod plan;
 mod transcribe_pipeline;

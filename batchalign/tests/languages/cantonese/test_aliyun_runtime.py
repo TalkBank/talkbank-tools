@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import builtins
 import configparser
-from types import ModuleType, SimpleNamespace
 import sys
 import wave
+from types import ModuleType
 
 import pytest
 import torch
 
+import batchalign.inference.languages.cantonese._aliyun_asr as aliyun_asr
 from batchalign.inference.asr import AsrElement, AsrMonologue, MonologueAsrResponse
 from batchalign.inference.languages.cantonese._aliyun_asr import (
     _AliyunRunner,
     _ensure_wav,
     _get_token,
 )
-import batchalign.inference.languages.cantonese._aliyun_asr as aliyun_asr
 
 
 def _config_with_asr(**entries: str) -> configparser.ConfigParser:
@@ -94,7 +94,10 @@ def test_runner_start_streams_audio_chunks(monkeypatch) -> None:
             setattr(self, "_sample_rate", 8000),
         ),
     )
-    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.sleep", lambda _s: None)
+    monkeypatch.setattr(
+        "batchalign.inference.languages.cantonese._aliyun_asr.time.sleep",
+        lambda _s: None,
+    )
 
     runner = _AliyunRunner(token="token", appkey="app", wav_path="clip.wav")
     result = runner.start()
@@ -125,7 +128,10 @@ def test_get_token_reports_missing_sdk_dependency(monkeypatch) -> None:
 def test_get_token_uses_cached_value(monkeypatch) -> None:
     monkeypatch.setattr(aliyun_asr, "_cached_token", "cached")
     monkeypatch.setattr(aliyun_asr, "_cached_token_time", 10.0)
-    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic", lambda: 11.0)
+    monkeypatch.setattr(
+        "batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic",
+        lambda: 11.0,
+    )
 
     assert _get_token("id", "secret") == "cached"
 
@@ -164,9 +170,12 @@ def test_get_token_requires_token_id(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "aliyunsdkcore.request", request_module)
     monkeypatch.setattr(aliyun_asr, "_cached_token", None)
     monkeypatch.setattr(aliyun_asr, "_cached_token_time", 0.0)
-    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic", lambda: 1.0)
+    monkeypatch.setattr(
+        "batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic",
+        lambda: 1.0,
+    )
 
-    with pytest.raises(RuntimeError, match="Token.Id"):
+    with pytest.raises(RuntimeError, match=r"Token\.Id"):
         _get_token("id", "secret")
 
 
@@ -204,7 +213,10 @@ def test_get_token_refreshes_and_caches_value(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "aliyunsdkcore.request", request_module)
     monkeypatch.setattr(aliyun_asr, "_cached_token", "")
     monkeypatch.setattr(aliyun_asr, "_cached_token_time", 0.0)
-    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic", lambda: 100.0)
+    monkeypatch.setattr(
+        "batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic",
+        lambda: 100.0,
+    )
 
     token = _get_token("id", "secret")
 
@@ -284,7 +296,9 @@ def test_transcribe_to_monologues_cleans_up_temp_dir(monkeypatch) -> None:
     monkeypatch.setattr(aliyun_asr, "_ak_secret", "secret")
     monkeypatch.setattr(aliyun_asr, "_appkey", "app")
     monkeypatch.setattr(aliyun_asr, "_get_token", lambda *_args: "token")
-    monkeypatch.setattr(aliyun_asr, "_ensure_wav", lambda _path: ("clip.wav", _TempDir()))
+    monkeypatch.setattr(
+        aliyun_asr, "_ensure_wav", lambda _path: ("clip.wav", _TempDir())
+    )
     monkeypatch.setattr(aliyun_asr, "_AliyunRunner", FakeRunner)
     monkeypatch.setattr(aliyun_asr, "_project_results", lambda _results: expected)
 

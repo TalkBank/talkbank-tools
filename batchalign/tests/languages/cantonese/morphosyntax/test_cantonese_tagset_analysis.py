@@ -26,7 +26,6 @@ Provenance (from @Comment headers):
 
 from __future__ import annotations
 
-import re
 import os
 from collections import Counter
 from pathlib import Path
@@ -81,7 +80,11 @@ def _collect_pairs(max_files_per_corpus: int = 5) -> Counter:
                 if lines[i].startswith("*") and "\t" in lines[i]:
                     mor = None
                     j = i + 1
-                    while j < len(lines) and not lines[j].startswith("*") and not lines[j].startswith("@"):
+                    while (
+                        j < len(lines)
+                        and not lines[j].startswith("*")
+                        and not lines[j].startswith("@")
+                    ):
                         if lines[j].startswith("%mor:"):
                             mor = (
                                 lines[j].split("\t", 1)[1].strip()
@@ -133,9 +136,7 @@ class TestTagsetAnalysis:
                 agree += count
 
         rate = agree / total if total else 0
-        equiv_count = agree - sum(
-            c for (ex, pyc), c in pairs.items() if ex == pyc
-        )
+        equiv_count = agree - sum(c for (ex, pyc), c in pairs.items() if ex == pyc)
         print(f"\n  Normalized agreement: {agree}/{total} ({rate:.0%})")
         print(f"  Equivalences normalized: {equiv_count}")
 
@@ -152,7 +153,7 @@ class TestTagsetAnalysis:
         }
         top = sorted(disagreements.items(), key=lambda x: -x[1])[:10]
 
-        print(f"\n  Top genuine disagreements:")
+        print("\n  Top genuine disagreements:")
         for (ex, pyc), count in top:
             print(f"    existing={ex:>6} → pycantonese={pyc:<6} ({count}x)")
 

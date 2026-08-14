@@ -20,7 +20,6 @@ from batchalign.worker._types import BatchInferRequest, InferTask
 
 from .conftest import PyCantoneseFake  # still used by FA host fixture in conftest
 
-
 # ---------------------------------------------------------------------------
 # _hanzi_to_jyutping
 # ---------------------------------------------------------------------------
@@ -181,7 +180,9 @@ class TestInferCantoneseFa:
         )
 
     def test_marks_invalid_items(self, cantonese_fa_host: CantoneseFaHost) -> None:
-        req = BatchInferRequest(task=InferTask.FA, lang="yue", items=[{"words": ["你"]}])
+        req = BatchInferRequest(
+            task=InferTask.FA, lang="yue", items=[{"words": ["你"]}]
+        )
 
         resp = infer_cantonese_fa(req, host=cantonese_fa_host)
 
@@ -217,7 +218,9 @@ class TestInferCantoneseFa:
         )
 
         assert resp.results[0].result is None
-        assert resp.results[0].error == "Cantonese FA inference failed: alignment failed"
+        assert (
+            resp.results[0].error == "Cantonese FA inference failed: alignment failed"
+        )
 
 
 def test_load_cantonese_fa_reports_missing_dependency(monkeypatch) -> None:
@@ -252,7 +255,9 @@ def test_load_cantonese_fa_populates_default_host(monkeypatch) -> None:
         "batchalign.inference.fa.load_wave2vec_fa",
         lambda device_policy=None: {"device_policy": device_policy},
     )
-    monkeypatch.setattr("batchalign.inference.audio.load_audio_file", lambda path: f"audio:{path}")
+    monkeypatch.setattr(
+        "batchalign.inference.audio.load_audio_file", lambda path: f"audio:{path}"
+    )
     monkeypatch.setattr(
         "batchalign.inference.fa.infer_wave2vec_fa",
         lambda model, audio, words: [("word", (0, 100))],

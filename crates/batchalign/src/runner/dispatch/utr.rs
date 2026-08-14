@@ -275,7 +275,9 @@ pub(in crate::runner) async fn run_utr_pass(
                     }
                 };
 
-                all_tokens.extend(asr_response_to_utr_tokens(&seg_response, start_ms));
+                let converted = asr_response_to_utr_tokens(&seg_response, start_ms);
+                converted.warn_if_lossy(&context);
+                all_tokens.extend(converted.tokens);
 
                 // Report per-window progress so the frontend shows "Recovering
                 // utterance timing 2/5" as each window's ASR completes.
@@ -409,7 +411,9 @@ async fn run_utr_pass_full(
         }
     };
 
-    let asr_tokens = asr_response_to_utr_tokens(&asr_response, 0);
+    let converted = asr_response_to_utr_tokens(&asr_response, 0);
+    converted.warn_if_lossy(&context);
+    let asr_tokens = converted.tokens;
 
     if context.dumper.is_enabled() {
         let text = batchalign_transform::serialize::to_chat_string(chat_file);
@@ -489,6 +493,36 @@ async fn infer_utr_asr_response(
     }
 }
 
+/// What a conversion kept, and what it discarded.
+///
+/// The two discard reasons are different facts about the run: an engine that
+/// reports no word timings and an engine whose timings all collapsed both
+/// leave UTR with nothing to inject, and a bare token list cannot say which.
+pub(crate) struct UtrTokenConversion {
+    pub(crate) tokens: Vec<crate::chat_ops::fa::utr::AsrTimingToken>,
+    /// Tokens the engine gave no start or no end for.
+    pub(crate) dropped_untimed: usize,
+    /// Tokens whose span was present but empty or inverted.
+    pub(crate) dropped_degenerate: usize,
+}
+
+impl UtrTokenConversion {
+    /// Log at most one line describing what was discarded.
+    pub(crate) fn warn_if_lossy(&self, context: &UtrPassContext<'_>) {
+        if self.dropped_untimed == 0 && self.dropped_degenerate == 0 {
+            return;
+        }
+        tracing::warn!(
+            filename = context.filename,
+            engine = context.engine.as_wire_name(),
+            kept = self.tokens.len(),
+            dropped_untimed = self.dropped_untimed,
+            dropped_degenerate = self.dropped_degenerate,
+            "ASR tokens discarded before UTR"
+        );
+    }
+}
+
 /// Convert cached/shared ASR responses into the timing-token shape consumed by
 /// the UTR injector, applying an optional window offset in milliseconds.
 ///
@@ -501,23 +535,105 @@ async fn infer_utr_asr_response(
 fn asr_response_to_utr_tokens(
     asr_response: &crate::transcribe::AsrResponse,
     offset_ms: u64,
-) -> Vec<crate::chat_ops::fa::utr::AsrTimingToken> {
-    asr_response
-        .tokens
-        .iter()
-        .filter_map(|token| {
-            let start_ms = (token.start_s?.0 * 1000.0).round() as u64 + offset_ms;
-            let end_ms = (token.end_s?.0 * 1000.0).round() as u64 + offset_ms;
-            // Drop zero-duration tokens: they carry no useful timing information
-            // and propagate to zero-duration utterance bullets if allowed through.
-            if end_ms <= start_ms {
-                return None;
-            }
-            Some(crate::chat_ops::fa::utr::AsrTimingToken {
+) -> UtrTokenConversion {
+    let mut conversion = UtrTokenConversion {
+        tokens: Vec::with_capacity(asr_response.tokens.len()),
+        dropped_untimed: 0,
+        dropped_degenerate: 0,
+    };
+    for token in &asr_response.tokens {
+        let (Some(start_s), Some(end_s)) = (token.start_s, token.end_s) else {
+            // The engine reported no span for this token. Distinct from a span
+            // it reported as empty: that is a measurement, this is a silence.
+            conversion.dropped_untimed += 1;
+            continue;
+        };
+        let start_ms = (start_s.0 * 1000.0).round() as u64 + offset_ms;
+        let end_ms = (end_s.0 * 1000.0).round() as u64 + offset_ms;
+        // Drop zero-duration tokens: they carry no useful timing information
+        // and propagate to zero-duration utterance bullets if allowed through.
+        if end_ms <= start_ms {
+            conversion.dropped_degenerate += 1;
+            continue;
+        }
+        conversion
+            .tokens
+            .push(crate::chat_ops::fa::utr::AsrTimingToken {
                 text: token.text.clone(),
                 start_ms,
                 end_ms,
-            })
-        })
-        .collect()
+            });
+    }
+    conversion
+}
+
+#[cfg(test)]
+mod utr_token_conversion_tests {
+    use super::*;
+    use crate::transcribe::{AsrResponse, AsrToken};
+
+    fn response(tokens: Vec<AsrToken>) -> AsrResponse {
+        AsrResponse {
+            tokens,
+            lang: LanguageCode3::eng(),
+            source_monologues: None,
+        }
+    }
+
+    fn token(text: &str, start_s: Option<f64>, end_s: Option<f64>) -> AsrToken {
+        AsrToken {
+            text: text.to_owned(),
+            start_s: start_s.map(DurationSeconds),
+            end_s: end_s.map(DurationSeconds),
+            speaker: None,
+            confidence: None,
+        }
+    }
+
+    /// The distinction this type exists for.
+    ///
+    /// Both discards used to produce a shorter vector and nothing else, so an
+    /// engine reporting no word timings and an engine whose timings collapsed
+    /// were indistinguishable at the call site: each left UTR with nothing to
+    /// inject and no way to say which had happened.
+    #[test]
+    fn untimed_and_degenerate_discards_are_counted_apart() {
+        let converted = asr_response_to_utr_tokens(
+            &response(vec![
+                token("kept", Some(1.0), Some(1.5)),
+                token("no start", None, Some(2.0)),
+                token("no end", Some(2.0), None),
+                token("empty span", Some(3.0), Some(3.0)),
+                token("inverted", Some(5.0), Some(4.0)),
+            ]),
+            0,
+        );
+
+        assert_eq!(converted.tokens.len(), 1);
+        assert_eq!(converted.tokens[0].text, "kept");
+        assert_eq!(converted.dropped_untimed, 2);
+        assert_eq!(converted.dropped_degenerate, 2);
+    }
+
+    #[test]
+    fn a_clean_response_reports_no_losses() {
+        let converted = asr_response_to_utr_tokens(
+            &response(vec![
+                token("one", Some(0.0), Some(0.5)),
+                token("two", Some(0.5), Some(1.0)),
+            ]),
+            0,
+        );
+        assert_eq!(converted.tokens.len(), 2);
+        assert_eq!(converted.dropped_untimed, 0);
+        assert_eq!(converted.dropped_degenerate, 0);
+    }
+
+    #[test]
+    fn the_offset_applies_to_both_ends() {
+        let converted =
+            asr_response_to_utr_tokens(&response(vec![token("w", Some(1.0), Some(2.0))]), 10_000);
+        assert_eq!(converted.tokens[0].start_ms, 11_000);
+        assert_eq!(converted.tokens[0].end_ms, 12_000);
+    }
 }

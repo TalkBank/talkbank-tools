@@ -9,12 +9,10 @@ identically to torchaudio's I/O functions.
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 
-from batchalign.inference.audio import AudioInfo, load_audio, save_audio, audio_info
-
+from batchalign.inference.audio import AudioInfo, audio_info, load_audio, save_audio
 
 # Path to test audio file
 TEST_AUDIO = Path(__file__).parent.parent / "support" / "test.mp3"
@@ -71,9 +69,7 @@ class TestLoad:
 
         assert partial_audio.shape[1] == num_frames
         assert torch.allclose(
-            full_audio[:, offset:offset + num_frames],
-            partial_audio,
-            atol=1e-5
+            full_audio[:, offset : offset + num_frames], partial_audio, atol=1e-5
         )
 
     def test_load_offset_at_end_returns_empty(self):
@@ -192,8 +188,9 @@ class TestTorchaudioCompatibility:
         """Check if torchaudio I/O is available."""
         try:
             import torchaudio
+
             # Try to use load - will fail on 2.9+
-            torchaudio.load
+            _ = torchaudio.load
             return True
         except (ImportError, AttributeError):
             pytest.skip("torchaudio I/O not available")
@@ -239,7 +236,7 @@ class TestTorchaudioCompatibility:
         import torchaudio
 
         # Skip if torchaudio.info not available (removed in 2.9+)
-        if not hasattr(torchaudio, 'info'):
+        if not hasattr(torchaudio, "info"):
             pytest.skip("torchaudio.info not available (removed in 2.9+)")
 
         old_info = torchaudio.info(str(TEST_AUDIO))
@@ -248,7 +245,7 @@ class TestTorchaudioCompatibility:
         assert old_info.sample_rate == new_info.sample_rate
         assert old_info.num_frames == new_info.num_frames
         # Note: num_channels attribute name may differ
-        old_channels = getattr(old_info, 'num_channels', None)
+        old_channels = getattr(old_info, "num_channels", None)
         if old_channels is None:
-            old_channels = getattr(old_info, 'channels', 1)
+            old_channels = getattr(old_info, "channels", 1)
         assert old_channels == new_info.num_channels

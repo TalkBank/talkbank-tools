@@ -5,7 +5,7 @@
 //! processing.  The dispatch layer decides what to write to disk vs.
 //! what to store in the trace cache.
 
-use crate::chat_ops::fa::FaTimingMode;
+use crate::chat_ops::fa::WordGapHealing;
 use crate::chat_ops::morphosyntax_ops::RetokenizationInfo;
 use batchalign_transform::asr_postprocess::AsrPipelineSnapshot;
 
@@ -27,8 +27,8 @@ pub struct FaResult {
     pub groups: Vec<FaGroupTrace>,
     /// Timings as returned by the worker, before post-processing.
     pub pre_injection_timings: Vec<Vec<Option<TimingTrace>>>,
-    /// Timing mode used for this run.
-    pub timing_mode: FaTimingMode,
+    /// Gap-healing policy used for this run.
+    pub gap_healing: WordGapHealing,
     /// Post-validation violations.
     pub violations: Vec<ViolationTrace>,
     /// Engine fallback events captured during worker inference.
@@ -42,7 +42,7 @@ impl FaResult {
             groups: self.groups,
             pre_injection_timings: self.pre_injection_timings,
             post_injection_timings: Vec::new(), // TODO Phase 4
-            timing_mode: format!("{:?}", self.timing_mode),
+            gap_healing: format!("{:?}", self.gap_healing),
             violations: self.violations,
             fallback_events: self.fallback_events,
         }

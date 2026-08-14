@@ -42,20 +42,14 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
         utterance_indices: vec![UtteranceIdx::new(0)],
     }];
     let responses = vec![vec![
-        Some(WordTiming {
-            start_ms: 1000,
-            end_ms: 1500,
-        }),
-        Some(WordTiming {
-            start_ms: 1500,
-            end_ms: 3000,
-        }),
+        WordTiming::new(1000, 1500),
+        WordTiming::new(1500, 3000),
     ]];
     let decisions = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::WithPauses,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         false,
     );
 
@@ -136,15 +130,15 @@ fn test_fa_bullet_overwrites_utr_hint_with_word_derived_timing() {
     }];
 
     let responses = vec![vec![
-        Some(WordTiming::new(1000, 1500)),
-        Some(WordTiming::new(1500, 2000)),
+        WordTiming::new(1000, 1500),
+        WordTiming::new(1500, 2000),
     ]];
 
     apply_fa_results(
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::WithPauses,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         false,
     );
 
@@ -213,7 +207,7 @@ fn test_fa_preserves_utr_hint_when_all_words_untimed() {
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::WithPauses,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         false,
     );
 
@@ -261,9 +255,13 @@ fn test_rescued_rerun_bullet_does_not_clamp_new_fa_words() {
             "rescued bullet must stay provisional so postprocess will not clamp FA back into the stale narrow span",
         );
 
-        let dropped = postprocess_utterance_timings(utt, FaTimingMode::WithPauses);
+        let dropped = postprocess_utterance_timings(
+            utt,
+            WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
+        );
         assert_eq!(
-            dropped, 0,
+            dropped,
+            DroppedWordTimings::default(),
             "rescued provisional bullet must not drop new FA timings during rerun postprocess",
         );
         update_utterance_bullet(utt);
@@ -313,15 +311,15 @@ fn test_fa_sets_bullet_from_word_span_when_no_prior_bullet() {
     }];
 
     let responses = vec![vec![
-        Some(WordTiming::new(1000, 1500)),
-        Some(WordTiming::new(1500, 2000)),
+        WordTiming::new(1000, 1500),
+        WordTiming::new(1500, 2000),
     ]];
 
     apply_fa_results(
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::WithPauses,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         false,
     );
 
@@ -371,7 +369,7 @@ fn test_fa_clears_zero_duration_authoritative_bullet_when_fa_produces_no_word_ti
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::WithPauses,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         false,
     );
 
@@ -470,17 +468,17 @@ fn test_fa_backward_timestamp_from_wrong_audio_window_is_stripped() {
     // relative to group 0's correct 731556ms start).
     let responses = vec![
         // Group 0: "alright": correct.
-        vec![Some(WordTiming::new(731556, 733418))],
+        vec![WordTiming::new(731556, 733418)],
         // Group 1: wrong window, all timings < 731556ms.
         vec![
-            Some(WordTiming::new(639095, 639300)),
-            Some(WordTiming::new(639400, 639600)),
-            Some(WordTiming::new(639700, 639850)),
-            Some(WordTiming::new(639900, 640050)),
-            Some(WordTiming::new(640050, 640150)),
-            Some(WordTiming::new(640150, 640250)),
-            Some(WordTiming::new(640250, 640310)),
-            Some(WordTiming::new(640310, 640375)),
+            WordTiming::new(639095, 639300),
+            WordTiming::new(639400, 639600),
+            WordTiming::new(639700, 639850),
+            WordTiming::new(639900, 640050),
+            WordTiming::new(640050, 640150),
+            WordTiming::new(640150, 640250),
+            WordTiming::new(640250, 640310),
+            WordTiming::new(640310, 640375),
         ],
     ];
 
@@ -488,7 +486,7 @@ fn test_fa_backward_timestamp_from_wrong_audio_window_is_stripped() {
         &mut chat,
         &groups,
         &responses,
-        FaTimingMode::Continuous,
+        WordEndPolicy::measured(WordGapHealing::Heal),
         false,
     );
     enforce_monotonicity(&mut chat);

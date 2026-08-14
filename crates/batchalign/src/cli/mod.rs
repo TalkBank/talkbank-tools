@@ -88,6 +88,7 @@
 //! ```rust,no_run
 //! use std::path::Path;
 //! use batchalign::cli::resolve::resolve_inputs;
+//! use batchalign::cli::args::InputKind;
 //! use batchalign::cli::discover::discover_client_files;
 //!
 //! // Resolve CLI-style positional args into (inputs, output_dir)
@@ -102,7 +103,7 @@
 //! let (files, outputs) = discover_client_files(
 //!     Path::new(&inputs[0]),
 //!     Path::new(out_dir.as_deref().unwrap()),
-//!     &["cha"],
+//!     InputKind::Chat,
 //! ).unwrap();
 //! println!("found {} .cha files", files.len());
 //! ```
@@ -424,7 +425,7 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
                     command: profile.command,
                     lang: profile.lang,
                     num_speakers: profile.num_speakers,
-                    extensions: profile.extensions,
+                    input_kind: profile.input_kind,
                     server_arg: cli.global.server.as_deref(),
                     inputs: &inputs,
                     out_dir: out_dir.as_deref(),

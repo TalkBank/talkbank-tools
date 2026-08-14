@@ -175,11 +175,26 @@ existing violations get fixed when work brings you to them.
     downloads, model loads, external API calls, any blocking wait. Full rationale:
     [`book/src/batchalign/architecture/time-transparency.md`](book/src/batchalign/architecture/time-transparency.md).
 
-## Red/Green TDD: start at the top, drill down
+## Types first, then top-down TDD for what a type cannot hold
 
-Every feature and bug fix starts with a failing test, and the **first** failing
-test is the highest-level integration test for the actual boundary the change
-lives at. Unit tests on helpers are additional guards, never substitutes.
+**Before writing a failing test, ask what type change makes the defect
+unrepresentable, and make that change.** The compiler is the better failing
+test: red before the change and green after, at every call site, including the
+callers no test enumerates, and it reports at the mistake rather than in CI. A
+landing type change should DELETE the tests it obsoletes; keeping both
+relocates the check instead of removing it. Writing a runtime check where a
+compile error belongs looks like discipline and is a permanent tax.
+
+**For what a type genuinely cannot hold**, and this codebase has a lot of it,
+the rule below stands unchanged. Wire formats, roundtrips between two separate
+functions, measurements, policy choices with real alternatives, and above all
+anything reaching the outside world (a subprocess, a model on disk, an HTTP
+service, another machine) are exactly what tests are for.
+
+Then: every such feature and bug fix starts with a failing test, and the
+**first** failing test is the highest-level integration test for the actual
+boundary the change lives at. Unit tests on helpers are additional guards,
+never substitutes.
 
 | Bug lives at... | Top-level test invokes... |
 |-----------------|---------------------------|

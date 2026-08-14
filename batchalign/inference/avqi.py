@@ -63,9 +63,7 @@ def _extract_voiced_segments(sound: parselmouth.Sound) -> parselmouth.Sound:
 
     original = call(sound, "Copy", "original")
     sampling_rate = call(original, "Get sampling frequency")
-    only_voice = call(
-        "Create Sound", "onlyVoice", 0, 0.001, sampling_rate, "0"
-    )
+    only_voice = call("Create Sound", "onlyVoice", 0, 0.001, sampling_rate, "0")
     textgrid = call(
         original,
         "To TextGrid (silences)",
@@ -131,7 +129,9 @@ def _mono_samples_from_file(audio_path: str) -> tuple[np.ndarray, int]:
 def _build_sound(samples: np.ndarray, sample_rate_hz: int) -> parselmouth.Sound:
     import parselmouth
 
-    return parselmouth.Sound(np.asarray(samples, dtype=np.float64), sampling_frequency=sample_rate_hz)
+    return parselmouth.Sound(
+        np.asarray(samples, dtype=np.float64), sampling_frequency=sample_rate_hz
+    )
 
 
 def infer_avqi_prepared_audio(
@@ -218,7 +218,6 @@ def _calculate_features_from_sounds(
     sv_sound: parselmouth.Sound,
 ) -> tuple[float, dict[str, float]]:
     """Core AVQI feature calculation using parselmouth/Praat."""
-    import parselmouth
     from parselmouth.praat import call
 
     cs_filtered = call(cs_sound, "Filter (stop Hann band)", 0, 34, 0.1)
@@ -236,9 +235,7 @@ def _calculate_features_from_sounds(
         sv_part = call(sv_filtered, "Copy", "sv_part")
 
     concatenated = call([voiced_cs, sv_part], "Concatenate")
-    powercepstrogram = call(
-        concatenated, "To PowerCepstrogram", 60, 0.002, 5000, 50
-    )
+    powercepstrogram = call(concatenated, "To PowerCepstrogram", 60, 0.002, 5000, 50)
     cpps = call(
         powercepstrogram,
         "Get CPPS",
@@ -269,9 +266,7 @@ def _calculate_features_from_sounds(
     except Exception:
         tilt = slope + 5.5
 
-    pointprocess = call(
-        concatenated, "To PointProcess (periodic, cc)", 50, 400
-    )
+    pointprocess = call(concatenated, "To PointProcess (periodic, cc)", 50, 400)
     shim_percent = call(
         [concatenated, pointprocess],
         "Get shimmer (local)",

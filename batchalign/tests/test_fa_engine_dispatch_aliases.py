@@ -45,14 +45,9 @@ def test_resolve_fa_engine_still_rejects_unknown_names() -> None:
         resolve_fa_engine({"fa": "definitely_not_an_engine"})
 
 
-def test_resolve_fa_engine_refuses_to_default_without_an_override() -> None:
-    """The engine is chosen by the control plane, never guessed here.
-
-    This asserted a Whisper default until 2026-08-14, making the worker a
-    second owner of that choice; the two disagreed silently once the control
-    plane changed its default.
-    """
-    with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
-        resolve_fa_engine(None)
-    with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
-        resolve_fa_engine({})
+def test_resolve_fa_engine_refuses_to_guess_when_no_engine_was_named() -> None:
+    """Covered in depth by `pipelines/fa/test_fa_resolver.py`; pinned here too
+    because this file is where the wire-name vocabulary lives, and a future
+    alias addition must not quietly reintroduce a fallback."""
+    with pytest.raises(ValueError, match="no 'fa' engine"):
+        resolve_fa_engine({"asr": "whisper"})

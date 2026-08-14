@@ -11,19 +11,18 @@ import time
 
 from pydantic import ValidationError
 
-from batchalign.worker._types import (
-    BatchInferRequest,
-    BatchInferResponse,
-    InferResponse,
-)
+from batchalign.inference._domain_types import LanguageCode
 from batchalign.inference.asr import (
     AsrBatchItem,
     AsrElement,
     AsrMonologue,
     MonologueAsrResponse,
 )
-
-from batchalign.inference._domain_types import LanguageCode
+from batchalign.worker._types import (
+    BatchInferRequest,
+    BatchInferResponse,
+    InferResponse,
+)
 
 from ._common import EngineOverrides
 from ._funaudio_common import FunAudioRecognizer
@@ -53,7 +52,9 @@ NOT_LOADED_ERROR = "FunAudio ASR not loaded: call load_funaudio_asr first"
 # ---------------------------------------------------------------------------
 
 
-def load_funaudio_asr(lang: LanguageCode, engine_overrides: EngineOverrides | None) -> None:
+def load_funaudio_asr(
+    lang: LanguageCode, engine_overrides: EngineOverrides | None
+) -> None:
     """Initialize the FunAudio ASR recognizer.
 
     Called once at worker startup.  Stores the recognizer in module-level
@@ -88,7 +89,12 @@ def load_funaudio_asr(lang: LanguageCode, engine_overrides: EngineOverrides | No
             device = str(engine_overrides["funaudio_device"])
 
     _recognizer = FunAudioRecognizer(lang=lang, model=model, device=device)
-    L.info("FunAudio ASR recognizer loaded: lang=%s, model=%s, device=%s", lang, model, device)
+    L.info(
+        "FunAudio ASR recognizer loaded: lang=%s, model=%s, device=%s",
+        lang,
+        model,
+        device,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +123,7 @@ def infer_funaudio_asr(req: BatchInferRequest) -> BatchInferResponse:
     if _recognizer is None:
         return BatchInferResponse(
             results=[
-                InferResponse(error=NOT_LOADED_ERROR, elapsed_s=0.0)
-                for _ in req.items
+                InferResponse(error=NOT_LOADED_ERROR, elapsed_s=0.0) for _ in req.items
             ]
         )
 
@@ -135,9 +140,7 @@ def infer_funaudio_asr(req: BatchInferRequest) -> BatchInferResponse:
 
         try:
             response = _transcribe_to_monologues(item)
-            results.append(
-                InferResponse(result=response.model_dump(), elapsed_s=0.0)
-            )
+            results.append(InferResponse(result=response.model_dump(), elapsed_s=0.0))
         except Exception as e:
             L.warning("FunAudio ASR failed for item %d: %s", item_idx, e, exc_info=True)
             results.append(InferResponse(error=str(e), elapsed_s=0.0))

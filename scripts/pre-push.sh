@@ -1,36 +1,35 @@
 #!/usr/bin/env bash
-# Pre-push hook: fast local checks that mirror CI gates.
-# Install: make install-hooks
+# Pre-push hook: runs the SAME target CI runs. Install: make install-hooks
 #
-# Coverage goal: catch anything the GitHub "main CI" workflow would flag
-# on a push to main, without running long test suites. If a CI job can
-# fail purely because of committed content (not runtime behavior), this
-# hook must cover it.
+# It does not mirror CI, it invokes CI's target. A mirror is a second list of
+# what must pass, and a second list drifts: this hook used to run `fmt`, an
+# `affected-rust check`, and clippy only when `TALKBANK_PRE_PUSH_CLIPPY=1`
+# (default 0), while CI ran `make batchalign-ci-rust`. Its own docstring
+# promised to "catch anything the GitHub main CI workflow would flag on a push
+# to main", and on 2026-08-14 it printed "All pre-push checks passed" three
+# times for pushes CI then rejected.
+#
+# The justification for the weaker subset was speed. Measured on a warm tree,
+# the full target is 16 SECONDS, so there was nothing to save.
+#
+# WHAT THIS CANNOT CATCH, and it is the reason for the branch flow below:
+# CI runs on Linux and developers run macOS. Two of those three failures were
+# `cfg(target_os)`-conditional, and no macOS command can see them:
+#   - the Tauri desktop crate needs glib, absent on the runner, so a
+#     `--workspace` clippy passes here and fails there;
+#   - a helper used only inside a `cfg(target_os = "macos")` block is live
+#     here and dead code there.
+# For those, the ONLY gate is CI itself, which is why main should receive a
+# commit CI has already seen. See `docs/contributing/pushing.md`.
 set -euo pipefail
 
-echo "==> pre-push: fmt check"
-cargo fmt --all -- --check
+echo "==> pre-push: the CI target (make batchalign-ci-rust)"
+make batchalign-ci-rust
 
-echo "==> pre-push: affected compile check"
-cargo run -q -p xtask -- affected-rust check
-
-# The CHAT-format pre-push gates (spec/tools fmt, parser signature guardrail,
-# generated-artifacts check, fuzz workspace isolation) moved to chatter, which
-# is now the single home for the CHAT core. This hook guards the batchalign
-# layer talkbank-tools still owns.
-
-# Mirrors the "TalkBank Toolchain mdBook" CI workflow. mdbook's
-# linkcheck2 backend exhaustively verifies every relative link
-# against SUMMARY.md, catching SUMMARY-unreachable targets like
-# the 2026-05-22 batchalign/introduction.md regression that broke
-# CI after a 68-commit squash push. Requires mdbook + mdbook-
-# linkcheck + mdbook-mermaid on PATH (make book-check enforces).
 echo "==> pre-push: mdBook build + linkcheck"
+# Not part of batchalign-ci-rust: it is a separate workflow. linkcheck2 verifies
+# every relative link against SUMMARY.md, which is how a SUMMARY-unreachable
+# page broke CI after a 68-commit squash push in May.
 make book-check
 
-if [[ "${TALKBANK_PRE_PUSH_CLIPPY:-0}" == "1" ]]; then
-  echo "==> pre-push: affected clippy"
-  cargo run -q -p xtask -- affected-rust clippy
-fi
-
-echo "✓ All pre-push checks passed"
+echo "✓ pre-push ran CI's own target; anything it missed is platform-conditional"

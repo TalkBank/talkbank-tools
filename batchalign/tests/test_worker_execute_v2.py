@@ -9,24 +9,30 @@ from pathlib import Path
 
 import numpy as np
 
-from batchalign.worker._execute_v2 import WorkerExecutionHostV2, execute_request_v2
-from batchalign.worker._asr_v2 import AsrExecutionHostV2
-from batchalign.worker._avqi_v2 import AvqiExecutionHostV2
-from batchalign.worker._fa_v2 import ForcedAlignmentExecutionHostV2
-from batchalign.worker._opensmile_v2 import OpenSmileExecutionHostV2
-from batchalign.worker._speaker_v2 import SpeakerExecutionHostV2
-from batchalign.worker._text_v2 import TextExecutionHostV2
-from batchalign.worker._types import _state
 from batchalign.inference.asr import AsrElement, AsrMonologue, MonologueAsrResponse
 from batchalign.inference.avqi import AvqiResponse
 from batchalign.inference.opensmile import OpenSmileResponse
 from batchalign.inference.speaker import SpeakerResponse, SpeakerSegment
-from batchalign.worker._types import BatchInferRequest, BatchInferResponse, InferResponse
+from batchalign.worker._asr_v2 import AsrExecutionHostV2
+from batchalign.worker._avqi_v2 import AvqiExecutionHostV2
+from batchalign.worker._execute_v2 import WorkerExecutionHostV2, execute_request_v2
+from batchalign.worker._fa_v2 import ForcedAlignmentExecutionHostV2
+from batchalign.worker._opensmile_v2 import OpenSmileExecutionHostV2
+from batchalign.worker._speaker_v2 import SpeakerExecutionHostV2
+from batchalign.worker._text_v2 import TextExecutionHostV2
+from batchalign.worker._types import (
+    BatchInferRequest,
+    BatchInferResponse,
+    InferResponse,
+    _state,
+)
 from batchalign.worker._types_v2 import (
-    AvqiRequestV2,
-    AvqiResultV2,
     AsrBackendV2,
     AsrRequestV2,
+    AvqiRequestV2,
+    AvqiResultV2,
+    CorefRequestV2,
+    CorefResultV2,
     ExecuteErrorV2,
     ExecuteRequestV2,
     ExecuteSuccessV2,
@@ -35,8 +41,6 @@ from batchalign.worker._types_v2 import (
     ForcedAlignmentRequestV2,
     InferenceTaskV2,
     MonologueAsrResultV2,
-    CorefRequestV2,
-    CorefResultV2,
     MorphosyntaxRequestV2,
     MorphosyntaxResultV2,
     OpenSmileRequestV2,
@@ -46,8 +50,8 @@ from batchalign.worker._types_v2 import (
     PreparedAudioRefV2,
     PreparedTextEncodingV2,
     PreparedTextRefV2,
-    ProviderMediaInputV2,
     ProtocolErrorCodeV2,
+    ProviderMediaInputV2,
     SpeakerBackendV2,
     SpeakerPreparedAudioInputV2,
     SpeakerRequestV2,
@@ -133,13 +137,13 @@ def test_test_echo_rejects_mismatched_task_payload_boundary() -> None:
     assert response.result is None
 
 
-def _make_fa_request(tmp_path: Path) -> (
-    tuple[
-        PreparedTextRefV2,
-        PreparedAudioRefV2,
-        ForcedAlignmentTaskRequestV2,
-    ]
-):
+def _make_fa_request(
+    tmp_path: Path,
+) -> tuple[
+    PreparedTextRefV2,
+    PreparedAudioRefV2,
+    ForcedAlignmentRequestV2,
+]:
     """Build the attachments and payload wrapper for one FA V2 request."""
 
     payload_path = tmp_path / "payload.json"
@@ -169,8 +173,9 @@ def _make_fa_request(tmp_path: Path) -> (
             backend=FaBackendV2.WHISPER,
             payload_ref_id="payload-ref-1",
             audio_ref_id="audio-ref-1",
-            text_mode=FaTextModeV2.SPACE_JOINED,
-            pauses=True,
+            # `--pauses` is expressed as the text mode now, not as a second
+            # boolean the host applies after this one.
+            text_mode=FaTextModeV2.CHAR_SPACED,
         ),
     )
 
@@ -190,9 +195,13 @@ def test_routes_forced_alignment_execute_v2_request(tmp_path: Path) -> None:
         host=WorkerExecutionHostV2(
             asr=AsrExecutionHostV2(),
             forced_alignment=ForcedAlignmentExecutionHostV2(
-                whisper_runner=lambda audio, text, pauses: [
+                # The shaping the request asked for must have been applied
+                # before the host is called: with CHAR_SPACED, "hello world"
+                # arrives one character per token. Asserting on the text is
+                # what asserting on the old `pauses` flag was standing in for.
+                whisper_runner=lambda audio, text: [
                     ("hello", 0.1 if audio.shape == (4,) else 0.0),
-                    ("world", 0.3 if text == "hello world" and pauses else 0.0),
+                    ("world", 0.3 if text == "h e l l o   w o r l d" else 0.0),
                 ]
             ),
             speaker=SpeakerExecutionHostV2(),
@@ -316,14 +325,16 @@ def test_routes_speaker_execute_v2_request(tmp_path: Path) -> None:
             asr=AsrExecutionHostV2(),
             forced_alignment=ForcedAlignmentExecutionHostV2(),
             speaker=SpeakerExecutionHostV2(
-                pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: SpeakerResponse(
-                    segments=[
-                        SpeakerSegment(
-                            start_ms=0,
-                            end_ms=1200,
-                            speaker=f"SPEAKER_{num_speakers}_{sample_rate_hz}_{audio.shape[0]}",
-                        )
-                    ]
+                pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+                    SpeakerResponse(
+                        segments=[
+                            SpeakerSegment(
+                                start_ms=0,
+                                end_ms=1200,
+                                speaker=f"SPEAKER_{num_speakers}_{sample_rate_hz}_{audio.shape[0]}",
+                            )
+                        ]
+                    )
                 )
             ),
         ),
@@ -365,14 +376,16 @@ def test_routes_opensmile_execute_v2_request(tmp_path: Path) -> None:
         ),
         host=WorkerExecutionHostV2(
             opensmile=OpenSmileExecutionHostV2(
-                prepared_audio_runner=lambda audio, sample_rate_hz, feature_set, feature_level, audio_label: OpenSmileResponse(
-                    feature_set=feature_set,
-                    feature_level=feature_level,
-                    num_features=2 if sample_rate_hz == 16000 else 0,
-                    duration_segments=1 if audio.shape == (4,) else 0,
-                    audio_file=audio_label,
-                    rows=[{"f0_mean": 100.0, "jitter_local": 0.1}],
-                    success=True,
+                prepared_audio_runner=lambda audio, sample_rate_hz, feature_set, feature_level, audio_label: (
+                    OpenSmileResponse(
+                        feature_set=feature_set,
+                        feature_level=feature_level,
+                        num_features=2 if sample_rate_hz == 16000 else 0,
+                        duration_segments=1 if audio.shape == (4,) else 0,
+                        audio_file=audio_label,
+                        rows=[{"f0_mean": 100.0, "jitter_local": 0.1}],
+                        success=True,
+                    )
                 )
             ),
         ),
@@ -471,17 +484,21 @@ def test_routes_avqi_execute_v2_request(tmp_path: Path) -> None:
         ),
         host=WorkerExecutionHostV2(
             avqi=AvqiExecutionHostV2(
-                prepared_audio_runner=lambda cs_audio, cs_rate, sv_audio, sv_rate, cs_label, sv_label: AvqiResponse(
-                    avqi=3.14 if cs_audio.shape == (4,) and sv_audio.shape == (4,) else 0.0,
-                    cpps=5.0,
-                    hnr=10.0,
-                    shimmer_local=0.2,
-                    shimmer_local_db=0.3,
-                    slope=0.4,
-                    tilt=0.5,
-                    cs_file=cs_label if cs_rate == 16000 else "bad",
-                    sv_file=sv_label if sv_rate == 16000 else "bad",
-                    success=True,
+                prepared_audio_runner=lambda cs_audio, cs_rate, sv_audio, sv_rate, cs_label, sv_label: (
+                    AvqiResponse(
+                        avqi=3.14
+                        if cs_audio.shape == (4,) and sv_audio.shape == (4,)
+                        else 0.0,
+                        cpps=5.0,
+                        hnr=10.0,
+                        shimmer_local=0.2,
+                        shimmer_local_db=0.3,
+                        slope=0.4,
+                        tilt=0.5,
+                        cs_file=cs_label if cs_rate == 16000 else "bad",
+                        sv_file=sv_label if sv_rate == 16000 else "bad",
+                        success=True,
+                    )
                 )
             ),
         ),
@@ -745,7 +762,9 @@ def test_routes_morphosyntax_unicode_special_forms_request(tmp_path: Path) -> No
     assert captured["mwt"] == {"食緊": ["食", "緊"]}
 
 
-def test_invalid_morphosyntax_host_output_becomes_runtime_failure(tmp_path: Path) -> None:
+def test_invalid_morphosyntax_host_output_becomes_runtime_failure(
+    tmp_path: Path,
+) -> None:
     """Malformed morphosyntax host output should be classified as runtime failure."""
 
     payload_path = tmp_path / "morphosyntax-invalid-batch.json"
@@ -786,7 +805,9 @@ def test_invalid_morphosyntax_host_output_becomes_runtime_failure(tmp_path: Path
         host=WorkerExecutionHostV2(
             text=TextExecutionHostV2(
                 morphosyntax_runner=lambda _req: BatchInferResponse(
-                    results=[InferResponse(result={"raw_sentences": "bad"}, elapsed_s=0.0)]
+                    results=[
+                        InferResponse(result={"raw_sentences": "bad"}, elapsed_s=0.0)
+                    ]
                 )
             ),
         ),
@@ -829,7 +850,11 @@ def test_routes_utseg_execute_v2_request(tmp_path: Path) -> None:
             speaker=SpeakerExecutionHostV2(),
             text=TextExecutionHostV2(
                 utseg_runner=lambda req: BatchInferResponse(
-                    results=[InferResponse(result={"trees": ["(ROOT (S hello world))"]}, elapsed_s=0.0)]
+                    results=[
+                        InferResponse(
+                            result={"trees": ["(ROOT (S hello world))"]}, elapsed_s=0.0
+                        )
+                    ]
                 )
             ),
         ),
@@ -871,7 +896,9 @@ def test_routes_utseg_execute_v2_request_with_assignments(tmp_path: Path) -> Non
         host=WorkerExecutionHostV2(
             text=TextExecutionHostV2(
                 utseg_runner=lambda req: BatchInferResponse(
-                    results=[InferResponse(result={"assignments": [0, 1]}, elapsed_s=0.0)]
+                    results=[
+                        InferResponse(result={"assignments": [0, 1]}, elapsed_s=0.0)
+                    ]
                 )
             ),
         ),
@@ -886,7 +913,9 @@ def test_invalid_utseg_host_output_becomes_runtime_failure(tmp_path: Path) -> No
     """Malformed utseg host output should be classified as runtime failure."""
 
     payload_path = tmp_path / "utseg-invalid-batch.json"
-    _write_json_payload(payload_path, {"items": [{"words": ["hello"], "text": "hello"}]})
+    _write_json_payload(
+        payload_path, {"items": [{"words": ["hello"], "text": "hello"}]}
+    )
 
     response = execute_request_v2(
         request=ExecuteRequestV2(
@@ -919,11 +948,15 @@ def test_invalid_utseg_host_output_becomes_runtime_failure(tmp_path: Path) -> No
     _assert_runtime_failure_response(response, "invalid utseg host output")
 
 
-def test_invalid_utseg_assignment_host_output_becomes_runtime_failure(tmp_path: Path) -> None:
+def test_invalid_utseg_assignment_host_output_becomes_runtime_failure(
+    tmp_path: Path,
+) -> None:
     """Malformed utseg assignments should be classified as runtime failure."""
 
     payload_path = tmp_path / "utseg-invalid-assignments-batch.json"
-    _write_json_payload(payload_path, {"items": [{"words": ["hello"], "text": "hello"}]})
+    _write_json_payload(
+        payload_path, {"items": [{"words": ["hello"], "text": "hello"}]}
+    )
 
     response = execute_request_v2(
         request=ExecuteRequestV2(
@@ -947,7 +980,9 @@ def test_invalid_utseg_assignment_host_output_becomes_runtime_failure(tmp_path: 
         host=WorkerExecutionHostV2(
             text=TextExecutionHostV2(
                 utseg_runner=lambda _req: BatchInferResponse(
-                    results=[InferResponse(result={"assignments": ["bad"]}, elapsed_s=0.0)]
+                    results=[
+                        InferResponse(result={"assignments": ["bad"]}, elapsed_s=0.0)
+                    ]
                 )
             ),
         ),
@@ -988,7 +1023,9 @@ def test_routes_translate_execute_v2_request(tmp_path: Path) -> None:
             speaker=SpeakerExecutionHostV2(),
             text=TextExecutionHostV2(
                 translate_runner=lambda req: BatchInferResponse(
-                    results=[InferResponse(result={"raw_translation": "hola"}, elapsed_s=0.0)]
+                    results=[
+                        InferResponse(result={"raw_translation": "hola"}, elapsed_s=0.0)
+                    ]
                 )
             ),
         ),
@@ -1028,7 +1065,11 @@ def test_invalid_translate_host_output_becomes_runtime_failure(tmp_path: Path) -
         host=WorkerExecutionHostV2(
             text=TextExecutionHostV2(
                 translate_runner=lambda _req: BatchInferResponse(
-                    results=[InferResponse(result={"raw_translation": ["hola"]}, elapsed_s=0.0)]
+                    results=[
+                        InferResponse(
+                            result={"raw_translation": ["hola"]}, elapsed_s=0.0
+                        )
+                    ]
                 )
             ),
         ),
@@ -1074,7 +1115,15 @@ def test_routes_coref_execute_v2_request(tmp_path: Path) -> None:
                                 "annotations": [
                                     {
                                         "sentence_idx": 0,
-                                        "words": [[{"chain_id": 0, "is_start": True, "is_end": True}]],
+                                        "words": [
+                                            [
+                                                {
+                                                    "chain_id": 0,
+                                                    "is_start": True,
+                                                    "is_end": True,
+                                                }
+                                            ]
+                                        ],
                                     }
                                 ]
                             },
@@ -1120,7 +1169,9 @@ def test_invalid_coref_host_output_becomes_runtime_failure(tmp_path: Path) -> No
         host=WorkerExecutionHostV2(
             text=TextExecutionHostV2(
                 coref_runner=lambda _req: BatchInferResponse(
-                    results=[InferResponse(result={"annotations": "bad"}, elapsed_s=0.0)]
+                    results=[
+                        InferResponse(result={"annotations": "bad"}, elapsed_s=0.0)
+                    ]
                 )
             ),
         ),

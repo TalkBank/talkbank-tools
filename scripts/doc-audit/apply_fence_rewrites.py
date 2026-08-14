@@ -68,7 +68,7 @@ def main() -> int:
         action="append",
         default=[],
         help="Only rewrite rows whose relpath starts with this prefix. "
-             "May be repeated. Empty list = no restriction.",
+        "May be repeated. Empty list = no restriction.",
     )
     parser.add_argument(
         "--exclude-prefix",
@@ -91,7 +91,9 @@ def main() -> int:
                 continue
             if any(relpath.startswith(p) for p in args.exclude_prefix):
                 continue
-            rows_by_file[relpath].append((int(row["fence_line"]), row["classification"]))
+            rows_by_file[relpath].append(
+                (int(row["fence_line"]), row["classification"])
+            )
 
     total_rewrites = 0
     total_skipped = 0
@@ -117,7 +119,9 @@ def main() -> int:
             old = modified[one_based - 1]
             match = ACCEPTABLE_OLD.match(old)
             if not match:
-                print(f"# {relpath}:{one_based} fence shape not recognized: {old.rstrip()!r}")
+                print(
+                    f"# {relpath}:{one_based} fence shape not recognized: {old.rstrip()!r}"
+                )
                 total_skipped += 1
                 continue
             indent = match.group(1)

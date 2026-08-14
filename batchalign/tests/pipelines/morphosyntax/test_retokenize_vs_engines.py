@@ -18,7 +18,6 @@ from __future__ import annotations
 import pycantonese
 import pytest
 
-
 # =============================================================================
 # Sub-claim 1: Retokenize is better than FunASR alone for Cantonese
 # =============================================================================
@@ -68,11 +67,11 @@ class TestRetokenizeVsFunASR:
         import batchalign_core
 
         sentences = [
-            "佢哋好鍾意食嘢",       # they really like eating stuff
-            "我想去買故事書",         # I want to go buy a storybook
-            "媽媽買咗好多嘢",       # mama bought lots of stuff
-            "你知唔知道",           # do you know
-            "直升飛機好大架",       # the helicopter is very big
+            "佢哋好鍾意食嘢",  # they really like eating stuff
+            "我想去買故事書",  # I want to go buy a storybook
+            "媽媽買咗好多嘢",  # mama bought lots of stuff
+            "你知唔知道",  # do you know
+            "直升飛機好大架",  # the helicopter is very big
         ]
         for text in sentences:
             funasr = batchalign_core.cantonese_char_tokens(text)

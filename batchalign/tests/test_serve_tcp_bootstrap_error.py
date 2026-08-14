@@ -27,7 +27,6 @@ from batchalign.worker._protocol import (
     _handle_tcp_connection_sequential,
 )
 
-
 # ---------------------------------------------------------------------------
 # Test scaffolding: a connected socket pair lets us drive the handler from
 # one end and read its responses from the other, all in-process.
@@ -67,7 +66,7 @@ def _drain_lines(sock: socket.socket, until_close: bool = True) -> list[str]:
             line = line.strip()
             if line:
                 out.append(line)
-    except (TimeoutError, socket.timeout):
+    except TimeoutError:
         # Treat a timeout as end-of-stream for the test; the handler
         # should have closed by now.
         pass
@@ -111,9 +110,7 @@ def test_tcp_sequential_emits_bootstrap_kind(monkeypatch):
     )
     t.start()
 
-    client.sendall(
-        b'{"op": "ensure_task", "request": {"task": "morphosyntax"}}\n'
-    )
+    client.sendall(b'{"op": "ensure_task", "request": {"task": "morphosyntax"}}\n')
 
     # Sequential mode breaks the loop on bootstrap; the connection should
     # close after one response without us sending a second message.
@@ -124,9 +121,7 @@ def test_tcp_sequential_emits_bootstrap_kind(monkeypatch):
     assert lines, "Handler must emit at least one response, not a silent close"
     env = json.loads(lines[0])
     assert env["op"] == "error", f"Expected error op, got {env}"
-    assert env["kind"] == "bootstrap", (
-        f"Expected kind=bootstrap, got {env}"
-    )
+    assert env["kind"] == "bootstrap", f"Expected kind=bootstrap, got {env}"
     assert "network unreachable" in env["error"]
 
 
@@ -207,9 +202,7 @@ def test_tcp_concurrent_emits_bootstrap_kind(monkeypatch):
     )
     t.start()
 
-    client.sendall(
-        b'{"op": "ensure_task", "request": {"task": "morphosyntax"}}\n'
-    )
+    client.sendall(b'{"op": "ensure_task", "request": {"task": "morphosyntax"}}\n')
     lines = _drain_lines(client)
     client.close()
     t.join(timeout=3.0)
@@ -223,9 +216,7 @@ def test_tcp_concurrent_emits_bootstrap_kind(monkeypatch):
         for line in lines
         if '"kind": "bootstrap"' in line or '"kind":"bootstrap"' in line
     ]
-    assert bootstrap_envs, (
-        f"No bootstrap envelope found among responses: {lines}"
-    )
+    assert bootstrap_envs, f"No bootstrap envelope found among responses: {lines}"
     env = bootstrap_envs[0]
     assert env["op"] == "error"
     assert env["kind"] == "bootstrap"

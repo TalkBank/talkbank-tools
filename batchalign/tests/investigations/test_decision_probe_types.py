@@ -36,12 +36,13 @@ from batchalign.tests.investigations._decision_probe_types import (
     compare_stanza_outputs,
 )
 
-
 # ─── Helpers ─────────────────────────────────────────────────────────
 
 
 def _w(text: str, upos: str, lemma: str = "") -> StanzaWordResult:
-    return StanzaWordResult(text=text, upos=upos, lemma=lemma or text.lower(), deprel="")
+    return StanzaWordResult(
+        text=text, upos=upos, lemma=lemma or text.lower(), deprel=""
+    )
 
 
 def _tok(text: str, *words: StanzaWordResult) -> StanzaTokenOutput:
@@ -88,7 +89,9 @@ def test_token_mapping_rejects_both_sides_empty() -> None:
     """A mapping that affects nothing on either side is a no-op and
     should not be written."""
     with pytest.raises(ValueError):
-        TokenMapping(pre_token_indices=(), post_token_indices=(), gold=Gold(post_upos=("X",)))
+        TokenMapping(
+            pre_token_indices=(), post_token_indices=(), gold=Gold(post_upos=("X",))
+        )
 
 
 def test_token_mapping_allows_deletion_shape() -> None:
@@ -142,7 +145,9 @@ def test_compare_1to1_post_matches_gold_but_pre_does_not() -> None:
         post_token_indices=(0,),
         gold=Gold(pre_upos=("PRON",), post_upos=("PRON",)),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_STRICTLY_BETTER
 
 
@@ -156,7 +161,9 @@ def test_compare_1to1_pre_matches_but_post_regresses() -> None:
         post_token_indices=(0,),
         gold=Gold(pre_upos=("PROPN",), post_upos=("PROPN",)),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_STRICTLY_WORSE
 
 
@@ -174,7 +181,9 @@ def test_compare_mwt_matches_when_both_forms_expand_correctly() -> None:
         post_token_indices=(0,),
         gold=Gold(pre_upos=("PRON", "AUX"), post_upos=("PRON", "AUX")),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_NEUTRAL
 
 
@@ -189,7 +198,9 @@ def test_compare_mwt_fails_when_pre_does_not_expand_but_post_does() -> None:
         post_token_indices=(0,),
         gold=Gold(pre_upos=("PRON", "AUX"), post_upos=("PRON", "AUX")),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     # Pre has 1 word for a gold of 2 slots → mismatch. Post matches 2/2.
     assert result.observed_outcome is DecisionOutcome.POST_STRICTLY_BETTER
 
@@ -208,7 +219,9 @@ def test_compare_text_gold_catches_semantic_regression() -> None:
         post_token_indices=(0,),
         gold=Gold(pre_text=("3.14",), post_text=("3.14",)),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_STRICTLY_WORSE
 
 
@@ -227,7 +240,9 @@ def test_compare_combined_pos_and_text_gold() -> None:
             post_text=("I",),
         ),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_NEUTRAL
 
 
@@ -252,7 +267,9 @@ def test_compare_1to2_period_split() -> None:
         post_token_indices=(0, 1),
         gold=Gold(pre_upos=("PROPN",), post_upos=("PROPN", "PUNCT")),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_NEUTRAL
 
 
@@ -274,7 +291,9 @@ def test_compare_1to0_deletion() -> None:
         post_token_indices=(),
         gold=Gold(pre_upos=("PUNCT",)),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_NEUTRAL
 
 
@@ -294,7 +313,9 @@ def test_compare_1to2_number_expansion_regresses_text() -> None:
         post_token_indices=(0, 1),
         gold=Gold(pre_text=("23",), post_text=("23",)),
     )
-    result = compare_stanza_outputs(pre_tokens=pre, post_tokens=post, mappings=(mapping,))
+    result = compare_stanza_outputs(
+        pre_tokens=pre, post_tokens=post, mappings=(mapping,)
+    )
     assert result.observed_outcome is DecisionOutcome.POST_STRICTLY_WORSE
 
 

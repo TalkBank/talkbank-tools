@@ -5,6 +5,7 @@ Invoked by Rust CLI: ``batchalign3 models train -- train ...``
 Data preparation (CHAT→text) is handled by the Rust CLI:
 ``batchalign3 models prep``: uses the Rust CHAT parser for correct extraction.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,12 +30,24 @@ def cli() -> None:
 @click.argument("run_name")  # type: ignore[untyped-decorator]
 @click.argument("data_dir", type=click.Path(exists=True, file_okay=False))  # type: ignore[untyped-decorator]
 @click.argument("model_dir", type=click.Path(file_okay=False))  # type: ignore[untyped-decorator]
-@click.option("--lr", type=float, default=3.5e-5, show_default=True, help="Learning rate.")  # type: ignore[untyped-decorator]
-@click.option("--batch-size", type=int, default=5, show_default=True, help="Batch size.")  # type: ignore[untyped-decorator]
-@click.option("--epochs", type=int, default=2, show_default=True, help="Number of epochs.")  # type: ignore[untyped-decorator]
-@click.option("--window", type=int, default=20, show_default=True, help="Utterance merge window.")  # type: ignore[untyped-decorator]
+@click.option(
+    "--lr", type=float, default=3.5e-5, show_default=True, help="Learning rate."
+)  # type: ignore[untyped-decorator]
+@click.option(
+    "--batch-size", type=int, default=5, show_default=True, help="Batch size."
+)  # type: ignore[untyped-decorator]
+@click.option(
+    "--epochs", type=int, default=2, show_default=True, help="Number of epochs."
+)  # type: ignore[untyped-decorator]
+@click.option(
+    "--window", type=int, default=20, show_default=True, help="Utterance merge window."
+)  # type: ignore[untyped-decorator]
 @click.option(  # type: ignore[untyped-decorator]
-    "--min-length", type=int, default=10, show_default=True, help="Min utterance length."
+    "--min-length",
+    type=int,
+    default=10,
+    show_default=True,
+    help="Min utterance length.",
 )
 @click.option(  # type: ignore[untyped-decorator]
     "--bert",

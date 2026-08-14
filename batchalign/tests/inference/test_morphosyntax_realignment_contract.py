@@ -41,10 +41,7 @@ class _FakeDoc:
 def _make_ud_sentence(words: list[str]) -> dict[str, Any]:
     """Build a minimal dict matching Stanza's ``to_dict()[0]`` shape."""
     return {
-        "tokens": [
-            {"id": i + 1, "text": w}
-            for i, w in enumerate(words)
-        ],
+        "tokens": [{"id": i + 1, "text": w} for i, w in enumerate(words)],
         "words": [
             {
                 "id": i + 1,

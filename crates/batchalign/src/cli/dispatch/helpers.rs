@@ -269,6 +269,12 @@ pub(super) async fn poll_and_write_incrementally(
 /// The public CLI flag is the main user-facing control, while the
 /// `BATCHALIGN_NO_BROWSER` environment variable remains a hidden backstop for
 /// tests and harnesses that must suppress browser launch.
+///
+/// Compiled where it is USED. Its only production caller is the macOS branch of
+/// `maybe_open_dashboard`, so on any other target this function is dead and a
+/// clippy pass with `-D warnings` says so. That went unnoticed while no CI job
+/// ran clippy; the `test` arm keeps the unit tests below running everywhere.
+#[cfg(any(target_os = "macos", test))]
 pub(super) fn dashboard_auto_open_enabled(cli_enabled: bool, no_browser_env: bool) -> bool {
     cli_enabled && !no_browser_env
 }

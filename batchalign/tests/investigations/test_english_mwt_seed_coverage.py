@@ -48,9 +48,7 @@ def test_english_covers_contractions() -> None:
     """Standard English contractions (``don't``, ``I'm``, etc.), what
     BA2's apostrophe rule was designed for."""
     eng_cases = LANGUAGE_MATRIX[ENG]
-    contraction_cases = [
-        c for c in eng_cases if c.phenomenon is Phenomenon.CONTRACTION
-    ]
+    contraction_cases = [c for c in eng_cases if c.phenomenon is Phenomenon.CONTRACTION]
     assert len(contraction_cases) >= 3, (
         f"English MWT probes need at least 3 CONTRACTION cases; "
         f"found {len(contraction_cases)}"
@@ -63,9 +61,7 @@ def test_english_covers_oclock_control() -> None:
     future change that accidentally MWT-expands ``o'clock`` is
     caught."""
     eng_cases = LANGUAGE_MATRIX[ENG]
-    oclock_cases = [
-        c for c in eng_cases if "oclock" in c.label or "o_clock" in c.label
-    ]
+    oclock_cases = [c for c in eng_cases if "oclock" in c.label or "o_clock" in c.label]
     assert oclock_cases, (
         "English MWT seed must include an o'clock control case "
         "(BA2 explicitly excluded this from contraction handling)"

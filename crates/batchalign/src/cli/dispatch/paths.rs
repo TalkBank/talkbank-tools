@@ -10,6 +10,7 @@ use crate::cli::discover::{build_server_names, copy_nonmatching, infer_base_dir}
 use crate::cli::error::CliError;
 
 use super::helpers::{filter_files_for_command, inject_lexicon};
+use crate::cli::args::InputKind;
 
 pub(super) struct PreparedPathsSubmission {
     pub submission: JobSubmission,
@@ -22,7 +23,7 @@ pub(super) fn prepare_paths_submission(
     command: ReleasedCommand,
     lang: &str,
     num_speakers: u32,
-    extensions: &[&str],
+    input_kind: InputKind,
     inputs: &[std::path::PathBuf],
     out_dir: Option<&std::path::Path>,
     options: Option<&CommandOptions>,
@@ -31,13 +32,13 @@ pub(super) fn prepare_paths_submission(
     media_mapping_keys: &[String],
 ) -> Result<Option<PreparedPathsSubmission>, CliError> {
     let (files, outputs) =
-        crate::cli::discover::discover_server_inputs(inputs, out_dir, extensions)?;
+        crate::cli::discover::discover_server_inputs(inputs, out_dir, input_kind)?;
     let (files, outputs) = filter_files_for_command(command, files, outputs);
 
     if let Some(od) = out_dir {
         for inp in inputs {
             if Path::new(inp).is_dir() {
-                copy_nonmatching(Path::new(inp), Path::new(od), extensions, command)?;
+                copy_nonmatching(Path::new(inp), Path::new(od), input_kind, command)?;
             }
         }
     }
@@ -213,6 +214,7 @@ fn detect_media_mapping(
 mod tests {
     use super::{detect_media_mapping, prepare_paths_submission};
     use crate::ReleasedCommand;
+    use crate::cli::args::InputKind;
 
     #[test]
     fn detect_media_mapping_keeps_local_subdir() {
@@ -242,7 +244,7 @@ mod tests {
             ReleasedCommand::Align,
             "eng",
             1,
-            &["cha"],
+            InputKind::Chat,
             std::slice::from_ref(&input_dir),
             Some(output_dir.as_path()),
             None,

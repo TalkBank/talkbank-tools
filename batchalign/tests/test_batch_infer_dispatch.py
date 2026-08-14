@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 
+from batchalign.worker._infer import _batch_infer
 from batchalign.worker._types import (
     BatchInferRequest,
     BatchInferResponse,
@@ -18,8 +19,6 @@ from batchalign.worker._types import (
     InferTask,
     _state,
 )
-from batchalign.worker._infer import _batch_infer
-
 
 # ---------------------------------------------------------------------------
 # InferTask enum coverage
@@ -57,6 +56,7 @@ class TestBatchItemValidation:
         item = AvqiBatchItem(cs_file="/tmp/cs.wav", sv_file="/tmp/sv.wav")
         assert item.cs_file == "/tmp/cs.wav"
         assert item.sv_file == "/tmp/sv.wav"
+
 
 # ---------------------------------------------------------------------------
 # Dispatch routing (test-echo disabled, hits real dispatch)
@@ -113,10 +113,12 @@ class TestDispatchRouting:
             results: list[InferResponse] = []
             for raw_item in req.items:
                 assert isinstance(raw_item, dict)
-                results.append(InferResponse(
-                    result={"raw_translation": str(raw_item["text"]).upper()},
-                    elapsed_s=0.0,
-                ))
+                results.append(
+                    InferResponse(
+                        result={"raw_translation": str(raw_item["text"]).upper()},
+                        elapsed_s=0.0,
+                    )
+                )
             return BatchInferResponse(results=results)
 
         _state.clear_batch_infer_handlers()
@@ -189,7 +191,9 @@ class TestCapabilitiesAdvertisement:
             _state.test_echo = old_test_echo
             _state.ready = old_ready
 
-    def test_capabilities_uses_injected_revai_key_without_config_read(self, monkeypatch) -> None:
+    def test_capabilities_uses_injected_revai_key_without_config_read(
+        self, monkeypatch
+    ) -> None:
         """ASR capability should come from the injected bootstrap key, not config discovery."""
         import batchalign.config as legacy_config
         from batchalign.worker._handlers import _capabilities

@@ -37,7 +37,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 CASES: tuple[ProbeCase, ...] = (
     # ── Plain words (control) ──────────────────────────────────────
     ProbeCase(

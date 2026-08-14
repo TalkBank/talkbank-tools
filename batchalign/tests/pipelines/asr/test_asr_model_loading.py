@@ -15,7 +15,12 @@ from batchalign.worker._model_loading.asr import (
     resolve_asr_engine,
     resolve_injected_revai_api_key,
 )
-from batchalign.worker._types import AsrEngine, InferTask, WorkerBootstrapRuntime, _state
+from batchalign.worker._types import (
+    AsrEngine,
+    InferTask,
+    WorkerBootstrapRuntime,
+    _state,
+)
 
 
 class TestResolveInjectedRevaiApiKey:
@@ -63,40 +68,26 @@ class TestResolveAsrEngine:
         # Qwen3-ASR is an open-weight Cantonese-capable ASR option;
         # this test pins that an explicit override routes to it
         # regardless of the per-language default for ``yue``.
-        assert (
-            resolve_asr_engine({"asr": "qwen"}, None, lang="yue") is AsrEngine.QWEN
-        )
+        assert resolve_asr_engine({"asr": "qwen"}, None, lang="yue") is AsrEngine.QWEN
 
     # Per-language defaults (yue → FunASR). Explicit overrides and
     # Rev key still win; languages absent from the table fall through
     # to Whisper.
 
     def test_yue_without_rev_key_or_override_defaults_to_funaudio(self) -> None:
-        assert (
-            resolve_asr_engine(None, None, lang="yue") is AsrEngine.FUNAUDIO
-        )
+        assert resolve_asr_engine(None, None, lang="yue") is AsrEngine.FUNAUDIO
 
     def test_yue_with_explicit_override_still_uses_override(self) -> None:
-        assert (
-            resolve_asr_engine({"asr": "qwen"}, None, lang="yue")
-            is AsrEngine.QWEN
-        )
+        assert resolve_asr_engine({"asr": "qwen"}, None, lang="yue") is AsrEngine.QWEN
 
     def test_yue_with_rev_key_still_uses_rev(self) -> None:
-        assert (
-            resolve_asr_engine(None, "from-config", lang="yue")
-            is AsrEngine.REV
-        )
+        assert resolve_asr_engine(None, "from-config", lang="yue") is AsrEngine.REV
 
     def test_eng_without_rev_key_still_defaults_to_whisper(self) -> None:
-        assert (
-            resolve_asr_engine(None, None, lang="eng") is AsrEngine.WHISPER
-        )
+        assert resolve_asr_engine(None, None, lang="eng") is AsrEngine.WHISPER
 
     def test_unknown_lang_falls_back_to_global_default(self) -> None:
-        assert (
-            resolve_asr_engine(None, None, lang="mri") is AsrEngine.WHISPER
-        )
+        assert resolve_asr_engine(None, None, lang="mri") is AsrEngine.WHISPER
 
     def test_unknown_engine_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="unknown asr engine 'wisper'"):
@@ -182,6 +173,7 @@ def test_whisper_hub_override_dispatches_to_whisper_hub_loader(monkeypatch) -> N
     old_engine = _state.asr_engine
     old_model = _state.whisper_asr_model
     try:
+
         def fake_load_whisper_hub_asr(lang, engine_overrides, *, device_policy):
             captured["lang"] = lang
             captured["engine_overrides"] = engine_overrides
@@ -313,8 +305,7 @@ def test_load_asr_engine_eng_with_no_override_or_rev_still_loads_whisper(
         )
 
         assert funaudio_calls == [], (
-            "eng worker must not load FunASR. "
-            f"funaudio_calls={funaudio_calls}"
+            f"eng worker must not load FunASR. funaudio_calls={funaudio_calls}"
         )
         assert _state.asr_engine is AsrEngine.WHISPER
         assert _state.whisper_asr_model == "fake-whisper-model"
@@ -330,6 +321,7 @@ def test_tencent_override_uses_injected_boundary_credentials(monkeypatch) -> Non
     captured: dict[str, object] = {}
     old_engine = _state.asr_engine
     try:
+
         def fake_load_tencent_asr(lang, engine_overrides, *, config=None):
             captured["lang"] = lang
             captured["engine_overrides"] = engine_overrides
@@ -373,6 +365,7 @@ def test_load_qwen_asr_times_out_on_hang(monkeypatch) -> None:
     compute from recurring.
     """
     import time
+
     from batchalign.inference.languages.cantonese import _qwen_asr
 
     # Force a short timeout so the test completes in ~1 second instead
@@ -397,9 +390,7 @@ def test_load_qwen_asr_times_out_on_hang(monkeypatch) -> None:
 
     start = time.monotonic()
     with pytest.raises(TimeoutError, match=r"Qwen3-ASR.*timed out after 1 second"):
-        _qwen_asr.load_qwen_asr(
-            "yue", {"qwen_model": "Qwen/Qwen3-ASR-0.6B"}
-        )
+        _qwen_asr.load_qwen_asr("yue", {"qwen_model": "Qwen/Qwen3-ASR-0.6B"})
     elapsed = time.monotonic() - start
 
     assert hang_invocations == [1], "warm() should have been entered exactly once"

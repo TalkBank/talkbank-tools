@@ -16,16 +16,20 @@ for the unified reference to all schema, generated, and conformance-test locatio
 
 ## Solution: One Source of Truth
 
-Rust types are the source of truth. Python types are either **generated**
-from Rust schemas or **conformance-tested** against them.
+Rust types are the source of truth. The JSON Schema is generated from them,
+and the hand-written Python models are conformance-tested against that schema.
 
 ```mermaid
 flowchart LR
     rust["Rust structs\n(schemars::JsonSchema)"] --> schema["JSON Schema\n(ipc-schema/)"]
-    schema --> generated["Generated Pydantic\n(batchalign/generated/)"]
     schema --> test["Conformance tests\n(test_ipc_type_conformance.py)"]
     test --> handwritten["Hand-written Pydantic\n(_types_v2.py, inference/*.py)"]
 ```
+
+Both arrows are gated. `check_ipc_type_drift.sh` fails when the committed
+schema no longer matches the Rust types, and the conformance test fails when a
+Python model no longer matches the schema. Neither is optional: they run in
+`make batchalign-ci-python` and in CI.
 
 ### Pipeline
 
@@ -33,11 +37,14 @@ flowchart LR
 # Step 1: Generate JSON Schema from Rust types
 cargo run -p batchalign -- ipc-schema --output ipc-schema/
 
-# Step 2: Generate Python Pydantic models + check conformance
+# Or via the script, which is the same command with the paths filled in
 bash scripts/generate_ipc_types.sh
 
-# Step 3: Check for drift (CI)
+# Step 2: Check for drift (runs in `make batchalign-ci-python` and CI)
 bash scripts/check_ipc_type_drift.sh
+
+# Step 3: Check the hand-written Python models against the schema
+uv run pytest batchalign/tests/test_ipc_type_conformance.py
 ```
 
 ### What lives where
@@ -46,27 +53,36 @@ bash scripts/check_ipc_type_drift.sh
 |-------|----------------|-------|
 | Rust types | Canonical definitions | `crates/batchalign-types/src/worker_v2/`, re-exported by `crates/batchalign/src/types/worker_v2.rs`, plus `crates/batchalign/src/morphosyntax/mod.rs` |
 | JSON Schema | Generated from Rust | `ipc-schema/worker_v2/*.json`, `ipc-schema/batch_items/*.json` |
-| Generated Python | Generated from schema | `batchalign/generated/worker_v2/`, `batchalign/generated/batch_items/` |
 | Hand-written Python | Conformance-tested | `batchalign/worker/_types_v2.py`, `batchalign/inference/*.py` |
 | Conformance tests | Validates hand-written against schema | `batchalign/tests/test_ipc_type_conformance.py` |
 
 The `worker_v2` layer name is still intentional. V1 remains in-tree as the
-frozen `worker` / `_types.py` compatibility surface, so the schema directory,
-generated package, and typed Python overlays keep the versioned namespace until
-that older contract is retired together.
+frozen `worker` / `_types.py` compatibility surface, so the schema directory
+and the typed Python overlays keep the versioned namespace until that older
+contract is retired together.
 
-### Why both generated AND hand-written?
+### Why the Python models are hand-written
 
-Generated types are structurally correct but lack:
+A generated Pydantic layer existed under `batchalign/generated/` until
+2026-08-14, produced by `datamodel-codegen` from the same schema, with the
+stated plan of replacing the hand-written models by adding validators as thin
+subclass overlays. It was removed, having been imported by nothing for three
+months, and the plan was abandoned rather than deferred, because carrying it
+out would have made the Python boundary WORSE:
 
-- **Custom validators**: 4 types have `@model_validator` range checks
-  (e.g., `end_s >= start_s` on `WhisperChunkSpanV2`)
-- **Custom type aliases**: `FiniteNonNegativeFloat`, `WorkerRequestIdV2`
-- **`extra="allow"`** on `UdWord` (allows unknown Stanza fields)
+- **Domain types would be lost.** Codegen emits `str` and `float`. The
+  hand-written models carry `LanguageCode`, `Terminator`, `WorkerRequestIdV2`
+  and `FiniteNonNegativeFloat`, and this codebase does not accept a bare
+  primitive at a stable boundary.
+- **Validators cannot be generated.** Several models enforce relationships a
+  schema cannot state, such as `end_s >= start_s` on `WhisperChunkSpanV2` and
+  the parallel-array lengths on `FaInferItem`.
+- **`extra="allow"`** on `UdWord`, which lets unknown Stanza fields through,
+  has no schema expression either.
 
-The hand-written types keep these behaviors. Conformance tests verify they
-match the Rust schema structurally. Over time, generated types can replace
-hand-written ones by adding validators as thin subclass overlays.
+What the generated layer was for, keeping the two sides in step, is done by
+the two gates above, and they are cheaper: one representation per language,
+neither of which is a mirror of the other.
 
 ## Adding a New IPC Type
 
@@ -144,22 +160,31 @@ keeping Rust and Python types in sync by reading both codebases.
 
 ## CI Integration
 
-Add to your CI pipeline:
+Wired into CI as:
 
 ```yaml
-- name: Check IPC type drift
+- name: Verify IPC schema matches the Rust types
   run: bash scripts/check_ipc_type_drift.sh
 ```
 
-This exits non-zero if any Rust type has changed without regenerating
-schemas. The conformance tests catch Python-side drift.
+This is wired into the `typecheck` job of `batchalign-python.yml` and into
+`make batchalign-ci-python`. It exits non-zero if any Rust type has changed
+without the schema being regenerated; the conformance tests catch Python-side
+drift. Until 2026-08-14 the script existed and ran nowhere, so a schema stale
+against its own source could sit in the tree indefinitely, and the conformance
+test would go on checking Python against yesterday's contract without a word.
 
-## Future: Full Generation
+## Retired: full generation
 
-The end goal is to replace all hand-written Python IPC types with imports
-from `batchalign/generated/`. The remaining steps:
+This page used to end with a plan to replace every hand-written Python IPC
+type with an import from a generated package, and to delete the conformance
+tests as redundant once that landed. The plan is retired; the reasons are in
+"Why the Python models are hand-written" above.
 
-1. Add thin subclass overlays for types with validators
-2. Replace imports in `_types_v2.py` with re-exports from generated
-3. Replace imports in `inference/*.py` with re-exports from generated
-4. Remove conformance tests (generated types are correct by construction)
+What generalises beyond this case: generation removes
+drift by removing one of two representations, which is the right instinct. It
+was the wrong trade HERE because the representation it would have removed is
+the one carrying the domain types and the validators, and the one it would have
+kept cannot express either. When the two sides of a boundary are two languages,
+a conformance test is not a confession that one representation should not
+exist. It is the only thing that can hold two type systems to one contract.

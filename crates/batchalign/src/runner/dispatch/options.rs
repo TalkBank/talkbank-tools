@@ -18,8 +18,7 @@
 // carried forward for future pipeline wiring even when today's orchestrator
 // does not yet consume them.
 
-use crate::api::DurationMs;
-use crate::chat_ops::fa::{FaEngineType, FaTimingMode};
+use crate::chat_ops::fa::WordGapHealing;
 use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, TokenizationMode};
 #[allow(unused_imports)]
 use crate::options::{
@@ -74,19 +73,25 @@ pub(crate) fn extract_fa_dispatch_params(
         _ => return None,
     };
 
-    let engine = FaEngineType::from_str_lossy(fa_engine.as_wire_name());
-
-    let (timing_mode, max_group_ms) = match engine {
-        FaEngineType::Wave2Vec => (FaTimingMode::Continuous, DurationMs(15_000)),
-        FaEngineType::WhisperFa if pauses => (FaTimingMode::WithPauses, DurationMs(20_000)),
-        FaEngineType::WhisperFa => (FaTimingMode::Continuous, DurationMs(20_000)),
+    // `--pauses` asks for silence between words to survive, which is exactly
+    // "do not heal the gaps". It reads the same for every engine now: it used
+    // to be reachable only on the onset-only branch, so passing it alongside
+    // the default engine silently did nothing.
+    //
+    // Written as an `if` because that is what it is. A match on
+    // `(timing_resolution, pauses)` reads as though the engine's resolution
+    // participates, and it does not: post-processing takes the resolution
+    // separately and decides what the policy MEANS for that engine.
+    let gap_healing = if pauses {
+        WordGapHealing::PreserveMeasured
+    } else {
+        WordGapHealing::Heal
     };
 
     Some(FaDispatchParams {
         fa_params: FaParams {
-            timing_mode,
-            max_group_ms,
-            engine,
+            gap_healing,
+            engine: fa_engine,
             cache_policy,
             wor_tier: wor,
             bullet_repair,
@@ -287,6 +292,38 @@ mod tests {
         })
     }
 
+    /// `--pauses` must reach the DEFAULT engine, not only the onset-only one.
+    ///
+    /// Behaviour change, 2026-08-14, deliberate and user-visible. The flag was
+    /// previously consulted on the Whisper branch alone, so passing it with
+    /// the default engine parsed, dispatched and silently did nothing: a user
+    /// asking for silence between words to survive got it healed away anyway.
+    /// A flag that cannot affect the default is not a flag.
+    #[test]
+    fn pauses_reaches_the_default_engine() {
+        let with_pauses = extract_fa_dispatch_params(
+            &align_opts("wav2vec_fa", None, true, true, false),
+            CachePolicy::UseCache,
+        )
+        .expect("wav2vec align must produce dispatch params");
+        assert_eq!(
+            with_pauses.fa_params.gap_healing,
+            WordGapHealing::PreserveMeasured,
+            "--pauses must stop gap healing on the default engine too"
+        );
+
+        let without = extract_fa_dispatch_params(
+            &align_opts("wav2vec_fa", None, false, true, false),
+            CachePolicy::UseCache,
+        )
+        .expect("wav2vec align must produce dispatch params");
+        assert_eq!(
+            without.fa_params.gap_healing,
+            WordGapHealing::Heal,
+            "the default is unchanged: gaps are healed unless asked otherwise"
+        );
+    }
+
     #[test]
     fn fa_dispatch_reads_fa_engine() {
         let p1 = extract_fa_dispatch_params(
@@ -294,14 +331,20 @@ mod tests {
             CachePolicy::UseCache,
         )
         .unwrap();
-        assert_eq!(p1.fa_params.engine, FaEngineType::WhisperFa);
+        assert_eq!(
+            p1.fa_params.engine,
+            crate::types::engines::FaEngineName::Whisper
+        );
 
         let p2 = extract_fa_dispatch_params(
             &align_opts("wav2vec_fa", None, false, true, false),
             CachePolicy::UseCache,
         )
         .unwrap();
-        assert_eq!(p2.fa_params.engine, FaEngineType::Wave2Vec);
+        assert_eq!(
+            p2.fa_params.engine,
+            crate::types::engines::FaEngineName::Wave2Vec
+        );
     }
 
     #[test]
@@ -311,15 +354,14 @@ mod tests {
             CachePolicy::UseCache,
         )
         .unwrap();
-        assert_eq!(p1.fa_params.timing_mode, FaTimingMode::WithPauses);
-        assert_eq!(p1.fa_params.max_group_ms, DurationMs(20_000));
+        assert_eq!(p1.fa_params.gap_healing, WordGapHealing::PreserveMeasured);
 
         let p2 = extract_fa_dispatch_params(
             &align_opts("whisper_fa", None, false, true, false),
             CachePolicy::UseCache,
         )
         .unwrap();
-        assert_eq!(p2.fa_params.timing_mode, FaTimingMode::Continuous);
+        assert_eq!(p2.fa_params.gap_healing, WordGapHealing::Heal);
     }
 
     #[test]

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 CASES: tuple[ProbeCase, ...] = (
     # ── Proper-name possessives ──
     ProbeCase("claus_s_possessive", ("Claus's",), Phenomenon.POSSESSIVE, 1),

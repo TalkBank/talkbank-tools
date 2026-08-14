@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
-
 from batchalign.inference.coref import (
     ChainRef,
     CorefBatchItem,
@@ -21,9 +19,7 @@ class TestCorefModels:
 
     def test_coref_batch_item_roundtrip(self) -> None:
         item = CorefBatchItem(sentences=[["the", "dog"], ["it", "ran"]])
-        assert item.model_dump() == {
-            "sentences": [["the", "dog"], ["it", "ran"]]
-        }
+        assert item.model_dump() == {"sentences": [["the", "dog"], ["it", "ran"]]}
 
     def test_coref_raw_response_roundtrip(self) -> None:
         response = CorefRawResponse(
@@ -40,7 +36,9 @@ class TestCorefModels:
         assert back.annotations[0].words[0][0].chain_id == 1
 
 
-def test_batch_infer_coref_reuses_pipeline_and_returns_sparse_annotations(monkeypatch) -> None:
+def test_batch_infer_coref_reuses_pipeline_and_returns_sparse_annotations(
+    monkeypatch,
+) -> None:
     """One batch should initialize Stanza once and only emit sentences with chains."""
 
     pipeline_inits: list[dict[str, object]] = []
@@ -190,12 +188,16 @@ def test_batch_infer_coref_ignores_extra_sentences_from_runtime(monkeypatch) -> 
     }
 
 
-def test_batch_infer_coref_reports_invalid_items_and_empty_documents(monkeypatch) -> None:
+def test_batch_infer_coref_reports_invalid_items_and_empty_documents(
+    monkeypatch,
+) -> None:
     """Invalid items should fail explicitly, while empty documents stay no-op."""
 
     class _UnusedPipeline:
         def __init__(self, **_kwargs) -> None:
-            raise AssertionError("pipeline should not be created for invalid or empty items")
+            raise AssertionError(
+                "pipeline should not be created for invalid or empty items"
+            )
 
     monkeypatch.setitem(
         __import__("sys").modules,
@@ -215,7 +217,9 @@ def test_batch_infer_coref_reports_invalid_items_and_empty_documents(monkeypatch
     assert response.results[1].result == {"annotations": []}
 
 
-def test_batch_infer_coref_returns_empty_annotations_on_runtime_failure(monkeypatch) -> None:
+def test_batch_infer_coref_returns_empty_annotations_on_runtime_failure(
+    monkeypatch,
+) -> None:
     """Unexpected Stanza failures should degrade to empty structured annotations."""
 
     class _ExplodingPipeline:

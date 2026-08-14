@@ -71,7 +71,7 @@ pub struct FaResult {
     pub chat_text: String,
     pub groups: Vec<FaGroupTrace>,
     pub pre_injection_timings: Vec<Vec<Option<TimingTrace>>>,
-    pub timing_mode: FaTimingMode,
+    pub gap_healing: WordGapHealing,
     pub violations: Vec<ViolationTrace>,
 }
 ```

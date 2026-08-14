@@ -18,6 +18,11 @@ and full Python caller locations.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from batchalign.inference.languages.cantonese._cantonese_fa import CantoneseFaHost
+
 from dataclasses import dataclass, field
 
 from batchalign.worker._asr_v2 import (
@@ -77,7 +82,9 @@ class WorkerExecutionHostV2:
         default_factory=ForcedAlignmentExecutionHostV2
     )
     speaker: SpeakerExecutionHostV2 = field(default_factory=SpeakerExecutionHostV2)
-    opensmile: OpenSmileExecutionHostV2 = field(default_factory=OpenSmileExecutionHostV2)
+    opensmile: OpenSmileExecutionHostV2 = field(
+        default_factory=OpenSmileExecutionHostV2
+    )
     avqi: AvqiExecutionHostV2 = field(default_factory=AvqiExecutionHostV2)
     text: TextExecutionHostV2 = field(default_factory=TextExecutionHostV2)
 
@@ -93,6 +100,7 @@ def build_default_execution_host_v2() -> WorkerExecutionHostV2:
         forced_alignment=build_default_fa_execution_host_v2(
             whisper_model=_state.whisper_fa_model,
             wave2vec_model=_state.wave2vec_fa_model,
+            canto_host=_default_cantonese_fa_host(),
         ),
         speaker=build_default_speaker_execution_host_v2(
             _state.bootstrap.device_policy if _state.bootstrap is not None else None
@@ -216,3 +224,18 @@ __all__ = [
     "build_default_execution_host_v2",
     "execute_request_v2",
 ]
+
+
+def _default_cantonese_fa_host() -> CantoneseFaHost | None:
+    """The loaded Cantonese FA host, or None when that engine was not loaded.
+
+    Imported lazily because the Cantonese module imports torch transitively via
+    `batchalign.inference.fa`, and this module currently pulls no torch at all.
+    (It does NOT pull pycantonese, which is imported inside `load_cantonese_fa`;
+    an earlier version of this comment said otherwise.)
+    """
+    from batchalign.inference.languages.cantonese._cantonese_fa import (
+        default_cantonese_fa_host,
+    )
+
+    return default_cantonese_fa_host()

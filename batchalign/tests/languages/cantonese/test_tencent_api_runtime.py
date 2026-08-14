@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import builtins
 import configparser
-from types import ModuleType, SimpleNamespace
 import sys
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -66,8 +66,12 @@ def _install_tencent_init_modules(monkeypatch) -> None:
         "tencentcloud.asr.v20190614.asr_client",
         asr_client_module,
     )
-    monkeypatch.setitem(sys.modules, "tencentcloud.common", ModuleType("tencentcloud.common"))
-    monkeypatch.setitem(sys.modules, "tencentcloud.common.credential", credential_module)
+    monkeypatch.setitem(
+        sys.modules, "tencentcloud.common", ModuleType("tencentcloud.common")
+    )
+    monkeypatch.setitem(
+        sys.modules, "tencentcloud.common.credential", credential_module
+    )
 
 
 def _valid_config(**overrides: str) -> configparser.ConfigParser:
@@ -120,7 +124,7 @@ def test_init_wires_sdk_clients_and_language_state(monkeypatch) -> None:
 def test_init_rejects_empty_region_in_shared_config_reader(monkeypatch) -> None:
     _install_tencent_init_modules(monkeypatch)
 
-    with pytest.raises(ConfigError, match="engine.tencent.region"):
+    with pytest.raises(ConfigError, match=r"engine\.tencent\.region"):
         TencentRecognizer("yue", config=_valid_config(**{"engine.tencent.region": ""}))
 
 
@@ -138,7 +142,9 @@ def test_transcribe_reports_missing_runtime_sdk_dependency(monkeypatch) -> None:
         _make_recognizer().transcribe("clip.wav")
 
 
-def test_transcribe_surfaces_failed_status_and_ignores_cleanup_errors(monkeypatch) -> None:
+def test_transcribe_surfaces_failed_status_and_ignores_cleanup_errors(
+    monkeypatch,
+) -> None:
     models = SimpleNamespace(
         CreateRecTaskRequest=type("CreateRecTaskRequest", (), {}),
         DescribeTaskStatusRequest=type("DescribeTaskStatusRequest", (), {}),
@@ -159,7 +165,9 @@ def test_transcribe_surfaces_failed_status_and_ignores_cleanup_errors(monkeypatc
             return SimpleNamespace(Data=SimpleNamespace(TaskId=123))
 
         def DescribeTaskStatus(self, _request):
-            return SimpleNamespace(Data=SimpleNamespace(Status=3, ErrorMsg="bad result"))
+            return SimpleNamespace(
+                Data=SimpleNamespace(Status=3, ErrorMsg="bad result")
+            )
 
     recognizer = _make_recognizer()
     recognizer._bucket = FakeBucket()
@@ -254,7 +262,10 @@ def test_transcribe_times_out_when_status_never_completes(monkeypatch) -> None:
         "batchalign.inference.languages.cantonese._tencent_api.time.monotonic",
         lambda: next(monotonic_values),
     )
-    monkeypatch.setattr("batchalign.inference.languages.cantonese._tencent_api.time.sleep", lambda _s: None)
+    monkeypatch.setattr(
+        "batchalign.inference.languages.cantonese._tencent_api.time.sleep",
+        lambda _s: None,
+    )
 
     recognizer = _make_recognizer()
     recognizer._bucket = FakeBucket()

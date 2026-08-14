@@ -76,12 +76,12 @@ def _capabilities() -> CapabilitiesResponse:
     # bypassed by a future refactor.
     _INFER_TASK_PROBES: dict[InferTask, tuple[tuple[str, ...], str]] = {
         InferTask.MORPHOSYNTAX: (("stanza",), ""),
-        InferTask.UTSEG:        (("stanza",), ""),
-        InferTask.COREF:        (("stanza",), ""),
-        InferTask.TRANSLATE:    (("googletrans",), "googletrans-v1"),
-        InferTask.FA:           (("torch", "torchaudio"), "whisper"),
-        InferTask.OPENSMILE:    (("opensmile",), "opensmile"),
-        InferTask.AVQI:         (("parselmouth", "torchaudio"), "praat"),
+        InferTask.UTSEG: (("stanza",), ""),
+        InferTask.COREF: (("stanza",), ""),
+        InferTask.TRANSLATE: (("googletrans",), "googletrans-v1"),
+        InferTask.FA: (("torch", "torchaudio"), "whisper"),
+        InferTask.OPENSMILE: (("opensmile",), "opensmile"),
+        InferTask.AVQI: (("parselmouth", "torchaudio"), "praat"),
     }
 
     import importlib
@@ -100,9 +100,8 @@ def _capabilities() -> CapabilitiesResponse:
             if task == InferTask.MORPHOSYNTAX or task == InferTask.COREF:
                 engine_versions[task] = resolve_stanza_version(_state.stanza_version)
             elif task == InferTask.UTSEG:
-                engine_versions[task] = (
-                    _state.utseg_version
-                    or resolve_stanza_version(_state.stanza_version)
+                engine_versions[task] = _state.utseg_version or resolve_stanza_version(
+                    _state.stanza_version
                 )
             elif task == InferTask.FA:
                 engine_versions[task] = _state.fa_model_name or _state.fa_engine.value
@@ -110,6 +109,7 @@ def _capabilities() -> CapabilitiesResponse:
                 engine_versions[task] = _state.asr_engine.value
             elif task == InferTask.TRANSLATE:
                 from batchalign.inference._domain_types import TranslationBackend
+
                 if _state.translate_backend == TranslationBackend.GOOGLE:
                     engine_versions[task] = "googletrans-v1"
                 else:
@@ -143,7 +143,9 @@ def _capabilities() -> CapabilitiesResponse:
         engine_versions[InferTask.ASR] = (
             _state.asr_engine.value
             if _state.ready and _state.asr_engine.value
-            else "rev" if has_revai_key else "whisper"
+            else "rev"
+            if has_revai_key
+            else "whisper"
         )
 
     # Build per-language Stanza capability map from resources.json.

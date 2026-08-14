@@ -17,20 +17,19 @@ from typing import NoReturn
 
 from pydantic import ValidationError
 
-from batchalign.worker._types import (
-    BatchInferRequest,
-    BatchInferResponse,
-    InferResponse,
-)
-from batchalign.worker._progress import emit_download_event
+from batchalign.inference._domain_types import LanguageCode
 from batchalign.inference.asr import (
     AsrBatchItem,
     AsrElement,
     AsrMonologue,
     MonologueAsrResponse,
 )
-
-from batchalign.inference._domain_types import LanguageCode
+from batchalign.worker._progress import emit_download_event
+from batchalign.worker._types import (
+    BatchInferRequest,
+    BatchInferResponse,
+    InferResponse,
+)
 
 from ._common import EngineOverrides
 from ._qwen_common import QwenRecognizer
@@ -91,9 +90,7 @@ _recognizer: QwenRecognizer | None = None
 # ---------------------------------------------------------------------------
 
 
-def load_qwen_asr(
-    lang: LanguageCode, engine_overrides: EngineOverrides | None
-) -> None:
+def load_qwen_asr(lang: LanguageCode, engine_overrides: EngineOverrides | None) -> None:
     """Initialize the Qwen3-ASR recognizer (called once at worker startup).
 
     Recognized ``engine_overrides`` keys:
@@ -186,15 +183,11 @@ def infer_qwen_asr(req: BatchInferRequest) -> BatchInferResponse:
         try:
             item = AsrBatchItem.model_validate(raw_item)
         except ValidationError:
-            results.append(
-                InferResponse(error="Invalid AsrBatchItem", elapsed_s=0.0)
-            )
+            results.append(InferResponse(error="Invalid AsrBatchItem", elapsed_s=0.0))
             continue
         try:
             response = _transcribe_to_monologues(item)
-            results.append(
-                InferResponse(result=response.model_dump(), elapsed_s=0.0)
-            )
+            results.append(InferResponse(result=response.model_dump(), elapsed_s=0.0))
         except Exception as exc:
             L.warning(
                 "Qwen3-ASR failed for item %d: %s",

@@ -23,8 +23,8 @@ from batchalign.tests._affects import (
     select_tests,
 )
 
-
 # ---------- parse_affects ------------------------------------------------
+
 
 def test_parse_python_single_pattern(tmp_path: Path) -> None:
     f = tmp_path / "test_x.py"
@@ -39,10 +39,7 @@ def test_parse_python_single_pattern(tmp_path: Path) -> None:
 
 def test_parse_rust_single_pattern(tmp_path: Path) -> None:
     f = tmp_path / "a.rs"
-    f.write_text(
-        "// affects: crates/batchalign/src/retokenize/**\n"
-        "fn test_x() {}\n"
-    )
+    f.write_text("// affects: crates/batchalign/src/retokenize/**\nfn test_x() {}\n")
     decl = parse_affects(f)
     assert decl.patterns == ("crates/batchalign/src/retokenize/**",)
 
@@ -105,6 +102,7 @@ def test_parse_tolerates_content_arg(tmp_path: Path) -> None:
 
 # ---------- diff_matches_declaration -------------------------------------
 
+
 def test_match_exact_path() -> None:
     decl = AffectsDeclaration(Path("t.py"), ("foo/bar.rs",))
     assert diff_matches_declaration(["foo/bar.rs"], decl) is True
@@ -113,15 +111,20 @@ def test_match_exact_path() -> None:
 
 def test_match_double_star_glob() -> None:
     decl = AffectsDeclaration(Path("t.py"), ("crates/batchalign/src/retokenize/**",))
-    assert diff_matches_declaration(
-        ["crates/batchalign/src/retokenize/mod.rs"], decl
-    ) is True
-    assert diff_matches_declaration(
-        ["crates/batchalign/src/retokenize/deep/nested/file.rs"], decl
-    ) is True
-    assert diff_matches_declaration(
-        ["crates/batchalign/src/nlp/lang_it.rs"], decl
-    ) is False
+    assert (
+        diff_matches_declaration(["crates/batchalign/src/retokenize/mod.rs"], decl)
+        is True
+    )
+    assert (
+        diff_matches_declaration(
+            ["crates/batchalign/src/retokenize/deep/nested/file.rs"], decl
+        )
+        is True
+    )
+    assert (
+        diff_matches_declaration(["crates/batchalign/src/nlp/lang_it.rs"], decl)
+        is False
+    )
 
 
 def test_match_any_of_multiple_patterns() -> None:
@@ -145,6 +148,7 @@ def test_match_with_empty_changed_paths_is_false() -> None:
 
 
 # ---------- select_tests -------------------------------------------------
+
 
 def test_select_tests_run_always_bucket(tmp_path: Path) -> None:
     f_with = tmp_path / "test_with.py"

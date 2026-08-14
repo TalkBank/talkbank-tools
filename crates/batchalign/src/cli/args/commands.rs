@@ -303,7 +303,7 @@ impl AlignArgs {
     /// default became Whisper. It is consulted here.
     pub fn fa_selection(&self) -> FaEngineName {
         if let Some(ref engine) = self.fa_engine_custom {
-            return engine.clone();
+            return *engine;
         }
         if self.whisper_fa {
             return FaEngineName::Whisper;
@@ -311,7 +311,7 @@ impl AlignArgs {
         if self.wav2vec {
             return FaEngineName::Wave2Vec;
         }
-        self.fa_engine.clone()
+        self.fa_engine
     }
 }
 

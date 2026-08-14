@@ -69,6 +69,7 @@ use super::helpers::{
 };
 use super::paths::prepare_paths_submission;
 use super::{server_supports_command, warn_stale_server};
+use crate::cli::args::InputKind;
 
 /// Submit files to a single server, poll for completion, write results.
 #[allow(clippy::too_many_arguments)]
@@ -79,7 +80,7 @@ pub(super) async fn dispatch_single_server(
     command: ReleasedCommand,
     lang: &str,
     num_speakers: u32,
-    extensions: &[&str],
+    input_kind: InputKind,
     inputs: &[std::path::PathBuf],
     out_dir: Option<&std::path::Path>,
     options: Option<&CommandOptions>,
@@ -117,7 +118,7 @@ pub(super) async fn dispatch_single_server(
             command,
             lang,
             num_speakers,
-            extensions,
+            input_kind,
             inputs,
             out_dir,
             options,
@@ -126,7 +127,7 @@ pub(super) async fn dispatch_single_server(
             &health.media_mapping_keys,
         )?
         else {
-            eprintln!("warning: no files found with extensions {extensions:?}");
+            eprintln!("warning: no files found for {input_kind:?} input");
             return Ok(());
         };
 
@@ -144,13 +145,13 @@ pub(super) async fn dispatch_single_server(
         )
     } else {
         let (files, outputs) =
-            crate::cli::discover::discover_server_inputs(inputs, out_dir, extensions)?;
+            crate::cli::discover::discover_server_inputs(inputs, out_dir, input_kind)?;
         let (files, outputs) = filter_files_for_command(command, files, outputs);
 
         if let Some(od) = out_dir {
             for inp in inputs {
                 if Path::new(inp).is_dir() {
-                    copy_nonmatching(Path::new(inp), Path::new(od), extensions, command)?;
+                    copy_nonmatching(Path::new(inp), Path::new(od), input_kind, command)?;
                 }
             }
         }
@@ -159,7 +160,7 @@ pub(super) async fn dispatch_single_server(
         let (server_names, result_map) = build_server_names(&files, &outputs, inputs)?;
         let (file_payloads, media_file_names) = classify_files(&files, &server_names)?;
         if file_payloads.is_empty() && media_file_names.is_empty() {
-            eprintln!("warning: no files found with extensions {extensions:?}");
+            eprintln!("warning: no files found for {input_kind:?} input");
             return Ok(());
         }
 

@@ -15,8 +15,8 @@ models. Its job is to prove the contract, not model quality.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from batchalign.worker._fa_v2 import (
     ForcedAlignmentExecutionHostV2,
@@ -28,12 +28,13 @@ from batchalign.worker._types_v2 import ExecuteRequestV2
 def _fake_whisper_runner(
     _audio,
     text: str,
-    _pauses: bool,
 ) -> list[tuple[str, float]]:
     """Return deterministic fake token timings for the roundtrip test.
 
     The spacing-based tokenization is intentional because the current roundtrip
-    harness only exercises the staged Whisper + `space_joined` path.
+    harness only exercises the staged Whisper + `space_joined` path. The host
+    takes no shaping flag: Rust applies the request's `FaTextModeV2` before
+    calling, so whatever arrives here is already shaped.
     """
 
     words = [word for word in text.split(" ") if word]
@@ -53,7 +54,9 @@ def main() -> int:
     request_path = Path(sys.argv[1])
     response_path = Path(sys.argv[2])
 
-    request = ExecuteRequestV2.model_validate_json(request_path.read_text(encoding="utf-8"))
+    request = ExecuteRequestV2.model_validate_json(
+        request_path.read_text(encoding="utf-8")
+    )
     response = execute_forced_alignment_request_v2(
         request,
         ForcedAlignmentExecutionHostV2(whisper_runner=_fake_whisper_runner),

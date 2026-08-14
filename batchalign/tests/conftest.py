@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import platform
+
 import pytest
 
 
@@ -22,7 +23,9 @@ def _is_ci() -> bool:
     Conservative: any of the common env vars signals CI. Interactive
     shells on a developer machine have none of these set.
     """
-    return any(os.environ.get(k) for k in ("CI", "GITHUB_ACTIONS", "BUILDKITE", "JENKINS_URL"))
+    return any(
+        os.environ.get(k) for k in ("CI", "GITHUB_ACTIONS", "BUILDKITE", "JENKINS_URL")
+    )
 
 
 _FAIL_FAST_CLI_FLAGS = ("-x", "--exitfirst", "--maxfail")
@@ -36,7 +39,9 @@ def _user_passed_any(argv: list[str], flags: tuple[str, ...]) -> bool:
     from "user passed ``--maxfail=0``" once argparse has run, so the
     only safe signal is the raw invocation argv.
     """
-    return any(arg == flag or arg.startswith(flag + "=") for arg in argv for flag in flags)
+    return any(
+        arg == flag or arg.startswith(flag + "=") for arg in argv for flag in flags
+    )
 
 
 def _apply_interactive_pytest_defaults(config: pytest.Config) -> None:
@@ -74,11 +79,14 @@ def _get_system_ram_gb() -> int:
     try:
         if platform.system() == "Darwin":
             import subprocess
+
             result = subprocess.run(
                 ["sysctl", "-n", "hw.memsize"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-            return int(result.stdout.strip()) // (1024 ** 3)
+            return int(result.stdout.strip()) // (1024**3)
         else:
             with open("/proc/meminfo") as f:
                 for line in f:
@@ -112,6 +120,7 @@ _history_should_record: bool = False
 def _resolve_commit_sha() -> str | None:
     """Return the current HEAD sha or None. Cached once per invocation."""
     import subprocess
+
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short=12", "HEAD"],
@@ -136,7 +145,9 @@ def _open_history_writer() -> object | None:
     if not db_path:
         return None
     from pathlib import Path
+
     from batchalign.tests._test_history import HistoryWriter
+
     return HistoryWriter(Path(db_path))
 
 
@@ -180,6 +191,7 @@ def pytest_configure(config: pytest.Config) -> None:
     if isinstance(num_workers, str):
         if num_workers == "auto":
             import os
+
             num_workers = os.cpu_count() or 1
         else:
             try:
@@ -203,11 +215,13 @@ def pytest_configure(config: pytest.Config) -> None:
         # Each golden worker loads Stanza/Whisper/... (~12 GB peak RSS);
         # compute how many fit in 60% of the system RAM.
         from batchalign.tests._memory_budget import budgeted_jobs
+
         budget_n = budgeted_jobs("ml", total_ram_mb=ram_gb * 1024)
         budget_n = min(budget_n, num_workers)  # never INCREASE concurrency
 
         if budget_n < num_workers:
             import warnings
+
             config.option.numprocesses = budget_n
             config.option.dist = "no" if budget_n == 0 else config.option.dist
             if budget_n == 0:
@@ -249,12 +263,15 @@ def _apply_history_priority_ordering(
     if not db_path_str:
         return
     from pathlib import Path
+
     db_path = Path(db_path_str)
     if not db_path.exists():
         return
     try:
         import time
+
         from batchalign.tests._history_priority import load_stats, order_by_priority
+
         since_ts = int(time.time()) - _HISTORY_PRIORITY_WINDOW_SECONDS
         stats = load_stats(db_path, since_ts=since_ts)
     except Exception:
@@ -294,6 +311,7 @@ def pytest_collection_modifyitems(
             num_workers = int(num_workers)
         except (ValueError, TypeError):
             import os
+
             num_workers = os.cpu_count() or 1
 
     if num_workers is None or num_workers <= 0:
@@ -304,6 +322,7 @@ def pytest_collection_modifyitems(
         return  # Unknown RAM: trust the configure-time guard's serialization.
 
     from batchalign.tests._memory_budget import budgeted_jobs
+
     budget_n = budgeted_jobs("ml", total_ram_mb=ram_gb * 1024)
     if num_workers <= budget_n:
         return
@@ -345,6 +364,7 @@ def _guard_golden_oom(request: pytest.FixtureRequest) -> None:
         return
 
     from batchalign.tests._memory_budget import budgeted_jobs
+
     budget_n = budgeted_jobs("ml", total_ram_mb=ram_gb * 1024)
     if budget_n > 0:
         return  # budget allows this many parallel workers; we're fine.

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
-from batchalign.worker._asr_v2 import AsrExecutionHostV2, execute_asr_request_v2
 from batchalign.inference.asr import AsrElement, AsrMonologue, MonologueAsrResponse
+from batchalign.worker._asr_v2 import AsrExecutionHostV2, execute_asr_request_v2
 from batchalign.worker._types_v2 import (
     AsrBackendV2,
     AsrElementKindV2,
@@ -20,8 +20,8 @@ from batchalign.worker._types_v2 import (
     PreparedAudioEncodingV2,
     PreparedAudioInputV2,
     PreparedAudioRefV2,
-    ProviderMediaInputV2,
     ProtocolErrorCodeV2,
+    ProviderMediaInputV2,
     WhisperChunkResultPayloadV2,
     WhisperChunkResultV2,
     WhisperChunkSpanV2,
@@ -217,8 +217,7 @@ def test_executes_provider_media_asr_v2_request() -> None:
     assert response.result.monologues[0].speaker == "1"
     assert response.result.monologues[0].elements[0].kind is AsrElementKindV2.TEXT
     assert (
-        response.result.monologues[0].elements[1].kind
-        is AsrElementKindV2.PUNCTUATION
+        response.result.monologues[0].elements[1].kind is AsrElementKindV2.PUNCTUATION
     )
     assert captured == {
         "audio_path": "/tmp/provider.wav",
@@ -227,7 +226,9 @@ def test_executes_provider_media_asr_v2_request() -> None:
     }
 
 
-def test_invalid_local_whisper_host_output_becomes_runtime_failure(tmp_path: Path) -> None:
+def test_invalid_local_whisper_host_output_becomes_runtime_failure(
+    tmp_path: Path,
+) -> None:
     """Malformed local Whisper host output should be classified as runtime failure."""
 
     def runner(_audio: np.ndarray, lang: str) -> dict[str, object]:

@@ -26,7 +26,6 @@ from pathlib import Path
 
 import pytest
 
-
 # Minimal valid CHAT requires @UTF8, @Begin, @Languages, @Participants,
 # @ID, utterances, @End. The constructions are the same ones whose
 # Stanza splits are pinned in test_stanza_he_el_et_mwt_splits.py.
@@ -46,9 +45,9 @@ _HEBREW_FIXTURE = (
 # Surface tokens that MUST appear as tilde-joined splits in their
 # corresponding %mor lines (one entry per *PAR utterance, in order).
 _HEBREW_MWT_SURFACES_PER_LINE: list[list[str]] = [
-    ["בבית"],            # line 1: בבית splits as ב+בית
-    ["מהילד", "הזה"],    # line 2: מהילד and הזה both split
-    ["לאישה"],           # line 3: לאישה splits as ל+אישה
+    ["בבית"],  # line 1: בבית splits as ב+בית
+    ["מהילד", "הזה"],  # line 2: מהילד and הזה both split
+    ["לאישה"],  # line 3: לאישה splits as ל+אישה
 ]
 
 
@@ -85,11 +84,17 @@ def _run_morphotag(chat_text: str, lang: str) -> str:
 
         result = subprocess.run(
             [
-                "cargo", "run", "-p", "batchalign", "--",
-                "--no-open-dashboard", "--override-media-cache",
+                "cargo",
+                "run",
+                "-p",
+                "batchalign",
+                "--",
+                "--no-open-dashboard",
+                "--override-media-cache",
                 "morphotag",
                 str(input_path),
-                "-o", str(output_dir),
+                "-o",
+                str(output_dir),
                 "--sequential",
             ],
             capture_output=True,
@@ -142,7 +147,7 @@ def test_hebrew_mwt_emits_tilde_joined_mor(
         f"got {len(mor_lines)}.\nFull output:\n{hebrew_morphotag_output}"
     )
     for utterance_idx, (mor_line, surfaces) in enumerate(
-        zip(mor_lines, _HEBREW_MWT_SURFACES_PER_LINE)
+        zip(mor_lines, _HEBREW_MWT_SURFACES_PER_LINE, strict=True)
     ):
         assert "~" in mor_line, (
             f"Hebrew %mor line {utterance_idx + 1} is missing the "
@@ -165,7 +170,7 @@ def test_hebrew_mwt_does_not_emit_unsplit_surface_as_lemma(
     """
     mor_lines = _mor_lines(hebrew_morphotag_output)
     for utterance_idx, (mor_line, surfaces) in enumerate(
-        zip(mor_lines, _HEBREW_MWT_SURFACES_PER_LINE)
+        zip(mor_lines, _HEBREW_MWT_SURFACES_PER_LINE, strict=True)
     ):
         for surface in surfaces:
             # A single un-split morph item with this surface as lemma
@@ -207,7 +212,7 @@ def test_greek_mwt_emits_tilde_joined_mor(
         f"got {len(mor_lines)}.\nFull output:\n{greek_morphotag_output}"
     )
     for utterance_idx, (mor_line, surfaces) in enumerate(
-        zip(mor_lines, _GREEK_MWT_SURFACES_PER_LINE)
+        zip(mor_lines, _GREEK_MWT_SURFACES_PER_LINE, strict=True)
     ):
         assert "~" in mor_line, (
             f"Greek %mor line {utterance_idx + 1} is missing the "
@@ -226,7 +231,7 @@ def test_greek_mwt_does_not_emit_unsplit_surface_as_lemma(
     """Negative assertion mirroring the Hebrew counterpart."""
     mor_lines = _mor_lines(greek_morphotag_output)
     for utterance_idx, (mor_line, surfaces) in enumerate(
-        zip(mor_lines, _GREEK_MWT_SURFACES_PER_LINE)
+        zip(mor_lines, _GREEK_MWT_SURFACES_PER_LINE, strict=True)
     ):
         for surface in surfaces:
             bad_substring = f"|{surface} "

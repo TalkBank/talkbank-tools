@@ -74,9 +74,9 @@ _GREEK_CASES: list[tuple[str, str, list[str]]] = [
 # forms surfaces immediately as a test failure, prompting an
 # update to the Defect 5 entry rather than silent ``%mor`` drift.
 _ESTONIAN_NO_SPLIT_INPUTS: list[str] = [
-    "pole tähtis",       # ei + ole "is not"
-    "polnud aega",       # ei + olnud "had no"
-    "ma pole näinud",    # "I have not seen"
+    "pole tähtis",  # ei + ole "is not"
+    "polnud aega",  # ei + olnud "had no"
+    "ma pole näinud",  # "I have not seen"
     "ta polegi tulnud",  # "(s)he has not even come", pole + gi clitic
 ]
 

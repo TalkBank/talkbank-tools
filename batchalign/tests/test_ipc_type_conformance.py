@@ -4,9 +4,11 @@ This test catches Rust/Python IPC type drift at CI time. When a Rust type
 changes shape, the generated schemas update (via ``scripts/generate_ipc_types.sh``)
 and this test fails until the hand-written Python model is updated to match.
 
-This is the bridge between the current hand-written models and the eventual
-goal of fully generated types. See ``batchalign/generated/`` for the generated
-Pydantic models and ``ipc-schema/`` for the JSON Schema files.
+This is not a bridge to generated Python models; that plan was retired on
+2026-08-14 because generation would have cost the domain types and validators
+the hand-written models carry. See ``ipc-schema/`` for the JSON Schema files
+and the "Rust to Python IPC Type Sync" developer page for why one
+representation per language, held to one schema, beats a generated mirror.
 
 Cross-language contract note: this is the Python half of the schema conformance
 gate. The Rust half lives in ``crates/batchalign/tests/worker_protocol_v2_compat.rs``.
@@ -36,11 +38,19 @@ def _load_schema(layer: str, type_name: str) -> dict:
     """Load a JSON Schema file for an IPC type."""
     path = SCHEMA_DIR / layer / f"{type_name}.json"
     if not path.exists():
-        pytest.skip(f"Schema not found: {path}")
+        # Not a skip. A missing schema means the Rust type was renamed or
+        # dropped without this test being updated, which is exactly the drift
+        # the test exists to catch; skipping would report it as a pass.
+        pytest.fail(
+            f"Schema not found: {path}. Run 'bash scripts/generate_ipc_types.sh', "
+            "or update this test if the Rust type was renamed."
+        )
     return json.loads(path.read_text())
 
 
-def _assert_fields_match(schema: dict, model_cls: type, *, allow_extra_python: bool = False) -> None:
+def _assert_fields_match(
+    schema: dict, model_cls: type, *, known_extra_python: frozenset[str] = frozenset()
+) -> None:
     """Assert that the schema's required/optional fields match the Pydantic model."""
     props = schema.get("properties", {})
     required = set(schema.get("required", []))
@@ -54,12 +64,31 @@ def _assert_fields_match(schema: dict, model_cls: type, *, allow_extra_python: b
         f"{model_cls.__name__} is missing fields defined in Rust schema: {missing_from_python}"
     )
 
-    # Python model should not have extra fields (unless allow_extra_python)
-    if not allow_extra_python:
-        extra_in_python = model_fields - schema_fields
-        assert not extra_in_python, (
-            f"{model_cls.__name__} has fields not in Rust schema: {extra_in_python}"
-        )
+    # Required-ness must agree on the fields both sides define. Without this the
+    # helper compared only field NAMES, so a field the Rust schema demands and
+    # the Python model defaults could round-trip a missing value silently.
+    python_required = {
+        name for name in schema_fields if model_cls.model_fields[name].is_required()
+    }
+    assert python_required == required, (
+        f"{model_cls.__name__} required-field mismatch vs the Rust schema: "
+        f"required only in Python={sorted(python_required - required)}, "
+        f"required only in Rust={sorted(required - python_required)}"
+    )
+
+    # Extras must be NAMED, not merely permitted. A boolean here allows any
+    # field at all, which is how a dead `lang` on UtsegBatchItem survived
+    # unnoticed: the flag that admitted the legitimate extra admitted it too.
+    unexpected_in_python = model_fields - schema_fields - known_extra_python
+    assert not unexpected_in_python, (
+        f"{model_cls.__name__} has fields not in the Rust schema and not "
+        f"declared as known extras: {unexpected_in_python}"
+    )
+    stale_allowances = known_extra_python & schema_fields
+    assert not stale_allowances, (
+        f"{model_cls.__name__} declares {sorted(stale_allowances)} as Python-only, "
+        "but the Rust schema now has them: drop the allowance"
+    )
 
 
 class TestBatchItemConformance:
@@ -75,8 +104,7 @@ class TestBatchItemConformance:
         from batchalign.inference.utseg import UtsegBatchItem
 
         schema = _load_schema("batch_items", "UtsegBatchItem")
-        # Python has extra 'lang' field not in Rust, allow it
-        _assert_fields_match(schema, UtsegBatchItem, allow_extra_python=True)
+        _assert_fields_match(schema, UtsegBatchItem)
 
     def test_translate_batch_item(self) -> None:
         from batchalign.inference.translate import TranslateBatchItem
@@ -148,16 +176,22 @@ class TestWorkerV2Conformance:
         schema = _load_schema("worker_v2", "MorphosyntaxRequestV2")
         # Python adds `kind` for Pydantic discrimination; Rust schema doesn't
         # include it (added by the tagged enum wrapper at serialization time).
-        _assert_fields_match(schema, MorphosyntaxRequestV2, allow_extra_python=True)
+        _assert_fields_match(
+            schema, MorphosyntaxRequestV2, known_extra_python=frozenset({"kind"})
+        )
 
     def test_forced_alignment_request(self) -> None:
         from batchalign.worker._types_v2 import ForcedAlignmentRequestV2
 
         schema = _load_schema("worker_v2", "ForcedAlignmentRequestV2")
-        _assert_fields_match(schema, ForcedAlignmentRequestV2, allow_extra_python=True)
+        _assert_fields_match(
+            schema, ForcedAlignmentRequestV2, known_extra_python=frozenset({"kind"})
+        )
 
     def test_asr_request(self) -> None:
         from batchalign.worker._types_v2 import AsrRequestV2
 
         schema = _load_schema("worker_v2", "AsrRequestV2")
-        _assert_fields_match(schema, AsrRequestV2, allow_extra_python=True)
+        _assert_fields_match(
+            schema, AsrRequestV2, known_extra_python=frozenset({"kind"})
+        )

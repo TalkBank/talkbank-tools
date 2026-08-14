@@ -138,7 +138,7 @@ must update when adding a new variant. Use the `whisper_hub` addition
 | Enum | File | Role |
 |------|------|------|
 | `AsrEngineName` | `crates/batchalign/src/types/engines.rs` | User-facing type. Wire name, parsing, dispatch-key lookup. |
-| `AsrBackendV2` | `crates/batchalign-types/src/worker_v2/requests.rs` | IPC contract with Python workers. Regenerate after edit via `bash scripts/generate_ipc_types.sh` (it runs `datamodel-code-generator` on the JSON schema produced by `generate_ipc_schema()`). |
+| `AsrBackendV2` | `crates/batchalign-types/src/worker_v2/requests.rs` | IPC contract with Python workers. Regenerate the schema after editing via `bash scripts/generate_ipc_types.sh`; the conformance test then checks the hand-written Python model against it. |
 | `AsrWorkerMode` | `crates/batchalign/src/transcribe/types.rs` | Server-side dispatch selector that bridges the other two. |
 
 **Helpers each variant must appear in:**
@@ -303,12 +303,12 @@ variant means you must:
    response (the Rust server then sits in its request-timeout wait for
    ~30 minutes). Neither end logs the Pydantic / serde validation
    failure that would localize this.
-3. Also update the Python hand-maintained `AsrBackendV2` enum in
-   `batchalign/worker/_types_v2.py`. The generated file at
-   `batchalign/generated/worker_v2/AsrBackendV2.py` already gets the
-   variant after `make generate-ipc-types`, but the hand-maintained
-   file is what type-checks in worker source code and must be kept in
-   sync by hand.
+3. Also update the Python `AsrBackendV2` enum in
+   `batchalign/worker/_types_v2.py`. It is hand-maintained, and the
+   conformance test (`test_ipc_type_conformance.py`) is what catches you
+   having forgotten: it compares that enum against the regenerated
+   `ipc-schema/`, so run `bash scripts/generate_ipc_types.sh` after the
+   Rust change and let the test tell you what is missing.
 
 **Same class of bug as the `gen_kwargs` trap.** Both are "state
 crosses a boundary I didn't search for, so the test suite never

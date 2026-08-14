@@ -1,6 +1,23 @@
 //! AST content rebuilding: walks old content, replacing/splicing words to
 //! match NLP tokenization.
 
+// Wildcard matches over closed enums are denied here, following chatter's
+// per-file ratchet.
+//
+// This file walks utterance content in lockstep with a `word_counter` that
+// indexes the word list SENT to Stanza, so which variants it descends into is
+// not a formatting choice: a variant whose words are counted on one side and
+// not the other desynchronizes every later word onto the wrong `%mor` entry.
+// The two sides agree today, and they agree by coincidence rather than by
+// construction, because each decided separately. Enumerating the variants is
+// what turns that into a stated agreement the compiler keeps.
+#![deny(clippy::wildcard_enum_match_arm)]
+// Test code is exempt, matching this crate's existing treatment of the panic
+// lints: `other => panic!("unexpected {other:?}")` is how a test says a variant
+// should be unreachable, and denying it there would push tests toward asserting
+// less rather than more.
+#![cfg_attr(test, allow(clippy::wildcard_enum_match_arm))]
+
 use std::collections::HashSet;
 
 use talkbank_model::alignment::helpers::{TierDomain, counts_for_tier, is_tag_marker_separator};
@@ -118,7 +135,33 @@ pub(super) fn rebuild_content(
                 ctx.word_counter += 1;
                 new_content.push(item);
             }
-            other => new_content.push(other),
+            // Enumerated, not `_`. This arm is a PASSTHROUGH that does not
+            // advance `ctx.word_counter`, so membership here is a claim that
+            // the variant contributes no words to the list sent to Stanza.
+            // That claim is true for `Retrace` and `AnnotatedRetrace` only
+            // because chatter's `walk_words` skips retrace content under
+            // `TierDomain::Mor`, which is the same walk that built that list;
+            // if that rule ever changes, every word after a retrace lands on
+            // the wrong `%mor` entry. Listing the variants is what makes the
+            // compiler notice a new one instead of silently assuming it too.
+            UtteranceContent::Event(_)
+            | UtteranceContent::AnnotatedEvent(_)
+            | UtteranceContent::Pause(_)
+            | UtteranceContent::Retrace(_)
+            | UtteranceContent::AnnotatedRetrace(_)
+            | UtteranceContent::AnnotatedAction(_)
+            | UtteranceContent::Freecode(_)
+            | UtteranceContent::Separator(_)
+            | UtteranceContent::OverlapPoint(_)
+            | UtteranceContent::InternalBullet(_)
+            | UtteranceContent::LongFeatureBegin(_)
+            | UtteranceContent::LongFeatureEnd(_)
+            | UtteranceContent::UnderlineBegin(_)
+            | UtteranceContent::UnderlineEnd(_)
+            | UtteranceContent::NonvocalBegin(_)
+            | UtteranceContent::NonvocalEnd(_)
+            | UtteranceContent::NonvocalSimple(_)
+            | UtteranceContent::OtherSpokenEvent(_) => new_content.push(item),
         }
     }
 }
@@ -304,7 +347,26 @@ fn rebuild_bracketed_content(
                 ctx.word_counter += 1;
                 new_items.push(item);
             }
-            other => new_items.push(other),
+            // The bracketed twin of the passthrough above; same claim, same reason.
+            BracketedItem::Event(_)
+            | BracketedItem::AnnotatedEvent(_)
+            | BracketedItem::Pause(_)
+            | BracketedItem::Action(_)
+            | BracketedItem::AnnotatedAction(_)
+            | BracketedItem::Retrace(_)
+            | BracketedItem::AnnotatedRetrace(_)
+            | BracketedItem::OverlapPoint(_)
+            | BracketedItem::Separator(_)
+            | BracketedItem::InternalBullet(_)
+            | BracketedItem::Freecode(_)
+            | BracketedItem::LongFeatureBegin(_)
+            | BracketedItem::LongFeatureEnd(_)
+            | BracketedItem::UnderlineBegin(_)
+            | BracketedItem::UnderlineEnd(_)
+            | BracketedItem::NonvocalBegin(_)
+            | BracketedItem::NonvocalEnd(_)
+            | BracketedItem::NonvocalSimple(_)
+            | BracketedItem::OtherSpokenEvent(_) => new_items.push(item),
         }
     }
 }

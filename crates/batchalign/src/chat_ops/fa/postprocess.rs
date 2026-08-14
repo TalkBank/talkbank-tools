@@ -6,18 +6,18 @@ use talkbank_model::model::{
 };
 
 use super::get_word_timing;
-use super::{FaTimingMode, TimeSpan};
+use super::{DroppedWordTimings, LAST_WORD_FALLBACK_MS, TimeSpan, WordEndPolicy, WordTiming};
 
-/// Maximum internal gap (ms) that Continuous mode may collapse into the
+/// Maximum internal gap (ms) that gap healing may collapse into the
 /// previous word.
 ///
 /// Small word-to-word gaps are a useful smoothing target, but multi-second
 /// silences or mistracked spans should remain visible instead of turning one
 /// word into a dominant 10-second token.
-const MAX_CONTINUOUS_INTERNAL_GAP_MS: u64 = 1_000;
-const MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS: u64 = 40;
-const MAX_CONTINUOUS_WORD_PROPORTION_NUMERATOR: u64 = 2;
-const MAX_CONTINUOUS_WORD_PROPORTION_DENOMINATOR: u64 = 5;
+const MAX_HEALED_INTERNAL_GAP_MS: u64 = 1_000;
+const MIN_HEALABLE_WORD_DURATION_MS: u64 = 40;
+const MAX_HEALED_WORD_PROPORTION_NUMERATOR: u64 = 2;
+const MAX_HEALED_WORD_PROPORTION_DENOMINATOR: u64 = 5;
 /// When a rerun already has `%wor`, authoritative-bullet clamping normally
 /// keeps FA word timings inside the previous utterance window. However, some
 /// stale rerun bullets truncate the final word to a near-zero tail. Allow the
@@ -27,17 +27,17 @@ const MAX_HEALED_FINAL_WORD_OVERRUN_MS: u64 = 500;
 
 /// Post-process timings: set word end times, bound by utterance, update bullets.
 ///
-/// 1. For `Continuous` mode: set each word's end time to the next word's start
-///    time only when the internal gap is plausibly small
+/// 1. Under `WordGapHealing::Heal`: set each word's end time to the next
+///    word's start time only when the internal gap is plausibly small
 /// 2. Bound all word times within utterance bullet range
 /// 3. Drop invalid timings (start >= end)
 /// 4. Update utterance bullet from word timings
 ///
-/// Returns the number of words whose timing was dropped due to clamping.
+/// Returns the words that lost their timing, by cause.
 pub fn postprocess_utterance_timings(
     utterance: &mut Utterance,
-    timing_mode: FaTimingMode,
-) -> usize {
+    policy: WordEndPolicy,
+) -> DroppedWordTimings {
     let mut word_timings: Vec<Option<TimeSpan>> = Vec::new();
     collect_word_timings(&utterance.main.content.content, &mut word_timings);
     let mut word_is_compound_filler: Vec<bool> = Vec::new();
@@ -48,12 +48,12 @@ pub fn postprocess_utterance_timings(
     let mut word_is_filler: Vec<bool> = Vec::new();
     collect_filler_flags(&utterance.main.content.content, &mut word_is_filler);
 
+    let mut dropped = DroppedWordTimings::default();
     if word_timings.is_empty() {
-        return 0;
+        return dropped;
     }
     debug_assert_eq!(word_timings.len(), word_is_compound_filler.len());
     debug_assert_eq!(word_timings.len(), word_is_filler.len());
-    let mut words_dropped = 0;
     let utterance_span_ms = utterance
         .main
         .content
@@ -71,30 +71,31 @@ pub fn postprocess_utterance_timings(
             Some(last.saturating_sub(first))
         });
 
-    // For Continuous mode: set each word's end_ms to next word's start_ms.
+    // Under `Heal`: set each word's end_ms to the next word's start_ms.
     // Uses a backward pass (O(w)) instead of per-word forward scan (O(w²)).
-    if timing_mode == FaTimingMode::Continuous {
+    if policy.heals() {
         let n = word_timings.len();
 
-        // Last timed word: extend to utterance bullet end or +500ms
-        // (must happen first: the backward pass below would leave it unchanged
-        // since there's no next_start, but we need to set its end explicitly)
-        for i in (0..n).rev() {
-            if let Some(span) = word_timings[i] {
-                if span.start_ms == span.end_ms {
-                    let fallback_end = if let Some(ref bullet) = utterance.main.content.bullet {
-                        let utt_end = bullet.timing.end_ms;
-                        if utt_end > span.start_ms {
-                            utt_end
-                        } else {
-                            span.start_ms + 500
-                        }
-                    } else {
-                        span.start_ms + 500
-                    };
-                    word_timings[i] = Some(TimeSpan::new(span.start_ms, fallback_end));
-                }
-                break;
+        // Last timed word: it has no successor, so its end is the one the
+        // engine could not supply. The utterance bullet is a better answer
+        // than any constant when there is one.
+        //
+        // A measured end is left alone: only a derived one may be replaced,
+        // and only ever extended, never shortened.
+        if policy.ends_are_derived()
+            && let Some(idx) = word_timings.iter().rposition(Option::is_some)
+            && let Some(span) = word_timings[idx]
+        {
+            let end_ms = utterance
+                .main
+                .content
+                .bullet
+                .as_ref()
+                .map(|bullet| bullet.timing.end_ms)
+                .filter(|utt_end| *utt_end > span.start_ms)
+                .unwrap_or(span.start_ms + LAST_WORD_FALLBACK_MS);
+            if end_ms > span.end_ms {
+                word_timings[idx] = WordTiming::new(span.start_ms, end_ms).map(TimeSpan::from);
             }
         }
 
@@ -109,7 +110,7 @@ pub fn postprocess_utterance_timings(
                     let bridged_duration = ns.saturating_sub(span.start_ms);
                     let lexical_to_filler_bridge_is_plausible =
                         if next_is_filler && !word_is_filler[i] {
-                            span.duration_ms() < MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS
+                            span.duration_ms() < MIN_HEALABLE_WORD_DURATION_MS
                                 && bridged_duration_stays_within_proportion_cap(
                                     utterance_span_ms,
                                     bridged_duration,
@@ -128,13 +129,29 @@ pub fn postprocess_utterance_timings(
                     let should_fill_gap = if next_is_filler {
                         lexical_to_filler_bridge_is_plausible && filler_bridge_is_plausible
                     } else {
-                        gap_ms <= MAX_CONTINUOUS_INTERNAL_GAP_MS && filler_bridge_is_plausible
+                        gap_ms <= MAX_HEALED_INTERNAL_GAP_MS && filler_bridge_is_plausible
                     };
                     if should_fill_gap && !word_is_compound_filler[i] {
-                        word_timings[i] = Some(TimeSpan::new(span.start_ms, ns));
+                        // Refusing here is not the same as letting the
+                        // write-back drop it: this KEEPS the measured span,
+                        // where the boundary would discard the word entirely.
+                        // A non-monotonic response asks for exactly this, and
+                        // no gate above notices, because `gap_ms` saturates to
+                        // zero when the next word begins before this one ends.
+                        if let Some(healed) = WordTiming::new(span.start_ms, ns) {
+                            word_timings[i] = Some(healed.into());
+                        }
                     } else if span.start_ms == span.end_ms {
-                        let capped_end = (span.start_ms + 500).min(ns);
-                        word_timings[i] = Some(TimeSpan::new(span.start_ms, capped_end));
+                        // Reachable only if an engine reports `start == end`
+                        // for a word that HAS a successor: the onset-only
+                        // parser no longer emits that shape, but a
+                        // word-interval model could. The next onset caps the
+                        // fallback, so this is a floor rather than an invented
+                        // duration.
+                        let capped_end = (span.start_ms + LAST_WORD_FALLBACK_MS).min(ns);
+                        if let Some(floored) = WordTiming::new(span.start_ms, capped_end) {
+                            word_timings[i] = Some(floored.into());
+                        }
                     }
                 }
                 next_start = Some(span.start_ms);
@@ -193,28 +210,54 @@ pub fn postprocess_utterance_timings(
                         clamped_end = span.end_ms;
                     }
                 }
-                if clamped_start >= clamped_end {
-                    tracing::warn!(
-                        "word timing dropped: clamped to utterance boundary made start >= end"
-                    );
-                    words_dropped += 1;
-                    *timing = None;
-                } else {
-                    *span = TimeSpan::new(clamped_start, clamped_end);
+                match WordTiming::new(clamped_start, clamped_end) {
+                    Some(clamped) => *span = clamped.into(),
+                    None => {
+                        tracing::warn!(
+                            "word timing dropped: clamping to the utterance boundary left no extent"
+                        );
+                        dropped.clamped_to_utterance_boundary += 1;
+                        *timing = None;
+                    }
                 }
             }
         }
     }
 
-    // Write timings back to the AST
+    // Write timings back to the AST.
+    //
+    // This is the phase transition: everything above works on `TimeSpan`,
+    // which carries no invariant because an extent under construction may not
+    // have one yet. Nothing without a real extent gets past here, so a word's
+    // bullet cannot hold a zero-length or backwards span however the
+    // intermediate arithmetic went. A span that fails is dropped rather than
+    // written, which is the same outcome the clamping block already chose for
+    // the case it happens to cover.
+    let validated: Vec<Option<WordTiming>> = word_timings
+        .iter()
+        .map(|timing| {
+            timing.and_then(|span| {
+                WordTiming::try_from(span)
+                    .inspect_err(|_| dropped.without_extent += 1)
+                    .ok()
+            })
+        })
+        .collect();
+    if dropped.without_extent > 0 {
+        tracing::warn!(
+            without_extent = dropped.without_extent,
+            "post-processing produced word timings with no extent; those words are left unaligned"
+        );
+    }
+
     let mut idx = 0;
     set_word_timings(
         utterance.main.content.content.as_mut_slice(),
-        &word_timings,
+        &validated,
         &mut idx,
     );
 
-    words_dropped
+    dropped
 }
 
 fn rebalance_near_zero_lexical_words_from_following_spans(
@@ -230,15 +273,15 @@ fn rebalance_near_zero_lexical_words_from_following_spans(
         if word_is_filler[i] {
             continue;
         }
-        if current.duration_ms() >= MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS {
+        if current.duration_ms() >= MIN_HEALABLE_WORD_DURATION_MS {
             continue;
         }
         if current.end_ms != next.start_ms {
             continue;
         }
 
-        let needed_ms = MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS - current.duration_ms();
-        if next.duration_ms() < needed_ms + MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS {
+        let needed_ms = MIN_HEALABLE_WORD_DURATION_MS - current.duration_ms();
+        if next.duration_ms() < needed_ms + MIN_HEALABLE_WORD_DURATION_MS {
             continue;
         }
 
@@ -261,15 +304,15 @@ fn rebalance_near_zero_lexical_words_from_preceding_spans(
         if word_is_filler[i] {
             continue;
         }
-        if current.duration_ms() >= MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS {
+        if current.duration_ms() >= MIN_HEALABLE_WORD_DURATION_MS {
             continue;
         }
         if previous.end_ms != current.start_ms {
             continue;
         }
 
-        let needed_ms = MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS - current.duration_ms();
-        if previous.duration_ms() < needed_ms + MIN_CONTINUOUS_HEALABLE_WORD_DURATION_MS {
+        let needed_ms = MIN_HEALABLE_WORD_DURATION_MS - current.duration_ms();
+        if previous.duration_ms() < needed_ms + MIN_HEALABLE_WORD_DURATION_MS {
             continue;
         }
 
@@ -284,8 +327,8 @@ fn bridged_duration_stays_within_proportion_cap(
     bridged_duration_ms: u64,
 ) -> bool {
     utterance_span_ms.is_some_and(|utterance_span_ms| {
-        bridged_duration_ms.saturating_mul(MAX_CONTINUOUS_WORD_PROPORTION_DENOMINATOR)
-            <= utterance_span_ms.saturating_mul(MAX_CONTINUOUS_WORD_PROPORTION_NUMERATOR)
+        bridged_duration_ms.saturating_mul(MAX_HEALED_WORD_PROPORTION_DENOMINATOR)
+            <= utterance_span_ms.saturating_mul(MAX_HEALED_WORD_PROPORTION_NUMERATOR)
     })
 }
 
@@ -336,7 +379,7 @@ fn collect_filler_flags(content: &[UtteranceContent], out: &mut Vec<bool>) {
 /// For replaced words, sets timing on the original (spoken) word only.
 fn set_word_timings(
     content: &mut [UtteranceContent],
-    timings: &[Option<TimeSpan>],
+    timings: &[Option<WordTiming>],
     idx: &mut usize,
 ) {
     // domain=None: recurse into all groups unconditionally
@@ -351,7 +394,7 @@ fn set_word_timings(
     });
 }
 
-fn set_word_timing(word: &mut Word, timings: &[Option<TimeSpan>], idx: &mut usize) {
+fn set_word_timing(word: &mut Word, timings: &[Option<WordTiming>], idx: &mut usize) {
     if *idx < timings.len() {
         match timings[*idx] {
             Some(span) => {

@@ -43,7 +43,10 @@ def test_normalize_words_drops_vanishing_tokens() -> None:
 
 
 def test_window_span_pads_both_sides() -> None:
-    assert confirm_window_span(5000, 6000) == (5000 - WINDOW_PAD_MS, 6000 + WINDOW_PAD_MS)
+    assert confirm_window_span(5000, 6000) == (
+        5000 - WINDOW_PAD_MS,
+        6000 + WINDOW_PAD_MS,
+    )
 
 
 def test_window_span_clamps_at_zero_and_floors_length() -> None:
@@ -70,8 +73,7 @@ def fake_handle(span_scores: list[list[float]]) -> FaConfirmHandle:
 
     def aligner(emission: torch.Tensor, tokens: Any) -> Any:
         return [
-            [SimpleNamespace(score=score) for score in scores]
-            for scores in span_scores
+            [SimpleNamespace(score=score) for score in scores] for scores in span_scores
         ]
 
     return FaConfirmHandle(model=model, tokenizer=tokenizer, aligner=aligner)

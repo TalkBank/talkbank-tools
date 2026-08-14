@@ -15,7 +15,8 @@
 
 use std::path::Path;
 
-use crate::chat_ops::fa::{FaEngineType, FaInferItem, FaTimingMode};
+use crate::chat_ops::fa::{FaInferItem, WordGapHealing};
+use crate::types::engines::FaEngineName;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -98,7 +99,7 @@ pub struct ForcedAlignmentBuildInputV2<'a> {
     /// Existing production infer item being migrated toward V2.
     pub infer_item: &'a FaInferItem,
     /// FA engine selected by the Rust control plane.
-    pub engine: FaEngineType,
+    pub engine: FaEngineName,
 }
 
 /// Errors produced while building a staged V2 forced-alignment request.
@@ -183,8 +184,7 @@ pub async fn build_forced_alignment_request_v2(
             backend,
             payload_ref_id: payload_attachment.id.clone(),
             audio_ref_id: audio_attachment.id.clone(),
-            text_mode: text_mode_for_backend(backend),
-            pauses: matches!(input.infer_item.timing_mode, FaTimingMode::WithPauses),
+            text_mode: text_mode_for(backend, input.infer_item.gap_healing),
         }),
         attachments: vec![
             ArtifactRefV2::PreparedText(payload_attachment),
@@ -195,20 +195,36 @@ pub async fn build_forced_alignment_request_v2(
     Ok(request)
 }
 
-/// Map the current production FA engine selector onto the staged V2 backend
-/// vocabulary.
-pub(crate) fn fa_backend_for_engine(engine: FaEngineType) -> FaBackendV2 {
+/// Map an FA engine onto the V2 backend vocabulary.
+///
+/// Exhaustive over the engine roster, so an unrouted engine fails to compile
+/// rather than collapsing onto another model's backend.
+pub(crate) fn fa_backend_for_engine(engine: FaEngineName) -> FaBackendV2 {
     match engine {
-        FaEngineType::WhisperFa => FaBackendV2::Whisper,
-        FaEngineType::Wave2Vec => FaBackendV2::Wave2vec,
+        FaEngineName::Whisper => FaBackendV2::Whisper,
+        FaEngineName::Wave2Vec => FaBackendV2::Wave2vec,
+        FaEngineName::Wav2vecCanto => FaBackendV2::Wav2vecCanto,
     }
 }
 
-/// Return the required text-joining mode for one V2 FA backend.
-pub(crate) fn text_mode_for_backend(backend: FaBackendV2) -> FaTextModeV2 {
-    match backend {
-        FaBackendV2::Whisper | FaBackendV2::Wave2vec => FaTextModeV2::SpaceJoined,
-        FaBackendV2::Wav2vecCanto => FaTextModeV2::CharJoined,
+/// The text shaping one V2 FA backend needs, for what the user asked for.
+///
+/// The single place text shaping is decided. It used to be split: this
+/// function chose a mode from the backend, and the caller separately set a
+/// `pauses` boolean from the healing policy, which the Python host then
+/// applied as a further reshaping of the result.
+///
+/// `--pauses` reaches here because finer tokens are the mechanism by which a
+/// silence becomes visible: one token per character puts onsets inside words
+/// instead of only at their starts. It is the same user intent that stops gap
+/// healing, expressed against a different stage.
+pub(crate) fn text_mode_for(backend: FaBackendV2, gap_healing: WordGapHealing) -> FaTextModeV2 {
+    match (backend, gap_healing) {
+        // Only the onset-only decoder benefits: the wave2vec models align
+        // against their own label set and never see this text.
+        (FaBackendV2::Whisper, WordGapHealing::PreserveMeasured) => FaTextModeV2::CharSpaced,
+        (FaBackendV2::Whisper | FaBackendV2::Wave2vec, _) => FaTextModeV2::SpaceJoined,
+        (FaBackendV2::Wav2vecCanto, _) => FaTextModeV2::CharJoined,
     }
 }
 
@@ -264,7 +280,7 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    use crate::chat_ops::fa::FaTimingMode;
+    use crate::chat_ops::fa::WordGapHealing;
 
     use super::*;
     use crate::media::tools::MediaTool;
@@ -289,7 +305,7 @@ mod tests {
             audio_path: audio_path.to_string_lossy().into_owned(),
             audio_start_ms: 0,
             audio_end_ms: 100,
-            timing_mode: FaTimingMode::WithPauses,
+            gap_healing: WordGapHealing::PreserveMeasured,
         }
     }
 
@@ -327,7 +343,7 @@ mod tests {
             audio_path: "fixture.wav".into(),
             audio_start_ms: 0,
             audio_end_ms: 100,
-            timing_mode: FaTimingMode::Continuous,
+            gap_healing: WordGapHealing::Heal,
         })
         .expect_err("mismatched arrays should fail");
 
@@ -344,19 +360,40 @@ mod tests {
     #[test]
     fn maps_fa_engines_to_typed_v2_backend_contract() {
         assert_eq!(
-            fa_backend_for_engine(FaEngineType::WhisperFa),
+            fa_backend_for_engine(FaEngineName::Whisper),
             FaBackendV2::Whisper
         );
         assert_eq!(
-            fa_backend_for_engine(FaEngineType::Wave2Vec),
+            fa_backend_for_engine(FaEngineName::Wave2Vec),
             FaBackendV2::Wave2vec
         );
         assert_eq!(
-            text_mode_for_backend(FaBackendV2::Whisper),
+            fa_backend_for_engine(FaEngineName::Wav2vecCanto),
+            FaBackendV2::Wav2vecCanto
+        );
+        assert_eq!(
+            text_mode_for(FaBackendV2::Whisper, WordGapHealing::Heal),
             FaTextModeV2::SpaceJoined
         );
         assert_eq!(
-            text_mode_for_backend(FaBackendV2::Wav2vecCanto),
+            text_mode_for(FaBackendV2::Wav2vecCanto, WordGapHealing::Heal),
+            FaTextModeV2::CharJoined
+        );
+        // `--pauses` on the onset-only decoder is the whole point of the mode:
+        // one token per character, so onsets land inside words and a real
+        // silence shows up as a gap.
+        assert_eq!(
+            text_mode_for(FaBackendV2::Whisper, WordGapHealing::PreserveMeasured),
+            FaTextModeV2::CharSpaced
+        );
+        // The wave2vec models never see this text, so the request asks for
+        // nothing different.
+        assert_eq!(
+            text_mode_for(FaBackendV2::Wave2vec, WordGapHealing::PreserveMeasured),
+            FaTextModeV2::SpaceJoined
+        );
+        assert_eq!(
+            text_mode_for(FaBackendV2::Wav2vecCanto, WordGapHealing::PreserveMeasured),
             FaTextModeV2::CharJoined
         );
     }
@@ -381,7 +418,7 @@ mod tests {
                     "audio-fa-build-1",
                 ),
                 infer_item: &test_infer_item(&wav_path),
-                engine: FaEngineType::WhisperFa,
+                engine: FaEngineName::Whisper,
             },
         )
         .await
@@ -392,8 +429,9 @@ mod tests {
             panic!("expected forced-alignment payload");
         };
         assert_eq!(payload.backend, FaBackendV2::Whisper);
-        assert_eq!(payload.text_mode, FaTextModeV2::SpaceJoined);
-        assert!(payload.pauses);
+        // The fixture asks for `PreserveMeasured` on Whisper, which is now
+        // expressed as the text mode rather than as a boolean beside it.
+        assert_eq!(payload.text_mode, FaTextModeV2::CharSpaced);
         assert_eq!(request.attachments.len(), 2);
 
         let ArtifactRefV2::PreparedText(PreparedTextRefV2 {

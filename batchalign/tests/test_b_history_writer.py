@@ -32,9 +32,10 @@ def test_writer_creates_schema(tmp_path: Path) -> None:
 
     conn = sqlite3.connect(db)
     try:
-        tables = {row[0] for row in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )}
+        tables = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
     finally:
         conn.close()
 
@@ -56,8 +57,7 @@ def test_record_round_trips(tmp_path: Path) -> None:
     conn = sqlite3.connect(db)
     try:
         rows = conn.execute(
-            "SELECT test_id, outcome, duration_s, commit_sha, framework "
-            "FROM test_runs"
+            "SELECT test_id, outcome, duration_s, commit_sha, framework FROM test_runs"
         ).fetchall()
     finally:
         conn.close()
@@ -107,9 +107,7 @@ def test_commit_sha_optional(tmp_path: Path) -> None:
 
     conn = sqlite3.connect(db)
     try:
-        row = conn.execute(
-            "SELECT commit_sha FROM test_runs"
-        ).fetchone()
+        row = conn.execute("SELECT commit_sha FROM test_runs").fetchone()
     finally:
         conn.close()
 

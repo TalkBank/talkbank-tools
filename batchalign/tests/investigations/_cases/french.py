@@ -23,7 +23,6 @@ from __future__ import annotations
 
 from .._probe_types import Phenomenon, ProbeCase
 
-
 SEED_040802_1620_WORDS: tuple[str, ...] = (
     "euh",
     "oui",

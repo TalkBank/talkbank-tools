@@ -11,7 +11,6 @@ pub(crate) use file_status::test_sink;
 mod media;
 
 // Re-export everything at the same paths callers already use.
-pub use auto_tune::KNOWN_MEDIA_EXTENSIONS;
 pub(super) use auto_tune::compute_job_workers;
 
 pub(crate) use error_classification::classify_server_error;
@@ -33,7 +32,7 @@ pub(super) use media::apply_result_filename;
 pub(super) use media::resolve_audio_for_chat;
 pub(super) use media::{
     collect_preflight_audio_paths, compute_audio_identity, get_audio_duration_ms,
-    preflight_validate_media, resolve_audio_for_chat_with_media_dir, should_preflight,
+    preflight_validate_media, should_preflight,
 };
 
 #[cfg(test)]
@@ -543,18 +542,27 @@ mod tests {
 
     #[tokio::test]
     async fn media_validate_all_known_extensions() {
-        for ext in KNOWN_MEDIA_EXTENSIONS {
-            let mut tmp = tempfile::NamedTempFile::with_suffix(format!(".{ext}")).unwrap();
+        // Enumerated through the same verb production uses, so a format added
+        // to `MediaExtensions` is covered here without anyone remembering to
+        // widen a second list. That was the previous arrangement, and the two
+        // lists it created disagreed by two formats.
+        for name in crate::media::MediaExtensions::candidates("test") {
+            let extension = Path::new(&name)
+                .extension()
+                .expect("candidates always carry one")
+                .to_string_lossy()
+                .to_string();
+            let mut tmp = tempfile::NamedTempFile::with_suffix(format!(".{extension}")).unwrap();
             std::io::Write::write_all(&mut tmp, b"data").unwrap();
             let path = tmp.path().to_string_lossy().to_string();
             let file_list = vec![PendingJobFile {
                 file_index: 0,
-                filename: DisplayPath::from(format!("test.{ext}")),
+                filename: DisplayPath::from(name.clone()),
                 has_chat: false,
             }];
             let source_paths = vec![batchalign_types::paths::ClientPath::new(&path)];
             let failures = preflight_validate_media(&file_list, &source_paths, true).await;
-            assert!(failures.is_empty(), "Extension .{ext} should be accepted");
+            assert!(failures.is_empty(), "{name} should be accepted");
         }
     }
 
@@ -684,18 +692,10 @@ mod tests {
         let wav = media_root.path().join("ACWT01a.wav");
         std::fs::write(&wav, b"RIFF").unwrap();
 
-        let stem = "ACWT01a";
-        let mut found = None;
-        let roots = vec![media_root.path().to_string_lossy().to_string()];
-        'roots: for root in &roots {
-            for ext in KNOWN_MEDIA_EXTENSIONS {
-                let candidate = Path::new(root).join(format!("{stem}.{ext}"));
-                if tokio::fs::try_exists(&candidate).await.unwrap_or(false) {
-                    found = Some(candidate.to_string_lossy().to_string());
-                    break 'roots;
-                }
-            }
-        }
+        // Calls the real resolution verb. This test used to re-implement the
+        // production loop and then assert its own copy worked, so it could not
+        // have failed for any change to production code.
+        let found = crate::media::MediaExtensions::find_in(media_root.path(), "ACWT01a").await;
         assert!(found.is_some(), "Should find audio in media_root");
         assert!(found.unwrap().ends_with("ACWT01a.wav"));
     }

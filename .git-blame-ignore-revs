@@ -1,0 +1,10 @@
+# Commits that changed formatting only, and would otherwise bury real
+# authorship in `git blame`.
+#
+# Enable locally with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub applies this file automatically in its blame view.
+
+# style(python): adopt the ruff formatter
+e0465432a7fb588dd29ce5089a51625c1a94dc92

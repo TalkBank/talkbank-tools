@@ -63,14 +63,8 @@ fn test_fa_injection_replaced_word_uses_original_and_cursor_stays_in_sync() {
     //   slot 0 → timing for foo (original replaced word)
     //   slot 1 → timing for qux (plain word after the replacement)
     let timings = vec![
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 500,
-        }), // slot 0: foo
-        Some(WordTiming {
-            start_ms: 600,
-            end_ms: 1000,
-        }), // slot 1: qux
+        WordTiming::new(100, 500),  // slot 0: foo
+        WordTiming::new(600, 1000), // slot 1: qux
     ];
 
     let mut chat = parse_chat(&proof_chat("foo [: bar baz] qux ."));
@@ -104,18 +98,9 @@ fn test_fa_injection_cursor_stays_in_sync_across_utterance_boundary_with_replace
     // leaving hello at slot 2 (T_world) and world at slot 3 (None).
     // Fixed injection for utt0 consumes 1 (a) = 1 slot → hello at slot 1, world at slot 2.
     let timings = vec![
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 200,
-        }), // slot 0: a
-        Some(WordTiming {
-            start_ms: 300,
-            end_ms: 500,
-        }), // slot 1: hello
-        Some(WordTiming {
-            start_ms: 600,
-            end_ms: 900,
-        }), // slot 2: world
+        WordTiming::new(100, 200), // slot 0: a
+        WordTiming::new(300, 500), // slot 1: hello
+        WordTiming::new(600, 900), // slot 2: world
     ];
 
     // Build a two-utterance chat file
@@ -160,14 +145,8 @@ fn test_collect_existing_fa_word_timings_replaced_word_returns_one_entry_for_ori
     // collect_existing_fa_word_timings must return exactly 2 entries
     // not 3 (bar:None, baz:None, qux:Some) as the old code did.
     let timings = vec![
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 500,
-        }), // foo
-        Some(WordTiming {
-            start_ms: 600,
-            end_ms: 1000,
-        }), // qux
+        WordTiming::new(100, 500),  // foo
+        WordTiming::new(600, 1000), // qux
     ];
 
     let mut chat = parse_chat(&proof_chat("foo [: bar baz] qux ."));
@@ -185,18 +164,12 @@ fn test_collect_existing_fa_word_timings_replaced_word_returns_one_entry_for_ori
     );
     assert_eq!(
         existing_timings[0],
-        Some(WordTiming {
-            start_ms: 100,
-            end_ms: 500
-        }),
+        WordTiming::new(100, 500),
         "foo should carry its injected timing"
     );
     assert_eq!(
         existing_timings[1],
-        Some(WordTiming {
-            start_ms: 600,
-            end_ms: 1000
-        }),
+        WordTiming::new(600, 1000),
         "qux should carry its injected timing"
     );
 }
