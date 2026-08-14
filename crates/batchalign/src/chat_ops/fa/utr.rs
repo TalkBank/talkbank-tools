@@ -28,6 +28,11 @@ use talkbank_model::model::{Bullet, ChatFile, Line};
 
 use batchalign_transform::dp_align::{self, MatchMode};
 
+use tracing::debug;
+
+use crate::api::DurationMs;
+use crate::media::window::MediaWindow;
+
 use super::extraction::collect_fa_words;
 
 pub mod overlap_markers;
@@ -682,11 +687,24 @@ pub fn utr_asr_segment_cache_key(
 /// Each window spans from the preceding timed utterance's end to the
 /// following timed utterance's start (with `padding_ms` on each side).
 /// Adjacent untimed utterances are merged into a single window.
+/// Windows of audio with no timing, for UTR to transcribe.
+///
+/// Returns PROVEN windows. This used to hand back bare `(u64, u64)` pairs, and
+/// it is the one place that can build a degenerate one: `padded_end` is clamped
+/// to `total_audio_ms` while `padded_start` was not, so an utterance whose
+/// bullet starts past the end of the audio produced an INVERTED window. Every
+/// consumer then re-checked, three of them, in two subsystems, and the check
+/// nearest the origin did not exist.
+///
+/// Degenerate windows are dropped here rather than passed on, because a window
+/// of zero or negative length contains no audio to transcribe. The count is
+/// logged: a silent drop and an empty result are the same thing to a reader,
+/// which is the failure this crate keeps finding.
 pub fn find_untimed_windows(
     chat_file: &ChatFile,
     total_audio_ms: u64,
     padding_ms: u64,
-) -> Vec<(u64, u64)> {
+) -> Vec<MediaWindow> {
     // Collect bullet info for each utterance in order
     let mut utt_bullets: Vec<Option<(u64, u64)>> = Vec::new();
     for line in &chat_file.lines {
@@ -743,7 +761,9 @@ pub fn find_untimed_windows(
         };
 
         // Apply padding and clamp
-        let padded_start = window_start.saturating_sub(padding_ms);
+        // Both ends clamped. Only `padded_end` was, which is what let a bullet
+        // starting past the audio's end yield start > end.
+        let padded_start = window_start.saturating_sub(padding_ms).min(total_audio_ms);
         let padded_end = (window_end + padding_ms).min(total_audio_ms);
 
         raw_windows.push((padded_start, padded_end));
@@ -767,7 +787,22 @@ pub fn find_untimed_windows(
         }
     }
 
-    merged
+    // The merged pairs become proven windows here, at the last moment they are
+    // still pairs. A degenerate one cannot be transcribed, so it is dropped
+    // and counted rather than passed on for three consumers to re-check.
+    let total = merged.len();
+    let windows: Vec<MediaWindow> = merged
+        .into_iter()
+        .filter_map(|(start, end)| MediaWindow::new(DurationMs(start), DurationMs(end)).ok())
+        .collect();
+    if windows.len() != total {
+        debug!(
+            dropped = total - windows.len(),
+            kept = windows.len(),
+            "Dropped degenerate untimed windows (zero-length after clamping)"
+        );
+    }
+    windows
 }
 
 #[cfg(test)]
@@ -1146,7 +1181,10 @@ mod tests {
         assert!(!windows.is_empty(), "should find untimed windows");
         // Windows should be non-overlapping and ordered
         for w in windows.windows(2) {
-            assert!(w[0].1 <= w[1].0, "windows should be non-overlapping");
+            assert!(
+                w[0].end_ms() <= w[1].start_ms(),
+                "windows should be non-overlapping"
+            );
         }
     }
 
@@ -1156,7 +1194,7 @@ mod tests {
         let chat = parse_chat(input);
         let windows = super::find_untimed_windows(&chat, 30000, 500);
         assert_eq!(windows.len(), 1, "all untimed → one merged window");
-        assert_eq!(windows[0].0, 0, "starts at 0");
-        assert_eq!(windows[0].1, 30000, "ends at total_audio_ms");
+        assert_eq!(windows[0].start_ms(), 0, "starts at 0");
+        assert_eq!(windows[0].end_ms(), 30000, "ends at total_audio_ms");
     }
 }

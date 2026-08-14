@@ -112,6 +112,7 @@ pub async fn build_speaker_request_v2(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::media::tools::MediaTool;
     use crate::types::worker_v2::{SpeakerInputV2, TaskRequestV2};
 
     #[test]
@@ -140,11 +141,18 @@ mod tests {
             .expect("artifact store should exist");
         let ids = PreparedSpeakerRequestIdsV2::new("req-speaker-v2-prepared", "audio-speaker-v2");
         let media_path = tempdir.path().join("speaker-input.wav");
-        // ffmpeg is a runtime prereq for align/asr commands; tests
-        // must skip gracefully when it isn't installed (e.g., CI
-        // runners without ffmpeg). Treat NotFound as a skip; treat
-        // any other launch error as a hard failure.
-        let ffmpeg_out = match tokio::process::Command::new("ffmpeg")
+        // ffmpeg is a runtime prereq for align/asr commands; tests must skip
+        // gracefully when it isn't installed (e.g. CI runners without ffmpeg).
+        // Asked the same way as every other skip-guard in the crate. This block
+        // used to read `ErrorKind::NotFound` off the spawn itself, which is a
+        // second reading of a policy `MediaTool` owns, in the one file that
+        // synthesizes rather than transcodes and so never adopted the seam.
+        if MediaTool::Ffmpeg.banner().is_none() {
+            eprintln!("skipping: ffmpeg not installed");
+            return;
+        }
+        let ffmpeg_out = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",
@@ -157,14 +165,7 @@ mod tests {
             ])
             .output()
             .await
-        {
-            Ok(out) => out,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                eprintln!("skipping: ffmpeg not installed");
-                return;
-            }
-            Err(e) => panic!("ffmpeg process: {e}"),
-        };
+            .expect("ffmpeg is installed, so spawning it must succeed");
         if !ffmpeg_out.status.success() {
             eprintln!("skipping: could not generate test wav");
             return;

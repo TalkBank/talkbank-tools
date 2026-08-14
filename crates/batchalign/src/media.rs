@@ -2,6 +2,15 @@
 //!
 //! Searches configured media_roots for audio/video files. Results are cached
 //! with a 60-second TTL to avoid rescanning NFS mounts on every request.
+//!
+//! Finding media and PROCESSING it are both media concerns, so the external
+//! tools live below this module as [`tools`]. They are otherwise unrelated:
+//! nothing here spawns anything.
+
+pub mod probe;
+pub mod tools;
+pub mod transcode;
+pub mod window;
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;

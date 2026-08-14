@@ -153,8 +153,8 @@ Cross-language infrastructure:
 
 | Engine | Languages | Method |
 |--------|-----------|--------|
-| `whisper_fa` | All (default) | Whisper large-v2 cross-attention DTW |
-| `wav2vec_fa` | All | MMS FA CTC alignment |
+| `wav2vec_fa` | All (default) | MMS FA CTC alignment; reports word start and end |
+| `whisper_fa` | All | Whisper large-v2 cross-attention DTW; reports token onsets only |
 | `wav2vec_canto` | Cantonese only | Hanzi→jyutping romanization + Wave2Vec MMS |
 
 The Cantonese FA engine converts Chinese characters to tone-stripped jyutping

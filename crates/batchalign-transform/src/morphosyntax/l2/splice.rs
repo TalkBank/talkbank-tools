@@ -975,7 +975,7 @@ mod cardinality_tests {
     /// **RED test 1** (l2.md §6 / postmortem §6 Step 1): three contiguous
     /// `@s` words in one utterance, the minimal multi-position L2 span.
     /// Mirrors the wild bad-case shape from
-    /// `~/0tb/data/biling-data/Bangor/Patagonia/07.cha:394`
+    /// `<corpus-root>/biling-data/Bangor/Patagonia/07.cha:394`
     /// (`la@s fecha@s bien@s`). Stanza secondary returns one sentence
     /// covering all three with cross-position heads. Per-position splicing
     /// of the resulting per-position gras is expected to fail because

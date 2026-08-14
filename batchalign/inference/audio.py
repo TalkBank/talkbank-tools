@@ -9,8 +9,11 @@ Provides:
 
 from __future__ import annotations
 
+import inspect
+import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from types import MethodType
 from typing import TYPE_CHECKING, Protocol
@@ -464,3 +467,167 @@ def _extract_token_timestamps(
         timestamps[batch_idx, 1:] = torch.tensor(jump_times)
 
     return timestamps
+
+# ---------------------------------------------------------------------------
+# Routing torchaudio's decode entry point away from torchcodec
+# ---------------------------------------------------------------------------
+
+
+class SoundfileBackendInstall(StrEnum):
+    """What a call to `install_soundfile_backend` actually DID.
+
+    Returned rather than `None` so a caller can report it and a test can assert
+    it, instead of trusting that a side effect occurred.
+    """
+
+    #: This call rebound `torchaudio.load`.
+    INSTALLED = "installed"
+    #: A previous call had already done it; this one changed nothing. Repeated
+    #: worker bootstraps therefore report honestly instead of implying work.
+    ALREADY_INSTALLED = "already-installed"
+
+
+def install_soundfile_backend() -> SoundfileBackendInstall:
+    """Make `torchaudio.load` use soundfile, so torchcodec is never loaded.
+
+    # Why this exists
+
+    `torchaudio.load` delegates to `torchcodec`, which ships shared libraries
+    for a FIXED set of FFmpeg majors, each linked `@rpath/libavutil.NN.dylib`
+    against the UNVERSIONED Homebrew prefix. When Homebrew moves that prefix to
+    a major torchcodec has no library for, EVERY call raises, and it raises at
+    job time rather than at startup. That took out transcription on every
+    machine in one Homebrew upgrade.
+
+    There is no configuration escape. As of torchaudio 2.11 the `backend`
+    argument is ignored: `backend="soundfile"` and `backend="ffmpeg"` both go
+    through torchcodec and both fail identically. Verified, not assumed.
+
+    So the only durable fix is not to call it. Batchalign's own audio I/O
+    already moved to soundfile; what remained was that DEPENDENCIES still reach
+    `torchaudio.load`, and there is nothing we can do at our own call sites
+    about that. Binding our drop-in over the entry point covers every caller,
+    ours and theirs.
+
+    # It is NOT load-bearing, and that is deliberate
+
+    Measured, not assumed: the only production caller of `torchaudio.load` in
+    the installed dependency set is FunASR, and it wraps the call in its own
+    `except`, falling back first to `soundfile.read` and then to an ffmpeg
+    subprocess. The Cantonese path therefore works whether or not this shim is
+    installed. The other callers are torchaudio's own dataset helpers and
+    `torch_audiomentations`, which is pyannote TRAINING code we never reach.
+
+    So this is defence for a caller that does not exist yet, which is why its
+    installation is allowed to FAIL OPEN at worker startup: a worker that could
+    not install it is not thereby broken. If it were load-bearing, failing open
+    would be indefensible and the worker would have to refuse to start.
+
+    The honest end state is deletion, and the condition for it has been MET:
+    a Cantonese FunASR run, with this shim absent, produced real timed words
+    (2026-08-13). Deletion is a change to worker startup and was left as a
+    deliberate decision rather than taken with the evidence.
+
+    The standing half of that evidence is
+    `tests/models/test_audio_decode_independence.py
+    ::test_funasr_still_loads_audio_when_torchaudio_load_raises`, which makes
+    `torchaudio.load` raise and asserts FunASR still returns audio. That is the
+    assumption a FunASR upgrade could break silently, so it fails loudly here
+    instead of being a fact somebody once observed.
+    """
+    import torchaudio
+
+    existing = getattr(torchaudio, "load", None)
+    if getattr(existing, "_batchalign_soundfile_backend", False):
+        return SoundfileBackendInstall.ALREADY_INSTALLED
+
+    # Derived from `load_audio`'s signature, so a new parameter there cannot
+    # be silently dropped here. Computed once per install, not per call.
+    load_audio_keywords = frozenset(inspect.signature(load_audio).parameters) - {
+        "filepath"
+    }
+
+    def _load(filepath, *args, **kwargs):  # type: ignore[no-untyped-def]
+        # `torchaudio.load` accepts keywords ours does not model
+        # (`channels_first`, `format`, `buffer_size`, `backend`). Dropping
+        # them is safe for the shapes we serve and keeps the seam narrow.
+        accepted = {
+            key: value for key, value in kwargs.items() if key in load_audio_keywords
+        }
+        # No fallback: `original` routes to torchcodec, which is absent on
+        # purpose, so falling back would report that instead of the real
+        # soundfile error.
+        return load_audio(filepath, *args, **accepted)
+
+    _load._batchalign_soundfile_backend = True  # type: ignore[attr-defined]
+    torchaudio.load = _load  # type: ignore[assignment]
+    return SoundfileBackendInstall.INSTALLED
+
+
+@dataclass(frozen=True)
+class DecodeCapability:
+    """Proof that this interpreter can decode audio, with what it measured.
+
+    THE one definition of "can this machine decode", so that the callers who
+    need the answer stop each carrying their own copy of the question.
+
+    Before this there were three: an embedded Python string in the Rust
+    `batchalign3 doctor`, a second embedded string in the fleet deploy's host
+    runtime, and a third inline in the test suite. They had already diverged at
+    birth: one printed three fields and handled a missing module as a distinct
+    outcome, the other printed four and had no exception handling at all, and
+    each end parsed a positional string with its own hand-written splitter.
+
+    `frames` and `sample_rate` are MEASURED. There is deliberately no field
+    naming the backend: it would be a constant supplied by this function's own
+    source, travelling beside real measurements and reading like one.
+    """
+
+    frames: int
+    sample_rate: SampleRate
+
+    def to_json(self) -> str:
+        """One line, for a caller in another language or another process.
+
+        `asdict` rather than a hand-written mapping: spelling the field names a
+        second time is how a new field gets silently dropped from the wire,
+        which is the same defect this module fixed eighty lines above by
+        deriving the keyword filter from `load_audio`'s signature.
+        """
+        return json.dumps(asdict(self))
+
+
+def verify_decode_capability() -> DecodeCapability:
+    """Decode a generated waveform through the configured backend, or raise.
+
+    Generated rather than read from a fixture so the check has no data
+    dependency and cannot pass by finding a stale file.
+
+    It exercises `load_audio`, which is what Batchalign actually decodes with.
+    Earlier versions called `torchaudio.load`, so they certified a
+    MONKEYPATCHED THIRD-PARTY FUNCTION that none of this codebase's own paths
+    call, and would have reported a healthy machine unhealthy if the patch were
+    ever removed. The question worth answering is "can Batchalign decode", not
+    "is somebody else's entry point currently rebound".
+    """
+    import tempfile
+    import wave
+
+    with tempfile.TemporaryDirectory() as workdir:
+        path = Path(workdir) / "probe.wav"
+        with wave.open(str(path), "wb") as handle:
+            handle.setnchannels(1)
+            handle.setsampwidth(2)
+            handle.setframerate(16000)
+            handle.writeframes(b"\x00\x00" * 16000)
+
+        tensor, rate = load_audio(path)
+    return DecodeCapability(frames=int(tensor.shape[-1]), sample_rate=int(rate))
+
+
+if __name__ == "__main__":  # pragma: no cover - the out-of-process entry point
+    # `python -m batchalign.inference.audio` prints one JSON line, which is the
+    # contract both out-of-process callers (the Rust doctor and the fleet
+    # deploy) consume instead of embedding their own probe.
+    print(verify_decode_capability().to_json())
+

@@ -27,6 +27,7 @@ use std::path::{Path, PathBuf};
 use batchalign::api::DurationMs;
 use batchalign::chat_ops::fa::{FaEngineType, FaInferItem, FaTimingMode, FaWord};
 use batchalign::chat_ops::{UtteranceIdx, WordIdx};
+use batchalign::media::tools::MediaTool;
 use batchalign::worker::artifacts_v2::PreparedArtifactStoreV2;
 use batchalign::worker::fa_result_v2::parse_forced_alignment_result_v2;
 use batchalign::worker::request_builder_v2::{
@@ -40,17 +41,10 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// Return whether ffmpeg is available for staged audio preparation.
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .is_ok_and(|output| output.status.success())
-}
-
 /// Write a short WAV tone fixture for the staged V2 request builder.
 async fn write_test_tone(path: &Path) {
-    let output = Command::new("ffmpeg")
+    let output = MediaTool::Ffmpeg
+        .async_command()
         .args([
             "-y",
             "-f",
@@ -90,7 +84,7 @@ async fn staged_worker_v2_fa_roundtrip_crosses_rust_and_python() {
         eprintln!("SKIP: Python with batchalign.worker._fa_v2 not available");
         return;
     };
-    if !ffmpeg_available() {
+    if MediaTool::Ffmpeg.banner().is_none() {
         eprintln!("SKIP: ffmpeg not installed");
         return;
     }

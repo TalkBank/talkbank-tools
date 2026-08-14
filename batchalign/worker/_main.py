@@ -195,6 +195,28 @@ def main() -> None:
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
         stream=sys.stderr,
     )
+    # Route torchaudio's decoder through soundfile BEFORE anything imports a
+    # dependency that might call it. `torchaudio.load` goes to torchcodec,
+    # which binds a fixed set of FFmpeg majors through an unversioned rpath; a
+    # Homebrew upgrade past that set takes out every decode at job time. There
+    # is no `backend=` escape (torchaudio 2.11 ignores it), so the fix is to
+    # not call it. Logged rather than silent: an operator reading worker
+    # startup should be able to see which decoder is in play.
+    try:
+        from batchalign.inference.audio import (
+            SoundfileBackendInstall,
+            install_soundfile_backend,
+        )
+
+        if install_soundfile_backend() is SoundfileBackendInstall.INSTALLED:
+            logging.getLogger(__name__).info(
+                "audio: torchaudio.load routed through soundfile"
+            )
+    except Exception as error:  # pragma: no cover - never block startup
+        logging.getLogger(__name__).warning(
+            "audio: could not route torchaudio.load through soundfile: %s", error
+        )
+
     try:
         bootstrap = build_worker_bootstrap_runtime(args)
     except ValueError as error:

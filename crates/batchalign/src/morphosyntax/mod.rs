@@ -14,8 +14,16 @@
 //! → `execution::worker_gateway`
 //! → [`process_morphosyntax`] for single-file processing
 //! → `crate::chat_ops::morphosyntax_ops::{collect_payloads, inject_results}`
-//! → worker `batch_infer(task="morphosyntax")`
+//! → worker `execute_v2` (batched), via
+//!   `infer_retry::dispatch_execute_v2_with_retry_and_progress`
 //! → validation + serialization.
+//!
+//! This line said `batch_infer(task="morphosyntax")` until 2026-08-13, which
+//! had stopped being true: the production path moved to `execute_v2` (see
+//! `worker.rs`, "Send batch items to workers for NLP inference via batched
+//! `execute_v2`"), and `batch_infer` survives only for the PyO3 bridge, the
+//! worker tests and `doctor`. The stale line matters because it is what a
+//! reader consults to decide which seam a change belongs at.
 //!
 //! # Invariants for contributors
 //!

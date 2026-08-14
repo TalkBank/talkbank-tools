@@ -15,6 +15,7 @@ use crate::host_facts::{
     recommend,
 };
 
+use crate::media::tools::MediaTool;
 use std::io::{BufRead, Write};
 use std::ops::Not;
 use std::process::{Command, Stdio};
@@ -274,33 +275,23 @@ pub async fn run(args: &DoctorArgs) -> Result<(), CliError> {
         .args(["-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"])
         .output();
 
-    results.push(match python_check {
-        Ok(output) if output.status.success() => {
-            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            CheckResult {
-                name: "python".into(),
-                status: CheckStatus::Pass,
-                detail: format!("{python} -> Python {version}"),
-                duration_ms: start.elapsed().as_millis() as u64,
+    record(
+        &mut results,
+        "python",
+        start,
+        match python_check {
+            Ok(output) if output.status.success() => {
+                let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                Ok(format!("{python} -> Python {version}"))
             }
-        }
-        Ok(output) => CheckResult {
-            name: "python".into(),
-            status: CheckStatus::Fail,
-            detail: format!(
+            Ok(output) => Err(format!(
                 "Python exited with {}: {}",
                 output.status,
                 String::from_utf8_lossy(&output.stderr).trim()
-            ),
-            duration_ms: start.elapsed().as_millis() as u64,
+            )),
+            Err(e) => Err(format!("Cannot spawn {python}: {e}")),
         },
-        Err(e) => CheckResult {
-            name: "python".into(),
-            status: CheckStatus::Fail,
-            detail: format!("Cannot spawn {python}: {e}"),
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
-    });
+    );
 
     // --- Check 2: Worker module importable ---
     let start = Instant::now();
@@ -308,37 +299,44 @@ pub async fn run(args: &DoctorArgs) -> Result<(), CliError> {
         .args(["-c", "from batchalign.worker import main; print('ok')"])
         .output();
 
-    results.push(match import_check {
-        Ok(output) if output.status.success() => CheckResult {
-            name: "worker_import".into(),
-            status: CheckStatus::Pass,
-            detail: "batchalign.worker importable".into(),
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
-        Ok(output) => CheckResult {
-            name: "worker_import".into(),
-            status: CheckStatus::Fail,
-            detail: format!(
+    record(
+        &mut results,
+        "worker_import",
+        start,
+        match import_check {
+            Ok(output) if output.status.success() => Ok("batchalign.worker importable".to_owned()),
+            Ok(output) => Err(format!(
                 "Import failed: {}",
                 String::from_utf8_lossy(&output.stderr)
                     .trim()
                     .chars()
                     .take(200)
                     .collect::<String>()
-            ),
-            duration_ms: start.elapsed().as_millis() as u64,
+            )),
+            Err(e) => Err(format!("Cannot spawn: {e}")),
         },
-        Err(e) => CheckResult {
-            name: "worker_import".into(),
-            status: CheckStatus::Fail,
-            detail: format!("Cannot spawn: {e}"),
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
-    });
+    );
 
-    // --- Check 3: Worker ready signal (test-echo mode) ---
     let start = Instant::now();
-    let echo_check = spawn_worker_and_check_ready(
+    record(&mut results, "ffmpeg", start, check_ffmpeg());
+
+    let start = Instant::now();
+    record(
+        &mut results,
+        "media_decode",
+        start,
+        check_media_decode(&python)
+            .map(|capability| {
+                format!(
+                    "decoded {} frames at {} Hz",
+                    capability.frames, capability.sample_rate
+                )
+            })
+            .map_err(|fault| fault.explain()),
+    );
+
+    let start = Instant::now();
+    let echo_check = Worker::spawn(
         &python,
         &[
             "--test-echo",
@@ -347,50 +345,33 @@ pub async fn run(args: &DoctorArgs) -> Result<(), CliError> {
             "--lang",
             &args.lang,
         ],
-    );
-    results.push(match echo_check {
-        Ok(detail) => CheckResult {
-            name: "worker_ready_echo".into(),
-            status: CheckStatus::Pass,
-            detail,
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
-        Err(detail) => CheckResult {
-            name: "worker_ready_echo".into(),
-            status: CheckStatus::Fail,
-            detail,
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
+    )
+    .and_then(|worker| worker.await_ready(std::time::Duration::from_secs(60)))
+    .and_then(|worker| {
+        let pid = worker.pid();
+        worker
+            .shutdown()
+            .map(|()| format!("Ready signal received (pid {pid})"))
     });
+    record(&mut results, "worker_ready_echo", start, echo_check);
 
     // --- Check 4: Real morphosyntax worker (loads Stanza model) ---
     let start = Instant::now();
-    let morpho_check = spawn_worker_and_send_batch(
-        &python,
-        &args.lang,
-        &[
-            // English test sentence
-            vec!["the", "dog", "runs"],
-            // Contraction (MWT candidate)
-            vec!["I", "dont", "know"],
-            // Single letter (edge case)
-            vec!["a"],
-        ],
-    );
-    results.push(match morpho_check {
-        Ok(detail) => CheckResult {
-            name: "morphosyntax_smoke".into(),
-            status: CheckStatus::Pass,
-            detail,
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
-        Err(detail) => CheckResult {
-            name: "morphosyntax_smoke".into(),
-            status: CheckStatus::Fail,
-            detail,
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
-    });
+    let morpho_check = talkbank_model::LanguageCode::new(&args.lang)
+        .map_err(|e| format!("--lang {:?} is not a language code: {e}", args.lang))
+        .and_then(|lang| smoke_batch_items(&lang))
+        .and_then(|items| {
+            Worker::spawn(&python, &["--task", "morphosyntax", "--lang", &args.lang])
+                .and_then(|worker| worker.await_ready(std::time::Duration::from_secs(120)))
+                .and_then(|worker| {
+                    worker.morphosyntax_batch(
+                        &args.lang,
+                        &items,
+                        std::time::Duration::from_secs(120),
+                    )
+                })
+        });
+    record(&mut results, "morphosyntax_smoke", start, morpho_check);
 
     // --- Check 5: Memory ---
     let mem_info = sysinfo::System::new_all();
@@ -854,213 +835,565 @@ fn print_host_facts_human(report: &HostFactsReport) {
 }
 
 /// Spawn a worker and check it emits a valid ready signal.
-fn spawn_worker_and_check_ready(python: &str, args: &[&str]) -> Result<String, String> {
-    let mut cmd = Command::new(python);
-    cmd.args(["-m", "batchalign.worker"]);
-    cmd.args(args);
-    cmd.stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    let mut child = cmd.spawn().map_err(|e| format!("Spawn failed: {e}"))?;
-    let stdout = child.stdout.take().ok_or("No stdout")?;
-    let reader = std::io::BufReader::new(stdout);
-
-    let deadline = Instant::now() + std::time::Duration::from_secs(60);
-    for line in reader.lines() {
-        if Instant::now() > deadline {
-            let _ = child.kill();
-            return Err("Timeout (60s) waiting for ready signal".into());
-        }
-        let line = line.map_err(|e| format!("Read error: {e}"))?;
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&line)
-            && val.get("ready") == Some(&serde_json::Value::Bool(true))
-        {
-            let pid = val.get("pid").and_then(|v| v.as_u64()).unwrap_or(0);
-            // Send shutdown
-            if let Some(mut stdin) = child.stdin.take() {
-                let _ = writeln!(stdin, r#"{{"op":"shutdown"}}"#);
-            }
-            let _ = child.wait();
-            return Ok(format!("Ready signal received (pid {pid})"));
-        }
-    }
-    let _ = child.kill();
-    Err("Worker exited without ready signal".into())
+/// Proof that this machine can actually DECODE audio.
+///
+/// Constructible only by decoding a real waveform through the same call the
+/// pipeline uses, so holding one means decoding worked here, not that a module
+/// looked importable.
+#[derive(Debug, serde::Deserialize)]
+struct MediaDecodeCapability {
+    frames: u64,
+    sample_rate: u32,
 }
 
-/// Spawn a real morphosyntax worker, send test sentences, validate output.
-fn spawn_worker_and_send_batch(
-    python: &str,
-    lang: &str,
-    test_sentences: &[Vec<&str>],
-) -> Result<String, String> {
-    let mut cmd = Command::new(python);
-    cmd.args([
-        "-m",
-        "batchalign.worker",
-        "--task",
-        "morphosyntax",
-        "--lang",
-        lang,
-    ]);
-    cmd.stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+/// Why decoding is unavailable.
+///
+/// # What this type actually buys, stated honestly
+///
+/// NOTHING BRANCHES ON THE VARIANTS. The only consumer is `explain`, and its
+/// only caller renders that string into a `CheckResult`. An earlier version of
+/// this comment claimed each variant "is a DIFFERENT operator action, which is
+/// why this is a sum type and not a string", which was an argument for a
+/// distinction no code drew. Two of the variants it named no longer exist.
+///
+/// What it does buy is worth keeping, and is smaller than that claim: every
+/// detection site must CLASSIFY its failure rather than reach for a free-form
+/// string, and `explain`'s exhaustive match means a new fault cannot be added
+/// without deciding what to tell the operator. That is a discipline on the
+/// author, not a capability for the caller.
+///
+/// If a caller ever needs to branch, `doctor --format json` is where it would
+/// surface, and the variants are already the right shape for it. Until then
+/// this comment should not imply that day has arrived.
+#[derive(Debug)]
+enum MediaDecodeFault {
+    /// The decode call itself failed, with whatever it said.
+    ///
+    /// Carries the diagnostic rather than an ffmpeg version: an earlier shape
+    /// spawned `ffmpeg -version` a SECOND time to interpolate a version into a
+    /// sentence that reads "this is NOT an FFmpeg version problem", while the
+    /// `ffmpeg` check two lines above had already printed that banner.
+    DecoderUnusable { detail: String },
+    /// A module the decode path needs is missing from the interpreter.
+    ModuleAbsent(String),
+    /// The resolved interpreter could not be run.
+    InterpreterUnusable(String),
+    /// It ran, but returned something this check cannot interpret.
+    Unintelligible(String),
+}
 
-    let mut child = cmd.spawn().map_err(|e| format!("Spawn failed: {e}"))?;
-    let stdout = child.stdout.take().ok_or("No stdout")?;
-    let mut stdin = child.stdin.take().ok_or("No stdin")?;
-    let reader = std::io::BufReader::new(stdout);
-
-    // Wait for ready
-    let mut lines = reader.lines();
-    let deadline = Instant::now() + std::time::Duration::from_secs(120);
-    let mut ready = false;
-    while let Some(Ok(line)) = lines.next() {
-        if Instant::now() > deadline {
-            let _ = child.kill();
-            return Err("Timeout (120s) waiting for ready".into());
-        }
-        if line.contains("\"ready\"") && line.contains("true") {
-            ready = true;
-            break;
+impl MediaDecodeFault {
+    /// One sentence a user can act on, never a dynamic-loader traceback.
+    fn explain(&self) -> String {
+        match self {
+            Self::DecoderUnusable { detail } => format!(
+                "audio decoding failed, so transcription and alignment will \
+                 fail at job time. Batchalign decodes through soundfile and \
+                 converts media with the `ffmpeg` BINARY, whose version does \
+                 not matter, so this points at a broken soundfile install \
+                 rather than at FFmpeg. Reinstall batchalign3. It said: \
+                 {detail}"
+            ),
+            Self::ModuleAbsent(name) => format!(
+                "the resolved interpreter is missing `{name}`, which the audio \
+                 path needs. Reinstall batchalign3."
+            ),
+            Self::InterpreterUnusable(why) => {
+                format!("could not run the resolved interpreter: {why}")
+            }
+            Self::Unintelligible(what) => {
+                format!("the decode probe returned something unreadable: {what}")
+            }
         }
     }
-    if !ready {
-        let _ = child.kill();
-        return Err("Worker exited without ready signal".into());
-    }
+}
 
-    // Build batch_infer request
-    let items: Vec<serde_json::Value> = test_sentences
-        .iter()
-        .map(|words| {
-            serde_json::json!({
-                "words": words,
-                "lang": lang,
-                "retokenize": false,
+/// Decode a generated waveform through `torchaudio.load`.
+///
+/// # Why it decodes rather than importing
+///
+/// A previous version of this check imported `torchcodec.decoders` and a still
+/// earlier one was DELETED on the reasoning that nothing used torchcodec. Both
+/// were wrong in the same way: they asked whether a name resolved. When
+/// Homebrew moved to FFmpeg 9, every torchcodec library (built for majors 4 to
+/// 8) stopped loading and transcription began failing at job time, while
+/// `import torchaudio` kept succeeding and `torchaudio.load` still existed as
+/// an attribute. Only CALLING it reveals the fault, which is why this probe
+/// decodes a waveform instead of asking whether a module imports.
+///
+/// The waveform is generated here rather than shipped as a fixture so the
+/// check has no data dependency and cannot pass by reading a stale file.
+fn check_media_decode(python: &str) -> Result<MediaDecodeCapability, MediaDecodeFault> {
+    let output = Command::new(python)
+        .args(["-m", "batchalign.inference.audio"])
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| MediaDecodeFault::InterpreterUnusable(e.to_string()))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let last = stdout.lines().last().unwrap_or_default().trim();
+
+    if let Ok(capability) = serde_json::from_str::<MediaDecodeCapability>(last) {
+        return Ok(capability);
+    }
+    if stderr.contains("ModuleNotFoundError") {
+        // The NAME, not the whole diagnostic line: `explain` renders this as
+        // "missing `{name}`", and stuffing the full "ModuleNotFoundError: No
+        // module named 'soundfile'" in produced "missing `ModuleNotFoundError:
+        // No module named 'soundfile'`".
+        let missing = stderr
+            .lines()
+            .find_map(|line| {
+                line.split_once("No module named")
+                    .map(|(_, name)| name.trim().trim_matches(['\'', '"']).to_owned())
             })
-        })
-        .collect();
+            .unwrap_or_else(|| "a module the audio path needs".to_owned());
+        return Err(MediaDecodeFault::ModuleAbsent(missing));
+    }
+    if output.status.success() {
+        return Err(MediaDecodeFault::Unintelligible(last.to_owned()));
+    }
+    Err(MediaDecodeFault::DecoderUnusable {
+        detail: stderr
+            .lines()
+            .last()
+            .unwrap_or("no diagnostic")
+            .trim()
+            .to_owned(),
+    })
+}
 
-    let request = serde_json::json!({
-        "op": "batch_infer",
-        "request": {
-            "task": "morphosyntax",
-            "lang": lang,
-            "items": items,
-        }
+/// Record one check's verdict, timing it from `start`.
+///
+/// # Why this exists
+///
+/// The six checks each open with the same fourteen lines: a `match` on a
+/// `Result<String, String>`, two `CheckResult` literals differing only in
+/// `status`, and `duration_ms` computed identically in both arms. Four were
+/// byte-identical apart from the name.
+///
+/// That shape does not just cost lines, it INVITES the next copy, and a copy
+/// is where the name and the status drift apart. A check is now one call, and
+/// the Pass/Fail mapping has one definition: `Ok` is a pass, `Err` is a
+/// failure, and neither arm can be given the wrong `status` because neither
+/// arm is written at the call site any more.
+fn record(
+    results: &mut Vec<CheckResult>,
+    name: &str,
+    start: Instant,
+    outcome: Result<String, String>,
+) {
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let (status, detail) = match outcome {
+        Ok(detail) => (CheckStatus::Pass, detail),
+        Err(detail) => (CheckStatus::Fail, detail),
+    };
+    results.push(CheckResult {
+        name: name.into(),
+        status,
+        detail,
+        duration_ms,
     });
+}
 
-    // serde_json::to_string on a `serde_json::Value` constructed
-    // entirely from the `json!` macro is infallible; there are no
-    // Custom serializer paths that can fail.
-    #[allow(clippy::unwrap_used)]
-    writeln!(stdin, "{}", serde_json::to_string(&request).unwrap())
-        .map_err(|e| format!("Write failed: {e}"))?;
-    stdin.flush().map_err(|e| format!("Flush failed: {e}"))?;
+/// Whether the `ffmpeg` binary this machine needs is actually present.
+///
+/// # The verdict is production's, the detail is extra
+///
+/// Batchalign shells out to `ffmpeg` at five production call sites: it
+/// transcodes arbitrary media to wav, prepares artifact segments, and probes
+/// duration with `ffprobe`. Without it, any job whose input is not already a
+/// wav fails. Nothing checked for it before.
+///
+/// PASS/FAIL is whether the binary answers `-version`. That is deliberately a
+/// DIFFERENT question from the one production asks, which is whether the spawn
+/// it needed returned `ErrorKind::NotFound`, and the two can disagree: on a
+/// host where ffmpeg exists but `-version` exits non-zero, doctor says FAIL
+/// and production reports `TranscodeError::Failed` rather than
+/// `FfmpegMissing`. Doctor
+/// asks the version question because it has a banner to print.
+///
+/// An earlier version demanded a non-empty banner AND a working `ffprobe` as
+/// part of the verdict, which could fail a host where every conversion works.
+///
+/// The banner and `ffprobe` are still reported, as DETAIL. A missing `ffprobe`
+/// is worth an operator's attention (duration probing uses it) without being
+/// the same claim as "ffmpeg is unusable".
+fn check_ffmpeg() -> Result<String, String> {
+    // Asking for the banner asks production's question and keeps the answer it
+    // already captured, so the verdict and the detail cost one spawn between
+    // them. See `MediaTool::banner`.
+    let Some(version) = MediaTool::Ffmpeg.banner() else {
+        return Err(
+            "ffmpeg is not usable, so any job whose media is not already a wav \
+             will fail: transcoding, artifact segment preparation and duration \
+             probing all shell out to it. Install it (macOS: `brew install \
+             ffmpeg`; Debian/Ubuntu: `apt install ffmpeg`)."
+                .to_owned(),
+        );
+    };
 
-    // Read response
-    let response_deadline = Instant::now() + std::time::Duration::from_secs(120);
-    while let Some(Ok(line)) = lines.next() {
-        if Instant::now() > response_deadline {
-            let _ = child.kill();
-            return Err("Timeout (120s) waiting for batch_infer response".into());
-        }
+    // ffprobe is reported as DETAIL, never as part of the verdict: a doctor
+    // that fails a host where every conversion works is reporting on something
+    // other than production.
+    //
+    // Asked through the same predicate as ffmpeg's. This was an open-coded
+    // spawn, which is how the two probes came to differ in whether they closed
+    // stdin: a difference nobody chose, because nothing stated it once.
+    if MediaTool::Ffprobe.banner().is_some() {
+        Ok(version)
+    } else {
+        Ok(format!(
+            "{version} (NOTE: ffprobe is not usable, so duration probing will \
+             fail; both ship together, so this usually means a partial install)"
+        ))
+    }
+}
 
-        let val: serde_json::Value = match serde_json::from_str(&line) {
-            Ok(v) => v,
-            Err(_) => continue, // skip noise
-        };
+// ---------------------------------------------------------------------------
+// The Python worker seam, modelled as a type state
+// ---------------------------------------------------------------------------
+//
+// # Why a type state rather than two functions with a `ready` flag
+//
+// This file previously carried two near-identical helpers, each spawning a
+// worker, looping for a `{"ready": true}` line, and tracking success in a
+// local `bool`. Nothing in either signature said a request may only be written
+// AFTER that signal, so the rule lived in whichever function you happened to
+// read.
+//
+// Now `spawn` yields `Worker<Spawned>`, which has no method that writes a
+// request, and `await_ready` CONSUMES it to yield `Worker<Ready>`, which does.
+// Sending to a worker that has not signalled ready is not a discouraged
+// ordering; it is a program that does not compile. The `bool` is gone because
+// the state it tracked is now the type.
 
-        if val.get("op").and_then(|v| v.as_str()) == Some("error") {
-            let err = val
-                .get("error")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
-            let _ = child.kill();
-            return Err(format!("Worker error: {err}"));
-        }
+/// A spawned worker that has not yet signalled readiness.
+struct Spawned;
 
-        if val.get("op").and_then(|v| v.as_str()) == Some("batch_infer") {
-            // Validate response structure
-            let results = val
-                .pointer("/response/results")
-                .and_then(|v| v.as_array())
-                .ok_or("No results array in response")?;
+/// A worker that has signalled readiness and will accept one request.
+struct Ready;
 
-            if results.len() != test_sentences.len() {
-                let _ = child.kill();
+/// The process handles, separated so `Worker` itself owns no `Drop` glue and a
+/// state transition can move the handles out of the old state.
+struct WorkerIo {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    lines: std::io::Lines<std::io::BufReader<std::process::ChildStdout>>,
+    /// The pid the OPERATING SYSTEM gave us when we spawned it.
+    ///
+    /// Kept distinct from the pid the worker reports about itself. They are
+    /// two different facts and one used to overwrite the other in place, with
+    /// `unwrap_or` papering over the case where the worker said nothing: after
+    /// that assignment nothing could tell which source a given value came
+    /// from, which is the shape where a value proxies for a richer fact.
+    spawned_pid: u32,
+    /// The pid the worker announced in its ready line, if it announced one.
+    ///
+    /// `None` means it signalled ready without naming itself, which is not the
+    /// same as "the pid is the one we spawned".
+    reported_pid: Option<u32>,
+}
+
+impl Drop for WorkerIo {
+    /// Never leave a worker behind. Every early return in this module drops
+    /// the `Worker`, and a diagnostic command that leaks Python processes on
+    /// the failure paths is worse than the fault it was run to find.
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+/// A Python worker subprocess, parameterised by what it is ready to do.
+struct Worker<State> {
+    io: WorkerIo,
+    _state: std::marker::PhantomData<State>,
+}
+
+impl Worker<Spawned> {
+    /// Start `python -m batchalign.worker` with `args`.
+    fn spawn(python: &str, args: &[&str]) -> Result<Self, String> {
+        let mut cmd = Command::new(python);
+        cmd.args(["-m", "batchalign.worker"]);
+        cmd.args(args);
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let mut child = cmd.spawn().map_err(|e| format!("Spawn failed: {e}"))?;
+        let stdout = child.stdout.take().ok_or("No stdout")?;
+        let stdin = child.stdin.take().ok_or("No stdin")?;
+        let spawned_pid = child.id();
+        Ok(Self {
+            io: WorkerIo {
+                child,
+                stdin,
+                lines: std::io::BufReader::new(stdout).lines(),
+                spawned_pid,
+                reported_pid: None,
+            },
+            _state: std::marker::PhantomData,
+        })
+    }
+
+    /// Consume the spawned worker and yield one that is ready to be asked.
+    ///
+    /// Consuming is the point: after this returns there is no value left that
+    /// represents "spawned but not ready", so no later code can act on one.
+    fn await_ready(mut self, timeout: std::time::Duration) -> Result<Worker<Ready>, String> {
+        let deadline = Instant::now() + timeout;
+        while let Some(line) = self.io.lines.next() {
+            if Instant::now() > deadline {
                 return Err(format!(
-                    "Expected {} results, got {}",
-                    test_sentences.len(),
-                    results.len()
+                    "Timeout ({}s) waiting for ready signal",
+                    timeout.as_secs()
                 ));
             }
+            let line = line.map_err(|e| format!("Read error: {e}"))?;
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) else {
+                continue; // worker logging, not protocol
+            };
+            if value.get("ready") == Some(&serde_json::Value::Bool(true)) {
+                let mut io = self.io;
+                io.reported_pid = value
+                    .get("pid")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|reported| u32::try_from(reported).ok());
+                return Ok(Worker {
+                    io,
+                    _state: std::marker::PhantomData,
+                });
+            }
+        }
+        Err("Worker exited without ready signal".into())
+    }
+}
 
-            let mut total_words = 0usize;
-            let mut missing_fields: Vec<String> = Vec::new();
+impl Worker<Ready> {
+    /// The pid to show an operator: what the worker called itself, falling
+    /// back to what we spawned. The FALLBACK IS AT THE DISPLAY EDGE, where a
+    /// human reads it, rather than baked into storage where the two facts
+    /// become indistinguishable.
+    fn pid(&self) -> u32 {
+        self.io.reported_pid.unwrap_or(self.io.spawned_pid)
+    }
 
-            for (ri, result) in results.iter().enumerate() {
-                let sents = result
-                    .pointer("/result/raw_sentences")
-                    .and_then(|v| v.as_array());
+    /// Ask the worker to exit, and wait for it.
+    fn shutdown(mut self) -> Result<(), String> {
+        writeln!(self.io.stdin, r#"{{"op":"shutdown"}}"#)
+            .map_err(|e| format!("Write failed: {e}"))?;
+        self.io
+            .child
+            .wait()
+            .map_err(|e| format!("Wait failed: {e}"))?;
+        Ok(())
+    }
 
-                if let Some(sents) = sents {
-                    for (si, sent) in sents.iter().enumerate() {
-                        if let Some(words) = sent.as_array() {
-                            for (wi, word) in words.iter().enumerate() {
-                                total_words += 1;
-                                for field in ["text", "lemma", "upos", "deprel"] {
-                                    if word.get(field).is_none()
-                                        || word.get(field) == Some(&serde_json::Value::Null)
-                                    {
-                                        // Check if MWT range token (expected to lack some fields)
-                                        let is_range = word
-                                            .get("id")
-                                            .and_then(|v| v.as_array())
-                                            .is_some_and(|a| a.len() > 1);
-                                        if !is_range || field == "text" {
-                                            let text = word
-                                                .get("text")
-                                                .and_then(|v| v.as_str())
-                                                .unwrap_or("?");
-                                            missing_fields.push(format!(
-                                                "result {ri} sent {si} word {wi} ('{text}'): missing {field}"
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                        }
+    /// Send one morphosyntax batch and return the worker's raw response.
+    ///
+    /// # Why this takes the real payload type
+    ///
+    /// It used to take `&[Vec<&str>]` and build each item with a `json!`
+    /// literal. That literal was written when `terminator` did not exist. When
+    /// the schema gained it as a REQUIRED field with no default (deliberately:
+    /// a default period would be a sentinel that is also a legal value),
+    /// production was forced to follow by the compiler and this call site was
+    /// not, because a `json!` object accepts any shape. Every doctor run since
+    /// reported three "Invalid batch item" errors, and the doctor was the one
+    /// tool nobody suspected.
+    ///
+    /// Taking `&[MorphosyntaxBatchItem]` puts this seam back under the
+    /// compiler. The next required field breaks the build here.
+    fn morphosyntax_batch(
+        mut self,
+        lang: &str,
+        items: &[crate::chat_ops::morphosyntax_ops::MorphosyntaxBatchItem],
+        timeout: std::time::Duration,
+    ) -> Result<String, String> {
+        let encoded = items
+            .iter()
+            .map(serde_json::to_value)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("Could not encode batch items: {e}"))?;
+
+        let request = serde_json::json!({
+            "op": "batch_infer",
+            "request": { "task": "morphosyntax", "lang": lang, "items": encoded }
+        });
+        let body = serde_json::to_string(&request)
+            .map_err(|e| format!("Could not encode request: {e}"))?;
+        writeln!(self.io.stdin, "{body}").map_err(|e| format!("Write failed: {e}"))?;
+        self.io
+            .stdin
+            .flush()
+            .map_err(|e| format!("Flush failed: {e}"))?;
+
+        let deadline = Instant::now() + timeout;
+        while let Some(line) = self.io.lines.next() {
+            if Instant::now() > deadline {
+                return Err(format!(
+                    "Timeout ({}s) waiting for batch_infer response",
+                    timeout.as_secs()
+                ));
+            }
+            let line = line.map_err(|e| format!("Read error: {e}"))?;
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) else {
+                continue; // worker logging, not protocol
+            };
+            match value.get("op").and_then(serde_json::Value::as_str) {
+                Some("error") => {
+                    let err = value
+                        .get("error")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("unknown");
+                    return Err(format!("Worker error: {err}"));
+                }
+                Some("batch_infer") => {
+                    let summary = summarize_morphosyntax_response(&value, items.len());
+                    let _ = self.shutdown();
+                    return summary;
+                }
+                _ => continue,
+            }
+        }
+        Err("Worker exited without batch_infer response".into())
+    }
+}
+
+/// The doctor's self-test utterances, built the way production builds them.
+///
+/// # Why it parses a transcript instead of listing words
+///
+/// `collect_payloads` is the function the real morphotag path calls, so going
+/// through it means the check exercises chatter's parser, the payload builder
+/// and the worker wire in one pass, rather than an imitation of them that can
+/// drift. It also means the terminator, the special-form table and the
+/// resolved language are DERIVED from a parsed transcript rather than asserted
+/// here, so none of them can be silently wrong or silently absent.
+fn smoke_batch_items(
+    lang: &talkbank_model::LanguageCode,
+) -> Result<Vec<crate::chat_ops::morphosyntax_ops::MorphosyntaxBatchItem>, String> {
+    let code = lang.as_str();
+    let document = format!(
+        "@UTF8\n@Begin\n@Languages:\t{code}\n@Participants:\tCHI Child\n\
+         @ID:\t{code}|doctor|CHI|||||Child|||\n\
+         *CHI:\tthe dog runs .\n\
+         *CHI:\tI dont know ?\n\
+         *CHI:\ta .\n\
+         @End\n"
+    );
+
+    let parser = talkbank_parser::TreeSitterParser::new()
+        .map_err(|e| format!("chatter's parser failed to load: {e}"))?;
+    let errors = talkbank_model::ErrorCollector::new();
+    let chat_file = parser.parse_chat_file_streaming(&document, &errors);
+
+    let reported = errors.to_vec();
+    if let Some(first) = reported.first() {
+        return Err(format!(
+            "the doctor's own probe transcript no longer parses ({} error(s), \
+             first: {first:?}). That is a chatter defect or a CHAT rule change, \
+             not a worker fault.",
+            reported.len()
+        ));
+    }
+
+    let collection = crate::chat_ops::morphosyntax_ops::collect_payloads(
+        &chat_file,
+        lang,
+        std::slice::from_ref(lang),
+        crate::chat_ops::morphosyntax_ops::MultilingualPolicy::ProcessAll,
+    );
+    if collection.batch_items.is_empty() {
+        return Err(
+            "the probe transcript produced no batch items; the payload builder \
+             considers every one of its utterances unanalysable"
+                .to_owned(),
+        );
+    }
+    Ok(collection
+        .batch_items
+        .into_iter()
+        .map(|(_line, _utt, item, _words)| item)
+        .collect())
+}
+
+/// Check that every word the worker returned carries the fields morphotag needs.
+fn summarize_morphosyntax_response(
+    value: &serde_json::Value,
+    expected: usize,
+) -> Result<String, String> {
+    let results = value
+        .pointer("/response/results")
+        .and_then(serde_json::Value::as_array)
+        .ok_or("No results array in response")?;
+
+    if results.len() != expected {
+        return Err(format!(
+            "Expected {expected} results, got {}",
+            results.len()
+        ));
+    }
+
+    let mut total_words = 0usize;
+    let mut problems: Vec<String> = Vec::new();
+
+    for (ri, result) in results.iter().enumerate() {
+        let Some(sentences) = result
+            .pointer("/result/raw_sentences")
+            .and_then(serde_json::Value::as_array)
+        else {
+            if let Some(err) = result.get("error").and_then(serde_json::Value::as_str) {
+                problems.push(format!("result {ri}: worker error: {err}"));
+            }
+            continue;
+        };
+        for (si, sentence) in sentences.iter().enumerate() {
+            let Some(words) = sentence.as_array() else {
+                continue;
+            };
+            for (wi, word) in words.iter().enumerate() {
+                total_words += 1;
+                for field in ["text", "lemma", "upos", "deprel"] {
+                    let present = word
+                        .get(field)
+                        .is_some_and(|v| *v != serde_json::Value::Null);
+                    if present {
+                        continue;
                     }
-                } else if let Some(err) = result.get("error").and_then(|v| v.as_str()) {
-                    missing_fields.push(format!("result {ri}: worker error: {err}"));
+                    // An MWT range token legitimately lacks the analysis
+                    // fields; it carries only the surface text.
+                    let is_range = word
+                        .get("id")
+                        .and_then(serde_json::Value::as_array)
+                        .is_some_and(|ids| ids.len() > 1);
+                    if !is_range || field == "text" {
+                        let text = word
+                            .get("text")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("?");
+                        problems.push(format!(
+                            "result {ri} sent {si} word {wi} ('{text}'): missing {field}"
+                        ));
+                    }
                 }
             }
-
-            // Shutdown
-            let _ = writeln!(stdin, r#"{{"op":"shutdown"}}"#);
-            let _ = child.wait();
-
-            if missing_fields.is_empty() {
-                return Ok(format!(
-                    "{} sentences, {total_words} words, all fields present",
-                    test_sentences.len()
-                ));
-            } else {
-                return Err(format!(
-                    "{} field issues: {}",
-                    missing_fields.len(),
-                    missing_fields.join("; ")
-                ));
-            }
         }
     }
 
-    let _ = child.kill();
-    Err("Worker exited without batch_infer response".into())
+    if problems.is_empty() {
+        Ok(format!(
+            "{expected} sentences, {total_words} words, all fields present"
+        ))
+    } else {
+        Err(format!(
+            "{} field issues: {}",
+            problems.len(),
+            problems.join("; ")
+        ))
+    }
 }
 
 #[cfg(test)]

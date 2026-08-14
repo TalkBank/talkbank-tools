@@ -82,7 +82,7 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         | ServerError::UnknownCommand(_) => FailureCategory::System,
         // EmptyFaAudioSegment is an internal skip signal consumed before reaching
         // file-level error classification.  Treat as validation if it ever leaks.
-        ServerError::EmptyFaAudioSegment { .. } => FailureCategory::Validation,
+        ServerError::EmptyFaAudioSegment(..) => FailureCategory::Validation,
         // JobNotInLocalStore signals that an activity was dispatched to the
         // wrong server (shared-queue misconfiguration). It's a control-plane
         // topology bug, not a per-file validation or worker failure, the

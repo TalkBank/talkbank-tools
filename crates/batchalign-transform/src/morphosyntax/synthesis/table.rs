@@ -66,7 +66,21 @@ pub(crate) fn scat_synthesis(form_type: &FormType) -> SynthesisRule {
         FormType::FP => SynthesisRule::bare("co"),
         FormType::G => SynthesisRule::bare("unk"),
         FormType::LS => SynthesisRule::bare("n:let").with_feature("Plur"),
-        FormType::A => SynthesisRule::bare("unk"),
+
+        // A marker naming no declared form. This is INVALID CHAT, not an
+        // extension point: chatter rejects it with E203 ("Undeclared form
+        // marker"), verified against 0.11.0 on `ba@a`. The variant exists so
+        // the PARSER can preserve the raw text rather than corrupting
+        // `word@zz` into `word@z:zz`, leaving the VALIDATOR to reject the file;
+        // reaching here therefore means we are tagging a file that E203 has
+        // already condemned.
+        //
+        // So this arm is damage limitation, not a synthesis rule. `unk` plus
+        // the marker's own text is the only honest output: inventing a scat
+        // for a form CHAT does not define would fabricate a value, and
+        // dropping the code would destroy the evidence of what was wrong. The
+        // real fix belongs upstream, in whatever produced the invalid marker.
+        FormType::Undeclared(code) => SynthesisRule::bare("unk").with_feature(code),
 
         FormType::UserDefined(code) => SynthesisRule::bare("unk").with_feature(code),
     }

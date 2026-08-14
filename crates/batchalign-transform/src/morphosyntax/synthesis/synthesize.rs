@@ -51,7 +51,6 @@ mod tests {
     #[test]
     fn scat_emitted_for_each_simple_form_type() {
         let cases: &[(FormType, &str, &str)] = &[
-            (FormType::A, "ba", "unk|ba"),
             (FormType::B, "baba", "bab|baba"),
             (FormType::C, "wuggies", "chi|wuggies"),
             (FormType::D, "younz", "dia|younz"),

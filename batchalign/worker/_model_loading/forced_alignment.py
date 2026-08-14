@@ -79,10 +79,18 @@ def resolve_fa_engine(engine_overrides: dict[str, str] | None) -> FaEngine:
        strings raise ``ValueError`` rather than silently loading
        Wave2Vec: a typo in a per-host override would otherwise
        produce wrong-model output.
-    2. Default to Whisper FA, preserving historical behavior.
+    There is deliberately no default. The Rust control plane always sends an
+    ``fa`` key (``worker/pool/mod.rs`` puts one on every Align worker), so a
+    missing key means the boundary is broken, not that a fallback is wanted. A
+    default here would be a second owner of a decision Rust already makes, and
+    the two silently disagreed for six weeks: this returned Whisper while Rust
+    chose Wave2Vec, and only Rust always populating the key hid it.
     """
     if not engine_overrides or "fa" not in engine_overrides:
-        return FaEngine.WHISPER
+        raise ValueError(
+            "no 'fa' engine in overrides; the control plane always sends one, "
+            "so its absence is a boundary bug rather than a request for a default"
+        )
     choice = engine_overrides["fa"]
     legacy = _LEGACY_FA_WIRE_NAMES.get(choice)
     if legacy is not None:

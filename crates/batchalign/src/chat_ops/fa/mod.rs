@@ -58,7 +58,11 @@ pub use self::utr::{
 // Types
 // ---------------------------------------------------------------------------
 
-/// A time interval in milliseconds, guaranteed start <= end at construction.
+/// A time interval in milliseconds.
+///
+/// NOT guaranteed `start <= end`: [`Self::new`] accepts any pair, and an
+/// onset-only engine produces `start == end`. Callers that require a real
+/// extent must check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeSpan {
     /// Start time in milliseconds.
@@ -145,13 +149,16 @@ impl FaGroup {
 }
 
 /// Controls how word end times are set during FA post-processing.
+///
+/// Names no engine: which engine reports which shape is owned by
+/// [`crate::types::engines::FaEngineName::timing_resolution`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FaTimingMode {
     /// End of each word = start of next word (no silence between words).
-    /// Used when the FA engine returns onset-only times (Wave2Vec).
+    /// For engines that report only when a word STARTS.
     Continuous,
     /// End of each word = engine-provided end time (preserves pauses).
-    /// Used when the FA engine returns word-level start+end (Whisper).
+    /// For engines that report a word's start AND its end.
     WithPauses,
 }
 

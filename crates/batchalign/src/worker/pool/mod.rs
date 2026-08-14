@@ -1061,9 +1061,17 @@ mod default_pool_config_tests {
 
         assert_eq!(selection.overrides().asr, None);
         assert_eq!(selection.overrides().extras["provider_region"], "us-east");
+        // Derived: `fa` is whatever the default engine is, not a value this
+        // test chooses. What it asserts is that a non-worker ASR override is
+        // dropped while an unknown extra survives.
         assert_eq!(
             selection.worker_config_json(),
-            r#"{"fa":"whisper","provider_region":"us-east"}"#
+            format!(
+                r#"{{"fa":"{}","provider_region":"us-east"}}"#,
+                <crate::types::engines::FaEngineName as
+                    crate::types::engines::SelectableEngine>::DEFAULT
+                    .dispatch_override_name()
+            )
         );
     }
 

@@ -3,6 +3,7 @@ use super::*;
 use crate::asr_postprocess;
 use crate::parse::{TreeSitterParser, parse_lenient};
 use crate::serialize::to_chat_string;
+use talkbank_model::model::TranscriptName;
 
 /// Helper: create a regular WordDesc with validated text and explicit kind.
 fn wd(text: &str, start_ms: Option<u64>, end_ms: Option<u64>) -> WordDesc {
@@ -1055,7 +1056,7 @@ fn red_fund_b_digit_hyphenated_eng_emits_no_bare_digits() {
     let parser = TreeSitterParser::new().expect("grammar loads");
     let (chat, _) = crate::parse::parse_lenient(&parser, &serialized);
     let validation_errors = talkbank_model::ErrorCollector::new();
-    chat.validate(&validation_errors, None);
+    chat.validate(&validation_errors, TranscriptName::Anonymous);
     let validation_errs = validation_errors.into_vec();
     let e220s: Vec<_> = validation_errs
         .iter()

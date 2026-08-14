@@ -224,7 +224,7 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() -
 //
 // Evidence: 6 of the 4,592 files pushed during the 2026-05-01 morphotag
 // rerun produce E720 ("Mor-Gra count mismatch") under
-// `chatter validate ~/0tb/data`. Triggering inputs involve complex
+// `chatter validate <corpus-root>`. Triggering inputs involve complex
 // code-switching and untranscribed contexts. See
 // `spec/errors/E720_auto.md` for the validator's contract.
 //

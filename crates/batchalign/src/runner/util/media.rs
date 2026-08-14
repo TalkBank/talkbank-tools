@@ -9,6 +9,8 @@ use crate::store::{PendingJobFile, RunnerJobSnapshot};
 use batchalign_types::paths::ClientPath;
 
 use super::auto_tune::KNOWN_MEDIA_EXTENSIONS;
+use crate::media::probe::MediaProbe;
+use tracing::warn;
 
 /// Check if a job should use Rev.AI preflight submission.
 ///
@@ -225,29 +227,25 @@ pub(in crate::runner) async fn compute_audio_identity(
 
 /// Get audio duration in milliseconds via ffprobe.
 ///
-/// Returns `None` if ffprobe is not available or fails.
+/// `None` is a DOWNGRADE the caller asks for, not an erasure: the duration is
+/// optional for untimed-utterance estimation, so a failure is survivable, but
+/// the reason is logged before it is dropped. This function used to return
+/// `Option` with no logging, folding "ffprobe is not installed", "ffprobe was
+/// killed", "ffprobe refused the file" and "ffprobe printed nonsense" into one
+/// silent `None`, so an operator could not tell a missing dependency from a
+/// corrupt recording.
 pub(in crate::runner) async fn get_audio_duration_ms(audio_path: &str) -> Option<u64> {
-    let output = tokio::process::Command::new("ffprobe")
-        .args([
-            "-v",
-            "quiet",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            audio_path,
-        ])
-        .output()
-        .await
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
+    match MediaProbe::new(audio_path).duration().await {
+        Ok(duration) => Some(duration.0),
+        Err(error) => {
+            warn!(
+                audio = %audio_path,
+                error = %error,
+                "Could not determine audio duration; untimed utterances will be estimated without it"
+            );
+            None
+        }
     }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let duration_s: f64 = stdout.trim().parse().ok()?;
-    Some((duration_s * 1000.0) as u64)
 }
 
 /// Replace the filename in `output_path` with `result_filename`.

@@ -565,7 +565,6 @@ fn as_retrace(item: &UtteranceContent) -> Option<&Retrace> {
 /// words inside each via `extract::collect_utterance_content` with
 /// `TierDomain::Wor`. Each such word inherits its enclosing content item's
 /// group.
-
 fn wor_eligible_word_groups(
     content_items: &[UtteranceContent],
     content_item_group: &[Option<usize>],

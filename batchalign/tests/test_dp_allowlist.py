@@ -2,9 +2,35 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# Allowlisted `dp_align::align` call sites, BY FILE AND COUNT.
+#
+# One mapping, not a count beside a set of names. The previous form asserted
+# `len(...) == 5` next to the set of files, so the two had to be kept in step
+# by hand and the failure said only "6 != 5", naming neither the file that
+# gained a call nor the one that lost one. A per-file count carries strictly
+# more (engine.rs legitimately holds two) and the diff points at the change.
+#
+# dp_align is O(n*m), so a new call site is a decision worth recording rather
+# than an incident worth blocking:
+#
+# - benchmark.rs: WER evaluation.
+# - compare/engine.rs: transcript comparison (window alignment + rotation).
+# - compare/cross_run.rs: cross-run agreement metrics for `compare-runs`.
+# - chat_ops/fa/utr.rs: UTR global alignment, correctness critical and not
+#   avoidable.
+# - chat_ops/fa/utr/two_pass.rs: overlap-aware UTR timing recovery.
+ALLOWED_DP_ALIGN_CALLS = {
+    "crates/batchalign-transform/src/benchmark.rs": 1,
+    "crates/batchalign-transform/src/compare/cross_run.rs": 1,
+    "crates/batchalign-transform/src/compare/engine.rs": 2,
+    "crates/batchalign/src/chat_ops/fa/utr.rs": 1,
+    "crates/batchalign/src/chat_ops/fa/utr/two_pass.rs": 1,
+}
 
 
 def _find_pattern(path: Path, pattern: str) -> list[tuple[int, str]]:
@@ -36,19 +62,14 @@ def test_chat_ops_dp_calls_are_allowlisted() -> None:
     dp_call_src = sorted(path for root in dp_call_roots for path in root.rglob("*.rs"))
     align_hits = _scan_paths(dp_call_src, r"\bdp_align::align\s*\(")
     align_chars_hits = _scan_paths(dp_call_src, r"\bdp_align::align_chars\s*\(")
-    # Allowlisted dp_align::align call sites:
-    # - batchalign-transform/benchmark.rs: WER evaluation
-    # - batchalign-transform/compare/engine.rs: transcript comparison
-    #   (2 calls: window alignment + rotation)
-    # - batchalign/chat_ops/fa/utr.rs: UTR global alignment
-    #   (correctness-critical, not avoidable)
-    # - batchalign/chat_ops/fa/utr/two_pass.rs: overlap-aware UTR
-    #   timing recovery
-    assert len(align_hits) == 5
-    assert {rel for rel, _, _ in align_hits} == {
-        "crates/batchalign/src/chat_ops/fa/utr.rs",
-        "crates/batchalign/src/chat_ops/fa/utr/two_pass.rs",
-        "crates/batchalign-transform/src/benchmark.rs",
-        "crates/batchalign-transform/src/compare/engine.rs",
-    }
+
+    actual = Counter(rel for rel, _, _ in align_hits)
+    assert dict(sorted(actual.items())) == ALLOWED_DP_ALIGN_CALLS, (
+        "dp_align::align call sites changed. This is not automatically a "
+        "failure: it is a prompt to decide. If the new call is a comparison "
+        "or evaluation path, add it to ALLOWED_DP_ALIGN_CALLS with a one "
+        "line reason. If it is on a per-file CHAT-ops path, the O(n*m) cost "
+        "is the problem and the call is what needs rethinking.\n"
+        f"expected: {ALLOWED_DP_ALIGN_CALLS}\ngot:      {dict(sorted(actual.items()))}"
+    )
     assert not align_chars_hits

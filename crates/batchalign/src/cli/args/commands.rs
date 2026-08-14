@@ -21,6 +21,7 @@ use super::{CommonOpts, IncrementalOpts};
 // `types::engines` and reach the CLI through `SelectableEngine`.
 // ---------------------------------------------------------------------------
 
+/// How `utr` resolves overlapping candidate regions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum UtrOverlapStrategy {
     /// Currently equivalent to `global`, the language/content-aware
@@ -70,6 +71,7 @@ pub enum CliReviewLevel {
     All,
 }
 
+/// Whether a transcription run attempts speaker diarization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum DiarizationMode {
     /// Automatic (currently defaults to disabled).
@@ -81,6 +83,7 @@ pub enum DiarizationMode {
     Disabled,
 }
 
+/// Arguments for the `align` subcommand (forced alignment).
 #[derive(Args, Debug, Clone)]
 pub struct AlignArgs {
     /// Shared file I/O options.

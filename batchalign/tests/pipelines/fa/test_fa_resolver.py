@@ -34,16 +34,27 @@ class TestResolveFaEngine:
             is FaEngine.WAV2VEC_CANTO
         )
 
-    def test_default_without_overrides_is_whisper(self) -> None:
-        assert resolve_fa_engine(None) is FaEngine.WHISPER
+    def test_absent_overrides_raise_rather_than_defaulting(self) -> None:
+        """A missing ``fa`` key is a broken boundary, not a request.
 
-    def test_empty_dict_falls_through_to_default(self) -> None:
-        assert resolve_fa_engine({}) is FaEngine.WHISPER
+        These three cases asserted a Whisper default until 2026-08-14, which
+        made this module a second owner of a choice the Rust control plane
+        already makes. The two disagreed silently once Rust changed its
+        default, and only Rust always populating the key kept it from
+        surfacing as wrong-model output.
+        """
+        with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
+            resolve_fa_engine(None)
 
-    def test_unrelated_override_keys_are_ignored(self) -> None:
+    def test_empty_dict_raises(self) -> None:
+        with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
+            resolve_fa_engine({})
+
+    def test_unrelated_override_keys_do_not_satisfy_the_fa_key(self) -> None:
         # Only the ``fa`` key matters here; other engine keys belong
-        # to other resolvers.
-        assert resolve_fa_engine({"asr": "whisper"}) is FaEngine.WHISPER
+        # to other resolvers, and none of them stands in for a missing one.
+        with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
+            resolve_fa_engine({"asr": "whisper"})
 
     def test_unknown_engine_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="unknown fa engine 'wisper'"):

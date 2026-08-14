@@ -132,18 +132,18 @@ batchalign-transform = { path = "crates/batchalign-transform" }
 # ../chatter/crates/...; never commit a path override here. Adopt a newer chatter
 # by bumping the tag. talkbank-transform is the GENERIC transform;
 # batchalign-transform (above) holds the ML accretion.
-talkbank-transform = { git = "https://github.com/TalkBank/chatter", tag = "v0.10.0", default-features = false }
+talkbank-transform = { git = "https://github.com/TalkBank/chatter", tag = "v0.11.0", default-features = false }
 # Stage 1 dedup: talkbank-tools no longer carries its own copies of these.
-talkbank-model = { git = "https://github.com/TalkBank/chatter", tag = "v0.10.0" }
-talkbank-parser = { git = "https://github.com/TalkBank/chatter", tag = "v0.10.0" }
-talkbank-parser-re2c = { git = "https://github.com/TalkBank/chatter", tag = "v0.10.0" }
-talkbank-parser-tests = { git = "https://github.com/TalkBank/chatter", tag = "v0.10.0" }
+talkbank-model = { git = "https://github.com/TalkBank/chatter", tag = "v0.11.0" }
+talkbank-parser = { git = "https://github.com/TalkBank/chatter", tag = "v0.11.0" }
+talkbank-parser-re2c = { git = "https://github.com/TalkBank/chatter", tag = "v0.11.0" }
+talkbank-parser-tests = { git = "https://github.com/TalkBank/chatter", tag = "v0.11.0" }
 
 phf = { version = "0.14", features = ["macros"] }
 phf_codegen = "0.14"
 tempfile = "3.27"
 text-size = "1.1"
-thiserror = "^2.0.19"
+thiserror = "^2.0.20"
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio = { version = "1.53", features = ["full"] }
 tokio-util = "0.7"
@@ -198,7 +198,7 @@ tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
 symphonia = { version = "0.6", default-features = false, features = ["mp3", "wav", "isomp4", "aac", "pcm", "flac"] }
 # rubato 4.0's synchronous FFT resampler (Fft) is behind the fft_resampler
 # feature; its buffer adapters come from the companion audioadapter_buffers crate.
-rubato = { version = "4.0", features = ["fft_resampler"] }
+rubato = { version = "5.0", features = ["fft_resampler"] }
 # PINNED TO RUBATO'S OWN MAJOR, AND NOT A STALE VERSION. We hand these buffers
 # straight to rubato, so the two must resolve to ONE major or the trait impls
 # live on different types and the default Whisper build fails to compile with
@@ -208,7 +208,7 @@ rubato = { version = "4.0", features = ["fft_resampler"] }
 # this graph that can consume it. Bump this only together with rubato, after
 # checking rubato's own requirement. A currency sweep raised it to 5.0 on
 # 2026-08-04 and broke the build; that is what this comment exists to prevent.
-audioadapter-buffers = "4.0"
+audioadapter-buffers = "5.1"
 byteorder = "1.5"
 anyhow = "1"
 log = "0.4"

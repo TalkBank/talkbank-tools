@@ -295,7 +295,7 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--utr-ca-markers {enabled,disabled}` | `enabled` | Use CA overlap markers (⌈⌉⌊⌋) to set alignment windows |
 | `--utr-density-threshold N` | `0.30` | Max overlap fraction before skipping pass-1 exclusion (0.0-1.0) |
 | `--utr-tight-buffer MS` | `500` | Pass-2 tight window buffer in milliseconds |
-| `--fa-engine {wav2vec,whisper,cantonese}` | `whisper` (since 2026-07-01; see §"Forced alignment reference") | Forced-alignment model. `cantonese` is the jyutping-preprocessing engine, formerly reachable only as `wav2vec_fa_canto` through the flag below. |
+| `--fa-engine {wav2vec,whisper,cantonese}` | `wav2vec` (reports word start and end; see §"Forced alignment reference") | Forced-alignment model. `cantonese` is the jyutping-preprocessing engine, formerly reachable only as `wav2vec_fa_canto` through the flag below. |
 | `--fa-engine-custom NAME` |: | **Deprecated alias for `--fa-engine`**, still honoured, hidden from `--help`. |
 | `--wor` / `--nowor` | `--wor` | Include or suppress the `%wor` word-timing tier |
 | `--pauses` | off | Group words into pause-separated chunks (Whisper FA only) |

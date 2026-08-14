@@ -24,6 +24,7 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use batchalign::api::{JobInfo, JobStatus, MemoryMb, NumSpeakers};
 use batchalign::config::ServerConfig;
 use batchalign::host_facts::PerProfile;
+use batchalign::media::tools::MediaTool;
 use batchalign::options::{
     AlignOptions, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions, CompareOptions,
     CorefOptions, MorphotagOptions, OpensmileOptions, TranscribeOptions, TranslateOptions,
@@ -217,17 +218,9 @@ pub fn write_silent_wav(path: &Path) {
     std::fs::write(path, bytes).expect("write wav");
 }
 
-pub fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
-}
-
 pub fn write_silent_mp4(path: &Path) {
-    let output = std::process::Command::new("ffmpeg")
+    let output = MediaTool::Ffmpeg
+        .command()
         .args([
             "-y",
             "-f",
@@ -250,7 +243,8 @@ pub fn write_silent_mp4(path: &Path) {
 }
 
 pub fn transcode_audio_to_mp4(input: &Path, output: &Path) {
-    let ffmpeg_output = std::process::Command::new("ffmpeg")
+    let ffmpeg_output = MediaTool::Ffmpeg
+        .command()
         .args([
             "-y",
             "-i",

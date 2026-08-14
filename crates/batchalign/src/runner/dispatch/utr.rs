@@ -190,7 +190,8 @@ pub(in crate::runner) async fn run_utr_pass(
             let mut all_tokens: Vec<crate::chat_ops::fa::utr::AsrTimingToken> = Vec::new();
             let total_windows = windows.len() as i64;
 
-            for (window_idx, &(start_ms, end_ms)) in windows.iter().enumerate() {
+            for (window_idx, window) in windows.iter().enumerate() {
+                let (start_ms, end_ms) = (window.start_ms(), window.end_ms());
                 let seg_cache_key = crate::chat_ops::fa::utr_asr_segment_cache_key(
                     context.audio_identity,
                     start_ms,
@@ -221,25 +222,22 @@ pub(in crate::runner) async fn run_utr_pass(
                 let seg_response = if let Some(cached) = cached_seg {
                     cached
                 } else {
-                    let segment_path = match crate::ensure_wav::extract_audio_segment(
-                        context.audio_path,
-                        start_ms,
-                        end_ms,
-                    )
-                    .await
-                    {
-                        Ok(path) => path,
-                        Err(error) => {
-                            warn!(
-                                context.filename,
-                                error = %error,
-                                start_ms,
-                                end_ms,
-                                "Failed to extract audio segment, falling back to full UTR"
-                            );
-                            return run_utr_pass_full(chat_file, context).await;
-                        }
-                    };
+                    let segment_path =
+                        match crate::ensure_wav::extract_audio_segment(context.audio_path, *window)
+                            .await
+                        {
+                            Ok(path) => path,
+                            Err(error) => {
+                                warn!(
+                                    context.filename,
+                                    error = %error,
+                                    start_ms,
+                                    end_ms,
+                                    "Failed to extract audio segment, falling back to full UTR"
+                                );
+                                return run_utr_pass_full(chat_file, context).await;
+                            }
+                        };
 
                     match infer_utr_asr_response(&segment_path, context.without_rev_job_id()).await
                     {

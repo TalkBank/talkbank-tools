@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-07-31 07:52 EDT
+**Last modified:** 2026-08-13 21:11 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -101,7 +101,7 @@ id and made the wrong comparison easy. The fix was not a louder warning; it was
 a type that carries a commit and no version, so the wrong comparison has no
 signature to travel through.
 
-**Four shapes to recognise before writing the bug:**
+**Shapes to recognise before writing the bug:**
 
 - **A value proxies for a richer fact, and the two drift.** Cure: derive it from
   the fact rather than mirroring the fact.
@@ -113,6 +113,33 @@ signature to travel through.
   Cure: return the information; make the lossy path the explicit one.
 - **Knowledge duplicated with no owner**, held together by a contract test. Cure:
   one owner, then delete the test that existed only to detect the drift.
+- **A relationship between two values is maintained by convention**, so a wrong
+  pairing type-checks (a plan plus the input it was computed from; a source text
+  plus an index built from a different version of it). Cure: one capability that
+  owns both, so possession is the proof of the pairing.
+- **A well-typed NOUN with an untyped VERB.** The type names a thing; the
+  operation on it stays a loose procedure, so every caller re-derives the same
+  facts, re-classifies the same errors, and restates the invariant in a comment.
+  The tell is a correct-looking type surrounded by call sites that each do the
+  same three things after calling it. Cure: type the OPERATION and make its
+  primitives unreachable, because a public primitive is an invitation to
+  re-implement the verb. See `media::Transcode`, which owns "run ffmpeg to
+  produce a file" so no caller assembles an argv or cleans up a partial output.
+- **A proof type built by its CONSUMERS instead of its producer.** The type is
+  right, its validating constructor is honest, and it still deletes nothing,
+  because each consumer builds its own while the producer hands out raw parts.
+  The check moves rather than disappearing, and the count GROWS, since every
+  consumer feels the need independently. The tell is arithmetic: several call
+  sites validating the same relation, downstream of a producer that validates
+  none of it. Cure: construct where the value is BORN. See `media::MediaWindow`,
+  built by the function that computes windows rather than by its consumers.
+
+**The self-check, and it takes ten seconds: after any type change, count what it
+REMOVED** (lines, variants, constructors, checks, tests, branches). If the answer
+is nothing, you did not eliminate a defect class, you relocated one, and that is
+usually a net loss because the new type is a second thing to keep true. This is
+the cheapest test of whether a change is type-oriented design or type-flavoured
+decoration.
 
 **Decision test, before writing any type:** name a wrong value it permits, and
 ask what would notice. If the answer is a reviewer, a comment or a doc, the type

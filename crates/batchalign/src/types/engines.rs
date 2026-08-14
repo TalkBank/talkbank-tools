@@ -390,6 +390,31 @@ pub enum FaEngineName {
     Wav2vecCanto,
 }
 
+/// What an alignment engine can say about a word's extent.
+///
+/// The distinction decides whether a `%wor` tier carries measured durations or
+/// derived ones, so it belongs to the engine rather than to any consumer. It
+/// had previously been restated in prose in several places, in one case
+/// inverted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaTimingResolution {
+    /// Reports a word's start AND its end; durations are measured.
+    WordIntervals,
+    /// Reports only when a word STARTS; an end must be derived from the next
+    /// onset, and a consumer that skips that step produces zero-duration words.
+    TokenOnsets,
+}
+
+impl FaEngineName {
+    /// What this engine reports about a word's extent.
+    pub fn timing_resolution(&self) -> FaTimingResolution {
+        match self {
+            Self::Wave2Vec | Self::Wav2vecCanto => FaTimingResolution::WordIntervals,
+            Self::Whisper => FaTimingResolution::TokenOnsets,
+        }
+    }
+}
+
 impl EngineBackend for FaEngineName {
     fn wire_name(&self) -> &'static str {
         match self {
@@ -414,7 +439,11 @@ impl EngineBackend for FaEngineName {
 impl SelectableEngine for FaEngineName {
     type Selected = Self;
     const ALL: &'static [Self] = &[Self::Wave2Vec, Self::Whisper, Self::Wav2vecCanto];
-    const DEFAULT: Self = Self::Whisper;
+    // Wave2Vec returns word-level start AND end; Whisper FA returns token
+    // onsets only, so defaulting to it makes every aligned word zero-duration.
+    // Pinned by `default_fa_engine_returns_word_intervals_not_onsets`, which
+    // carries the measurement.
+    const DEFAULT: Self = Self::Wave2Vec;
     const CATEGORY: &'static str = "FA";
 
     fn selection_name(&self) -> &'static str {
@@ -1559,10 +1588,10 @@ mod asr_selection_tests {
     /// not in `ALL` is caught here rather than by a user who cannot reach it.
     #[test]
     fn every_engine_in_all_parses_from_its_wire_name() {
-        for engine in AsrEngineName::ALL.iter().cloned() {
+        for engine in AsrEngineName::ALL {
             let selection = AsrSelection::parse(engine.wire_name())
                 .unwrap_or_else(|| panic!("{} must parse", engine.wire_name()));
-            assert_eq!(selection.engine(), engine);
+            assert_eq!(&selection.engine(), engine);
             assert!(
                 selection.implied_overrides().is_empty(),
                 "a plain engine name implies no overrides"
@@ -1606,7 +1635,7 @@ mod asr_selection_tests {
         let names: Vec<&str> = AsrEngineName::selectable_names().collect();
         assert_eq!(names.len(), AsrEngineName::ALL.len() + 1);
         assert!(names.contains(&PARAFORMER_SELECTION_NAME));
-        for engine in AsrEngineName::ALL.iter().cloned() {
+        for engine in AsrEngineName::ALL {
             assert!(names.contains(&engine.wire_name()));
         }
     }
@@ -1730,6 +1759,22 @@ mod selectable_engine_tests {
                 "advertised {name} does not resolve"
             );
         }
+    }
+
+    /// The default aligner must report word intervals, not bare onsets.
+    ///
+    /// POLICY: an onset-only engine is a legitimate engine, it just cannot be
+    /// the default without an onset-to-interval step, because a word's end
+    /// would otherwise equal its start. Asserting the PROPERTY rather than a
+    /// particular variant means a new interval-reporting engine may become the
+    /// default without editing this test, while an onset-only one may not.
+    #[test]
+    fn default_fa_engine_reports_word_intervals() {
+        assert_eq!(
+            FaEngineName::DEFAULT.timing_resolution(),
+            FaTimingResolution::WordIntervals,
+            "the default aligner must report a word's end, not only its start"
+        );
     }
 
     /// The default is a member of its own category.

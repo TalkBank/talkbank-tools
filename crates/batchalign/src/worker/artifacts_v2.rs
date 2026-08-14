@@ -17,7 +17,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::api::DurationMs;
+use crate::media::transcode::{PcmEncoding, Transcode, TranscodeError};
+use crate::media::window::{EmptySegment, MediaWindow};
 use crate::types::worker_v2::{
     ArtifactRefV2, ByteLengthV2, ByteOffsetV2, ChannelCountV2, FrameCountV2,
     PreparedAudioEncodingV2, PreparedAudioRefV2, PreparedTextEncodingV2, PreparedTextRefV2,
@@ -31,21 +32,12 @@ const TEXT_DIR_NAME: &str = "text";
 /// Errors produced while materializing prepared artifacts for protocol V2.
 #[derive(Debug, Error)]
 pub enum PreparedArtifactErrorV2 {
-    /// `ffmpeg` is not installed or not visible on `PATH`.
-    #[error("ffmpeg not found in PATH while preparing audio artifact from {path}")]
-    FfmpegNotFound {
-        /// Source media path that required ffmpeg.
-        path: String,
-    },
-
-    /// `ffmpeg` exited with a non-zero status while producing an artifact.
-    #[error("ffmpeg failed while preparing audio artifact from {path}: {detail}")]
-    FfmpegFailed {
-        /// Source media path that failed conversion.
-        path: String,
-        /// ffmpeg stderr output.
-        detail: String,
-    },
+    /// The transcode itself failed: ffmpeg missing, refused, or unspawnable.
+    ///
+    /// ONE variant, not the three this enum used to restate. See the matching
+    /// note on `EnsureWavError::Transcode`.
+    #[error(transparent)]
+    Transcode(#[from] TranscodeError),
 
     /// The requested audio segment falls entirely beyond the end of the source
     /// file.  `ffmpeg` exits with code 0 in this case but writes zero bytes,
@@ -53,15 +45,12 @@ pub enum PreparedArtifactErrorV2 {
     ///
     /// Callers that encounter this error should skip the group rather than
     /// propagating a hard failure, the utterances will remain unaligned.
-    #[error("empty audio segment: [{start_ms}ms..{end_ms}ms) falls past end of {path}")]
-    EmptyAudioSegment {
-        /// Source media path.
-        path: String,
-        /// Requested segment start (milliseconds from file start).
-        start_ms: u64,
-        /// Requested segment end (milliseconds from file start).
-        end_ms: u64,
-    },
+    ///
+    /// Serves both empties: a window that holds nothing, and a window that
+    /// produced nothing. They are the same fact to a caller, so they arrive
+    /// here together.
+    #[error("empty audio segment: {0} falls past the end of the file")]
+    EmptyAudioSegment(EmptySegment),
 
     /// Filesystem or process-management error.
     #[error("prepared artifact I/O error: {0}")]
@@ -165,63 +154,19 @@ impl PreparedArtifactStoreV2 {
         &self,
         id: &WorkerArtifactIdV2,
         source: &Path,
-        start_ms: DurationMs,
-        end_ms: DurationMs,
+        window: MediaWindow,
     ) -> Result<PreparedAudioRefV2, PreparedArtifactErrorV2> {
-        if end_ms <= start_ms {
-            return Err(PreparedArtifactErrorV2::Io(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "prepared audio segment end must be greater than start",
-            )));
-        }
-
         let root = self.root.clone();
         let id = id.clone();
         let source = source.to_path_buf();
 
         tokio::task::spawn_blocking(move || {
-            if !ffmpeg_available() {
-                return Err(PreparedArtifactErrorV2::FfmpegNotFound {
-                    path: source.display().to_string(),
-                });
-            }
-
             fs::create_dir_all(root.join(AUDIO_DIR_NAME))?;
             let output_path = root.join(AUDIO_DIR_NAME).join(format!("{id}.pcm"));
-            let start_secs = format!("{:.3}", start_ms.0 as f64 / 1000.0);
-            let end_secs = format!("{:.3}", end_ms.0 as f64 / 1000.0);
 
-            let output = std::process::Command::new("ffmpeg")
-                .args([
-                    "-y".as_ref(),
-                    "-ss".as_ref(),
-                    start_secs.as_ref(),
-                    "-to".as_ref(),
-                    end_secs.as_ref(),
-                    "-i".as_ref(),
-                    source.as_os_str(),
-                    "-f".as_ref(),
-                    "f32le".as_ref(),
-                    "-acodec".as_ref(),
-                    "pcm_f32le".as_ref(),
-                    "-ar".as_ref(),
-                    "16000".as_ref(),
-                    "-ac".as_ref(),
-                    "1".as_ref(),
-                    output_path.as_os_str(),
-                ])
-                .output()?;
-
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                let _ = fs::remove_file(&output_path);
-                return Err(PreparedArtifactErrorV2::FfmpegFailed {
-                    path: source.display().to_string(),
-                    detail: stderr,
-                });
-            }
-
-            let byte_len = fs::metadata(&output_path)?.len();
+            let produced =
+                Transcode::window(&source, window, PcmEncoding::F32LeRaw).produce(&output_path)?;
+            let byte_len = produced.byte_len;
             let sample_bytes = std::mem::size_of::<f32>() as u64;
             let frame_count = byte_len / sample_bytes;
 
@@ -232,19 +177,20 @@ impl PreparedArtifactStoreV2 {
             // error so callers can skip the group gracefully instead.
             if frame_count == 0 {
                 let _ = fs::remove_file(&output_path);
-                return Err(PreparedArtifactErrorV2::EmptyAudioSegment {
+                return Err(PreparedArtifactErrorV2::EmptyAudioSegment(EmptySegment {
                     path: source.display().to_string(),
-                    start_ms: start_ms.0,
-                    end_ms: end_ms.0,
-                });
+                    window,
+                }));
             }
 
             Ok(PreparedAudioRefV2 {
                 id,
                 path: WorkerArtifactPathV2(output_path.to_string_lossy().into_owned()),
                 encoding: PreparedAudioEncodingV2::PcmF32le,
-                channels: ChannelCountV2(1),
-                sample_rate_hz: SampleRateHzV2(16_000),
+                // Derived from what was produced, not restated. These were
+                // two literals mirroring constants in another module.
+                channels: ChannelCountV2(produced.channels),
+                sample_rate_hz: SampleRateHzV2(produced.sample_rate_hz),
                 frame_count: FrameCountV2(frame_count),
                 byte_offset: ByteOffsetV2(0),
                 byte_len: ByteLengthV2(byte_len),
@@ -270,42 +216,12 @@ impl PreparedArtifactStoreV2 {
         let source = source.to_path_buf();
 
         tokio::task::spawn_blocking(move || {
-            if !ffmpeg_available() {
-                return Err(PreparedArtifactErrorV2::FfmpegNotFound {
-                    path: source.display().to_string(),
-                });
-            }
-
             fs::create_dir_all(root.join(AUDIO_DIR_NAME))?;
             let output_path = root.join(AUDIO_DIR_NAME).join(format!("{id}.pcm"));
 
-            let output = std::process::Command::new("ffmpeg")
-                .args([
-                    "-y".as_ref(),
-                    "-i".as_ref(),
-                    source.as_os_str(),
-                    "-f".as_ref(),
-                    "f32le".as_ref(),
-                    "-acodec".as_ref(),
-                    "pcm_f32le".as_ref(),
-                    "-ar".as_ref(),
-                    "16000".as_ref(),
-                    "-ac".as_ref(),
-                    "1".as_ref(),
-                    output_path.as_os_str(),
-                ])
-                .output()?;
-
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                let _ = fs::remove_file(&output_path);
-                return Err(PreparedArtifactErrorV2::FfmpegFailed {
-                    path: source.display().to_string(),
-                    detail: stderr,
-                });
-            }
-
-            let byte_len = fs::metadata(&output_path)?.len();
+            let produced =
+                Transcode::whole(&source, PcmEncoding::F32LeRaw).produce(&output_path)?;
+            let byte_len = produced.byte_len;
             let sample_bytes = std::mem::size_of::<f32>() as u64;
             let frame_count = byte_len / sample_bytes;
 
@@ -313,8 +229,10 @@ impl PreparedArtifactStoreV2 {
                 id,
                 path: WorkerArtifactPathV2(output_path.to_string_lossy().into_owned()),
                 encoding: PreparedAudioEncodingV2::PcmF32le,
-                channels: ChannelCountV2(1),
-                sample_rate_hz: SampleRateHzV2(16_000),
+                // Derived from what was produced, not restated. These were
+                // two literals mirroring constants in another module.
+                channels: ChannelCountV2(produced.channels),
+                sample_rate_hz: SampleRateHzV2(produced.sample_rate_hz),
                 frame_count: FrameCountV2(frame_count),
                 byte_offset: ByteOffsetV2(0),
                 byte_len: ByteLengthV2(byte_len),
@@ -376,18 +294,11 @@ impl PreparedArtifactRuntimeV2 {
     }
 }
 
-/// Return whether ffmpeg is available for artifact extraction tests and
-/// prepared-audio materialization.
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .is_ok_and(|output| output.status.success())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::DurationMs;
+    use crate::media::tools::MediaTool;
 
     /// Create a temporary prepared-artifact store for unit tests.
     fn test_store() -> (PreparedArtifactStoreV2, tempfile::TempDir) {
@@ -470,14 +381,15 @@ mod tests {
 
     #[tokio::test]
     async fn extracts_prepared_audio_segment_with_ffmpeg() {
-        if !ffmpeg_available() {
+        if MediaTool::Ffmpeg.banner().is_none() {
             eprintln!("skipping: ffmpeg not installed");
             return;
         }
 
         let (store, dir) = test_store();
         let wav_path = dir.path().join("tone.wav");
-        let ffmpeg_out = tokio::process::Command::new("ffmpeg")
+        let ffmpeg_out = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",
@@ -500,8 +412,7 @@ mod tests {
             .extract_prepared_audio_segment_f32le(
                 &WorkerArtifactIdV2::from("audio-segment-ref"),
                 &wav_path,
-                DurationMs(0u64),
-                DurationMs(100u64),
+                MediaWindow::new(DurationMs(0u64), DurationMs(100u64)).expect("non-empty"),
             )
             .await
             .expect("extract prepared audio segment");
@@ -515,7 +426,8 @@ mod tests {
 
     /// Helper: generate a short tone WAV for artifact tests.
     async fn write_test_tone_wav(path: &std::path::Path, duration_s: f32) {
-        let out = tokio::process::Command::new("ffmpeg")
+        let out = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",
@@ -545,7 +457,7 @@ mod tests {
     /// the extractor returns `PreparedArtifactErrorV2::EmptyAudioSegment`.
     #[tokio::test]
     async fn extract_returns_empty_audio_segment_error_when_segment_past_end_of_file() {
-        if !ffmpeg_available() {
+        if MediaTool::Ffmpeg.banner().is_none() {
             eprintln!("skipping: ffmpeg not installed");
             return;
         }
@@ -560,22 +472,17 @@ mod tests {
             .extract_prepared_audio_segment_f32le(
                 &WorkerArtifactIdV2::from("empty-audio-test"),
                 &wav_path,
-                DurationMs(500u64),
-                DurationMs(600u64),
+                MediaWindow::new(DurationMs(500u64), DurationMs(600u64)).expect("non-empty"),
             )
             .await;
 
-        assert!(
-            matches!(
-                result,
-                Err(PreparedArtifactErrorV2::EmptyAudioSegment {
-                    start_ms: 500,
-                    end_ms: 600,
-                    ..
-                })
-            ),
-            "expected EmptyAudioSegment error, got: {result:?}"
-        );
+        let Err(PreparedArtifactErrorV2::EmptyAudioSegment(segment)) = result else {
+            panic!("expected EmptyAudioSegment error, got: {result:?}");
+        };
+        // The window travels whole, so the test can assert it as one value
+        // rather than pattern-matching two loose integers out of the variant.
+        assert_eq!(segment.window.start_ms(), 500);
+        assert_eq!(segment.window.end_ms(), 600);
     }
 
     #[test]

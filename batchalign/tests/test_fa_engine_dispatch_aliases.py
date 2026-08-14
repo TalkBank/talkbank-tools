@@ -45,6 +45,14 @@ def test_resolve_fa_engine_still_rejects_unknown_names() -> None:
         resolve_fa_engine({"fa": "definitely_not_an_engine"})
 
 
-def test_resolve_fa_engine_defaults_to_whisper_without_override() -> None:
-    assert resolve_fa_engine(None) is FaEngine.WHISPER
-    assert resolve_fa_engine({}) is FaEngine.WHISPER
+def test_resolve_fa_engine_refuses_to_default_without_an_override() -> None:
+    """The engine is chosen by the control plane, never guessed here.
+
+    This asserted a Whisper default until 2026-08-14, making the worker a
+    second owner of that choice; the two disagreed silently once the control
+    plane changed its default.
+    """
+    with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
+        resolve_fa_engine(None)
+    with pytest.raises(ValueError, match="no 'fa' engine in overrides"):
+        resolve_fa_engine({})

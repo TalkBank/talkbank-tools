@@ -7,7 +7,8 @@ use axum::http::StatusCode;
 #[cfg(feature = "server")]
 use axum::response::{IntoResponse, Response};
 
-use crate::api::{DurationMs, JobId};
+use crate::api::JobId;
+use crate::media::window::EmptySegment;
 
 /// Detail of a single file that conflicts with an already-active job.
 ///
@@ -158,15 +159,8 @@ pub enum ServerError {
     /// by leaving the affected group's words unaligned rather than aborting.
     /// It is surfaced as a `ServerError` variant so the transport layer can
     /// match on it without inspecting error message strings.
-    #[error("empty FA audio segment [{start_ms}ms..{end_ms}ms) in {path}")]
-    EmptyFaAudioSegment {
-        /// Source media path.
-        path: String,
-        /// Requested segment start.
-        start_ms: DurationMs,
-        /// Requested segment end.
-        end_ms: DurationMs,
-    },
+    #[error("empty FA audio segment {0}")]
+    EmptyFaAudioSegment(EmptySegment),
 
     /// The runner was asked to execute a job that is not present in this
     /// server's local `JobStore`.
@@ -201,7 +195,7 @@ impl ServerError {
             Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::MemoryPressure(_) => StatusCode::INTERNAL_SERVER_ERROR,
             // EmptyFaAudioSegment is an internal skip signal, never returned as HTTP.
-            Self::EmptyFaAudioSegment { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::EmptyFaAudioSegment(..) => StatusCode::INTERNAL_SERVER_ERROR,
             // JobNotInLocalStore is an internal consistency error, not a
             // user-facing 404. It only surfaces during local runner dispatch,
             // so HTTP mapping is defensive but rare.

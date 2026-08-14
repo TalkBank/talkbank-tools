@@ -275,6 +275,7 @@ mod tests {
     use crate::api::{LanguageCode3, LanguageSpec};
     use crate::cache::UtteranceCache;
     use crate::db::JobDB;
+    use crate::media::tools::MediaTool;
     use crate::options::{
         AsrEngineName, CommandOptions, CommonOptions, TranscribeOptions as TranscribeCommand,
     };
@@ -461,7 +462,8 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let cache_dir = dir.path().join("cache");
         let original_audio_path = dir.path().join("interview.mp4");
-        let ffmpeg_out = tokio::process::Command::new("ffmpeg")
+        let ffmpeg_out = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",

@@ -26,6 +26,7 @@ use crate::types::worker_v2::{
 
 use super::artifacts_v2::{PreparedArtifactErrorV2, PreparedArtifactStoreV2};
 use crate::api::DurationMs;
+use crate::media::window::{EmptySegment, MediaWindow};
 
 /// Prepared text payload that Rust writes for one V2 forced-alignment request.
 ///
@@ -130,18 +131,8 @@ pub enum ForcedAlignmentRequestBuildErrorV2 {
     /// The requested audio segment produced zero samples, the segment is
     /// entirely past the end of the source file.  Callers should skip the
     /// affected FA group rather than propagating a hard failure.
-    #[error(
-        "empty audio segment for [{start_ms}ms..{end_ms}ms) in {path}: \
-         segment is past the end of the audio file"
-    )]
-    EmptyAudioSegment {
-        /// Source media path.
-        path: String,
-        /// Requested segment start (milliseconds).
-        start_ms: u64,
-        /// Requested segment end (milliseconds).
-        end_ms: u64,
-    },
+    #[error("empty audio segment for {0}: segment is past the end of the audio file")]
+    EmptyAudioSegment(EmptySegment),
 
     /// Rust-owned prepared-artifact creation failed.
     #[error(transparent)]
@@ -161,7 +152,7 @@ pub async fn build_forced_alignment_request_v2(
     store: &PreparedArtifactStoreV2,
     input: ForcedAlignmentBuildInputV2<'_>,
 ) -> Result<ExecuteRequestV2, ForcedAlignmentRequestBuildErrorV2> {
-    validate_fa_infer_item(input.infer_item)?;
+    let window = validate_fa_infer_item(input.infer_item)?;
 
     let payload = PreparedFaPayloadV2::from_infer_item(input.infer_item);
     let payload_attachment = store
@@ -172,20 +163,15 @@ pub async fn build_forced_alignment_request_v2(
         .extract_prepared_audio_segment_f32le(
             &input.ids.audio_ref_id,
             Path::new(&input.infer_item.audio_path),
-            DurationMs(input.infer_item.audio_start_ms),
-            DurationMs(input.infer_item.audio_end_ms),
+            window,
         )
         .await
         .map_err(|err| match err {
-            PreparedArtifactErrorV2::EmptyAudioSegment {
-                path,
-                start_ms,
-                end_ms,
-            } => ForcedAlignmentRequestBuildErrorV2::EmptyAudioSegment {
-                path,
-                start_ms,
-                end_ms,
-            },
+            // The fact moves whole, rather than being taken apart and rebuilt
+            // field by field at every layer boundary.
+            PreparedArtifactErrorV2::EmptyAudioSegment(segment) => {
+                ForcedAlignmentRequestBuildErrorV2::EmptyAudioSegment(segment)
+            }
             other => ForcedAlignmentRequestBuildErrorV2::Artifact(other),
         })?;
 
@@ -230,7 +216,7 @@ pub(crate) fn text_mode_for_backend(backend: FaBackendV2) -> FaTextModeV2 {
 /// prepared-artifact request.
 fn validate_fa_infer_item(
     infer_item: &FaInferItem,
-) -> Result<(), ForcedAlignmentRequestBuildErrorV2> {
+) -> Result<MediaWindow, ForcedAlignmentRequestBuildErrorV2> {
     let expected = infer_item.words.len();
     for (field, actual) in [
         ("word_ids", infer_item.word_ids.len()),
@@ -258,14 +244,19 @@ fn validate_fa_infer_item(
         return Err(ForcedAlignmentRequestBuildErrorV2::MissingAudioPath);
     }
 
-    if infer_item.audio_end_ms <= infer_item.audio_start_ms {
-        return Err(ForcedAlignmentRequestBuildErrorV2::InvalidAudioWindow {
-            start_ms: DurationMs(infer_item.audio_start_ms),
-            end_ms: DurationMs(infer_item.audio_end_ms),
-        });
-    }
-
-    Ok(())
+    // The window is PROVEN here and returned, rather than checked here and
+    // checked again inside the extractor on the same two numbers. That second
+    // check was the third statement of one comparison, in two subsystems.
+    MediaWindow::new(
+        DurationMs(infer_item.audio_start_ms),
+        DurationMs(infer_item.audio_end_ms),
+    )
+    .map_err(
+        |empty| ForcedAlignmentRequestBuildErrorV2::InvalidAudioWindow {
+            start_ms: DurationMs(empty.start),
+            end_ms: DurationMs(empty.end),
+        },
+    )
 }
 
 #[cfg(test)]
@@ -276,6 +267,7 @@ mod tests {
     use crate::chat_ops::fa::FaTimingMode;
 
     use super::*;
+    use crate::media::tools::MediaTool;
     use crate::types::worker_v2::{
         PreparedAudioEncodingV2, PreparedTextEncodingV2, PreparedTextRefV2, TaskRequestV2,
     };
@@ -301,18 +293,10 @@ mod tests {
         }
     }
 
-    /// Return whether ffmpeg is available for staged V2 audio-preparation
-    /// tests.
-    fn ffmpeg_available() -> bool {
-        std::process::Command::new("ffmpeg")
-            .arg("-version")
-            .output()
-            .is_ok_and(|output| output.status.success())
-    }
-
     /// Generate a short tone WAV that the staged builder can extract from.
     async fn write_test_tone(path: &Path) {
-        let output = tokio::process::Command::new("ffmpeg")
+        let output = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",
@@ -379,7 +363,7 @@ mod tests {
 
     #[tokio::test]
     async fn builds_forced_alignment_execute_request_with_prepared_artifacts() {
-        if !ffmpeg_available() {
+        if MediaTool::Ffmpeg.banner().is_none() {
             eprintln!("skipping: ffmpeg not installed");
             return;
         }

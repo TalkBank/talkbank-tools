@@ -565,7 +565,7 @@ if `loaded_pipelines` contains only `profile:gpu:eng`, Whisper FA is not
 available and CTC-overflow groups will be left unaligned.
 
 When Wave2Vec is the primary engine and CTC overflow occurs, the affected
-utterances lose word-level timing.  Use the default Whisper FA engine
+utterances lose word-level timing.  Use the default Wave2Vec FA engine
 (`--fa-engine whisper` or omit `--fa-engine`) to avoid this entirely.
 
 #### RuntimeFailure errors are always group-local
@@ -1131,7 +1131,7 @@ If the chosen engine failed on a group, the file failed.
 
 | Aspect | BA2 (Jan 2026) | BA3 (current) |
 |--------|---------------|---------------|
-| Default FA engine | Whisper (cross-attention DTW) | Whisper (same) |
+| Default FA engine | Whisper (cross-attention DTW) | Wave2Vec (word-level start+end) |
 | Wave2Vec available | Yes, via `--engine wave2vec_fa` | Yes, via `--fa-engine wav2vec` |
 | Both models loaded simultaneously | No, one at a time by design | No, one at a time, same reason |
 | Wave2Vec CTC overflow → fallback | **None**: file failed | Retry that group with Whisper |
@@ -1164,38 +1164,31 @@ error; BA3 users see a silent file drop, a regression in observability.
 graceful-degradation behavior BA2 had via its explicit-error path: the affected
 utterances lose word-level timing, but the file completes.
 
-### Default engine drift and correction (2026-07-01)
+### Default engine and timing resolution
 
-The "Default FA engine" row above has claimed Whisper for both BA2 and BA3
-since this table was written, but the code did not actually match it: the CLI
-default (then a `FaEngine` clap enum in `cli/args/commands.rs`, since replaced by
-`FaEngineName::DEFAULT`) and
-`default_fa_engine()` (`crates/batchalign/src/types/options.rs`) both defaulted
-to Wave2Vec. This was a real doc/code drift, not a documentation error: the
-table described the intended, BA2-matching behavior; the code had drifted from
-it, undetected until now.
+The two forced-alignment engines do not report the same thing, and the
+difference decides what a `%wor` tier can express:
 
-Empirical investigation (overnight IISRP alignment run plus a sweep of 322
-already-delivered UMICH files, 2026-07-01) found the Wave2Vec CTC-overflow
-fallback described above firing on **effectively every FA group** in both
-corpora, not an occasional edge case, but the near-universal outcome on real
-speech data. Defaulting to Wave2Vec was therefore paying for a doomed attempt
-(worker dispatch + model inference + failure) on every single group, for zero
-behavioral difference from defaulting straight to Whisper. BA2's authors had
-already hit this exact Wave2Vec/CTC limitation years earlier (see
-`test_fa_short_segments.py` in the BA2 codebase) and chose to default to
-Whisper directly rather than build fallback machinery around it; the BA3
-fallback mechanism is a real, well-engineered improvement in graceful
-degradation, but it doesn't change which engine should run *first* by default.
+| engine | reports | word duration |
+|---|---|---|
+| Wave2Vec | word start AND end | measured by the engine |
+| Whisper FA | token ONSETS only | derived from the next onset |
 
-The default was corrected to Whisper 2026-07-01, restoring what this table
-already claimed. Wave2Vec remains available as an explicit opt-in via
-`--fa-engine wav2vec`, for content where it might not hit the CTC ceiling.
-The same investigation also found and fixed a second, adjacent bug: the
-hidden `--wav2vec` BA2-compat boolean flag (`cli/args/commands.rs`) was never
-actually consulted when resolving the effective FA engine; it "worked"
-purely by coincidence, because the (wrong) default it was meant to force
-already matched. Fixed alongside the default correction.
+Because Whisper FA reports only when a word starts, a word's end has to be
+inferred from its neighbour. Selecting it as the alignment engine without that
+inference in place yields zero-duration words: `%wor` entries whose start and
+end are equal. Wave2Vec is therefore the default, and Whisper FA is an explicit
+opt-in via `--fa-engine whisper`.
+
+Aligning the same material through both engines shows the difference directly:
+Wave2Vec yields word durations in the 250 to 500 ms range conversational
+English occupies, while Whisper FA yields 0 ms for every word unless the
+onset-to-interval step runs.
+
+The CTC fallback described above still catches genuine Wave2Vec refusals, which
+are rare: a group is capped at 448 label characters, and MMS_FA offers one
+20 ms frame per target, so reaching the ceiling takes more than 50 characters
+per second against the 12 to 15 that speech produces.
 
 ## Design Rationale
 

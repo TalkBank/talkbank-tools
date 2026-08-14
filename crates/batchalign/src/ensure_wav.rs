@@ -28,6 +28,9 @@ use fs2::FileExt;
 use thiserror::Error;
 use tracing::{debug, info};
 
+use crate::media::transcode::{PcmEncoding, ProducedMedia, Transcode, TranscodeError};
+use crate::media::window::MediaWindow;
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -48,29 +51,100 @@ const CACHE_SUBDIR: &str = "media_cache";
 #[derive(Debug, Error)]
 /// Errors from [`ensure_wav`].
 pub enum EnsureWavError {
-    /// ffmpeg is not installed or not on `PATH`.
-    #[error(
-        "ffmpeg not found in PATH. Cannot convert {path} to WAV.\n\
-         Hint: install ffmpeg (https://ffmpeg.org/download.html) \
-         or convert your input audio to .wav beforehand."
-    )]
-    FfmpegNotFound {
-        /// Source file that could not be converted.
-        path: String,
-    },
-
-    /// ffmpeg exited with a non-zero status.
-    #[error("ffmpeg conversion failed for {path}: {detail}")]
-    FfmpegFailed {
-        /// Source file that failed conversion.
-        path: String,
-        /// ffmpeg stderr output.
-        detail: String,
-    },
+    /// The transcode itself failed: ffmpeg missing, refused, or unspawnable.
+    ///
+    /// ONE variant, not the three this enum used to restate. Nothing in the
+    /// crate ever matched on `FfmpegNotFound` or `FfmpegFailed`; they existed
+    /// only to re-word `TranscodeError`'s own Display text, which is five
+    /// statements of one reading and a sixth owed by the next consumer.
+    #[error(transparent)]
+    Transcode(#[from] TranscodeError),
 
     /// Filesystem I/O error.
     #[error("I/O error during media conversion: {0}")]
     Io(#[from] std::io::Error),
+}
+
+// ---------------------------------------------------------------------------
+// The cache slot
+// ---------------------------------------------------------------------------
+
+/// What acquiring a cache slot found.
+enum CacheSlot {
+    /// Another writer published while we waited for the lock.
+    AlreadyPublished(PathBuf),
+    /// Ours to write, under the lock we now hold.
+    Ours(LockedCacheSlot),
+}
+
+/// A cache entry held under an exclusive per-key lock.
+///
+/// # Why this is a type and not two lines of code
+///
+/// The route from here to a cached path is [`Self::commit`], which renames
+/// while the lock is still held and releases it afterwards, by dropping. It
+/// takes the [`ProducedMedia`] as evidence, so a slot cannot be published by a
+/// caller that produced nothing.
+///
+/// Precisely how strong that is, since over-claiming here would be the same
+/// mistake this type fixes: the evidence requirement is enforced everywhere,
+/// and the fields are private, so nothing OUTSIDE this module can unlock early
+/// or rename for itself. Code inside this module still can. The guarantee is
+/// "no other module can get the ordering wrong", not "nobody can".
+///
+/// It used to be exactly that, and the comment above it said the opposite: "the
+/// lock must be held across the conversion", four lines before
+/// `lock_file.unlock()` and eight before the `rename` that actually publishes.
+/// The window was real. Two callers converting the same fingerprint share one
+/// `{key}.tmp.wav`: A unlocks, B takes the lock, B's re-check sees no cached
+/// file because A has not renamed yet, B begins writing that same temp path,
+/// and A renames B's half-written file into the cache. The fingerprinted cache
+/// then serves it forever, because the fast path never looks inside.
+///
+/// Predates the `Transcode` work; present at `origin/main`.
+struct LockedCacheSlot {
+    /// Dropping this releases the lock, which is why `commit` renames first.
+    lock_file: std::fs::File,
+    tmp_path: PathBuf,
+    cached_path: PathBuf,
+}
+
+impl LockedCacheSlot {
+    /// Take the lock for `key`, or report that someone else got there first.
+    fn acquire(cache_dir: &Path, key: &str) -> Result<CacheSlot, std::io::Error> {
+        let cached_path = cache_dir.join(format!("{key}.wav"));
+        let lock_file = std::fs::File::create(cache_dir.join(format!("{key}.wav.lock")))?;
+        lock_file.lock_exclusive()?;
+        // Re-check under the lock: another writer may have finished while we
+        // waited. Now that publishing happens under the lock too, this answer
+        // cannot go stale between the check and the caller acting on it.
+        if cached_path.exists() {
+            return Ok(CacheSlot::AlreadyPublished(cached_path));
+        }
+        Ok(CacheSlot::Ours(Self {
+            lock_file,
+            tmp_path: cache_dir.join(format!("{key}.tmp.wav")),
+            cached_path,
+        }))
+    }
+
+    /// Where to write. Deliberately the only way to learn the temp path.
+    fn tmp_path(&self) -> &Path {
+        &self.tmp_path
+    }
+
+    /// Publish atomically, still holding the lock.
+    ///
+    /// Consumes the [`ProducedMedia`] as evidence: a slot cannot be committed
+    /// by a caller that never produced anything, which is the other half of the
+    /// ordering this type exists to hold.
+    fn commit(self, _produced: ProducedMedia) -> Result<PathBuf, std::io::Error> {
+        std::fs::rename(&self.tmp_path, &self.cached_path)?;
+        // Explicit, and AFTER the rename: this order is the entire point of the
+        // type, so it is stated rather than left to end-of-scope drop order.
+        drop(self.lock_file);
+        Ok(self.cached_path)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -93,19 +167,12 @@ pub async fn ensure_wav(
         return Ok(source_path.to_path_buf());
     }
 
-    // Move all blocking I/O (ffmpeg check, fingerprint, fs2 lock, ffmpeg
-    // subprocess, rename) onto a dedicated thread so we don't starve the
-    // tokio executor.
+    // Move all blocking I/O (fingerprint, fs2 lock, ffmpeg subprocess,
+    // rename) onto a dedicated thread so we don't starve the tokio executor.
     let source_path = source_path.to_path_buf();
     let cache_dir = cache_dir.map(Path::to_path_buf);
 
     tokio::task::spawn_blocking(move || -> Result<PathBuf, EnsureWavError> {
-        if !ffmpeg_available() {
-            return Err(EnsureWavError::FfmpegNotFound {
-                path: source_path.display().to_string(),
-            });
-        }
-
         let effective_cache_dir = match cache_dir {
             Some(p) => p,
             None => default_cache_dir(),
@@ -125,17 +192,12 @@ pub async fn ensure_wav(
             return Ok(cached_wav);
         }
 
-        // Convert under a per-fingerprint exclusive lock to prevent concurrent
-        // ffmpeg invocations for the same source file.
-        let lock_path = effective_cache_dir.join(format!("{fp}.wav.lock"));
-        let lock_file = std::fs::File::create(&lock_path)?;
-        lock_file.lock_exclusive()?;
-
-        // Re-check after acquiring lock (another task may have finished).
-        if cached_wav.exists() {
-            lock_file.unlock()?;
-            return Ok(cached_wav);
-        }
+        // Convert under a per-fingerprint exclusive lock, held until the result
+        // is published, which `LockedCacheSlot` is what guarantees.
+        let slot = match LockedCacheSlot::acquire(&effective_cache_dir, &fp)? {
+            CacheSlot::AlreadyPublished(path) => return Ok(path),
+            CacheSlot::Ours(slot) => slot,
+        };
 
         info!(
             "Converting {} -> {}",
@@ -143,40 +205,11 @@ pub async fn ensure_wav(
             cached_wav.display()
         );
 
-        // Write to temp file, then atomic rename.
-        // Uses std::process::Command (blocking) since we're already on a
-        // dedicated thread and the lock must be held across the conversion.
-        let tmp_path = effective_cache_dir.join(format!("{fp}.tmp.wav"));
-        let result = std::process::Command::new("ffmpeg")
-            .args([
-                "-y".as_ref(),
-                "-i".as_ref(),
-                source_path.as_os_str(),
-                "-acodec".as_ref(),
-                "pcm_s16le".as_ref(),
-                "-ar".as_ref(),
-                "16000".as_ref(),
-                "-ac".as_ref(),
-                "1".as_ref(),
-                tmp_path.as_os_str(),
-            ])
-            .output();
-
-        // Release lock before error handling
-        let _ = lock_file.unlock();
-
-        let result = result?;
-        if !result.status.success() {
-            let _ = std::fs::remove_file(&tmp_path);
-            let stderr = String::from_utf8_lossy(&result.stderr);
-            return Err(EnsureWavError::FfmpegFailed {
-                path: source_path.display().to_string(),
-                detail: stderr.to_string(),
-            });
-        }
-
-        std::fs::rename(&tmp_path, &cached_wav)?;
-        Ok(cached_wav)
+        // The status check, the partial-file cleanup and the stderr reading all
+        // live in `produce`; this call site keeps only what is its own.
+        let produced =
+            Transcode::whole(&source_path, PcmEncoding::S16LeWav).produce(slot.tmp_path())?;
+        Ok(slot.commit(produced)?)
     })
     .await
     .map_err(std::io::Error::other)?
@@ -188,18 +221,15 @@ pub async fn ensure_wav(
 /// Result is cached in media_cache keyed by source fingerprint + time window.
 pub async fn extract_audio_segment(
     source: &Path,
-    start_ms: u64,
-    end_ms: u64,
+    window: MediaWindow,
 ) -> Result<PathBuf, EnsureWavError> {
     let source = source.to_path_buf();
+    // Only for the cache key: the window itself is already proven, so nothing
+    // here re-checks it. That check used to live in this function, and in two
+    // others, none of them where the pair originates.
+    let (start_ms, end_ms) = (window.start_ms(), window.end_ms());
 
     tokio::task::spawn_blocking(move || -> Result<PathBuf, EnsureWavError> {
-        if !ffmpeg_available() {
-            return Err(EnsureWavError::FfmpegNotFound {
-                path: source.display().to_string(),
-            });
-        }
-
         let cache_dir = default_cache_dir();
         std::fs::create_dir_all(&cache_dir)?;
 
@@ -227,15 +257,11 @@ pub async fn extract_audio_segment(
             return Ok(cached_wav);
         }
 
-        // Convert under lock
-        let lock_path = cache_dir.join(format!("{segment_key}.wav.lock"));
-        let lock_file = std::fs::File::create(&lock_path)?;
-        lock_file.lock_exclusive()?;
-
-        if cached_wav.exists() {
-            lock_file.unlock()?;
-            return Ok(cached_wav);
-        }
+        // Convert under lock, held until the result is published.
+        let slot = match LockedCacheSlot::acquire(&cache_dir, &segment_key)? {
+            CacheSlot::AlreadyPublished(path) => return Ok(path),
+            CacheSlot::Ours(slot) => slot,
+        };
 
         let start_secs = start_ms as f64 / 1000.0;
         let end_secs = end_ms as f64 / 1000.0;
@@ -248,42 +274,9 @@ pub async fn extract_audio_segment(
             cached_wav.display()
         );
 
-        let tmp_path = cache_dir.join(format!("{segment_key}.tmp.wav"));
-        let ss_arg = format!("{start_secs:.3}");
-        let to_arg = format!("{end_secs:.3}");
-        let result = std::process::Command::new("ffmpeg")
-            .args([
-                "-y".as_ref(),
-                "-ss".as_ref(),
-                ss_arg.as_ref(),
-                "-to".as_ref(),
-                to_arg.as_ref(),
-                "-i".as_ref(),
-                source.as_os_str(),
-                "-acodec".as_ref(),
-                "pcm_s16le".as_ref(),
-                "-ar".as_ref(),
-                "16000".as_ref(),
-                "-ac".as_ref(),
-                "1".as_ref(),
-                tmp_path.as_os_str(),
-            ])
-            .output();
-
-        let _ = lock_file.unlock();
-
-        let result = result?;
-        if !result.status.success() {
-            let _ = std::fs::remove_file(&tmp_path);
-            let stderr = String::from_utf8_lossy(&result.stderr);
-            return Err(EnsureWavError::FfmpegFailed {
-                path: source.display().to_string(),
-                detail: stderr.to_string(),
-            });
-        }
-
-        std::fs::rename(&tmp_path, &cached_wav)?;
-        Ok(cached_wav)
+        let produced =
+            Transcode::window(&source, window, PcmEncoding::S16LeWav).produce(slot.tmp_path())?;
+        Ok(slot.commit(produced)?)
     })
     .await
     .map_err(std::io::Error::other)?
@@ -394,13 +387,6 @@ fn default_cache_dir_from(
     })
 }
 
-fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .is_ok_and(|o| o.status.success())
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -408,6 +394,7 @@ fn ffmpeg_available() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::media::tools::MediaTool;
 
     #[test]
     fn wav_needs_no_conversion() {
@@ -531,7 +518,7 @@ mod tests {
 
     #[tokio::test]
     async fn ensure_wav_converts_mp4() {
-        if !ffmpeg_available() {
+        if MediaTool::Ffmpeg.banner().is_none() {
             eprintln!("skipping: ffmpeg not installed");
             return;
         }
@@ -541,7 +528,8 @@ mod tests {
 
         // Create a minimal valid mp4 via ffmpeg (short silent audio)
         let mp4_path = dir.path().join("test.mp4");
-        let ffmpeg_out = tokio::process::Command::new("ffmpeg")
+        let ffmpeg_out = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",
@@ -578,7 +566,7 @@ mod tests {
 
     #[tokio::test]
     async fn ensure_wav_converts_m4a() {
-        if !ffmpeg_available() {
+        if MediaTool::Ffmpeg.banner().is_none() {
             eprintln!("skipping: ffmpeg not installed");
             return;
         }
@@ -587,7 +575,8 @@ mod tests {
         let cache_dir = dir.path().join("cache");
 
         let m4a_path = dir.path().join("test.m4a");
-        let ffmpeg_out = tokio::process::Command::new("ffmpeg")
+        let ffmpeg_out = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",
@@ -612,7 +601,7 @@ mod tests {
 
     #[tokio::test]
     async fn ensure_wav_cache_stats_and_clear() {
-        if !ffmpeg_available() {
+        if MediaTool::Ffmpeg.banner().is_none() {
             eprintln!("skipping: ffmpeg not installed");
             return;
         }
@@ -627,7 +616,8 @@ mod tests {
 
         // Generate and convert an mp4
         let mp4_path = dir.path().join("test.mp4");
-        let ffmpeg_out = tokio::process::Command::new("ffmpeg")
+        let ffmpeg_out = MediaTool::Ffmpeg
+            .async_command()
             .args([
                 "-y",
                 "-f",

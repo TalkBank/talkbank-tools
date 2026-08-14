@@ -827,9 +827,9 @@ fn build_options_align_defaults() {
     let opts = build_typed_options(&cli.command, &cli.global).unwrap();
     match opts {
         CommandOptions::Align(a) => {
-            // Whisper, not Wave2Vec, since 2026-07-01; see
-            // `default_fa_engine()` in `types/options.rs` for the rationale.
-            assert_eq!(a.fa_engine, FaEngineName::Whisper);
+            // Derived, not restated: this test is about the default being
+            // plumbed through, not about which engine it is.
+            assert_eq!(a.fa_engine, FaEngineName::DEFAULT);
             assert_eq!(a.utr_engine, Some(AppUtrEngine::RevAi));
             assert!(!a.pauses);
             assert!(a.wor.should_write());
@@ -2067,7 +2067,7 @@ fn parse_transcribe_paraformer_resolves_to_funaudio_with_checkpoint() {
 /// adding a variant without a name here fails to compile.
 #[test]
 fn every_asr_engine_is_selectable_by_its_wire_name() {
-    for engine in AsrEngineName::ALL.iter().cloned() {
+    for engine in AsrEngineName::ALL {
         let name = engine.wire_name();
         let cli = Cli::parse_from(["batchalign3", "transcribe", "audio/", "--asr-engine", name]);
         let Commands::Transcribe(a) = &cli.command else {
@@ -2075,7 +2075,7 @@ fn every_asr_engine_is_selectable_by_its_wire_name() {
         };
         let selection = a.asr.selection();
         assert_eq!(
-            selection.engine(),
+            &selection.engine(),
             engine,
             "{name} resolved to the wrong engine"
         );
@@ -2185,14 +2185,14 @@ fn explicit_engine_overrides_beat_the_implied_checkpoint() {
 /// is what makes that impossible rather than merely fixed.
 #[test]
 fn benchmark_and_transcribe_share_one_engine_surface() {
-    for engine in AsrEngineName::ALL.iter().cloned() {
+    for engine in AsrEngineName::ALL {
         let name = engine.wire_name();
         let bench = Cli::parse_from(["batchalign3", "benchmark", "audio/", "--asr-engine", name]);
         let Commands::Benchmark(b) = &bench.command else {
             panic!("expected Benchmark");
         };
         assert_eq!(
-            b.asr.selection().engine(),
+            &b.asr.selection().engine(),
             engine,
             "benchmark must accept {name} exactly as transcribe does"
         );
@@ -2256,7 +2256,7 @@ fn benchmark_rejects_an_unknown_engine_name() {
 /// one a Cantonese user needs.
 #[test]
 fn every_utr_engine_is_reachable_through_the_visible_flag() {
-    for engine in AppUtrEngine::ALL.iter().cloned() {
+    for engine in AppUtrEngine::ALL {
         let name = engine.selection_name();
         let cli = Cli::try_parse_from([
             "batchalign3",
@@ -2281,7 +2281,7 @@ fn every_utr_engine_is_reachable_through_the_visible_flag() {
 /// Every FA engine that exists is reachable by name through the visible flag.
 #[test]
 fn every_fa_engine_is_reachable_through_the_visible_flag() {
-    for engine in FaEngineName::ALL.iter().cloned() {
+    for engine in FaEngineName::ALL {
         let name = engine.selection_name();
         let cli = Cli::try_parse_from(["batchalign3", "align", "input/", "--fa-engine", name])
             .unwrap_or_else(|error| panic!("--fa-engine {name} must parse: {error}"));
@@ -2313,7 +2313,7 @@ fn every_fa_engine_is_reachable_through_the_visible_flag() {
 /// Every translate engine is reachable by name through the visible flag.
 #[test]
 fn every_translate_engine_is_reachable_through_the_visible_flag() {
-    for engine in TranslateEngineName::ALL.iter().cloned() {
+    for engine in TranslateEngineName::ALL {
         let name = engine.selection_name();
         let cli = Cli::try_parse_from([
             "batchalign3",

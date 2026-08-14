@@ -103,19 +103,15 @@ async fn infer_groups_v2(
         .await
         {
             Ok(response) => response,
-            Err(ServerError::EmptyFaAudioSegment {
-                start_ms,
-                end_ms,
-                ref path,
-            }) => {
+            Err(ServerError::EmptyFaAudioSegment(ref segment)) => {
                 // The FA group's audio window is past the end of the file.
                 // Leave this group's words unaligned rather than failing the
                 // whole file: the transcript is still useful without timing.
                 warn!(
                     group = group_index,
-                    start_ms = start_ms.0,
-                    end_ms = end_ms.0,
-                    path,
+                    start_ms = segment.window.start_ms(),
+                    end_ms = segment.window.end_ms(),
+                    path = %segment.path,
                     "FA group has no audio (segment past end of file); leaving words unaligned"
                 );
                 parsed_results.push(unaligned_group_result(group_index, group));
@@ -274,15 +270,11 @@ async fn dispatch_group_request(
         // Empty audio is a skip signal, not a fatal failure.  Propagate as a
         // dedicated error so the caller can leave the group unaligned instead
         // of failing the whole file.
-        ForcedAlignmentRequestBuildErrorV2::EmptyAudioSegment {
-            path,
-            start_ms,
-            end_ms,
-        } => ServerError::EmptyFaAudioSegment {
-            path,
-            start_ms: DurationMs(start_ms),
-            end_ms: DurationMs(end_ms),
-        },
+        // Whole, again. This arm used to rebuild three fields AND silently
+        // change their type from `u64` to `DurationMs` on the way through.
+        ForcedAlignmentRequestBuildErrorV2::EmptyAudioSegment(segment) => {
+            ServerError::EmptyFaAudioSegment(segment)
+        }
         other => ServerError::Validation(format!(
             "failed to build worker protocol V2 FA request for group {group_index}: {other}"
         )),

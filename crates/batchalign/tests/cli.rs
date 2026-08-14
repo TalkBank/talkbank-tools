@@ -21,8 +21,9 @@ mod common;
 
 use predicates::prelude::*;
 
+use batchalign::media::tools::MediaTool;
 use cli_common::{
-    CliHarness, MINIMAL_CHAT, cli_cmd as cmd, ffmpeg_available, resolve_python, start_live_server,
+    CliHarness, MINIMAL_CHAT, cli_cmd as cmd, resolve_python, start_live_server,
     transcode_audio_to_mp4, write_silent_mp4, write_silent_wav,
 };
 use common::test_server_fixture::acquire_test_server_session;
@@ -850,7 +851,7 @@ fn cli_transcribe_in_place_mp4_succeeds_via_local_daemon() {
         eprintln!("SKIP: Python 3.12 with batchalign not available");
         return;
     };
-    if !ffmpeg_available() {
+    if MediaTool::Ffmpeg.banner().is_none() {
         eprintln!("SKIP: ffmpeg not installed");
         return;
     }
@@ -907,7 +908,7 @@ fn cli_transcribe_in_place_mp4_populates_injected_media_cache_live() {
         eprintln!("SKIP: Python 3.12 with batchalign not available");
         return;
     };
-    if !ffmpeg_available() {
+    if MediaTool::Ffmpeg.banner().is_none() {
         eprintln!("SKIP: ffmpeg not installed");
         return;
     }

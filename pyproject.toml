@@ -129,3 +129,31 @@ dev = [
     "ty",
     "types-requests>=2.32.4.20260107",
 ]
+
+[tool.uv]
+# torchcodec is EXCLUDED, deliberately. It arrives transitively from
+# `pyannote.audio`, and nothing in Batchalign needs it.
+#
+# What it costs to keep: torchcodec ships shared libraries for a FIXED set of
+# FFmpeg majors, each linked `@rpath/libavutil.NN.dylib` against the
+# UNVERSIONED Homebrew prefix. When Homebrew moves that prefix past the
+# supported set, EVERY audio decode raises, at job time rather than at startup.
+# One upstream package upgrade is enough to stop transcription everywhere.
+#
+# Why removing it is safe, verified rather than assumed:
+#   * transformers only touches it behind `is_torchcodec_available()`, which is
+#     a cached `find_spec` result. Absent, the branch is skipped entirely, and
+#     audio still reaches the pipeline through `ffmpeg_read`, a SUBPROCESS that
+#     works with any FFmpeg version.
+#   * pyannote.audio catches the import failure and sets TORCHCODEC_AVAILABLE
+#     to False. Batchalign already hands it `{"waveform", "sample_rate"}`
+#     dictionaries, which is the path that never decodes.
+#   * torchaudio.load is routed through soundfile at startup
+#     (`batchalign.inference.audio.install_soundfile_backend`).
+#
+# End-to-end mp4 transcription passes with torchcodec absent.
+#
+# An impossible marker rather than a version pin: the requirement is never
+# selected on any platform, which is the only way to drop a transitive
+# dependency we do not control.
+override-dependencies = ["torchcodec ; sys_platform == 'batchalign-never'"]
