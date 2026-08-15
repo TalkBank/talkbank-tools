@@ -26,6 +26,15 @@ set -euo pipefail
 echo "==> pre-push: the CI target (make batchalign-ci-rust)"
 make batchalign-ci-rust
 
+echo "==> pre-push: ruff lint + format over the Python sources"
+# The SOURCE-only half of the Python gate: ruff reads the tree, so this needs
+# no wheel and takes about a second. The rest of that job (mypy, the drift
+# checks) needs a maturin release build and is listed in EXEMPT in
+# check_push_gate_sync.py with its reason. A `ruff format --check` failure
+# reached main on 2026-08-14 because CI ran the tool directly instead of a make
+# target, which made it invisible to the coverage check.
+make batchalign-lint-python-source
+
 echo "==> pre-push: mdBook build + linkcheck"
 # Not part of batchalign-ci-rust: it is a separate workflow. linkcheck2 verifies
 # every relative link against SUMMARY.md, which is how a SUMMARY-unreachable

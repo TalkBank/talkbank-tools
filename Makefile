@@ -177,11 +177,19 @@ batchalign-ipc-schema-check:
 	@echo "==> Verifying IPC schema matches the Rust types..."
 	bash scripts/check_ipc_type_drift.sh
 
-_batchalign-lint-python:
+# ruff reads only SOURCE: no wheel, no editable install, no maturin build. That
+# is what lets the pre-push hook run it, so it is split out from the targets
+# that depend on `batchalign-python-prepare` (which builds a release wheel and
+# costs minutes). CI calls this same target, so there is one owner of the two
+# commands rather than a workflow that repeats them.
+batchalign-lint-python-source:
 	@echo "==> Running imported Batchalign Python lint (ruff)..."
 	uv run --no-sync ruff check .
 	@echo "==> Checking imported Batchalign Python formatting (ruff)..."
 	uv run --no-sync ruff format --check .
+
+_batchalign-lint-python:
+	@$(MAKE) batchalign-lint-python-source
 
 batchalign-lint-python: batchalign-python-prepare
 	@$(MAKE) _batchalign-lint-python

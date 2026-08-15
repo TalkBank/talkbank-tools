@@ -17,12 +17,32 @@ subset (`fmt`, an affected-only compile check, and clippy only when
 docstring to "catch anything the GitHub main CI workflow would flag".
 
 Two lists of what must pass will drift. `scripts/check_push_gate_sync.py` now
-fails if a `make` target the workflow runs is absent from the hook, and it runs
-inside `make lint`, so the loop closes: the hook runs the CI target, which
-checks that the hook runs the CI target.
+fails if a `make` target a push-triggered workflow runs is not reached by the
+hook, and it runs inside `make lint`, so the loop closes: the hook runs the CI
+target, which checks that the hook runs the CI target.
 
 The subset existed to keep the hook fast. Measured on a warm tree, the full
 target is **16 seconds**. There was nothing to save.
+
+Two things about that checker are worth knowing, because both were wrong on its
+first day and each let a red build through:
+
+- **Coverage is computed through the Makefile, not by comparing two texts.** A
+  hook line reading `make batchalign-ci-rust` covers everything that recipe
+  invokes, transitively. Demanding the hook restate the recipe would be the same
+  mirroring one level down.
+- **It reads every push-triggered workflow**, decided by each workflow's own
+  `on:` triggers. It originally read only the file mentioning
+  `batchalign-ci-rust`, so the Python job was outside the scan entirely and a
+  `ruff format --check` failure reached `main`. That job now calls
+  `make batchalign-lint-python-source`, which the hook also runs: a workflow
+  step that invokes a tool directly instead of through a target is invisible to
+  a checker that reads targets.
+
+`EXEMPT` in that file is the honest statement of what a green hook does **not**
+prove. Everything listed there needs a maturin release wheel, the
+npm-installed frontend, or the built binary, so it costs minutes and is covered
+only once CI runs.
 
 ## What local checks cannot catch: the runner is Linux
 

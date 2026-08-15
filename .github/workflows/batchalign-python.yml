@@ -230,13 +230,17 @@ jobs:
         # the crate again in the debug profile, which is the cost the CI
         # hygiene step above was rewritten to avoid.
         run: uv run --no-sync batchalign3 ipc-schema --check --output ipc-schema/
-      - name: Ruff lint
-        # Config lives in pyproject.toml, and ruff comes from the dev group in
-        # uv.lock, so this run and a developer's `make batchalign-lint-python`
-        # resolve the same version and the same rules.
-        run: uv run --no-sync ruff check .
-      - name: Ruff format check
-        run: uv run --no-sync ruff format --check .
+      - name: Ruff lint and format check
+        # The make target, not the two commands, so this job and the pre-push
+        # hook cannot disagree about what ruff runs. Config lives in
+        # pyproject.toml and ruff comes from the dev group in uv.lock, so CI and
+        # a developer resolve the same version and the same rules.
+        #
+        # These two steps used to be written out here, which is how a formatting
+        # failure reached main on 2026-08-14: the hook's coverage check reads
+        # `make` targets, so a workflow step that invokes a tool directly is
+        # invisible to it.
+        run: make batchalign-lint-python-source
       - name: Strict mypy
         run: uv run --no-sync mypy
 
