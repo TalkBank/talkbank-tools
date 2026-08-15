@@ -14,34 +14,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Every gate here is a property of the COMMIT, and a developer can make each one
+# pass before pushing (`scripts/pre-push.sh` runs them). Dependency advisories
+# are deliberately NOT here: they are a property of the world on the day the job
+# runs, so the same commit goes red without changing, and the person blocked
+# cannot fix it by fixing their work. They live in dependency-audit.yml, on a
+# schedule, reporting rather than blocking. Anything added to this file must
+# satisfy the same test.
 jobs:
-  dependency-audit:
-    name: Dependency Audit
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Generate lockfile
-        run: cargo generate-lockfile
-
-      - name: Run RustSec audit
-        uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install cargo-deny
-        uses: taiki-e/install-action@cargo-deny
-
-      - name: Run cargo-deny
-        run: cargo deny check
-
   shellcheck:
     name: Shell scripts (shellcheck, strictest)
     runs-on: ubuntu-latest
@@ -110,7 +90,6 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
-      - dependency-audit
       - shellcheck
       - formatting
       - workflow-lint
@@ -133,7 +112,6 @@ jobs:
             echo ""
             echo "| Gate | Result |"
             echo "|------|--------|"
-            echo "| Dependency audit (RustSec + cargo-deny) | $(result_to_badge '${{ needs.dependency-audit.result }}') |"
             echo "| Shell scripts (shellcheck, strictest) | $(result_to_badge '${{ needs.shellcheck.result }}') |"
             echo "| Rust formatting (rustfmt) | $(result_to_badge '${{ needs.formatting.result }}') |"
             echo "| Workflow files (actionlint) | $(result_to_badge '${{ needs.workflow-lint.result }}') |"
@@ -141,8 +119,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           # Single merge-gate: fail if any dependency failed or was cancelled.
-          if [[ "${{ needs.dependency-audit.result }}" != "success" ||
-                "${{ needs.shellcheck.result }}"        != "success" ||
+          if [[ "${{ needs.shellcheck.result }}"        != "success" ||
                 "${{ needs.formatting.result }}"        != "success" ||
                 "${{ needs.workflow-lint.result }}"     != "success" ]]; then
               echo "### One or more gates failed, see job logs above" >> "$GITHUB_STEP_SUMMARY"

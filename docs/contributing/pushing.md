@@ -1,7 +1,7 @@
 # Pushing without CI churn
 
 **Status:** Current
-**Last updated:** 2026-08-14
+**Last updated:** 2026-08-14 20:15 EDT
 
 Three pushes to `main` on 2026-08-14 each turned CI red and each needed a
 follow-up commit. The pre-push hook reported "All pre-push checks passed" every
@@ -55,6 +55,31 @@ lint configuration, or the workspace's crate set:
 `main` then only ever receives commits CI has already validated, which is what
 keeps its history free of "fix CI" commits. For ordinary changes to crate
 internals, the hook is sufficient and a direct push to `main` is fine.
+
+## A gate must test the commit, not the day
+
+The fourth red run that afternoon was different in kind from the other three,
+and it is the one worth remembering. Nothing in the push was wrong: an advisory
+had been published against a transitive dependency since the previous run, and
+`pip-audit` exits non-zero on any advisory outside its allowlist.
+
+No local hook can catch that, because there is nothing to catch. The commit did
+not change. And the fix available to the person blocked is to append another
+identifier to an allowlist, which is not a fix, it is the gate asking to be
+turned off one line at a time. The allowlist had reached five entries, every one
+of them recording the same verdict (this code loads only pinned first-party
+models, so the vulnerable path is unreachable), and the sixth would have said it
+again on a deploy day, for a vulnerability whose upstream fix exists only as an
+unreleased commit.
+
+So dependency advisories moved to `.github/workflows/dependency-audit.yml`,
+weekly plus `workflow_dispatch`. The information is unchanged and Dependabot
+still opens PRs for anything with a real fix; what is gone is the blocking.
+
+**The test to apply before adding anything to `ci.yml`:** can a developer make
+this pass before pushing? If the answer depends on the state of the world rather
+than the state of the commit, it is a report, not a gate, and it belongs on a
+schedule.
 
 ## Doctests are a separate compilation
 
