@@ -35,6 +35,20 @@ echo "==> pre-push: ruff lint + format over the Python sources"
 # target, which made it invisible to the coverage check.
 make batchalign-lint-python-source
 
+echo "==> pre-push: IPC schema drift"
+# Free HERE, though not in isolation. `batchalign-ipc-schema-check` needs the
+# built binary, which is why it was EXEMPT; but `batchalign-ci-rust` above has
+# already built it, so by this point the check is 0 s on a warm tree. The
+# exemption was correct about the cost and wrong about who pays it.
+#
+# It earned its place on 2026-08-16. `numeric_id!` derives
+# `schemars::JsonSchema`, which copies a Rust doc comment into the schema's
+# `description`, so editing the docstring on `DurationMs` silently regenerated
+# six files under `ipc-schema/worker_v2/` and CI rejected a push that every
+# local gate had passed. Nothing about that change looked like it touched a
+# wire format.
+make batchalign-ipc-schema-check
+
 echo "==> pre-push: mdBook build + linkcheck"
 # Not part of batchalign-ci-rust: it is a separate workflow. linkcheck2 verifies
 # every relative link against SUMMARY.md, which is how a SUMMARY-unreachable

@@ -65,10 +65,15 @@ EXEMPT: dict[str, str] = {
     "batchalign-test-python": "needs a built wheel",
     "batchalign-python-prepare": "builds the wheel these depend on",
     "batchalign-build-wheel": "maturin release build",
+    # NOT here any more: `batchalign-ipc-schema-check`. It was exempt for
+    # "needs the built binary", which is true in isolation and irrelevant in
+    # the hook, where `batchalign-ci-rust` has already built it and the check
+    # costs 0 s. It is in the hook now, after a docstring edit regenerated six
+    # IPC schemas and CI caught what every local gate had passed.
+    #
     # Drift checks against generated artifacts that need the built binary or the
     # npm-installed frontend, and run in their own jobs with that setup.
     "batchalign-dashboard-api-check": "needs the npm-installed frontend",
-    "batchalign-ipc-schema-check": "needs the built binary",
     "batchalign-runtime-check": "runs in the wheel-installed job",
 }
 
