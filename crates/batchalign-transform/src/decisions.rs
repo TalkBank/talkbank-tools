@@ -508,7 +508,21 @@ pub fn strip_decision_tiers(chat_file: &mut ChatFile) {
     }
 }
 
-/// Construct a `DependentTier::UserDefined` with the given label and content.
+/// Construct a SYNTHESIZED `DependentTier::UserDefined`.
+///
+/// # Why the span is `Span::DUMMY` and why that is honest here
+///
+/// `%xalign` and `%xrev` are tiers this pipeline WRITES. They correspond to no
+/// bytes in any source file, so there is no source location to record, and the
+/// dummy is a statement of that rather than a placeholder somebody should have
+/// filled in.
+///
+/// It was `Span::default()` until 2026-08-16. chatter is removing that `Default`
+/// precisely because `Span::default() == Span::DUMMY == {0,0}` is also a real
+/// insertion point, so the derive made a sentinel indistinguishable from a
+/// measurement and made the fabrication invisible at the call site. Naming
+/// `DUMMY` does not remove the ambiguity, which is chatter's to resolve if it
+/// ever matters; it does stop this call site from reaching it by accident.
 ///
 /// # Safety (panic-freedom)
 ///
@@ -519,7 +533,7 @@ fn make_user_tier(label: &str, content: &str) -> DependentTier {
     DependentTier::UserDefined(UserDefinedDependentTier {
         label: NonEmptyString::new(label).expect("tier label must be non-empty"),
         content: Some(NonEmptyString::new(content).expect("tier content must be non-empty")),
-        span: Span::default(),
+        span: Span::DUMMY,
     })
 }
 

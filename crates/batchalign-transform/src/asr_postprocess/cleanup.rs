@@ -571,7 +571,7 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
                 continue;
             }
             let text = word.text.as_str();
-            if !is_capitalizable_initial(text) {
+            if !owns_utterance_initial_cap(text) {
                 continue;
             }
             // First real word: capitalize it via the shared helper (a no-op if
@@ -584,7 +584,26 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
     }
 }
 
-/// Can this surface be the target of utterance-initial cap?
+/// Does this surface OWN the utterance-initial capitalization slot?
+///
+/// # Why this is not `talkbank_transform::capitalize::is_capitalizable_initial`
+///
+/// chatter has a public function of that name and it answers a DIFFERENT
+/// question: "could this token itself be capitalized", decided by
+/// `first char is_alphabetic`. This one asks "is this the token the slot
+/// belongs to", and its caller `break`s on true and `continue`s on false, so
+/// the two are not interchangeable even though the names were.
+///
+/// Measured 2026-08-16, the verdicts diverge on `3rd`, `42`, `'twas` and `$5`:
+/// every surface starting with a non-letter that is not punctuation. Under
+/// chatter's predicate the slot would SKIP such a token and land on the word
+/// after it, so `'twas a fine day` would capitalize to `'twas A fine day`.
+/// This one takes the slot, capitalizes (a no-op on a non-letter) and stops.
+///
+/// So this is NOT the duplicate-CHAT-primitive case and must not be collapsed
+/// into chatter's. Renamed instead: two questions sharing one name is worse
+/// than two implementations, because the collision invites exactly the swap
+/// that introduces the bug.
 ///
 /// Skips:
 /// - Untranscribed CHAT markers (`xxx`, `yyy`, `www`).
@@ -592,7 +611,7 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
 ///   `&`-prefixed family is not regular capitalizable content.
 /// - Empty strings.
 /// - Pure punctuation / terminators.
-fn is_capitalizable_initial(text: &str) -> bool {
+fn owns_utterance_initial_cap(text: &str) -> bool {
     if text.is_empty() {
         return false;
     }
@@ -616,6 +635,33 @@ fn is_capitalizable_initial(text: &str) -> bool {
 mod tests {
     use super::*;
     use crate::asr_postprocess::SpeakerIndex;
+
+    /// A non-letter-initial token OWNS the slot; the word after it must not
+    /// take the capital.
+    ///
+    /// Pins the divergence from `talkbank_transform::capitalize::
+    /// is_capitalizable_initial`, which decides on `first char is_alphabetic`
+    /// and would skip these, capitalizing the following word. `'twas` is the
+    /// case that makes it more than theoretical for conversational data.
+    ///
+    /// This is a POLICY test, not an invariant a type could hold: which token
+    /// owns the slot is a choice with a real alternative, and chatter makes the
+    /// other one for its own question.
+    #[test]
+    fn a_non_letter_initial_token_still_owns_the_capitalization_slot() {
+        for surface in ["3rd", "42", "'twas", "$5"] {
+            assert!(
+                owns_utterance_initial_cap(surface),
+                "{surface} must own the slot, or the capital lands on the next word"
+            );
+        }
+        for surface in ["xxx", "yyy", "www", "&-um", "&+go", ""] {
+            assert!(
+                !owns_utterance_initial_cap(surface),
+                "{surface} must not own the slot"
+            );
+        }
+    }
 
     fn make_word(text: &str) -> AsrWord {
         AsrWord::new(text, Some(0), Some(100))
