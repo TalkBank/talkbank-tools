@@ -596,14 +596,35 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
 ///
 /// Measured 2026-08-16, the verdicts diverge on `3rd`, `42`, `'twas` and `$5`:
 /// every surface starting with a non-letter that is not punctuation. Under
-/// chatter's predicate the slot would SKIP such a token and land on the word
-/// after it, so `'twas a fine day` would capitalize to `'twas A fine day`.
-/// This one takes the slot, capitalizes (a no-op on a non-letter) and stops.
+/// chatter's predicate the slot SKIPS such a token and lands on the word after
+/// it, so `'twas a fine day` capitalizes to `'twas A fine day`. This one takes
+/// the slot and stops.
 ///
 /// So this is NOT the duplicate-CHAT-primitive case and must not be collapsed
 /// into chatter's. Renamed instead: two questions sharing one name is worse
-/// than two implementations, because the collision invites exactly the swap
-/// that introduces the bug.
+/// than two implementations, because the collision invites exactly the swap.
+///
+/// # KNOWN DEFECT, ours, and it is not fixed here
+///
+/// Taking the slot is necessary and not sufficient. `capitalize_first` uppercases
+/// the first CHARACTER only when it is lowercase, so an apostrophe-initial
+/// surface gets no capital at all:
+///
+/// ```text
+/// yours: 'twas a fine day  ->  'twas A fine day   capital in the wrong place
+/// ours:  'twas a fine day  ->  'twas a fine day   capital nowhere
+/// want:  'twas a fine day  ->  'Twas a fine day
+/// ```
+///
+/// The apostrophe elides letters, so the word's head is alphabetic and the
+/// capital belongs on the first LETTER. The obvious generalisation is wrong in
+/// the other direction: "uppercase the first alphabetic character" turns
+/// `3rd party` into `3Rd party`, because there the DIGIT is the head.
+///
+/// Not fixed here because `capitalize_first` is chatter's and the rule is a CHAT
+/// orthography judgement rather than ours to assert. Reported upstream
+/// 2026-08-16 with the evidence; it plausibly wants a ruling from the CHAT
+/// maintainers rather than a decision taken in this crate.
 ///
 /// Skips:
 /// - Untranscribed CHAT markers (`xxx`, `yyy`, `www`).
@@ -643,6 +664,11 @@ mod tests {
     /// is_capitalizable_initial`, which decides on `first char is_alphabetic`
     /// and would skip these, capitalizing the following word. `'twas` is the
     /// case that makes it more than theoretical for conversational data.
+    ///
+    /// Owning the slot is NECESSARY, not sufficient: see the known defect on
+    /// `owns_utterance_initial_cap`. This test pins WHICH token the slot
+    /// belongs to and asserts nothing about the resulting capital, because the
+    /// resulting capital is currently wrong for the apostrophe cases.
     ///
     /// This is a POLICY test, not an invariant a type could hold: which token
     /// owns the slot is a choice with a real alternative, and chatter makes the
