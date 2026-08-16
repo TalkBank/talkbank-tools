@@ -621,10 +621,30 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
 /// the other direction: "uppercase the first alphabetic character" turns
 /// `3rd party` into `3Rd party`, because there the DIGIT is the head.
 ///
-/// Not fixed here because `capitalize_first` is chatter's and the rule is a CHAT
-/// orthography judgement rather than ours to assert. Reported upstream
-/// 2026-08-16 with the evidence; it plausibly wants a ruling from the CHAT
-/// maintainers rather than a decision taken in this crate.
+/// RULED 2026-08-16, so this is no longer an open question: an elision
+/// apostrophe stands in for removed letters and is therefore TRANSPARENT to
+/// capitalization, while a leading digit IS the word's head and is OPAQUE. One
+/// rule, and `3rd` stays `3rd` with no special case. Wanted: `'Twas`.
+///
+/// Still not fixed HERE, because the fix belongs in `capitalize_first`, which
+/// is chatter's, and this call site gets it on the next tag bump. Do not
+/// reimplement it locally to get there sooner: that would put a second copy of
+/// an orthography rule in the crate that just finished arguing there should be
+/// one owner.
+///
+/// # What this crate does NOT have, and why
+///
+/// chatter's predicate also has a DEAD `&` test: its caller passes
+/// `cleaned_text()`, which has already stripped the `&-`, so `&-um` reaches it
+/// looking like a word and TAKES the slot. Ours does not, because `AsrWord.text`
+/// retains the `&-` prefix by design (stage 7 rewrites `um` to `&-um` and that
+/// prefix is the stable marker this module keys on). Verified:
+/// `&-um the dog barked` capitalizes `The`, not the filler.
+///
+/// The general lesson is worth more than either defect: a STRUCTURAL question
+/// ("is this a fragment", "does this own the slot") must not be answered from a
+/// string that had exactly that structure removed. `cleaned_text()` is lossy by
+/// design and is for LEXICAL content.
 ///
 /// Skips:
 /// - Untranscribed CHAT markers (`xxx`, `yyy`, `www`).
