@@ -9,8 +9,10 @@ use std::path::Path;
 
 use crate::api::{DurationMs, LanguageCode3};
 use crate::chat_ops::CacheTaskName;
+use crate::chat_ops::fa::coordinates::{Ms, Recording};
 use crate::chat_ops::fa::{AudioIdentity, WordGapHealing};
 use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
+use crate::error::ServerError;
 use crate::types::engines::FaEngineName;
 use serde::{Deserialize, Serialize};
 
@@ -270,6 +272,45 @@ pub struct AudioContext<'a> {
     pub audio_identity: &'a AudioIdentity,
     /// Total duration of the audio file in milliseconds, if known.
     pub total_audio_ms: Option<DurationMs>,
+}
+
+impl AudioContext<'_> {
+    /// The recording this context describes, probing when the pipeline did not
+    /// already carry its duration.
+    ///
+    /// # Why this exists rather than each caller unwrapping the `Option`
+    ///
+    /// `total_audio_ms` being optional made "we do not know how long the audio
+    /// is" a legal state, and each consumer invented its own answer for it: FA
+    /// grouping skipped untimed utterances, the final window declined to
+    /// extend, and the timing conversion simply went unbounded, which is how
+    /// word timings came to be written 28.2 seconds past the end of a
+    /// recording. None of those is a better answer than the others, because
+    /// there is no good behaviour for an unknown duration.
+    ///
+    /// Forced alignment always has an audio file and the engine must read the
+    /// same bytes, so the duration is always obtainable. This makes the
+    /// question cheap to answer in one place instead of unanswerable in
+    /// several. Being the single owner is the point: three call sites deriving
+    /// this independently is the duplication that produced the divergent
+    /// fallbacks.
+    pub async fn recording(&self) -> Result<Recording, ServerError> {
+        let duration = match self.total_audio_ms {
+            Some(known) => known,
+            None => crate::media::probe::MediaProbe::new(self.audio_path)
+                .duration()
+                .await
+                .map_err(|why| {
+                    ServerError::RecordingDuration(format!(
+                        "probing {} failed: {why}",
+                        self.audio_path.display()
+                    ))
+                })?,
+        };
+        Recording::of_duration(Ms(duration.0)).map_err(|why| {
+            ServerError::RecordingDuration(format!("{}: {why}", self.audio_path.display()))
+        })
+    }
 }
 
 /// Forced alignment processing parameters.

@@ -21,9 +21,56 @@ use talkbank_model::model::{ChatFile, Line, UtteranceContent, WordCategory};
 /// adjusts individual utterance bullets before grouping.
 const MAX_FILLER_EXPANSION_MS: u64 = 1500;
 
-/// One utterance's summary used by the mutation pass:
-/// `(bullet_ms_bounds, has_leading_filler, has_trailing_filler)`.
-type UtteranceFillerSummary = (Option<(u64, u64)>, bool, bool);
+/// What one edge word is.
+///
+/// A named pair of cases rather than a `bool`, because the two arms drive
+/// different behaviour and a bare `true` at a call site says nothing about
+/// which question it answers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Edge {
+    /// The word is a filler, so its audio is in the adjacent gap and the
+    /// bullet should be expanded to reclaim it.
+    Filler,
+    /// The word is ordinary, so the bullet already covers it.
+    Ordinary,
+}
+
+/// The alignable words at an utterance's two edges.
+///
+/// A sum rather than `(bool, bool)`, because "this utterance has no alignable
+/// words at all" is a third state the pair cannot express. It used to be
+/// written as `(false, false)` by `unwrap_or(false)`, which asserts that both
+/// edges are ordinary words about an utterance that HAS no edges: an invented
+/// fact in the same shape as an observed one, which is the defect class this
+/// module's neighbours exist to make unrepresentable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EdgeFillers {
+    /// Nothing in this utterance reaches the Wor tier, so there is no first or
+    /// last word to classify and nothing to expand around.
+    NoAlignableWords,
+    /// The utterance has at least one alignable word. With exactly one, both
+    /// edges name that same word, which is correct: it is both the first and
+    /// the last.
+    Edges {
+        /// The first alignable word.
+        leading: Edge,
+        /// The last alignable word.
+        trailing: Edge,
+    },
+}
+
+/// One utterance's summary used by the mutation pass.
+///
+/// A struct rather than the `(Option<(u64, u64)>, bool, bool)` it used to be:
+/// the two `bool`s were indistinguishable at every use, and the tuple's own
+/// meaning lived in a comment above the alias.
+#[derive(Debug, Clone, Copy)]
+struct UtteranceFillerSummary {
+    /// The utterance's bullet bounds, if it has a bullet.
+    bullet: Option<(u64, u64)>,
+    /// What sits at its edges.
+    edges: EdgeFillers,
+}
 
 /// Expand utterance bullets to cover edge fillers in inter-utterance gaps.
 ///
@@ -43,8 +90,10 @@ pub fn expand_bullets_for_edge_fillers(chat_file: &mut ChatFile) {
                     .bullet
                     .as_ref()
                     .map(|b| (b.timing.start_ms, b.timing.end_ms));
-                let (leading, trailing) = detect_edge_fillers(&u.main.content.content);
-                Some((boundary, leading, trailing))
+                Some(UtteranceFillerSummary {
+                    bullet: boundary,
+                    edges: detect_edge_fillers(&u.main.content.content),
+                })
             }
             _ => None,
         })
@@ -66,38 +115,55 @@ pub fn expand_bullets_for_edge_fillers(chat_file: &mut ChatFile) {
             }
         };
 
-        let (_, has_leading, has_trailing) = utterance_data[utt_idx];
+        // An utterance with no alignable words has no edge to expand around.
+        // Written as its own arm rather than folded in with "neither edge is a
+        // filler", because they are different facts that happen to call for the
+        // same action today.
+        let (leading, trailing) = match utterance_data[utt_idx].edges {
+            EdgeFillers::NoAlignableWords => {
+                utt_idx += 1;
+                continue;
+            }
+            EdgeFillers::Edges { leading, trailing } => (leading, trailing),
+        };
 
         // Expand start backward: reclaim gap before this utterance for a leading filler.
-        if has_leading {
-            let prev_end = if utt_idx > 0 {
-                utterance_data[utt_idx - 1].0.map(|(_, end)| end)
-            } else {
-                Some(0)
-            };
-            if let Some(prev_end) = prev_end
-                && bullet.timing.start_ms > prev_end
-            {
-                let gap = bullet.timing.start_ms - prev_end;
-                // expansion ≤ gap/2, so start_ms -= expansion cannot underflow.
-                let expansion = (gap / 2).min(MAX_FILLER_EXPANSION_MS);
-                bullet.timing.start_ms -= expansion;
+        match leading {
+            Edge::Ordinary => {}
+            Edge::Filler => {
+                // The first utterance has no predecessor, so the gap it can
+                // reclaim runs back to the start of the file.
+                let prev_end = match utt_idx.checked_sub(1) {
+                    Some(previous) => utterance_data[previous].bullet.map(|(_, end)| end),
+                    None => Some(0),
+                };
+                if let Some(prev_end) = prev_end
+                    && bullet.timing.start_ms > prev_end
+                {
+                    let gap = bullet.timing.start_ms - prev_end;
+                    // expansion <= gap/2, so start_ms -= expansion cannot underflow.
+                    let expansion = (gap / 2).min(MAX_FILLER_EXPANSION_MS);
+                    bullet.timing.start_ms -= expansion;
+                }
             }
         }
 
         // Expand end forward: reclaim gap after this utterance for a trailing filler.
-        if has_trailing {
-            let next_start = if utt_idx + 1 < utterance_data.len() {
-                utterance_data[utt_idx + 1].0.map(|(start, _)| start)
-            } else {
-                None
-            };
-            if let Some(next_start) = next_start
-                && next_start > bullet.timing.end_ms
-            {
-                let gap = next_start - bullet.timing.end_ms;
-                let expansion = (gap / 2).min(MAX_FILLER_EXPANSION_MS);
-                bullet.timing.end_ms += expansion;
+        match trailing {
+            Edge::Ordinary => {}
+            Edge::Filler => {
+                // The last utterance has no successor, so there is no measured
+                // boundary to expand toward and nothing is reclaimed.
+                let next_start = utterance_data
+                    .get(utt_idx + 1)
+                    .and_then(|next| next.bullet.map(|(start, _)| start));
+                if let Some(next_start) = next_start
+                    && next_start > bullet.timing.end_ms
+                {
+                    let gap = next_start - bullet.timing.end_ms;
+                    let expansion = (gap / 2).min(MAX_FILLER_EXPANSION_MS);
+                    bullet.timing.end_ms += expansion;
+                }
             }
         }
 
@@ -109,21 +175,33 @@ pub fn expand_bullets_for_edge_fillers(chat_file: &mut ChatFile) {
 ///
 /// Uses domain-gated `walk_words` with `TierDomain::Wor` so only
 /// alignable words reach the closure, no redundant `counts_for_tier` check.
-pub(crate) fn detect_edge_fillers(content: &[UtteranceContent]) -> (bool, bool) {
-    let mut first: Option<bool> = None;
-    let mut last: Option<bool> = None;
+pub(crate) fn detect_edge_fillers(content: &[UtteranceContent]) -> EdgeFillers {
+    let mut first: Option<Edge> = None;
+    let mut last: Option<Edge> = None;
 
     walk_words(content, Some(TierDomain::Wor), &mut |leaf| {
-        let is_filler = match leaf {
-            WordItem::Word(w) => w.category == Some(WordCategory::Filler),
-            WordItem::ReplacedWord(r) => r.word.category == Some(WordCategory::Filler),
+        let category = match leaf {
+            WordItem::Word(w) => w.category.as_ref(),
+            WordItem::ReplacedWord(r) => r.word.category.as_ref(),
             WordItem::Separator(_) => return,
         };
-        if first.is_none() {
-            first = Some(is_filler);
-        }
-        last = Some(is_filler);
+        let edge = match category {
+            Some(WordCategory::Filler) => Edge::Filler,
+            _ => Edge::Ordinary,
+        };
+        // `get_or_insert` rather than an `is_none` test: the first alignable
+        // word is whichever one gets here first, and asking twice invites the
+        // two questions to disagree.
+        first.get_or_insert(edge);
+        last = Some(edge);
     });
 
-    (first.unwrap_or(false), last.unwrap_or(false))
+    // `first` and `last` are set together on every visit, so one being present
+    // means both are. The pair is matched rather than unwrapped so that the
+    // "no alignable words" case is answered by its own variant instead of by a
+    // fabricated `(false, false)`.
+    match (first, last) {
+        (Some(leading), Some(trailing)) => EdgeFillers::Edges { leading, trailing },
+        _ => EdgeFillers::NoAlignableWords,
+    }
 }

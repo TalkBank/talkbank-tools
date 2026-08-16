@@ -5,6 +5,8 @@ use talkbank_model::alignment::helpers::{
 };
 use talkbank_model::model::{Bullet, Utterance, Word};
 
+use super::origin::Origin;
+
 use super::WordTiming;
 
 /// Read cursor into a flat array of word timings for an FA group.
@@ -15,13 +17,7 @@ pub struct TimingCursor<'a> {
     pos: usize,
 }
 
-#[allow(dead_code)]
 impl<'a> TimingCursor<'a> {
-    /// Create a new cursor at position 0.
-    pub fn new(timings: &'a [Option<WordTiming>]) -> Self {
-        Self { timings, pos: 0 }
-    }
-
     /// Create a new cursor starting at the given offset.
     pub fn with_offset(timings: &'a [Option<WordTiming>], offset: usize) -> Self {
         Self {
@@ -46,6 +42,58 @@ impl<'a> TimingCursor<'a> {
     }
 }
 
+/// Proof of what was just injected into a specific utterance, per word.
+///
+/// # Why this exists rather than a plain slice
+///
+/// A `Bullet` is two integers and cannot carry an `Origin`, so writing timings
+/// into the AST DESTROYS their provenance. Post-processing then has to be told
+/// what they were, and if that were an ordinary parameter a caller could pass
+/// the wrong thing, or pass "read it back off the transcript", which is what
+/// the pipeline used to do: it relabelled every invented timing as an
+/// observation. Only [`inject_timings_for_utterance`] returns one of these, so
+/// possession IS the evidence and there is no constructor a caller can reach.
+///
+/// # Why it accumulates rather than slicing the cursor
+///
+/// One entry per word this utterance's `walk_words` visits, in that order,
+/// recording what was actually SET. A cursor slice would be misaligned: a
+/// compound filler consumes N cursor positions for one word, and a word failing
+/// `counts_for_tier` consumes none. Six tests caught that.
+#[derive(Debug, Clone)]
+pub struct InjectedTimings(Vec<Option<WordTiming>>);
+
+impl InjectedTimings {
+    /// The timings, with the provenance the aligner gave them.
+    pub fn as_slice(&self) -> &[Option<WordTiming>] {
+        &self.0
+    }
+
+    /// The spans a transcript already carries, for tests that postprocess a
+    /// fixture rather than a fresh alignment.
+    ///
+    /// `#[cfg(test)]`, which is one of the three sanctioned answers to "how
+    /// else can this be obtained". It replaces a `TimingSeed::FromTranscript`
+    /// variant that was reachable from production code and therefore made the
+    /// read-the-bullets-back route selectable by mistake.
+    ///
+    /// `Origin::TranscriptBullet` is HONEST here, and that is what makes this
+    /// legitimate where the old variant was not: these spans genuinely are in
+    /// the fixture's transcript. The defect it replaces was stamping that
+    /// origin on values this program had just INVENTED.
+    #[cfg(test)]
+    pub(crate) fn from_transcript(utterance: &talkbank_model::model::Utterance) -> Self {
+        let mut spans: Vec<Option<super::TimeSpan>> = Vec::new();
+        super::postprocess::collect_transcript_spans(&utterance.main.content.content, &mut spans);
+        Self(
+            spans
+                .into_iter()
+                .map(|span| span.and_then(|s| WordTiming::from_transcript(s).ok()))
+                .collect(),
+        )
+    }
+}
+
 /// Inject word-level timings into the AST for a specific utterance.
 ///
 /// `timings` is indexed by the flat word position within the group.
@@ -59,19 +107,23 @@ impl<'a> TimingCursor<'a> {
 ///   each Wor-alignable word encountered in this utterance. The caller should
 ///   initialize this to 0 for the first utterance in a group and pass the same
 ///   mutable reference through consecutive utterances.
+///
+/// Returns [`InjectedTimings`], the per-word record of what was set, which is
+/// the only honest input to post-processing.
 pub fn inject_timings_for_utterance(
     utterance: &mut Utterance,
     timings: &[Option<WordTiming>],
     timing_offset: &mut usize,
-) {
+) -> InjectedTimings {
     let mut cursor = TimingCursor::with_offset(timings, *timing_offset);
+    let mut per_word: Vec<Option<WordTiming>> = Vec::new();
     // domain=None: recurse into all groups unconditionally (FA needs all words)
     walk_words_mut(
         utterance.main.content.content.as_mut_slice(),
         None,
         &mut |leaf| match leaf {
             WordItemMut::Word(word) => {
-                inject_timing_on_word(word, &mut cursor);
+                per_word.push(inject_timing_on_word(word, &mut cursor));
             }
             WordItemMut::ReplacedWord(replaced) => {
                 // Extraction always sends the original word to FA (not the
@@ -81,43 +133,53 @@ pub fn inject_timings_for_utterance(
                 // FA-aligned; they are corrections that the speaker did not
                 // actually say.  Using the original word here keeps the
                 // cursor in sync with extraction across utterance boundaries.
-                inject_timing_on_word(&mut replaced.word, &mut cursor);
+                per_word.push(inject_timing_on_word(&mut replaced.word, &mut cursor));
             }
             WordItemMut::Separator(_) => {}
         },
     );
     *timing_offset = cursor.position();
+    InjectedTimings(per_word)
 }
 
 /// Inject timing onto a single CHAT word from the FA timing cursor.
 ///
 /// For compound fillers (`&-you_know`), extraction split the word into N
 /// parts for FA. We must consume N timings and merge them into one span.
-fn inject_timing_on_word(word: &mut Word, cursor: &mut TimingCursor<'_>) {
+fn inject_timing_on_word(word: &mut Word, cursor: &mut TimingCursor<'_>) -> Option<WordTiming> {
     if !counts_for_tier(word, TierDomain::Wor) {
-        return;
+        return None;
     }
 
     let parts = compound_filler_part_count(word);
     if parts <= 1 {
-        // Normal word: consume one timing.
+        // Normal word: consume one timing, and keep its provenance intact.
+        let t = cursor.take()?;
+        word.inline_bullet = Some(Bullet::new(t.start_ms, t.end_ms));
+        return Some(t.clone());
+    }
+
+    // Compound filler: consume N timings and merge into one span. The parts
+    // were measured; the envelope is OUR arithmetic over them and covers any
+    // silence between, so it says so rather than inheriting one part's origin.
+    let mut min_start: Option<u64> = None;
+    let mut max_end: Option<u64> = None;
+    let mut merged = 0usize;
+    for _ in 0..parts {
         if let Some(t) = cursor.take() {
-            word.inline_bullet = Some(Bullet::new(t.start_ms, t.end_ms));
-        }
-    } else {
-        // Compound filler: consume N timings and merge into one span.
-        let mut min_start: Option<u64> = None;
-        let mut max_end: Option<u64> = None;
-        for _ in 0..parts {
-            if let Some(t) = cursor.take() {
-                min_start = Some(min_start.map_or(t.start_ms, |s: u64| s.min(t.start_ms)));
-                max_end = Some(max_end.map_or(t.end_ms, |e: u64| e.max(t.end_ms)));
-            }
-        }
-        if let (Some(start), Some(end)) = (min_start, max_end) {
-            word.inline_bullet = Some(Bullet::new(start, end));
+            min_start = Some(min_start.map_or(t.start_ms, |s: u64| s.min(t.start_ms)));
+            max_end = Some(max_end.map_or(t.end_ms, |e: u64| e.max(t.end_ms)));
+            merged += 1;
         }
     }
+    let (start, end) = (min_start?, max_end?);
+    word.inline_bullet = Some(Bullet::new(start, end));
+    WordTiming::new(
+        start,
+        end,
+        Origin::MergedFromParts { parts: merged },
+        Origin::MergedFromParts { parts: merged },
+    )
 }
 
 /// Return the number of FA words this CHAT word was split into during extraction.

@@ -2,20 +2,73 @@
 
 use std::collections::HashMap;
 
-use talkbank_model::UtteranceIdx;
 use talkbank_model::alignment::resolve_wor_timing_sidecar;
 use talkbank_model::model::{
     BracketedItem, ChatFile, DependentTier, Line, Utterance, UtteranceContent,
 };
 use talkbank_model::model::{BracketedItems, TierContentItems};
 
-use super::WordEndPolicy;
 use super::injection::inject_timings_for_utterance;
+use super::origin::Origin;
 use super::postprocess::postprocess_utterance_timings;
 use super::{
     FaGroup, WordTiming, add_wor_tier, count_alignable_main_words, get_utterance_mut,
     update_utterance_bullet,
 };
+use super::{ReviewLevel, TimeSpan, WordEndPolicy};
+
+/// Proof that FA results were injected into a file, carrying what that decided.
+///
+/// # Why the ordering obligation lives HERE
+///
+/// Monotonicity enforcement must run after injection on the same file. Without
+/// it, UTR anchor drift survives into the output, which is how a real delivery
+/// shipped backward timestamps. That rule was held by a comment in three
+/// places, and the incremental path broke it anyway.
+///
+/// The obvious cure, making [`enforce_monotonicity`] REQUIRE this type, is
+/// WRONG: `fa::run_fa_from_ast` calls it standalone in a pre-FA repair path
+/// that has injected nothing, and a precondition would forbid that legitimate
+/// use. The constraint is not "enforcement always follows injection", it is
+/// "IF you inject, you must then enforce", which is an obligation on the
+/// PRODUCER rather than a precondition on the consumer.
+///
+/// So this type carries the records injection produced and offers no accessor
+/// for them. The only way to read them is
+/// [`FaApplied::then_enforce_monotonicity`], which runs the step first.
+/// Skipping enforcement now means never obtaining the records `%xalign` needs,
+/// which is pressure in the right direction rather than a rule to remember.
+#[must_use = "these records must reach %xalign; call then_enforce_monotonicity"]
+pub struct FaApplied {
+    postprocess: Vec<batchalign_transform::decisions::DecisionRecord>,
+}
+
+/// What injection and monotonicity enforcement decided, in that order.
+///
+/// Fields are PRIVATE, and that is what makes [`FaApplied`] a proof rather than
+/// a label. They were `pub` for one revision, and the check that was supposed
+/// to demonstrate the phase type instead demonstrated the hole: dropping the
+/// `FaApplied` and writing `FaOrdered { postprocess: Vec::new(), monotonicity:
+/// Vec::new() }` compiled, which is exactly the skipped-enforcement bug the
+/// type exists to forbid. `then_enforce_monotonicity` is now the only
+/// constructor, so possession really is the evidence.
+pub struct FaOrdered {
+    postprocess: Vec<batchalign_transform::decisions::DecisionRecord>,
+    monotonicity: Vec<batchalign_transform::decisions::DecisionRecord>,
+}
+
+impl FaApplied {
+    /// Enforce monotonicity, and hand back both sets of records.
+    ///
+    /// Consuming `self` is what makes the sequence unskippable: there is no
+    /// other way to reach the injection records.
+    pub fn then_enforce_monotonicity(self, chat_file: &mut ChatFile) -> FaOrdered {
+        FaOrdered {
+            postprocess: self.postprocess,
+            monotonicity: enforce_monotonicity(chat_file),
+        }
+    }
+}
 
 /// Apply FA results to a ChatFile: inject timings, postprocess, optionally
 /// generate %wor, enforce monotonicity, enforce E704 same-speaker non-overlap.
@@ -25,13 +78,17 @@ use super::{
 ///
 /// When `write_wor` is `true`, a `%wor` tier is generated for each utterance.
 /// When `false`, existing `%wor` tiers are left untouched and no new ones are added.
+///
+/// Returns [`FaApplied`], which is the only route to the records this made and
+/// which cannot be read without running monotonicity enforcement. See that
+/// type for why the obligation lives there rather than on this signature.
 pub fn apply_fa_results(
     chat_file: &mut ChatFile,
     groups: &[FaGroup],
     responses: &[Vec<Option<WordTiming>>],
     policy: WordEndPolicy,
     write_wor: bool,
-) -> Vec<batchalign_transform::decisions::DecisionRecord> {
+) -> FaApplied {
     let mut decisions = Vec::new();
     // 0. Strip stale decision tiers (%xalign / %xrev) from any previous FA run.
     //
@@ -56,46 +113,74 @@ pub fn apply_fa_results(
         }
     }
 
-    // 1. Distribute timings from each group's response to utterances
+    // 2. Inject each utterance's timings and post-process it, in ONE pass.
+    //
+    // Injection and post-processing were two loops over the same index
+    // sequence. Writing a timing into a `Bullet` DESTROYS its provenance (a
+    // bullet is two integers), and the second loop used to recover the spans by
+    // reading those bullets back, which relabelled every invented timing as
+    // something the transcript had always carried, and therefore as an
+    // observation. Carrying the injected values forward is the only way
+    // post-processing can know what it is adjusting.
+    //
+    // Fusing the loops keeps that evidence a LOCAL. Passing it between two
+    // loops needed a `HashMap<UtteranceIdx, InjectedTimings>` that was pure
+    // indirection: the second loop walked `groups.flat_map(utterance_indices)`,
+    // exactly what the first walked, and `collect_final_timings` refuses unless
+    // `responses.len() == groups.len()`, so every lookup hit. On a
+    // 15,000-utterance transcript that map held about 5.8 MB across 15,000
+    // allocations, and it made a "this utterance has no evidence" case
+    // reachable in the types that could not occur in practice.
     for (group, timings) in groups.iter().zip(responses.iter()) {
         let mut timing_offset: usize = 0;
 
         for &utt_idx in &group.utterance_indices {
-            let utt = match get_utterance_mut(chat_file, utt_idx) {
-                Some(u) => u,
-                None => continue,
+            // Resolved before the mutable borrow. `utt_idx` is an utterance
+            // ordinal and `DecisionRecord.line_idx` indexes lines; they never
+            // coincide, because every CHAT file opens with headers. This used
+            // to pass the ordinal straight through, which silently dropped the
+            // decision (the consumer found a header at that index and skipped
+            // it) or attached it to the wrong utterance.
+            let line_idx = super::utterance_line_idx(chat_file, utt_idx);
+            let Some(utt) = get_utterance_mut(chat_file, utt_idx) else {
+                continue;
             };
-            inject_timings_for_utterance(utt, timings, &mut timing_offset);
-        }
-    }
 
-    // 2. Postprocess all grouped utterances
-    let all_utt_indices: Vec<UtteranceIdx> = groups
-        .iter()
-        .flat_map(|g| g.utterance_indices.iter().copied())
-        .collect();
+            let injected = inject_timings_for_utterance(utt, timings, &mut timing_offset);
+            let outcome = postprocess_utterance_timings(utt, policy, &injected);
 
-    for &utt_idx in &all_utt_indices {
-        // Resolve the LINE index before the mutable borrow. `utt_idx` is an
-        // utterance ordinal and `DecisionRecord.line_idx` indexes lines; they
-        // never coincide, because every CHAT file opens with headers. This
-        // used to pass the ordinal straight through, which silently dropped
-        // the decision (the consumer found a header at that index and skipped
-        // it) or attached it to the wrong utterance.
-        let line_idx = super::utterance_line_idx(chat_file, utt_idx);
-        if let Some(utt) = get_utterance_mut(chat_file, utt_idx) {
-            let dropped = postprocess_utterance_timings(utt, policy);
-            if let (true, Some(line_idx)) = (dropped.any(), line_idx) {
-                decisions.push(batchalign_transform::decisions::DecisionRecord {
-                    line_idx,
-                    speaker: utt.main.speaker.as_str().to_string(),
-                    strategy: batchalign_transform::decisions::DecisionStrategy::Fa(
-                        batchalign_transform::decisions::FaStrategy::WordsTimingDropped,
+            if let (true, Some(line_idx)) = (outcome.dropped.any(), line_idx) {
+                decisions.push(
+                    batchalign_transform::decisions::DecisionRecord::new_and_trace(
+                        line_idx.raw(),
+                        utt.main.speaker.as_str().to_string(),
+                        batchalign_transform::decisions::DecisionStrategy::Fa(
+                            batchalign_transform::decisions::FaStrategy::WordsTimingDropped,
+                        ),
+                        outcome.dropped.reason(),
+                        true,
                     ),
-                    reason: dropped.reason(),
-                    needs_review: true,
-                });
+                );
             }
+            // The provenance summary is the only form in which per-word origins
+            // can cross into the transcript, since the write above lowers them
+            // into `Bullet`. Emitted only when something was not a
+            // straightforward observation, so the tier means something when it
+            // appears.
+            if let (true, Some(line_idx)) = (outcome.provenance.any_not_observed(), line_idx) {
+                decisions.push(
+                    batchalign_transform::decisions::DecisionRecord::new_and_trace(
+                        line_idx.raw(),
+                        utt.main.speaker.as_str().to_string(),
+                        batchalign_transform::decisions::DecisionStrategy::Fa(
+                            batchalign_transform::decisions::FaStrategy::TimingProvenance,
+                        ),
+                        format!("{}", outcome.provenance),
+                        outcome.provenance.needs_review(),
+                    ),
+                );
+            }
+
             update_utterance_bullet(utt);
             if write_wor {
                 add_wor_tier(utt);
@@ -110,7 +195,9 @@ pub fn apply_fa_results(
     // The CHAT validator in talkbank-tools flags these violations after the
     // fact: the FA pipeline should not silently destroy timing data.
 
-    decisions
+    FaApplied {
+        postprocess: decisions,
+    }
 }
 
 /// Refresh a CHAT file that already carries reusable `%wor` timing.
@@ -218,6 +305,12 @@ pub fn refresh_reusable_utterances(
 /// own start (possible when two adjacent utterances share the same start_ms
 /// from overlapping UTR token ranges), the bullet is stripped entirely rather
 /// than left as a zero-duration `•T_T•` span, which would fail E362 validation.
+///
+/// `#[must_use]` because these records must reach `%xalign` rather than be
+/// produced and discarded. This is the one the attribute genuinely catches:
+/// the incremental path called it BARE, for its side effect on the file, and
+/// silently dropped every repair record. That form no longer compiles.
+#[must_use]
 pub fn enforce_monotonicity(
     chat_file: &mut ChatFile,
 ) -> Vec<batchalign_transform::decisions::DecisionRecord> {
@@ -553,10 +646,13 @@ fn collect_wor_backed_timings(utterance: &Utterance) -> Option<Vec<Option<WordTi
 
     for word in wor_words {
         let bullet = word.inline_bullet.as_ref()?;
-        timings.push(WordTiming::new(
-            bullet.timing.start_ms,
-            bullet.timing.end_ms,
-        ));
+        timings.push(
+            WordTiming::from_transcript(TimeSpan::new(
+                bullet.timing.start_ms,
+                bullet.timing.end_ms,
+            ))
+            .ok(),
+        );
     }
 
     if timings
@@ -604,7 +700,16 @@ pub(super) fn collect_wor_backed_span(utterance: &Utterance) -> Option<WordTimin
             last_end = Some(span.end_ms);
         }
     }
-    WordTiming::new(first_start?, last_end?)
+    // The extremes of a set of spans: the min and max of other numbers, so it
+    // must not read as measured. `MergedFromParts` is the variant for exactly
+    // this and says so in its own doc.
+    let parts = timings.iter().flatten().count();
+    WordTiming::new(
+        first_start?,
+        last_end?,
+        Origin::MergedFromParts { parts },
+        Origin::MergedFromParts { parts },
+    )
 }
 
 /// Strip timing and %wor from a single utterance.
@@ -614,4 +719,87 @@ pub(super) fn strip_utterance_timing(utt: &mut Utterance) {
     // Remove %wor tiers.
     utt.dependent_tiers
         .retain(|t| !matches!(t.tier, DependentTier::Wor(_)));
+}
+
+/// Every source of `%xalign` records one FA run can produce.
+///
+/// # Why a struct rather than two hand-built vectors
+///
+/// Both FA paths assembled this list by hand, in an order held equal by a
+/// comment reading "same decisions, and in the same order, as the full path".
+/// That comment was already untrue when it was written: the full path extends
+/// five sources and the incremental path four, because incremental never runs
+/// narrow-bullet rescue. The difference is legitimate, which is exactly why a
+/// comment is the wrong thing to hold it: nothing would have noticed when the
+/// sets diverged for a BAD reason, and a sixth source added to one path only is
+/// the same defect that had `%xalign` silently thinner on one path for months.
+///
+/// Built with a struct literal on purpose. Adding a field breaks BOTH paths at
+/// compile time, and the incremental path states `rescue: Vec::new()` outright
+/// rather than leaving its absence to be inferred from a list that stops early.
+pub struct FaDecisions {
+    /// Bullets pre-expanded before grouping, where transcribe under-budgeted.
+    pub rescue: Vec<batchalign_transform::decisions::DecisionRecord>,
+    /// Utterances grouping refused to place. These reach the transcript with no
+    /// timing at all, so a reviewer needs them more than any adjustment record.
+    pub unplaceable: Vec<batchalign_transform::decisions::DecisionRecord>,
+    /// What injection and monotonicity enforcement decided, in that order.
+    pub ordered: FaOrdered,
+    /// Post-FA bullet repair, when `--bullet-repair` is on.
+    pub repair: Vec<batchalign_transform::decisions::DecisionRecord>,
+}
+
+impl FaDecisions {
+    /// The records in the order they must appear, which is defined ONLY here.
+    #[must_use]
+    pub fn into_records(self) -> Vec<batchalign_transform::decisions::DecisionRecord> {
+        let Self {
+            rescue,
+            unplaceable,
+            ordered:
+                FaOrdered {
+                    postprocess,
+                    monotonicity,
+                },
+            repair,
+        } = self;
+        let mut records = Vec::with_capacity(
+            rescue.len()
+                + unplaceable.len()
+                + postprocess.len()
+                + monotonicity.len()
+                + repair.len(),
+        );
+        records.extend(rescue);
+        records.extend(unplaceable);
+        records.extend(postprocess);
+        records.extend(repair);
+        records.extend(monotonicity);
+        records
+    }
+}
+
+/// Write this run's decision provenance into the file: strip, then inject.
+///
+/// # Why the strip is unconditional and separate
+///
+/// [`batchalign_transform::decisions::inject_decision_tiers`] returns early on
+/// `ReviewLevel::None` or an empty record set, and its own strip happens INSIDE
+/// that early return. So a run that produces nothing would leave the previous
+/// run's `%xalign` in place, and the next run that does produce records would
+/// append to it. Both paths knew this and both called `strip` first; typing the
+/// verb means neither has to know it again, and the guards they each wrapped
+/// around the inject (one on `review_level`, one on emptiness, both already
+/// enforced by the injector) go away.
+pub fn write_decision_tiers(
+    chat_file: &mut ChatFile,
+    decisions: FaDecisions,
+    review_level: ReviewLevel,
+) {
+    batchalign_transform::decisions::strip_decision_tiers(chat_file);
+    batchalign_transform::decisions::inject_decision_tiers(
+        chat_file,
+        &decisions.into_records(),
+        review_level,
+    );
 }

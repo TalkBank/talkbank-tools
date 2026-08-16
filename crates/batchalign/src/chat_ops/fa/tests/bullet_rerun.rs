@@ -4,6 +4,7 @@
 
 use super::*;
 
+use crate::chat_ops::fa::injection::InjectedTimings;
 use talkbank_model::UtteranceIdx;
 use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
@@ -42,27 +43,34 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
         utterance_indices: vec![UtteranceIdx::new(0)],
     }];
     let responses = vec![vec![
-        WordTiming::new(1000, 1500),
-        WordTiming::new(1500, 3000),
+        WordTiming::fixture(1000, 1500),
+        WordTiming::fixture(1500, 3000),
     ]];
-    let decisions = apply_fa_results(
+    let ordered = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
         WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         false,
-    );
+    )
+    .then_enforce_monotonicity(&mut chat);
 
-    // Simulate fa/mod.rs step 9d, the BUGGY path: only injects (and strips)
-    // when decisions is non-empty.  Clean re-run → decisions is empty → no
-    // strip → old tiers remain.
-    if !decisions.is_empty() {
-        batchalign_transform::decisions::inject_decision_tiers(
-            &mut chat,
-            &decisions,
-            crate::chat_ops::fa::ReviewLevel::LowConfidence,
-        );
-    }
+    // Through the same owner production uses. This test used to hand-simulate
+    // `fa/mod.rs` step 9d, including its BUG (inject-and-strip only when the
+    // record set is non-empty), so it asserted a property of a copy rather than
+    // of the code that ships. `write_decision_tiers` owns strip-then-inject
+    // now, and a caller cannot reintroduce the guard that caused this, which is
+    // what makes the simulation both unnecessary and impossible to keep honest.
+    crate::chat_ops::fa::write_decision_tiers(
+        &mut chat,
+        crate::chat_ops::fa::FaDecisions {
+            rescue: Vec::new(),
+            unplaceable: Vec::new(),
+            ordered,
+            repair: Vec::new(),
+        },
+        crate::chat_ops::fa::ReviewLevel::LowConfidence,
+    );
 
     let output = chat.to_chat_string();
     let xalign_count = output.matches("%xalign:").count();
@@ -130,11 +138,11 @@ fn test_fa_bullet_overwrites_utr_hint_with_word_derived_timing() {
     }];
 
     let responses = vec![vec![
-        WordTiming::new(1000, 1500),
-        WordTiming::new(1500, 2000),
+        WordTiming::fixture(1000, 1500),
+        WordTiming::fixture(1500, 2000),
     ]];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
@@ -203,7 +211,7 @@ fn test_fa_preserves_utr_hint_when_all_words_untimed() {
     // FA total failure: all words return None.
     let responses = vec![vec![None, None]];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
@@ -255,10 +263,13 @@ fn test_rescued_rerun_bullet_does_not_clamp_new_fa_words() {
             "rescued bullet must stay provisional so postprocess will not clamp FA back into the stale narrow span",
         );
 
+        let injected = InjectedTimings::from_transcript(utt);
         let dropped = postprocess_utterance_timings(
             utt,
             WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
-        );
+            &injected,
+        )
+        .dropped;
         assert_eq!(
             dropped,
             DroppedWordTimings::default(),
@@ -311,11 +322,11 @@ fn test_fa_sets_bullet_from_word_span_when_no_prior_bullet() {
     }];
 
     let responses = vec![vec![
-        WordTiming::new(1000, 1500),
-        WordTiming::new(1500, 2000),
+        WordTiming::fixture(1000, 1500),
+        WordTiming::fixture(1500, 2000),
     ]];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
@@ -365,7 +376,7 @@ fn test_fa_clears_zero_duration_authoritative_bullet_when_fa_produces_no_word_ti
     }];
     let responses = vec![vec![None]];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
@@ -468,28 +479,28 @@ fn test_fa_backward_timestamp_from_wrong_audio_window_is_stripped() {
     // relative to group 0's correct 731556ms start).
     let responses = vec![
         // Group 0: "alright": correct.
-        vec![WordTiming::new(731556, 733418)],
+        vec![WordTiming::fixture(731556, 733418)],
         // Group 1: wrong window, all timings < 731556ms.
         vec![
-            WordTiming::new(639095, 639300),
-            WordTiming::new(639400, 639600),
-            WordTiming::new(639700, 639850),
-            WordTiming::new(639900, 640050),
-            WordTiming::new(640050, 640150),
-            WordTiming::new(640150, 640250),
-            WordTiming::new(640250, 640310),
-            WordTiming::new(640310, 640375),
+            WordTiming::fixture(639095, 639300),
+            WordTiming::fixture(639400, 639600),
+            WordTiming::fixture(639700, 639850),
+            WordTiming::fixture(639900, 640050),
+            WordTiming::fixture(640050, 640150),
+            WordTiming::fixture(640150, 640250),
+            WordTiming::fixture(640250, 640310),
+            WordTiming::fixture(640310, 640375),
         ],
     ];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
         WordEndPolicy::measured(WordGapHealing::Heal),
         false,
     );
-    enforce_monotonicity(&mut chat);
+    let _ = enforce_monotonicity(&mut chat);
 
     // utt 1 starts at 639095ms < utt 0's 731556ms → non-monotonic → must be stripped.
     let utt1 = get_utterance(&chat, 1);

@@ -259,10 +259,10 @@ impl Transcode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::DurationMs;
+    use crate::time::FileMs;
 
-    fn ms(value: u64) -> DurationMs {
-        DurationMs(value)
+    fn ms(value: u64) -> FileMs {
+        FileMs::new(value)
     }
 
     /// An empty window cannot be built, so no call site can forget to check.

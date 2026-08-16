@@ -345,7 +345,14 @@ impl UtrEngine {
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
-    pub fn as_wire_name(&self) -> &str {
+    ///
+    /// Returns `&'static str`, not `&str`: every wire name is a compile-time
+    /// literal and `wire_name` already says so, so the elided lifetime here was
+    /// narrowing a fact the callee had established. That cost real work, since a
+    /// caller wanting to store the name (an `EngineId` on a per-word provenance
+    /// value) had to allocate a `String` to escape a borrow that never needed to
+    /// exist.
+    pub fn as_wire_name(&self) -> &'static str {
         self.wire_name()
     }
 
@@ -518,7 +525,14 @@ impl FaEngineName {
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
-    pub fn as_wire_name(&self) -> &str {
+    ///
+    /// Returns `&'static str`, not `&str`: every wire name is a compile-time
+    /// literal and `wire_name` already says so, so the elided lifetime here was
+    /// narrowing a fact the callee had established. That cost real work, since a
+    /// caller wanting to store the name (an `EngineId` on a per-word provenance
+    /// value) had to allocate a `String` to escape a borrow that never needed to
+    /// exist.
+    pub fn as_wire_name(&self) -> &'static str {
         self.wire_name()
     }
 
@@ -687,7 +701,14 @@ impl AsrEngineName {
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
-    pub fn as_wire_name(&self) -> &str {
+    ///
+    /// Returns `&'static str`, not `&str`: every wire name is a compile-time
+    /// literal and `wire_name` already says so, so the elided lifetime here was
+    /// narrowing a fact the callee had established. That cost real work, since a
+    /// caller wanting to store the name (an `EngineId` on a per-word provenance
+    /// value) had to allocate a `String` to escape a borrow that never needed to
+    /// exist.
+    pub fn as_wire_name(&self) -> &'static str {
         self.wire_name()
     }
 
@@ -846,7 +867,14 @@ impl TranslateEngineName {
     }
 
     /// Borrow the wire-format token for JSON/SQLite.
-    pub fn as_wire_name(&self) -> &str {
+    ///
+    /// Returns `&'static str`, not `&str`: every wire name is a compile-time
+    /// literal and `wire_name` already says so, so the elided lifetime here was
+    /// narrowing a fact the callee had established. That cost real work, since a
+    /// caller wanting to store the name (an `EngineId` on a per-word provenance
+    /// value) had to allocate a `String` to escape a borrow that never needed to
+    /// exist.
+    pub fn as_wire_name(&self) -> &'static str {
         self.wire_name()
     }
 

@@ -32,6 +32,9 @@
 
 use talkbank_model::model::{BulletSource, ChatFile, Line};
 
+use super::coordinates::Ms;
+use super::speech_rate::SpeechRate;
+
 #[cfg(test)]
 use batchalign_transform::decisions::DecisionModule;
 use batchalign_transform::decisions::DecisionRecord;
@@ -39,18 +42,6 @@ use batchalign_transform::decisions::DecisionRecord;
 // ---------------------------------------------------------------------------
 // Tunables
 // ---------------------------------------------------------------------------
-
-/// Word density above which a bullet is considered physically impossible
-///: the **catastrophic** trigger for the rescue.
-///
-/// Normal English speech is 2-7 words per second; rapid news-anchor delivery
-/// reaches ~9 wps; auctioneer or rap is in the 12-15 wps range. Anything
-/// above 15 wps is not natural speech and reliably indicates a broken
-/// transcribe-time bullet, not a fast speaker. When triggered by this
-/// threshold, the rescue expands aggressively all the way to the next
-/// utterance's start (minus a safety buffer) because the original bullet
-/// conveys no useful information about where the speech actually lives.
-const CATASTROPHIC_DENSITY_THRESHOLD_WPS: f64 = 15.0;
 
 /// Minimum acceptable per-word duration (ms), the **tight-but-not-broken**
 /// trigger for the rescue.
@@ -63,8 +54,8 @@ const CATASTROPHIC_DENSITY_THRESHOLD_WPS: f64 = 15.0;
 /// bullet (≈ 225 ms/word) is the canonical example: the closing words
 /// collapse to `to 40 go 40 to 40 the 60 ball 140`.
 ///
-/// Tighter than this threshold but not catastrophic enough for the
-/// `CATASTROPHIC_DENSITY_THRESHOLD_WPS` rule, we apply a milder
+/// Tighter than this threshold but not catastrophic enough for
+/// [`SpeechRate::Impossible`], we apply a milder
 /// expansion that gives the utterance enough room for
 /// `TIGHT_BULLET_TARGET_MS_PER_WORD` per word: capped, of course, at
 /// the next utterance's start minus the safety buffer.
@@ -93,7 +84,7 @@ const SAFETY_BUFFER_MS: u64 = 200;
 /// strategy can pick the right new end.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RescueTrigger {
-    /// `density_wps > CATASTROPHIC_DENSITY_THRESHOLD_WPS`. The bullet is
+    /// The rate is [`SpeechRate::Impossible`]. The bullet is
     /// physically impossible for the word count and conveys no useful
     /// information about where the speech is in the audio. Expand all
     /// the way to `next_start - SAFETY_BUFFER_MS`.
@@ -119,29 +110,31 @@ impl RescueTrigger {
 /// (if any). Returns `None` when the bullet is in the normal range and
 /// no rescue is needed.
 fn classify_bullet(word_count: usize, start_ms: u64, end_ms: u64) -> Option<RescueTrigger> {
-    if word_count == 0 {
-        return None;
+    // "Can a human have said this many words in this much audio" is asked of
+    // `SpeechRate`, which owns the ceiling. It used to be asked here, against a
+    // private constant, which is why the estimator that most needed the answer
+    // could not get it and shipped a 601 words/sec window to an aligner.
+    let duration_ms = end_ms.saturating_sub(start_ms);
+    match SpeechRate::of(word_count, Ms(duration_ms)) {
+        // No words to budget for.
+        SpeechRate::NoWords => None,
+        // Impossible, or no audio at all: the bullet says nothing useful about
+        // where the speech is, so expand all the way.
+        SpeechRate::Impossible { .. } | SpeechRate::NoAudio { .. } => {
+            Some(RescueTrigger::Catastrophic)
+        }
+        // Believable but possibly tight. Float division because the threshold
+        // is a soft physical limit; integer division at 4740 / 21 = 225 vs the
+        // more precise 225.7 does not change the answer here, but staying in
+        // float avoids surprise rounding at boundary cases.
+        SpeechRate::Plausible(_) => {
+            let ms_per_word = duration_ms as f64 / word_count as f64;
+            match ms_per_word < TIGHT_BULLET_THRESHOLD_MS_PER_WORD {
+                true => Some(RescueTrigger::Tight),
+                false => None,
+            }
+        }
     }
-    if end_ms <= start_ms {
-        // Zero or negative duration is always catastrophic; there is
-        // no audio at all for these words.
-        return Some(RescueTrigger::Catastrophic);
-    }
-    let duration_ms = end_ms - start_ms;
-    let duration_s = duration_ms as f64 / 1000.0;
-    let words_per_second = word_count as f64 / duration_s;
-    if words_per_second > CATASTROPHIC_DENSITY_THRESHOLD_WPS {
-        return Some(RescueTrigger::Catastrophic);
-    }
-    // Float division because the threshold (250.0) is a soft physical
-    // limit. Integer division at 4740 / 21 = 225 vs the more precise
-    // 225.7 does not change the answer here, but using float
-    // consistently avoids surprise rounding at boundary cases.
-    let ms_per_word = duration_ms as f64 / word_count as f64;
-    if ms_per_word < TIGHT_BULLET_THRESHOLD_MS_PER_WORD {
-        return Some(RescueTrigger::Tight);
-    }
-    None
 }
 
 /// Compute the rescued bullet end given the trigger, current bullet,
@@ -188,8 +181,8 @@ fn rescued_end_ms(
 
 /// Expand utterance bullets that are too narrow for their word count.
 ///
-/// For each timed utterance whose word density exceeds
-/// `NARROW_BULLET_THRESHOLD_WPS`, this function extends the bullet's
+/// For each timed utterance whose word density is implausible for its
+/// span (see [`SpeechRate`]), this function extends the bullet's
 /// `end_ms` toward the next utterance's start (capped at
 /// `next_start - SAFETY_BUFFER_MS`). The bullet's `start_ms` is left
 /// unchanged because the start time of the utterance is the more

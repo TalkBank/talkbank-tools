@@ -8,11 +8,22 @@ use talkbank_model::UtteranceIdx;
 use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
 
+/// A recording of a stated length, for grouping tests.
+///
+/// These call sites used to pass `Option<u64>`, and several passed `None`. That
+/// meant "the audio length is unknown", a state `Recording` deleted: grouping
+/// silently SKIPPED untimed utterances whenever it held, so their words were
+/// never aligned. The tests that passed `None` were not asserting that
+/// behaviour, they were asserting grouping shape, so they get a recording long
+/// enough not to bound anything they check.
 #[test]
 fn test_group_utterances_single_group() {
     let input = include_str!("../../../../../../test-fixtures/fa_two_timed_utterances.cha");
     let chat = parse_chat(input);
-    let groups = group_utterances(&chat, 20000, None);
+    // The recording is the one the fixture describes: its last bullet ends at
+    // 10 s, so there is no trailing gap to extend into and the group ends
+    // exactly there.
+    let groups = group_utterances(&chat, 20000, &test_recording(10_000)).groups;
     assert_eq!(groups.len(), 1);
     assert_eq!(groups[0].words.len(), 5); // hello world I want cookie
     assert_eq!(groups[0].audio_start_ms(), 0);
@@ -75,7 +86,7 @@ fn test_wor_policy_retraced_spoken_tokens_match_between_fa_extraction_and_wor_ge
 fn test_group_utterances_backwards_bullets() {
     let input = include_str!("../../../../../../test-fixtures/fa_backwards_bullets.cha");
     let chat = parse_chat(input);
-    let groups = group_utterances(&chat, 20000, None);
+    let groups = group_utterances(&chat, 20000, &test_recording(600_000)).groups;
     assert_eq!(groups.len(), 2);
     assert_eq!(groups[0].words.len(), 1);
     assert_eq!(groups[1].words.len(), 1);
@@ -85,7 +96,7 @@ fn test_group_utterances_backwards_bullets() {
 fn test_group_utterances_splits_on_time() {
     let input = include_str!("../../../../../../test-fixtures/fa_split_on_time.cha");
     let chat = parse_chat(input);
-    let groups = group_utterances(&chat, 20000, None);
+    let groups = group_utterances(&chat, 20000, &test_recording(600_000)).groups;
     assert_eq!(groups.len(), 2);
     assert_eq!(groups[0].words.len(), 1);
     assert_eq!(groups[1].words.len(), 1);
@@ -134,7 +145,7 @@ fn test_group_utterances_splits_on_whisper_token_limit() {
         "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|test|CHI|||||Child|||\n*CHI:\t{fifty_words} .\x15100_5000\x15\n*CHI:\t{fifty_words} .\x155000_10000\x15\n@End\n"
     );
     let chat = parse_chat(&chat_text);
-    let groups = group_utterances(&chat, 60_000, Some(10_000));
+    let groups = group_utterances(&chat, 60_000, &test_recording(10_000)).groups;
     assert_eq!(
         groups.len(),
         2,
@@ -151,13 +162,26 @@ fn test_group_utterances_splits_on_whisper_token_limit() {
     }
 }
 
+/// Untimed utterances are ESTIMATED into the grouping, not dropped from it.
+///
+/// This test was `test_group_utterances_skips_untimed` and asserted the
+/// opposite: that "hello", having no bullet, contributed no word to any FA
+/// group and was therefore never aligned. That was not a policy, it was the
+/// `Option<u64>` audio length showing through. Grouping skipped untimed
+/// utterances whenever the duration was absent, and the duration was absent
+/// whenever nobody had probed it, so whether a word got aligned depended on a
+/// fact unrelated to the word.
+///
+/// Requiring a `Recording` deleted that state, so an estimate always exists and
+/// both words are grouped. The old assertion is not weakened here; it is gone,
+/// because the behaviour it described cannot occur.
 #[test]
-fn test_group_utterances_skips_untimed() {
+fn test_group_utterances_estimates_untimed_rather_than_dropping_them() {
     let input = include_str!("../../../../../../test-fixtures/fa_mixed_timed_untimed.cha");
     let chat = parse_chat(input);
-    let groups = group_utterances(&chat, 20000, None);
-    assert_eq!(groups.len(), 1);
-    assert_eq!(groups[0].words.len(), 1); // only "world"
+    let groups = group_utterances(&chat, 20000, &test_recording(10_000)).groups;
+    let grouped_words: usize = groups.iter().map(|g| g.words.len()).sum();
+    assert_eq!(grouped_words, 2, "both 'hello' and 'world' reach FA");
 }
 
 #[test]
@@ -237,7 +261,7 @@ fn test_group_utterances_includes_untimed_with_interpolation() {
     let input =
         include_str!("../../../../../../test-fixtures/fa_mixed_timed_untimed_interleaved.cha");
     let chat = parse_chat(input);
-    let groups = group_utterances(&chat, 20000, Some(50000));
+    let groups = group_utterances(&chat, 20000, &test_recording(50000)).groups;
 
     // All 6 utterances should be included (none skipped)
     let total_utts: usize = groups.iter().map(|g| g.utterance_indices.len()).sum();

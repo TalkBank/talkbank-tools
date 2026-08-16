@@ -185,6 +185,7 @@ pub mod stanza_registry;
 pub mod store;
 pub(crate) mod submission;
 pub(crate) mod text_batch;
+pub mod time;
 pub mod trace_store;
 pub mod transcribe;
 pub mod translate;

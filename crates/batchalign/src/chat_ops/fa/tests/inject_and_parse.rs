@@ -4,9 +4,47 @@
 
 use super::*;
 
+use crate::chat_ops::fa::Placement;
+use crate::chat_ops::fa::coordinates::{FaWindow, FileMs, Ms, Recording};
+use crate::chat_ops::fa::origin::EngineId;
 use talkbank_model::UtteranceIdx;
 use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
+
+/// The span an estimate placed, failing the test if it refused.
+///
+/// `estimate_untimed_boundaries` returns a `Placement` because a run whose
+/// remaining audio cannot physically hold its words has no span. These fixtures
+/// are all comfortably placeable, so a refusal here is a real failure rather
+/// than something to unwrap past.
+fn placed(estimates: &[Placement], idx: usize) -> TimeSpan {
+    match estimates[idx] {
+        Placement::Placed(span) => span,
+        Placement::Unplaceable(rate) => {
+            panic!("estimate {idx} was refused as unplaceable: {rate}")
+        }
+    }
+}
+
+/// A window starting at `start_ms` inside a recording comfortably longer than
+/// any timing these tests use.
+///
+/// The recording has to outlive the window because `FaWindow` refuses to open
+/// past the end of its audio, which is the property under test elsewhere.
+fn window_at(start_ms: u64) -> (Recording, FaWindow) {
+    let recording = Recording::of_duration(Ms(600_000)).expect("non-zero");
+    let window = FaWindow::within(
+        &recording,
+        FileMs::new(start_ms),
+        FileMs::new(start_ms + 60_000),
+    )
+    .expect("window inside the recording");
+    (recording, window)
+}
+
+fn fa_test_engine() -> EngineId {
+    EngineId::new("test-fa")
+}
 
 #[test]
 fn test_inject_timings_simple() {
@@ -14,7 +52,10 @@ fn test_inject_timings_simple() {
     let mut chat = parse_chat(input);
     let utt = get_test_utterance(&mut chat, 0);
 
-    let timings = vec![WordTiming::new(100, 500), WordTiming::new(600, 1000)];
+    let timings = vec![
+        WordTiming::fixture(100, 500),
+        WordTiming::fixture(600, 1000),
+    ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
     assert_eq!(offset, 2);
@@ -98,12 +139,12 @@ fn test_apply_fa_results() {
     }];
 
     let responses = vec![vec![
-        WordTiming::new(100, 1000),
-        WordTiming::new(1500, 3000),
-        WordTiming::new(5500, 8000),
+        WordTiming::fixture(100, 1000),
+        WordTiming::fixture(1500, 3000),
+        WordTiming::fixture(5500, 8000),
     ]];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
@@ -213,7 +254,7 @@ fn test_parse_fa_response_token_level() {
             {"text": "world", "time_s": 0.6}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 0).unwrap();
+    let timings = parse_fa_response(json, &words, &window_at(0).1, &fa_test_engine()).unwrap();
     assert_eq!(timings.len(), 2);
     // Until 2026-08-14 both words asserted `end_ms == start_ms`. That is not
     // a timing, it is the absence of one, and the six-week run of
@@ -221,8 +262,34 @@ fn test_parse_fa_response_token_level() {
     // onset-only engine gives no end, so each word ends where the next
     // begins, and the last takes the named fallback because it has no
     // successor.
-    assert_eq!(timings[0], WordTiming::new(100, 600));
-    assert_eq!(timings[1], WordTiming::new(600, 1100));
+    // The origins are asserted, not just the numbers: word 0's end is the next
+    // word's ONSET (an inference), and word 1's is the named fallback (an
+    // invention). Neither is a measurement of when the word stopped, and the
+    // output now says so.
+    assert_eq!(
+        timings[0],
+        WordTiming::new(
+            100,
+            600,
+            Origin::EngineMeasured {
+                engine: fa_test_engine()
+            },
+            Origin::DerivedFromNextOnset
+        )
+    );
+    assert_eq!(
+        timings[1],
+        WordTiming::new(
+            600,
+            1100,
+            Origin::EngineMeasured {
+                engine: fa_test_engine()
+            },
+            Origin::FallbackDuration {
+                assumed: Ms(LAST_WORD_FALLBACK_MS)
+            }
+        )
+    );
 }
 
 #[test]
@@ -233,9 +300,31 @@ fn test_parse_fa_response_token_level_punctuation_token_is_ignored() {
             {"text": "world", "time_s": 0.6}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 3000).unwrap();
-    assert_eq!(timings[0], WordTiming::new(3100, 3600));
-    assert_eq!(timings[1], WordTiming::new(3600, 4100));
+    let timings = parse_fa_response(json, &words, &window_at(3000).1, &fa_test_engine()).unwrap();
+    assert_eq!(
+        timings[0],
+        WordTiming::new(
+            3100,
+            3600,
+            Origin::EngineMeasured {
+                engine: fa_test_engine()
+            },
+            Origin::DerivedFromNextOnset
+        )
+    );
+    assert_eq!(
+        timings[1],
+        WordTiming::new(
+            3600,
+            4100,
+            Origin::EngineMeasured {
+                engine: fa_test_engine()
+            },
+            Origin::FallbackDuration {
+                assumed: Ms(LAST_WORD_FALLBACK_MS)
+            }
+        )
+    );
 }
 
 #[test]
@@ -246,11 +335,21 @@ fn test_parse_fa_response_token_level_mismatch_does_not_skip_tokens() {
             {"text": "world", "time_s": 0.6}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 0).unwrap();
+    let timings = parse_fa_response(json, &words, &window_at(0).1, &fa_test_engine()).unwrap();
     // "hello" ends at the next token's onset even though that token is the
     // unmatched "there": the end comes from the audio, not from whether
     // stitching went on to succeed.
-    assert_eq!(timings[0], WordTiming::new(100, 200));
+    assert_eq!(
+        timings[0],
+        WordTiming::new(
+            100,
+            200,
+            Origin::EngineMeasured {
+                engine: fa_test_engine()
+            },
+            Origin::DerivedFromNextOnset
+        )
+    );
     assert_eq!(timings[1], None);
 }
 
@@ -261,7 +360,7 @@ fn test_parse_fa_response_indexed_word_level() {
             {"start_ms": 600, "end_ms": 1000}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let timings = parse_fa_response(json, &words, 5000).unwrap();
+    let timings = parse_fa_response(json, &words, &window_at(5000).1, &fa_test_engine()).unwrap();
     assert_eq!(timings.len(), 2);
     assert_eq!(timings[0].as_ref().unwrap().start_ms, 5100);
     assert_eq!(timings[0].as_ref().unwrap().end_ms, 5500);
@@ -274,7 +373,7 @@ fn test_parse_fa_response_indexed_length_mismatch_rejected() {
     use crate::chat_ops::fa::alignment::FaAlignmentError;
     let json = r#"{"indexed_timings": [{"start_ms": 100, "end_ms": 500}]}"#;
     let words = make_fa_words(&["hello", "world"]);
-    let err = parse_fa_response(json, &words, 0).unwrap_err();
+    let err = parse_fa_response(json, &words, &window_at(0).1, &fa_test_engine()).unwrap_err();
     // Wave 5 consolidation: typed error replaces the previous stringly
     // "length mismatch" substring check. Assert on the variant shape so
     // a refactor that re-introduces a stringly path fails loudly.
@@ -287,16 +386,62 @@ fn test_parse_fa_response_indexed_length_mismatch_rejected() {
     }
 }
 
+/// A gap whose bounds lie PAST the end of the recording must not yield an
+/// inverted window.
+///
+/// The producer clamps both ends now. Before that it clamped only the end, so a
+/// buffered start beyond the audio met an end cut down to it and
+/// `TimeSpan::new(start, end)` was built with `end < start`, which its own
+/// docstring says the caller must prevent. Transcript bullets past the end of
+/// the recording are exactly the case the coordinate work exists for, so this
+/// is reachable rather than theoretical.
+#[test]
+fn a_gap_beyond_the_recording_is_refused_not_inverted() {
+    let input = "\
+@UTF8\n\
+@Begin\n\
+@Languages:\teng\n\
+@Participants:\tCHI Target_Child\n\
+@ID:\teng|test|CHI|2;0.0||||Target_Child|||\n\
+*CHI:\thello . \u{0015}90000_95000\u{0015}\n\
+*CHI:\tuntimed words here .\n\
+*CHI:\tworld . \u{0015}96000_99000\u{0015}\n\
+@End\n\
+";
+    let chat = parse_chat(input);
+    // A recording far shorter than the bullets claim.
+    let estimated = estimate_untimed_boundaries(&chat, &test_recording(10_000));
+    for (idx, placement) in estimated.placements.iter().enumerate() {
+        if let Placement::Placed(span) = placement {
+            assert!(
+                span.end_ms >= span.start_ms,
+                "placement {idx} is inverted: {}..{}",
+                span.start_ms,
+                span.end_ms
+            );
+        }
+    }
+}
+
 #[test]
 fn test_estimate_boundaries_proportional() {
     let input = include_str!("../../../../../../test-fixtures/fa_two_untimed_with_media.cha");
     let chat = parse_chat(input);
-    let estimates = estimate_untimed_boundaries(&chat, 10000);
+    // The count is asserted, not just the placements: `windows_clamped` exists
+    // because `.min(total_audio_ms)` made "this window overshot the recording"
+    // unobservable, and a counter nobody checks would reproduce that exactly.
+    // This fixture's second estimate is buffered past 10 s and cut back to it.
+    let estimated = estimate_untimed_boundaries(&chat, &test_recording(10_000));
+    assert!(
+        estimated.windows_clamped > 0,
+        "a window buffered past the end of a 10 s recording must be counted as clamped"
+    );
+    let estimates = estimated.placements;
     assert_eq!(estimates.len(), 2);
-    assert_eq!(estimates[0].start_ms, 0);
-    assert_eq!(estimates[0].end_ms, 7000);
-    assert_eq!(estimates[1].start_ms, 3000);
-    assert_eq!(estimates[1].end_ms, 10000);
+    assert_eq!(placed(&estimates, 0).start_ms, 0);
+    assert_eq!(placed(&estimates, 0).end_ms, 7000);
+    assert_eq!(placed(&estimates, 1).start_ms, 3000);
+    assert_eq!(placed(&estimates, 1).end_ms, 10000);
 }
 
 #[test]
@@ -304,35 +449,35 @@ fn test_estimate_boundaries_interpolates_from_neighbors() {
     let input =
         include_str!("../../../../../../test-fixtures/fa_mixed_timed_untimed_interleaved.cha");
     let chat = parse_chat(input);
-    let estimates = estimate_untimed_boundaries(&chat, 50000);
+    let estimates = estimate_untimed_boundaries(&chat, &test_recording(50_000)).placements;
 
     // 6 utterances total
     assert_eq!(estimates.len(), 6);
 
     // utt 0: timed (10000-15000), estimate mirrors real bullet
-    assert_eq!(estimates[0], TimeSpan::new(10000, 15000));
+    assert_eq!(placed(&estimates, 0), TimeSpan::new(10000, 15000));
 
     // utt 1: untimed, between timed utt 0 (end=15000) and utt 2 (start=20000)
     // Gap = [15000, 20000], 4 words, only utterance in run
     // raw: 15000-20000, with 2s buffer: 13000-22000
-    assert_eq!(estimates[1].start_ms, 13000);
-    assert_eq!(estimates[1].end_ms, 22000);
+    assert_eq!(placed(&estimates, 1).start_ms, 13000);
+    assert_eq!(placed(&estimates, 1).end_ms, 22000);
 
     // utt 2: timed (20000-25000)
-    assert_eq!(estimates[2], TimeSpan::new(20000, 25000));
+    assert_eq!(placed(&estimates, 2), TimeSpan::new(20000, 25000));
 
     // utt 3: untimed, in run [3,4] between timed utt 2 (end=25000) and utt 5 (start=40000)
     // Gap = [25000, 40000] = 15000ms, run_words = 4+5 = 9
     // utt 3 (4 words): raw 25000..31666, buffered 23000..33666
-    assert_eq!(estimates[3].start_ms, 23000);
-    assert_eq!(estimates[3].end_ms, 33666);
+    assert_eq!(placed(&estimates, 3).start_ms, 23000);
+    assert_eq!(placed(&estimates, 3).end_ms, 33666);
 
     // utt 4 (5 words): raw 31666..40000, buffered 29666..42000
-    assert_eq!(estimates[4].start_ms, 29666);
-    assert_eq!(estimates[4].end_ms, 42000);
+    assert_eq!(placed(&estimates, 4).start_ms, 29666);
+    assert_eq!(placed(&estimates, 4).end_ms, 42000);
 
     // utt 5: timed (40000-45000)
-    assert_eq!(estimates[5], TimeSpan::new(40000, 45000));
+    assert_eq!(placed(&estimates, 5), TimeSpan::new(40000, 45000));
 }
 
 #[test]
@@ -403,14 +548,14 @@ fn test_apply_fa_results_excludes_xxx_from_wor_tier() {
 
     // FA response: 5 timings for the 5 real words.
     let responses = vec![vec![
-        WordTiming::new(27602, 27762),
-        WordTiming::new(27762, 27942),
-        WordTiming::new(27942, 28002),
-        WordTiming::new(28002, 28203),
-        WordTiming::new(28203, 28323),
+        WordTiming::fixture(27602, 27762),
+        WordTiming::fixture(27762, 27942),
+        WordTiming::fixture(27942, 28002),
+        WordTiming::fixture(28002, 28203),
+        WordTiming::fixture(28203, 28323),
     ]];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,

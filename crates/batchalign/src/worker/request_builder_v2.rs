@@ -26,8 +26,8 @@ use crate::types::worker_v2::{
 };
 
 use super::artifacts_v2::{PreparedArtifactErrorV2, PreparedArtifactStoreV2};
-use crate::api::DurationMs;
 use crate::media::window::{EmptySegment, MediaWindow};
+use crate::time::FileMs;
 
 /// Prepared text payload that Rust writes for one V2 forced-alignment request.
 ///
@@ -124,9 +124,13 @@ pub enum ForcedAlignmentRequestBuildErrorV2 {
     #[error("forced-alignment infer item has invalid audio window start={start_ms} end={end_ms}")]
     InvalidAudioWindow {
         /// Inclusive start of the FA audio window.
-        start_ms: DurationMs,
+        ///
+        /// `FileMs`, not `DurationMs`: these are OFFSETS into the media file,
+        /// and reporting them as durations is the conflation the window type
+        /// itself stopped carrying.
+        start_ms: FileMs,
         /// Exclusive end of the FA audio window.
-        end_ms: DurationMs,
+        end_ms: FileMs,
     },
 
     /// The requested audio segment produced zero samples, the segment is
@@ -264,13 +268,13 @@ fn validate_fa_infer_item(
     // checked again inside the extractor on the same two numbers. That second
     // check was the third statement of one comparison, in two subsystems.
     MediaWindow::new(
-        DurationMs(infer_item.audio_start_ms),
-        DurationMs(infer_item.audio_end_ms),
+        FileMs::new(infer_item.audio_start_ms),
+        FileMs::new(infer_item.audio_end_ms),
     )
     .map_err(
         |empty| ForcedAlignmentRequestBuildErrorV2::InvalidAudioWindow {
-            start_ms: DurationMs(empty.start),
-            end_ms: DurationMs(empty.end),
+            start_ms: empty.start,
+            end_ms: empty.end,
         },
     )
 }

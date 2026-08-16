@@ -11,10 +11,11 @@
 //! That keeps model-output interpretation on the Rust side while the transport
 //! migration is still staged.
 
+use crate::chat_ops::fa::coordinates::FaWindow;
+use crate::chat_ops::fa::origin::EngineId;
 use crate::chat_ops::fa::{FaWord, WordTiming, parse_fa_response};
 use crate::chat_ops::nlp::{FaIndexedTiming, FaRawResponse, FaRawToken};
 
-use crate::api::DurationMs;
 use crate::types::worker_v2::{ExecuteOutcomeV2, ExecuteResponseV2, TaskResultV2};
 
 /// Parse one staged V2 FA execute response into the established FA timing
@@ -22,7 +23,8 @@ use crate::types::worker_v2::{ExecuteOutcomeV2, ExecuteResponseV2, TaskResultV2}
 pub fn parse_forced_alignment_result_v2(
     response: &ExecuteResponseV2,
     original_words: &[FaWord],
-    audio_start_ms: DurationMs,
+    window: &FaWindow,
+    engine: &EngineId,
 ) -> Result<Vec<Option<WordTiming>>, String> {
     match &response.outcome {
         ExecuteOutcomeV2::Success => {}
@@ -121,7 +123,7 @@ pub fn parse_forced_alignment_result_v2(
     // `Result<_, String>`; convert at this boundary so the adapter
     // contract stays stable. A future follow-up can propagate the
     // typed error further up.
-    parse_fa_response(&raw_json, original_words, audio_start_ms.0).map_err(|e| e.to_string())
+    parse_fa_response(&raw_json, original_words, window, engine).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -135,6 +137,25 @@ mod tests {
         ExecuteOutcomeV2, ExecuteResponseV2, IndexedWordTimingResultV2, IndexedWordTimingV2,
         TaskResultV2, WhisperTokenTimingResultV2, WhisperTokenTimingV2, WorkerRequestIdV2,
     };
+
+    use crate::chat_ops::fa::coordinates::{FileMs, Ms, Recording};
+
+    /// A window starting at `start_ms`, inside a recording long enough that
+    /// containment never fires in these adapter tests.
+    fn window_at(start_ms: u64) -> (Recording, FaWindow) {
+        let recording = Recording::of_duration(Ms(600_000)).expect("non-zero");
+        let window = FaWindow::within(
+            &recording,
+            FileMs::new(start_ms),
+            FileMs::new(start_ms + 60_000),
+        )
+        .expect("window inside the recording");
+        (recording, window)
+    }
+
+    fn adapter_engine() -> EngineId {
+        EngineId::new("test-fa")
+    }
 
     /// Build `FaWord` values for small result-adapter tests.
     fn make_words(texts: &[&str]) -> Vec<FaWord> {
@@ -174,7 +195,8 @@ mod tests {
         let timings = parse_forced_alignment_result_v2(
             &response,
             &make_words(&["hello", "world"]),
-            DurationMs(1_000),
+            &window_at(1_000).1,
+            &adapter_engine(),
         )
         .expect("V2 whisper token result should parse");
 
@@ -206,7 +228,8 @@ mod tests {
         let timings = parse_forced_alignment_result_v2(
             &response,
             &make_words(&["hello", "world"]),
-            DurationMs(500),
+            &window_at(500).1,
+            &adapter_engine(),
         )
         .expect("V2 indexed timing result should parse");
 
@@ -230,9 +253,13 @@ mod tests {
             elapsed_s: DurationSeconds(0.01),
         };
 
-        let error =
-            parse_forced_alignment_result_v2(&response, &make_words(&["hello"]), DurationMs(0))
-                .expect_err("translation result should be rejected");
+        let error = parse_forced_alignment_result_v2(
+            &response,
+            &make_words(&["hello"]),
+            &window_at(0).1,
+            &adapter_engine(),
+        )
+        .expect_err("translation result should be rejected");
 
         assert!(error.contains("translation data"));
     }

@@ -8,6 +8,8 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::api::{DurationMs, WorkerLanguage};
+use crate::chat_ops::fa::coordinates::{FaWindow, FileMs, Recording};
+use crate::chat_ops::fa::origin::EngineId;
 use crate::chat_ops::fa::{FaGroup, FaInferItem, WordGapHealing, WordTiming};
 use crate::error::ServerError;
 use crate::pipeline::PipelineServices;
@@ -38,6 +40,13 @@ pub(crate) struct FaWorkerBatch<'a> {
     pub engine: crate::types::engines::FaEngineName,
     /// Gap-healing policy for every group in this batch.
     pub gap_healing: WordGapHealing,
+    /// The recording every group in this batch is a window into.
+    ///
+    /// Carried so that timings coming back from the engine can be checked
+    /// against the audio they claim to describe. Without it the batch knew the
+    /// window each group STARTED at and nothing about where the audio ENDED,
+    /// so an engine reporting past its input could not be detected.
+    pub recording: Recording,
 }
 
 /// Parsed FA timings for one inferred miss group.
@@ -92,6 +101,40 @@ async fn infer_groups_v2(
     let mut parsed_results = Vec::with_capacity(batch.miss_indices.len());
     for group_index in batch.miss_indices.iter().copied() {
         let group = &batch.groups[group_index];
+
+        // The audio this group covers, proved against the recording BEFORE any
+        // inference is paid for.
+        //
+        // Two things are deliberate here. It runs before `dispatch_group_request`
+        // because a group that cannot be placed is a group whose FA result would
+        // be thrown away, and running the model first wastes the expensive part.
+        // And it DEGRADES to unaligned rather than propagating, because every
+        // other group-level failure in this loop does: a transcript bullet that
+        // ends past the media is a data condition, not a reason to abandon the
+        // file. Nothing upstream clamps `audio_span` to the recording
+        // (`extend_into_trailing_gap` returns its input unchanged when the
+        // segment already exceeds the media), so this arm is reachable on real
+        // corpora.
+        let window = match FaWindow::within(
+            &batch.recording,
+            FileMs::new(group.audio_start_ms()),
+            FileMs::new(group.audio_end_ms()),
+        ) {
+            Ok(window) => window,
+            Err(why) => {
+                warn!(
+                    group = group_index,
+                    start_ms = group.audio_start_ms(),
+                    end_ms = group.audio_end_ms(),
+                    recording_ms = batch.recording.duration().get(),
+                    error = %why,
+                    "FA group is not inside its recording; leaving words unaligned"
+                );
+                parsed_results.push(unaligned_group_result(group_index, group));
+                continue;
+            }
+        };
+
         let response = match dispatch_group_request(
             services,
             &artifacts,
@@ -109,8 +152,8 @@ async fn infer_groups_v2(
                 // whole file: the transcript is still useful without timing.
                 warn!(
                     group = group_index,
-                    start_ms = segment.window.start_ms(),
-                    end_ms = segment.window.end_ms(),
+                    start_ms = segment.window.start().get(),
+                    end_ms = segment.window.end().get(),
                     path = %segment.path,
                     "FA group has no audio (segment past end of file); leaving words unaligned"
                 );
@@ -142,7 +185,13 @@ async fn infer_groups_v2(
             Err(other) => return Err(other),
         };
 
-        match parse_group_response(&response, group_index, group) {
+        match parse_group_response(
+            &response,
+            group_index,
+            group,
+            &window,
+            &EngineId::new(batch.engine.as_wire_name()),
+        ) {
             Ok(parsed) => parsed_results.push(parsed),
             Err(error) => {
                 let Some(reason) = whisper_fallback_reason(batch.engine, &error) else {
@@ -181,7 +230,13 @@ async fn infer_groups_v2(
                     crate::types::engines::FaEngineName::Whisper,
                 )
                 .await?;
-                match parse_group_response(&fallback_response, group_index, group) {
+                match parse_group_response(
+                    &fallback_response,
+                    group_index,
+                    group,
+                    &window,
+                    &EngineId::new(crate::types::engines::FaEngineName::Whisper.as_wire_name()),
+                ) {
                     Ok(parsed) => {
                         parsed_results.push(parsed.with_fallback_event(build_fallback_event(
                             group_index,
@@ -282,16 +337,20 @@ async fn dispatch_group_request(
         .map_err(ServerError::Worker)
 }
 
+/// Lower one worker response into the FA timing domain.
+///
+/// Takes the group's window RATHER THAN rebuilding it from the recording. The
+/// window is proved once, by the caller, before inference is dispatched; a
+/// second construction here would be the same check in a second place, and the
+/// failure would arrive after the expensive part had already been paid for.
 fn parse_group_response(
     response: &crate::types::worker_v2::ExecuteResponseV2,
     group_index: usize,
     group: &FaGroup,
+    window: &FaWindow,
+    engine: &EngineId,
 ) -> Result<FaWorkerGroupResult, ServerError> {
-    let timings = parse_forced_alignment_result_v2(
-        response,
-        &group.words,
-        DurationMs(group.audio_start_ms()),
-    )
+    let timings = parse_forced_alignment_result_v2(response, &group.words, window, engine)
     .map_err(|error| {
         ServerError::Validation(format!(
             "failed to parse worker protocol V2 FA response for group {group_index} ({}..{} ms): {error}",
@@ -519,6 +578,11 @@ mod tests {
         }
     }
 
+    /// A recording long enough to contain every window these tests build.
+    fn test_recording() -> Recording {
+        Recording::of_duration(crate::chat_ops::fa::coordinates::Ms(600_000)).expect("non-zero")
+    }
+
     #[test]
     fn builds_fa_infer_item_from_transport_neutral_batch() {
         let word_texts = vec![vec!["hello".to_string(), "world".to_string()]];
@@ -535,6 +599,7 @@ mod tests {
             worker_lang: WorkerLanguage::from(crate::api::LanguageCode3::eng()),
             engine: crate::types::engines::FaEngineName::Whisper,
             gap_healing: WordGapHealing::PreserveMeasured,
+            recording: test_recording(),
         };
 
         let item = build_fa_infer_item(&batch, 0);
@@ -588,7 +653,14 @@ mod tests {
             elapsed_s: DurationSeconds(0.01),
         };
 
-        let error = parse_group_response(&response, 13, &group)
+        let recording = test_recording();
+        let window = FaWindow::within(
+            &recording,
+            FileMs::new(group.audio_start_ms()),
+            FileMs::new(group.audio_end_ms()),
+        )
+        .expect("test group lies inside the test recording");
+        let error = parse_group_response(&response, 13, &group, &window, &EngineId::new("test-fa"))
             .expect_err("non-FA payload should fail immediately");
 
         assert!(

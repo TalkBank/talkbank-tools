@@ -4,6 +4,8 @@
 
 use super::*;
 
+use crate::chat_ops::fa::injection::InjectedTimings;
+use crate::chat_ops::fa::postprocess::PendingTiming;
 use talkbank_model::UtteranceIdx;
 use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
@@ -16,14 +18,15 @@ use talkbank_parser::TreeSitterParser;
 fn postprocess_two_words(
     timings: Vec<Option<WordTiming>>,
     policy: WordEndPolicy,
-) -> Vec<Option<TimeSpan>> {
+) -> Vec<Option<PendingTiming>> {
     let mut chat = parse_chat(&proof_chat("alpha beta . \u{0015}0_4000\u{0015}"));
     let utt = get_test_utterance(&mut chat, 0);
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    postprocess_utterance_timings(utt, policy);
+    let injected = InjectedTimings::from_transcript(utt);
+    postprocess_utterance_timings(utt, policy, &injected);
 
     let mut collected = Vec::new();
     postprocess::collect_word_timings(&utt.main.content.content, &mut collected);
@@ -47,17 +50,17 @@ fn postprocess_two_words(
 fn a_word_is_not_healed_backwards_into_an_earlier_neighbour() {
     let collected = postprocess_two_words(
         vec![
-            WordTiming::new(2_000, 3_000),
+            WordTiming::fixture(2_000, 3_000),
             // Begins before its predecessor ends: what a mistracked or
             // wrong-window response produces.
-            WordTiming::new(1_000, 1_500),
+            WordTiming::fixture(1_000, 1_500),
         ],
         WordEndPolicy::measured(WordGapHealing::Heal),
     );
 
     assert_eq!(
         collected[0],
-        Some(TimeSpan::new(2_000, 3_000)),
+        Some(PendingTiming::fixture(TimeSpan::new(2_000, 3_000))),
         "the first word must keep its measured extent rather than be given an \
          end that precedes its own start"
     );
@@ -81,15 +84,15 @@ fn an_onset_only_final_word_is_extended_to_the_utterance_bullet() {
     // the next onset, and the last takes the flat fallback (2000 + 500).
     let collected = postprocess_two_words(
         vec![
-            WordTiming::new(1_000, 2_000),
-            WordTiming::new(2_000, 2_000 + LAST_WORD_FALLBACK_MS),
+            WordTiming::fixture(1_000, 2_000),
+            WordTiming::fixture(2_000, 2_000 + LAST_WORD_FALLBACK_MS),
         ],
         WordEndPolicy::onset_only(WordGapHealing::Heal),
     );
 
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(2_000, 4_000)),
+        Some(PendingTiming::fixture(TimeSpan::new(2_000, 4_000))),
         "the final word must reach the utterance bullet end, not stop at the \
          parser's fallback"
     );
@@ -104,13 +107,16 @@ fn an_onset_only_final_word_is_extended_to_the_utterance_bullet() {
 #[test]
 fn a_measured_final_word_is_not_stretched_to_the_bullet() {
     let collected = postprocess_two_words(
-        vec![WordTiming::new(1_000, 1_500), WordTiming::new(2_000, 2_400)],
+        vec![
+            WordTiming::fixture(1_000, 1_500),
+            WordTiming::fixture(2_000, 2_400),
+        ],
         WordEndPolicy::measured(WordGapHealing::Heal),
     );
 
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(2_000, 2_400)),
+        Some(PendingTiming::fixture(TimeSpan::new(2_000, 2_400))),
         "a measured end must survive post-processing"
     );
 }
@@ -131,15 +137,21 @@ fn test_postprocess_continuous_does_not_extend_word_across_implausibly_large_gap
     let utt = get_test_utterance(&mut chat, 0);
 
     let timings = vec![
-        WordTiming::new(100, 200),
-        WordTiming::new(300, 400),
-        WordTiming::new(10_000, 10_100),
+        WordTiming::fixture(100, 200),
+        WordTiming::fixture(300, 400),
+        WordTiming::fixture(10_000, 10_100),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -147,12 +159,12 @@ fn test_postprocess_continuous_does_not_extend_word_across_implausibly_large_gap
 
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(300, 400)),
+        Some(PendingTiming::fixture(TimeSpan::new(300, 400))),
         "gap healing must not stretch beta across a multi-second internal gap"
     );
     assert_eq!(
         collected[2],
-        Some(TimeSpan::new(10_000, 10_100)),
+        Some(PendingTiming::fixture(TimeSpan::new(10_000, 10_100))),
         "the final word should retain its original non-zero duration"
     );
 }
@@ -173,15 +185,21 @@ fn test_postprocess_continuous_does_not_extend_word_across_one_second_internal_g
     let utt = get_test_utterance(&mut chat, 0);
 
     let timings = vec![
-        WordTiming::new(4265, 4465),
-        WordTiming::new(5548, 5668),
-        WordTiming::new(5688, 5908),
+        WordTiming::fixture(4265, 4465),
+        WordTiming::fixture(5548, 5668),
+        WordTiming::fixture(5688, 5908),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -189,17 +207,17 @@ fn test_postprocess_continuous_does_not_extend_word_across_one_second_internal_g
 
     assert_eq!(
         collected[0],
-        Some(TimeSpan::new(4265, 4465)),
+        Some(PendingTiming::fixture(TimeSpan::new(4265, 4465))),
         "gap healing must not stretch sorry across a one-second internal gap before keep"
     );
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(5548, 5688)),
+        Some(PendingTiming::fixture(TimeSpan::new(5548, 5688))),
         "keep should retain its original pre-injection span"
     );
     assert_eq!(
         collected[2],
-        Some(TimeSpan::new(5688, 5908)),
+        Some(PendingTiming::fixture(TimeSpan::new(5688, 5908))),
         "going should retain its original non-zero duration"
     );
 }
@@ -216,18 +234,24 @@ fn test_postprocess_continuous_does_not_extend_compound_filler_across_following_
     // token, and continuous mode must not then stretch that merged filler
     // forward into the next lexical word.
     let timings = vec![
-        WordTiming::new(3664, 3744),
-        WordTiming::new(4446, 4646),
-        WordTiming::new(5027, 5247),
-        WordTiming::new(5288, 5428),
-        WordTiming::new(5448, 5588),
-        WordTiming::new(5689, 5949),
+        WordTiming::fixture(3664, 3744),
+        WordTiming::fixture(4446, 4646),
+        WordTiming::fixture(5027, 5247),
+        WordTiming::fixture(5288, 5428),
+        WordTiming::fixture(5448, 5588),
+        WordTiming::fixture(5689, 5949),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -235,12 +259,12 @@ fn test_postprocess_continuous_does_not_extend_compound_filler_across_following_
 
     assert_eq!(
         collected[0],
-        Some(TimeSpan::new(3664, 4646)),
+        Some(PendingTiming::fixture(TimeSpan::new(3664, 4646))),
         "gap healing must not stretch merged compound filler timing into the following word gap"
     );
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(5027, 5288)),
+        Some(PendingTiming::fixture(TimeSpan::new(5027, 5288))),
         "that's should retain its original pre-injection span"
     );
 }
@@ -254,16 +278,22 @@ fn test_postprocess_continuous_does_not_extend_lexical_word_across_following_fil
     // continuous mode stretches it forward across the gap before a timed filler
     // word, making "seems" dominate the utterance.
     let timings = vec![
-        WordTiming::new(3383, 3464),
-        WordTiming::new(3624, 4045),
-        WordTiming::new(4527, 4687),
-        WordTiming::new(4868, 5409),
+        WordTiming::fixture(3383, 3464),
+        WordTiming::fixture(3624, 4045),
+        WordTiming::fixture(4527, 4687),
+        WordTiming::fixture(4868, 5409),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -271,12 +301,12 @@ fn test_postprocess_continuous_does_not_extend_lexical_word_across_following_fil
 
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(3624, 4045)),
+        Some(PendingTiming::fixture(TimeSpan::new(3624, 4045))),
         "gap healing must not stretch a lexical word across the following filler gap"
     );
     assert_eq!(
         collected[2],
-        Some(TimeSpan::new(4527, 4868)),
+        Some(PendingTiming::fixture(TimeSpan::new(4527, 4868))),
         "the filler may still extend to the following lexical word"
     );
 }
@@ -294,20 +324,26 @@ fn test_postprocess_continuous_does_not_extend_filler_across_gap_when_it_would_d
     // making the filler dominate the short utterance. Keep the filler's own span
     // instead of smoothing it into a dominant token.
     let timings = vec![
-        WordTiming::new(12976, 13496),
-        WordTiming::new(13597, 13997),
-        WordTiming::new(14878, 14978),
-        WordTiming::new(15139, 15219),
-        WordTiming::new(15259, 15419),
-        WordTiming::new(15419, 15479),
-        WordTiming::new(15499, 15579),
-        WordTiming::new(15599, 15759),
+        WordTiming::fixture(12976, 13496),
+        WordTiming::fixture(13597, 13997),
+        WordTiming::fixture(14878, 14978),
+        WordTiming::fixture(15139, 15219),
+        WordTiming::fixture(15259, 15419),
+        WordTiming::fixture(15419, 15479),
+        WordTiming::fixture(15499, 15579),
+        WordTiming::fixture(15599, 15759),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -315,12 +351,12 @@ fn test_postprocess_continuous_does_not_extend_filler_across_gap_when_it_would_d
 
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(13597, 13997)),
+        Some(PendingTiming::fixture(TimeSpan::new(13597, 13997))),
         "gap healing must not stretch a filler across a gap when the bridged filler span would dominate the utterance"
     );
     assert_eq!(
         collected[2],
-        Some(TimeSpan::new(14878, 15139)),
+        Some(PendingTiming::fixture(TimeSpan::new(14878, 15139))),
         "the following lexical word may still extend to the next lexical boundary"
     );
 }
@@ -337,27 +373,33 @@ fn test_postprocess_continuous_heals_near_zero_lexical_word_before_filler_when_n
     // when extending it to the filler start still keeps the word well below the
     // dominance threshold for the utterance.
     let timings = vec![
-        WordTiming::new(4281, 4521),
-        WordTiming::new(5022, 5042),
-        WordTiming::new(6383, 6443),
-        WordTiming::new(7123, 7263),
-        WordTiming::new(7283, 7423),
-        WordTiming::new(7444, 7684),
-        WordTiming::new(7744, 7844),
-        WordTiming::new(7904, 7984),
-        WordTiming::new(8064, 8224),
-        WordTiming::new(8244, 8404),
-        WordTiming::new(8604, 8724),
-        WordTiming::new(8925, 9125),
-        WordTiming::new(9165, 9365),
-        WordTiming::new(9385, 9465),
-        WordTiming::new(9485, 9785),
+        WordTiming::fixture(4281, 4521),
+        WordTiming::fixture(5022, 5042),
+        WordTiming::fixture(6383, 6443),
+        WordTiming::fixture(7123, 7263),
+        WordTiming::fixture(7283, 7423),
+        WordTiming::fixture(7444, 7684),
+        WordTiming::fixture(7744, 7844),
+        WordTiming::fixture(7904, 7984),
+        WordTiming::fixture(8064, 8224),
+        WordTiming::fixture(8244, 8404),
+        WordTiming::fixture(8604, 8724),
+        WordTiming::fixture(8925, 9125),
+        WordTiming::fixture(9165, 9365),
+        WordTiming::fixture(9385, 9465),
+        WordTiming::fixture(9485, 9785),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -365,12 +407,12 @@ fn test_postprocess_continuous_heals_near_zero_lexical_word_before_filler_when_n
 
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(5022, 6383)),
+        Some(PendingTiming::fixture(TimeSpan::new(5022, 6383))),
         "continuous mode should heal a near-zero lexical word by extending it to the following filler start when that bridge is not dominant"
     );
     assert_eq!(
         collected[2],
-        Some(TimeSpan::new(6383, 7123)),
+        Some(PendingTiming::fixture(TimeSpan::new(6383, 7123))),
         "the filler should still extend to the following lexical word"
     );
 }
@@ -388,31 +430,37 @@ fn test_postprocess_continuous_rebalances_near_zero_lexical_word_from_following_
     // lexical word should reclaim enough time from that filler span to avoid a
     // near-zero collapse.
     let timings = vec![
-        WordTiming::new(4323, 4403),
-        WordTiming::new(4443, 4563),
-        WordTiming::new(4603, 4764),
-        WordTiming::new(4764, 4804),
-        WordTiming::new(4824, 5004),
-        WordTiming::new(5224, 5244),
-        WordTiming::new(5244, 5284),
-        WordTiming::new(5565, 5585),
-        WordTiming::new(5805, 6105),
-        WordTiming::new(6266, 6506),
-        WordTiming::new(6807, 7027),
-        WordTiming::new(7087, 7347),
-        WordTiming::new(7387, 7488),
-        WordTiming::new(7708, 7788),
-        WordTiming::new(7848, 7908),
-        WordTiming::new(7988, 8189),
-        WordTiming::new(8229, 8289),
-        WordTiming::new(8309, 8389),
-        WordTiming::new(8429, 8689),
+        WordTiming::fixture(4323, 4403),
+        WordTiming::fixture(4443, 4563),
+        WordTiming::fixture(4603, 4764),
+        WordTiming::fixture(4764, 4804),
+        WordTiming::fixture(4824, 5004),
+        WordTiming::fixture(5224, 5244),
+        WordTiming::fixture(5244, 5284),
+        WordTiming::fixture(5565, 5585),
+        WordTiming::fixture(5805, 6105),
+        WordTiming::fixture(6266, 6506),
+        WordTiming::fixture(6807, 7027),
+        WordTiming::fixture(7087, 7347),
+        WordTiming::fixture(7387, 7488),
+        WordTiming::fixture(7708, 7788),
+        WordTiming::fixture(7848, 7908),
+        WordTiming::fixture(7988, 8189),
+        WordTiming::fixture(8229, 8289),
+        WordTiming::fixture(8309, 8389),
+        WordTiming::fixture(8429, 8689),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -420,12 +468,12 @@ fn test_postprocess_continuous_rebalances_near_zero_lexical_word_from_following_
 
     assert_eq!(
         collected[5],
-        Some(TimeSpan::new(5224, 5264)),
+        Some(PendingTiming::fixture(TimeSpan::new(5224, 5264))),
         "continuous mode should let a collapsed lexical word reclaim the minimum 40 ms from the following filler span"
     );
     assert_eq!(
         collected[6],
-        Some(TimeSpan::new(5264, 5565)),
+        Some(PendingTiming::fixture(TimeSpan::new(5264, 5565))),
         "the filler should keep the rest of its expanded span after lending 20 ms back to the lexical word"
     );
 }
@@ -443,39 +491,45 @@ fn test_postprocess_continuous_rebalances_near_zero_lexical_word_from_following_
     // near-zero lexical word reaches the minimum duration floor instead of being
     // preserved as an implausible sliver.
     let timings = vec![
-        WordTiming::new(5381, 5501),
-        WordTiming::new(5582, 5822),
-        WordTiming::new(6202, 6222),
-        WordTiming::new(6282, 6502),
-        WordTiming::new(6842, 7082),
-        WordTiming::new(7303, 7323),
-        WordTiming::new(7623, 7823),
-        WordTiming::new(7863, 8083),
-        WordTiming::new(8103, 8143),
-        WordTiming::new(8203, 8803),
-        WordTiming::new(9284, 9364),
-        WordTiming::new(9464, 9564),
-        WordTiming::new(9584, 9624),
-        WordTiming::new(9644, 9724),
-        WordTiming::new(9784, 10264),
-        WordTiming::new(10945, 10965),
-        WordTiming::new(11405, 11585),
-        WordTiming::new(11645, 11845),
-        WordTiming::new(11865, 11925),
-        WordTiming::new(11925, 11945),
-        WordTiming::new(11945, 12305),
-        WordTiming::new(12385, 12545),
-        WordTiming::new(12565, 12926),
-        WordTiming::new(13486, 13706),
-        WordTiming::new(13786, 13886),
-        WordTiming::new(13966, 14226),
-        WordTiming::new(14266, 14687),
+        WordTiming::fixture(5381, 5501),
+        WordTiming::fixture(5582, 5822),
+        WordTiming::fixture(6202, 6222),
+        WordTiming::fixture(6282, 6502),
+        WordTiming::fixture(6842, 7082),
+        WordTiming::fixture(7303, 7323),
+        WordTiming::fixture(7623, 7823),
+        WordTiming::fixture(7863, 8083),
+        WordTiming::fixture(8103, 8143),
+        WordTiming::fixture(8203, 8803),
+        WordTiming::fixture(9284, 9364),
+        WordTiming::fixture(9464, 9564),
+        WordTiming::fixture(9584, 9624),
+        WordTiming::fixture(9644, 9724),
+        WordTiming::fixture(9784, 10264),
+        WordTiming::fixture(10945, 10965),
+        WordTiming::fixture(11405, 11585),
+        WordTiming::fixture(11645, 11845),
+        WordTiming::fixture(11865, 11925),
+        WordTiming::fixture(11925, 11945),
+        WordTiming::fixture(11945, 12305),
+        WordTiming::fixture(12385, 12545),
+        WordTiming::fixture(12565, 12926),
+        WordTiming::fixture(13486, 13706),
+        WordTiming::fixture(13786, 13886),
+        WordTiming::fixture(13966, 14226),
+        WordTiming::fixture(14266, 14687),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -483,12 +537,12 @@ fn test_postprocess_continuous_rebalances_near_zero_lexical_word_from_following_
 
     assert_eq!(
         collected[19],
-        Some(TimeSpan::new(11925, 11965)),
+        Some(PendingTiming::fixture(TimeSpan::new(11925, 11965))),
         "continuous mode should let a collapsed lexical word reclaim the minimum 40 ms from the following lexical span"
     );
     assert_eq!(
         collected[20],
-        Some(TimeSpan::new(11965, 12385)),
+        Some(PendingTiming::fixture(TimeSpan::new(11965, 12385))),
         "the following lexical word should keep the rest of its span after lending 20 ms back to the collapsed word"
     );
 }
@@ -505,22 +559,28 @@ fn test_postprocess_continuous_rebalances_near_zero_lexical_word_from_preceding_
     // collapsed lexical word. The lexical word should reclaim enough time back
     // from the preceding filler span to reach the minimum duration floor.
     let timings = vec![
-        WordTiming::new(10503, 10883),
-        WordTiming::new(11063, 11303),
-        WordTiming::new(11903, 11923),
-        WordTiming::new(13184, 13584),
-        WordTiming::new(13984, 14124),
-        WordTiming::new(14124, 14164),
-        WordTiming::new(14204, 14444),
-        WordTiming::new(14504, 14524),
-        WordTiming::new(14524, 14724),
-        WordTiming::new(14744, 14824),
+        WordTiming::fixture(10503, 10883),
+        WordTiming::fixture(11063, 11303),
+        WordTiming::fixture(11903, 11923),
+        WordTiming::fixture(13184, 13584),
+        WordTiming::fixture(13984, 14124),
+        WordTiming::fixture(14124, 14164),
+        WordTiming::fixture(14204, 14444),
+        WordTiming::fixture(14504, 14524),
+        WordTiming::fixture(14524, 14724),
+        WordTiming::fixture(14744, 14824),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
 
     let mut collected = Vec::new();
@@ -528,12 +588,12 @@ fn test_postprocess_continuous_rebalances_near_zero_lexical_word_from_preceding_
 
     assert_eq!(
         collected[1],
-        Some(TimeSpan::new(11063, 11883)),
+        Some(PendingTiming::fixture(TimeSpan::new(11063, 11883))),
         "continuous mode should let the preceding filler lend 20 ms back to a collapsed lexical word"
     );
     assert_eq!(
         collected[2],
-        Some(TimeSpan::new(11883, 11923)),
+        Some(PendingTiming::fixture(TimeSpan::new(11883, 11923))),
         "the collapsed lexical word should reclaim enough duration from the preceding filler span to reach the 40 ms floor"
     );
 }
@@ -555,16 +615,22 @@ fn test_postprocess_with_existing_wor_does_not_clamp_final_word_to_near_zero_dur
     let utt = get_test_utterance(&mut chat, 0);
 
     let timings = vec![
-        WordTiming::new(100, 300),
-        WordTiming::new(300, 500),
-        WordTiming::new(500, 700),
-        WordTiming::new(940, 1200),
+        WordTiming::fixture(100, 300),
+        WordTiming::fixture(300, 500),
+        WordTiming::fixture(500, 700),
+        WordTiming::fixture(940, 1200),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    let dropped = postprocess_utterance_timings(utt, WordEndPolicy::measured(WordGapHealing::Heal));
+    let injected = InjectedTimings::from_transcript(utt);
+    let dropped = postprocess_utterance_timings(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        &injected,
+    )
+    .dropped;
     assert_eq!(dropped, DroppedWordTimings::default());
     update_utterance_bullet(utt);
 
@@ -573,7 +639,7 @@ fn test_postprocess_with_existing_wor_does_not_clamp_final_word_to_near_zero_dur
 
     assert_eq!(
         collected[3],
-        Some(TimeSpan::new(940, 1200)),
+        Some(PendingTiming::fixture(TimeSpan::new(940, 1200))),
         "a rerun with existing %wor must keep the worker's final-word duration when clamping would collapse it to a near-zero tail"
     );
     let bullet = utt
@@ -641,10 +707,13 @@ fn test_postprocess_does_not_clamp_word_timings_to_utr_hint_bullet() {
     }
 
     let utt = get_test_utterance(&mut chat, 0);
+    let injected = InjectedTimings::from_transcript(utt);
     let dropped = postprocess_utterance_timings(
         utt,
         WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
-    );
+        &injected,
+    )
+    .dropped;
 
     // CURRENTLY RED: 2 words ("that" and "happened") are dropped because
     // their timings (25200ms and 26000ms) exceed the UTR hint boundary 25125ms.
@@ -735,10 +804,13 @@ fn test_postprocess_does_not_clamp_word_timings_on_first_time_alignment_no_wor()
     }
 
     let utt = get_test_utterance(&mut chat, 0);
+    let injected = InjectedTimings::from_transcript(utt);
     let dropped = postprocess_utterance_timings(
         utt,
         WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
-    );
+        &injected,
+    )
+    .dropped;
 
     assert_eq!(
         dropped,

@@ -227,7 +227,7 @@ pub async fn extract_audio_segment(
     // Only for the cache key: the window itself is already proven, so nothing
     // here re-checks it. That check used to live in this function, and in two
     // others, none of them where the pair originates.
-    let (start_ms, end_ms) = (window.start_ms(), window.end_ms());
+    let (start_ms, end_ms) = (window.start().get(), window.end().get());
 
     tokio::task::spawn_blocking(move || -> Result<PathBuf, EnsureWavError> {
         let cache_dir = default_cache_dir();

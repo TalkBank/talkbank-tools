@@ -30,8 +30,9 @@ use batchalign_transform::dp_align::{self, MatchMode};
 
 use tracing::debug;
 
-use crate::api::DurationMs;
 use crate::media::window::MediaWindow;
+
+use super::coordinates::{FileMs, Recording};
 
 use super::extraction::collect_fa_words;
 
@@ -682,6 +683,73 @@ pub fn utr_asr_segment_cache_key(
     crate::chat_ops::CacheKey::from_content(&input)
 }
 
+/// Where one edge of an untimed run's window came from.
+///
+/// # Why this is a type and not an `unwrap_or`
+///
+/// Both edges used to be `find_map(...).unwrap_or(fallback)`, which is correct
+/// arithmetic and silent about which case occurred. The two are different
+/// facts: a boundary taken from a timed neighbour is derived from a MEASURED
+/// bullet, while the fallback is a boundary of the FILE ITSELF, chosen because
+/// there is no neighbour on that side. Rewriting the `unwrap_or` as a bare
+/// `match` would only spell the same collapse differently, so the distinction
+/// is carried in the value instead: a caller reading `FileEdge` can see that
+/// nothing measured it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RunBoundary {
+    /// The nearest timed utterance's bullet edge on that side.
+    TimedNeighbour(u64),
+    /// No timed utterance on that side, so the window runs to the edge of the
+    /// audio. Not a measurement of speech, and not an invented one either: it
+    /// is the extent of the file.
+    FileEdge(u64),
+}
+
+/// Which way a window edge is pushed to leave room around the speech.
+#[derive(Debug, Clone, Copy)]
+enum Padding {
+    /// Move the edge earlier, never before the start of the file.
+    Earlier(u64),
+    /// Move the edge later, never past the end of the recording.
+    Later(u64),
+}
+
+impl RunBoundary {
+    /// Classify a neighbour search's answer, naming the fallback's meaning.
+    fn from_neighbour(found: Option<u64>, file_edge: u64) -> Self {
+        match found {
+            Some(ms) => Self::TimedNeighbour(ms),
+            None => Self::FileEdge(file_edge),
+        }
+    }
+
+    /// This edge, moved outward to leave room, kept inside the recording.
+    ///
+    /// The padding and the bound live here rather than at the call site because
+    /// BOTH edges must be clamped and for a while only the end was, which is
+    /// what let a run whose bullet starts past the end of the audio produce an
+    /// inverted window. One owner means the two edges cannot disagree again.
+    ///
+    /// Asks the [`Recording`] rather than writing `.min(total_audio_ms)`: the
+    /// recording owns its own bound, and a bare `.min()` cannot say whether it
+    /// did anything.
+    fn padded(self, by: Padding, recording: &Recording) -> u64 {
+        let from = match self {
+            Self::TimedNeighbour(ms) | Self::FileEdge(ms) => ms,
+        };
+        let moved = match by {
+            Padding::Earlier(ms) => from.saturating_sub(ms),
+            Padding::Later(ms) => from.saturating_add(ms),
+        };
+        match recording.overshoot_of(FileMs::new(moved)) {
+            None => moved,
+            // Past the end of the audio, so the edge becomes the end of the
+            // audio. Nothing is measured here; this is the file's own extent.
+            Some(_) => recording.duration().get(),
+        }
+    }
+}
+
 /// Identify audio windows covering untimed utterances.
 ///
 /// Each window spans from the preceding timed utterance's end to the
@@ -702,7 +770,7 @@ pub fn utr_asr_segment_cache_key(
 /// which is the failure this crate keeps finding.
 pub fn find_untimed_windows(
     chat_file: &ChatFile,
-    total_audio_ms: u64,
+    recording: &Recording,
     padding_ms: u64,
 ) -> Vec<MediaWindow> {
     // Collect bullet info for each utterance in order
@@ -739,32 +807,26 @@ pub fn find_untimed_windows(
         }
         // run_start..i is the untimed run
 
-        // Window start: end of preceding timed utterance, or 0
-        let window_start = if run_start > 0 {
-            // Search backward for the nearest timed utterance
+        // The nearest timed neighbour on each side bounds the window. Both
+        // searches range over a possibly-EMPTY span, which already answers
+        // `None`, so the `if run_start > 0` / `if i < len` guards these used to
+        // carry restated what the iterator already knew, and each then spelled
+        // its answer twice: once in the `else` arm and once in an `unwrap_or`.
+        let window_start = RunBoundary::from_neighbour(
             (0..run_start)
                 .rev()
-                .find_map(|j| utt_bullets[j].map(|(_, end)| end))
-                .unwrap_or(0)
-        } else {
-            0
-        };
+                .find_map(|j| utt_bullets[j].map(|(_, end)| end)),
+            0,
+        );
+        let window_end = RunBoundary::from_neighbour(
+            (i..utt_bullets.len()).find_map(|j| utt_bullets[j].map(|(start, _)| start)),
+            recording.duration().get(),
+        );
 
-        // Window end: start of following timed utterance, or total_audio_ms
-        let window_end = if i < utt_bullets.len() {
-            // Search forward for the nearest timed utterance
-            (i..utt_bullets.len())
-                .find_map(|j| utt_bullets[j].map(|(start, _)| start))
-                .unwrap_or(total_audio_ms)
-        } else {
-            total_audio_ms
-        };
-
-        // Apply padding and clamp
-        // Both ends clamped. Only `padded_end` was, which is what let a bullet
-        // starting past the audio's end yield start > end.
-        let padded_start = window_start.saturating_sub(padding_ms).min(total_audio_ms);
-        let padded_end = (window_end + padding_ms).min(total_audio_ms);
+        // Padding and clamping both belong to the boundary now; see
+        // `RunBoundary::padded` for why one owner matters here.
+        let padded_start = window_start.padded(Padding::Earlier(padding_ms), recording);
+        let padded_end = window_end.padded(Padding::Later(padding_ms), recording);
 
         raw_windows.push((padded_start, padded_end));
     }
@@ -793,7 +855,7 @@ pub fn find_untimed_windows(
     let total = merged.len();
     let windows: Vec<MediaWindow> = merged
         .into_iter()
-        .filter_map(|(start, end)| MediaWindow::new(DurationMs(start), DurationMs(end)).ok())
+        .filter_map(|(start, end)| MediaWindow::new(FileMs::new(start), FileMs::new(end)).ok())
         .collect();
     if windows.len() != total {
         debug!(
@@ -813,6 +875,33 @@ mod tests {
     fn parse_chat(text: &str) -> ChatFile {
         let parser = TreeSitterParser::new().unwrap();
         parser.parse_chat_file(text).expect_built()
+    }
+
+    fn recording(duration_ms: u64) -> Recording {
+        Recording::of_duration(super::super::coordinates::Ms(duration_ms))
+            .expect("test recordings are non-empty")
+    }
+
+    #[test]
+    fn a_padded_window_never_leaves_the_recording() {
+        // Both edges clamp, and the type owns it. Only the END used to be
+        // clamped, so a bullet naming a moment past the end of the audio
+        // produced a window whose start exceeded its end. `MediaWindow::new`
+        // then refused it and the run silently lost a window.
+        let rec = recording(10_000);
+        let past_the_end = RunBoundary::FileEdge(12_000);
+        assert_eq!(past_the_end.padded(Padding::Later(500), &rec), 10_000);
+        assert_eq!(past_the_end.padded(Padding::Earlier(500), &rec), 10_000);
+
+        // An edge inside the recording is padded normally, and an edge near
+        // zero saturates rather than wrapping.
+        let inside = RunBoundary::TimedNeighbour(4_000);
+        assert_eq!(inside.padded(Padding::Earlier(500), &rec), 3_500);
+        assert_eq!(inside.padded(Padding::Later(500), &rec), 4_500);
+        assert_eq!(
+            RunBoundary::FileEdge(0).padded(Padding::Earlier(500), &rec),
+            0
+        );
     }
 
     fn make_asr_tokens(words_with_times: &[(&str, u64, u64)]) -> Vec<AsrTimingToken> {
@@ -1167,7 +1256,7 @@ mod tests {
     fn test_find_untimed_windows_all_timed() {
         let input = include_str!("../../../../../test-fixtures/fa_two_timed_utterances.cha");
         let chat = parse_chat(input);
-        let windows = super::find_untimed_windows(&chat, 60000, 500);
+        let windows = super::find_untimed_windows(&chat, &recording(60000), 500);
         assert!(windows.is_empty(), "all timed → no windows");
     }
 
@@ -1177,12 +1266,12 @@ mod tests {
             include_str!("../../../../../test-fixtures/fa_mixed_timed_untimed_interleaved.cha");
         let chat = parse_chat(input);
         // This fixture has 3 timed and 3 untimed utterances interleaved
-        let windows = super::find_untimed_windows(&chat, 60000, 500);
+        let windows = super::find_untimed_windows(&chat, &recording(60000), 500);
         assert!(!windows.is_empty(), "should find untimed windows");
         // Windows should be non-overlapping and ordered
         for w in windows.windows(2) {
             assert!(
-                w[0].end_ms() <= w[1].start_ms(),
+                w[0].end() <= w[1].start(),
                 "windows should be non-overlapping"
             );
         }
@@ -1192,9 +1281,13 @@ mod tests {
     fn test_find_untimed_windows_all_untimed() {
         let input = include_str!("../../../../../test-fixtures/fa_two_untimed_with_media.cha");
         let chat = parse_chat(input);
-        let windows = super::find_untimed_windows(&chat, 30000, 500);
+        let windows = super::find_untimed_windows(&chat, &recording(30000), 500);
         assert_eq!(windows.len(), 1, "all untimed → one merged window");
-        assert_eq!(windows[0].start_ms(), 0, "starts at 0");
-        assert_eq!(windows[0].end_ms(), 30000, "ends at total_audio_ms");
+        assert_eq!(windows[0].start(), FileMs::new(0), "starts at 0");
+        assert_eq!(
+            windows[0].end(),
+            FileMs::new(30000),
+            "ends at total_audio_ms"
+        );
     }
 }

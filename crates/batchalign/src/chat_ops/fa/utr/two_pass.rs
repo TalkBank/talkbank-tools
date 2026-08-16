@@ -20,6 +20,7 @@
 
 use talkbank_model::model::{Bullet, ChatFile, Line};
 
+use crate::chat_ops::fa::coordinates::{Ms, Recording};
 use crate::chat_ops::fa::grouping::group_utterances;
 use batchalign_transform::dp_align::{self, MatchMode};
 
@@ -203,14 +204,25 @@ impl UtrStrategy for TwoPassOverlapUtr {
             self.config.match_mode.to_dp_match_mode(),
         );
 
-        let prefer_two_pass = if let Some(ctx) = &self.grouping_context {
+        // The group-count signal needs a recording to group against. A context
+        // whose duration is zero cannot supply one, and that is not a reason to
+        // pick a strategy: it falls through to the timed-utterance signal,
+        // exactly as a missing context does.
+        let group_counts = self.grouping_context.as_ref().and_then(|ctx| {
+            let recording = Recording::of_duration(Ms(ctx.total_audio_ms)).ok()?;
+            Some((
+                group_utterances(&two_pass_file, ctx.max_group_ms, &recording)
+                    .groups
+                    .len(),
+                group_utterances(&global_file, ctx.max_group_ms, &recording)
+                    .groups
+                    .len(),
+            ))
+        });
+
+        let prefer_two_pass = if let Some((two_pass_groups, global_groups)) = group_counts {
             // Primary signal: FA group count. Fewer groups means wider FA
             // windows, which causes worse alignment on non-English files.
-            let two_pass_groups =
-                group_utterances(&two_pass_file, ctx.max_group_ms, Some(ctx.total_audio_ms)).len();
-            let global_groups =
-                group_utterances(&global_file, ctx.max_group_ms, Some(ctx.total_audio_ms)).len();
-
             if two_pass_groups != global_groups {
                 // Prefer whichever creates more groups (more precise FA windows).
                 two_pass_groups >= global_groups
@@ -222,7 +234,7 @@ impl UtrStrategy for TwoPassOverlapUtr {
                 two_pass_timed >= global_timed
             }
         } else {
-            // No grouping context: use timed utterance count only.
+            // No usable grouping context: use timed utterance count only.
             let two_pass_timed = count_timed_utterances(&two_pass_file);
             let global_timed = count_timed_utterances(&global_file);
             two_pass_timed >= global_timed

@@ -24,7 +24,8 @@ mod common;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use batchalign::api::DurationMs;
+use batchalign::chat_ops::fa::coordinates::{FaWindow, FileMs, Ms, Recording};
+use batchalign::chat_ops::fa::origin::EngineId;
 use batchalign::chat_ops::fa::{FaInferItem, FaWord, WordGapHealing};
 use batchalign::chat_ops::{UtteranceIdx, WordIdx};
 use batchalign::media::tools::MediaTool;
@@ -152,7 +153,12 @@ async fn staged_worker_v2_fa_roundtrip_crosses_rust_and_python() {
     let timings = parse_forced_alignment_result_v2(
         &response,
         &make_words(&["hello", "world"]),
-        DurationMs(0),
+        &{
+            let recording = Recording::of_duration(Ms(600_000)).expect("non-zero");
+            FaWindow::within(&recording, FileMs::new(0), FileMs::new(60_000))
+                .expect("window inside the recording")
+        },
+        &EngineId::new("test-fa"),
     )
     .expect("staged response should parse back into Rust FA domain");
 

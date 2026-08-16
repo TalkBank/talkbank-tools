@@ -841,11 +841,27 @@ numeric_id!(
 );
 
 numeric_id!(
-    /// Duration or audio position measured in milliseconds.
+    /// A LENGTH of time in milliseconds. Not a position.
     ///
-    /// Used for audio timestamps (`start_ms`, `end_ms`) and durations
-    /// (`max_group_ms`, `tight_buffer_ms`) throughout the FA, ASR, and
-    /// speaker pipelines. All ML worker IPC timing fields use this type.
+    /// This docstring read "Duration or audio position" until 2026-08-15, and
+    /// the `or` was the defect: one type standing for two facts means nothing
+    /// can notice a length passed where an offset belongs. `MediaWindow` stored
+    /// its two file offsets in it for exactly that reason.
+    ///
+    /// A POSITION measured from the start of a recording is
+    /// `batchalign::time::FileMs`; one measured from the start of an alignment
+    /// window is `batchalign::time::WindowMs`. Use those for offsets, and this
+    /// only for genuine durations (`max_group_ms`, `tight_buffer_ms`).
+    ///
+    /// Still carried by the `worker_v2` IPC types, whose `start_ms` / `end_ms`
+    /// fields ARE positions and are not yet converted. Two DIFFERENT decisions
+    /// hide behind that, and only one waits on anyone else: the wire type here
+    /// mirrors the Python side, but the hop after it
+    /// (`batchalign::chat_ops::nlp::types::FaIndexedTiming`) is entirely ours,
+    /// is not Python-facing, and serializes identically to a `WindowMs`. Typing
+    /// that one needs no coordination. See `batchalign::time` for what else
+    /// blocks retiring the duplicate `Ms`, and for which direction a merge
+    /// would have to go.
     pub DurationMs(u64) [Eq]
 );
 

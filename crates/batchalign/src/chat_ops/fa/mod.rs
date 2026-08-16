@@ -7,21 +7,25 @@
 //! -> inject timings -> postprocess -> generate %wor -> enforce monotonicity/E704.
 
 pub mod alignment;
+pub mod coordinates;
 mod expand_for_fillers;
 mod extraction;
 mod grouping;
 mod injection;
 mod orchestrate;
+pub mod origin;
 pub mod outcome;
 mod postprocess;
 pub mod repair;
 mod rescue_narrow_bullets;
-pub mod review_tiers;
+pub mod speech_rate;
+pub mod timing;
 pub mod utr;
 
 #[cfg(test)]
 mod tests;
 
+use self::origin::Origin;
 use crate::types::engines::FaTimingResolution;
 use serde::{Deserialize, Serialize};
 use talkbank_model::alignment::helpers::{TierDomain, WordItem, counts_for_tier, walk_words};
@@ -35,25 +39,32 @@ pub use self::alignment::parse_fa_response;
 pub use self::expand_for_fillers::expand_bullets_for_edge_fillers;
 pub use self::extraction::collect_fa_words;
 pub use self::grouping::{
-    WHISPER_FA_MAX_LABEL_TOKENS, count_utterance_timing, estimate_untimed_boundaries,
-    group_utterances,
+    Estimates, Grouping, Placement, WHISPER_FA_MAX_LABEL_TOKENS, count_utterance_timing,
+    estimate_untimed_boundaries, group_utterances,
 };
 pub use self::injection::inject_timings_for_utterance;
 pub use self::orchestrate::{
-    apply_fa_results, enforce_monotonicity, has_reusable_wor_timing_for_utterance,
-    refresh_existing_alignment, refresh_existing_alignment_for_utterance,
-    refresh_reusable_utterances, strip_e704_same_speaker_overlaps, strip_timing_from_content,
-    strip_wor_from_monotonicity_stripped_utterances,
+    FaApplied, FaDecisions, FaOrdered, apply_fa_results, enforce_monotonicity,
+    has_reusable_wor_timing_for_utterance, refresh_existing_alignment,
+    refresh_existing_alignment_for_utterance, refresh_reusable_utterances,
+    strip_e704_same_speaker_overlaps, strip_timing_from_content,
+    strip_wor_from_monotonicity_stripped_utterances, write_decision_tiers,
 };
 pub use self::postprocess::postprocess_utterance_timings;
 pub use self::repair::{RepairDecision, RepairResult, RepairStats, repair_bullets};
 pub use self::rescue_narrow_bullets::rescue_narrow_bullets;
-pub use self::review_tiers::{ReviewLevel, inject_review_tiers};
+// `ReviewLevel` comes straight from its owner. The local `review_tiers` module
+// was deleted on 2026-08-15: both FA paths now use
+// `batchalign_transform::decisions::inject_decision_tiers`, and the local copy
+// was not merely redundant but WRONG, pushing one `%xalign` per decision where
+// the shared one merges them, because CHAT E401 forbids duplicate dependent
+// tiers on an utterance.
 pub use self::utr::{
     CaMarkerPolicy, GlobalUtr, GroupingContext, TwoPassConfig, TwoPassOverlapUtr, UtrMatchMode,
     UtrStrategy, find_untimed_windows, select_strategy, utr_asr_cache_key,
     utr_asr_segment_cache_key,
 };
+pub use batchalign_transform::decisions::ReviewLevel;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -101,19 +112,151 @@ impl TimeSpan {
 ///
 /// `postprocess_continuous::a_word_is_not_healed_backwards_into_an_earlier_neighbour`
 /// is the executable account of why this type exists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(try_from = "TimeSpan", into = "TimeSpan")]
-pub struct WordTiming(TimeSpan);
+/// # Every timing says how it was made
+///
+/// The `origin` is not decoration and not a log line: it is the answer to "was
+/// this measured, or did we compute it?", and it is the question a corpus
+/// consumer most needs and could least ask. On one merged corpus roughly 37% of
+/// timings were interpolated rather than measured, indistinguishable in the
+/// output, so a reference comparison reported 37.2% agreement by time against
+/// 76.4% by text: the gap was almost entirely our own arithmetic being scored as
+/// observation.
+///
+/// It is carried on the value rather than beside it because anything beside it
+/// is a second thing to keep true, and the two drift. There is deliberately no
+/// constructor that omits it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "WordTimingWire", into = "WordTimingWire")]
+pub struct WordTiming {
+    span: TimeSpan,
+    /// How the word's START was produced.
+    start_origin: Origin,
+    /// How the word's END was produced.
+    ///
+    /// Separate from the start's because a word has TWO boundaries and they are
+    /// routinely produced differently. On an onset-only engine the start is
+    /// MEASURED (it is the token onset) and the end is inferred from the next
+    /// word; carrying one origin for both reported such a word as wholly
+    /// derived, understating what was actually observed by half. `WordSpan`
+    /// already modelled both ends correctly and the lowering here threw one
+    /// away.
+    end_origin: Origin,
+}
+
+/// The stored form of a [`WordTiming`].
+///
+/// Exists so the extent invariant is checked on the way IN from the cache, not
+/// only at construction. Adding the `origin` field replaced a
+/// `#[serde(try_from = "TimeSpan")]` with a plain derive, which silently
+/// dropped that check: a stored `{"span":{"start_ms":5,"end_ms":5}}` began
+/// deserializing into a zero-width timing again, and the docstring below still
+/// claimed it could not. A wire type keeps the two facts together, so the
+/// invariant holds at every boundary the value crosses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct WordTimingWire {
+    span: TimeSpan,
+    start_origin: Origin,
+    end_origin: Origin,
+}
+
+impl From<WordTiming> for WordTimingWire {
+    fn from(timing: WordTiming) -> Self {
+        Self {
+            span: timing.span,
+            start_origin: timing.start_origin,
+            end_origin: timing.end_origin,
+        }
+    }
+}
+
+impl TryFrom<WordTimingWire> for WordTiming {
+    type Error = DegenerateWordTiming;
+
+    fn try_from(wire: WordTimingWire) -> Result<Self, Self::Error> {
+        Self::new(
+            wire.span.start_ms,
+            wire.span.end_ms,
+            wire.start_origin,
+            wire.end_origin,
+        )
+        .ok_or(DegenerateWordTiming {
+            start_ms: wire.span.start_ms,
+            end_ms: wire.span.end_ms,
+        })
+    }
+}
 
 impl WordTiming {
-    /// A timing for a word that occupies `start_ms..end_ms`.
+    /// A timing for a word that occupies `start_ms..end_ms`, produced as
+    /// `origin` describes.
     ///
     /// `None` when the pair does not describe a positive extent. A caller that
     /// cannot build one has learned something real: the engine gave no usable
     /// timing for that word, and the honest result is no timing rather than a
     /// zero-length or backwards one.
-    pub fn new(start_ms: u64, end_ms: u64) -> Option<Self> {
-        (end_ms > start_ms).then_some(Self(TimeSpan::new(start_ms, end_ms)))
+    pub fn new(
+        start_ms: u64,
+        end_ms: u64,
+        start_origin: Origin,
+        end_origin: Origin,
+    ) -> Option<Self> {
+        (end_ms > start_ms).then_some(Self {
+            span: TimeSpan::new(start_ms, end_ms),
+            start_origin,
+            end_origin,
+        })
+    }
+
+    /// How the word's start was produced.
+    pub fn start_origin(&self) -> &Origin {
+        &self.start_origin
+    }
+
+    /// How the word's end was produced.
+    pub fn end_origin(&self) -> &Origin {
+        &self.end_origin
+    }
+
+    /// A timing read from a span already present in the transcript.
+    ///
+    /// Replaces the old `TryFrom<TimeSpan>`, which could turn any pair of
+    /// integers into a timing with no statement of where they came from. Naming
+    /// the route makes the provenance automatic: a span lifted off a `%wor`
+    /// tier is an observation, because a human or an earlier run put it there,
+    /// and it is not one this run measured.
+    pub fn from_transcript(span: TimeSpan) -> Result<Self, DegenerateWordTiming> {
+        Self::new(
+            span.start_ms,
+            span.end_ms,
+            Origin::TranscriptBullet,
+            Origin::TranscriptBullet,
+        )
+        .ok_or(DegenerateWordTiming {
+            start_ms: span.start_ms,
+            end_ms: span.end_ms,
+        })
+    }
+}
+
+#[cfg(test)]
+impl WordTiming {
+    /// A timing for a test fixture.
+    ///
+    /// Stands for a span the transcript already carried, which is what almost
+    /// every fixture here means: the test is exercising a LATER pass and needs
+    /// some prior timing to feed it. Tests that care about provenance call
+    /// [`WordTiming::new`] with the origin they mean, and a few do.
+    ///
+    /// Test-only on purpose. Production code cannot reach it, so no real timing
+    /// can acquire a provenance nobody chose; that is the difference between a
+    /// convenience and a hole in the proof.
+    pub(crate) fn fixture(start_ms: u64, end_ms: u64) -> Option<Self> {
+        Self::new(
+            start_ms,
+            end_ms,
+            Origin::TranscriptBullet,
+            Origin::TranscriptBullet,
+        )
     }
 }
 
@@ -121,21 +264,24 @@ impl std::ops::Deref for WordTiming {
     type Target = TimeSpan;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.span
     }
 }
 
 impl From<WordTiming> for TimeSpan {
     fn from(timing: WordTiming) -> Self {
-        timing.0
+        timing.span
     }
 }
 
 /// Rejects a stored span that does not describe a positive extent.
 ///
-/// This is what makes the FA cache self-cleaning: a pre-2026-08-14 entry
-/// holding zero-duration timings fails to deserialize, the read path treats
-/// that as a miss, and the group is recomputed with the fixed parser.
+/// This is what makes the FA cache self-cleaning: an entry holding
+/// zero-duration timings fails to deserialize (via `WordTimingWire`), the read
+/// path treats that as a miss, and the group is recomputed. The same mechanism
+/// retires entries written before timings carried an origin, which is why
+/// adding that field needed no migration: an old entry lacks `origin`, fails to
+/// deserialize, and simply misses.
 #[derive(Debug, thiserror::Error)]
 #[error("a word timing must cover a positive extent, got {start_ms}..{end_ms}")]
 pub struct DegenerateWordTiming {
@@ -143,17 +289,6 @@ pub struct DegenerateWordTiming {
     pub start_ms: u64,
     /// End of the rejected span.
     pub end_ms: u64,
-}
-
-impl TryFrom<TimeSpan> for WordTiming {
-    type Error = DegenerateWordTiming;
-
-    fn try_from(span: TimeSpan) -> Result<Self, Self::Error> {
-        Self::new(span.start_ms, span.end_ms).ok_or(DegenerateWordTiming {
-            start_ms: span.start_ms,
-            end_ms: span.end_ms,
-        })
-    }
 }
 
 /// Split a compound filler's cleaned text at underscores, or return the
@@ -498,7 +633,7 @@ pub fn find_reusable_utterance_indices(chat_file: &ChatFile) -> std::collections
         if !candidate.has_alignable_words {
             continue;
         }
-        let Some(span) = candidate.wor_span else {
+        let Some(ref span) = candidate.wor_span else {
             continue;
         };
         if let Some(next_start_ms) = next_timed_start_after[i]
@@ -572,7 +707,7 @@ pub fn update_utterance_bullet(utterance: &mut Utterance) {
     let mut first_start: Option<u64> = None;
     let mut last_end: Option<u64> = None;
 
-    let mut timings: Vec<Option<TimeSpan>> = Vec::new();
+    let mut timings: Vec<Option<postprocess::PendingTiming>> = Vec::new();
     postprocess::collect_word_timings(&utterance.main.content.content, &mut timings);
     let has_fa_wor = utterance.wor_tier().is_some();
     let has_untimed_leading_filler_coverage =
@@ -665,7 +800,8 @@ pub fn collect_existing_fa_word_timings(utterance: &Utterance) -> Vec<Option<Wor
             WordItem::Word(word) => {
                 if counts_for_tier(word, TierDomain::Wor) {
                     timings.push(
-                        get_word_timing(word).and_then(|span| WordTiming::try_from(span).ok()),
+                        get_word_timing(word)
+                            .and_then(|span| WordTiming::from_transcript(span).ok()),
                     );
                 }
             }
@@ -678,7 +814,7 @@ pub fn collect_existing_fa_word_timings(utterance: &Utterance) -> Vec<Option<Wor
                 if counts_for_tier(&replaced.word, TierDomain::Wor) {
                     timings.push(
                         get_word_timing(&replaced.word)
-                            .and_then(|span| WordTiming::try_from(span).ok()),
+                            .and_then(|span| WordTiming::from_transcript(span).ok()),
                     );
                 }
             }

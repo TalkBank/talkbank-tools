@@ -89,6 +89,11 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         // closest fit is `System`, and the error message itself directs the
         // operator to check task-queue configuration.
         ServerError::JobNotInLocalStore(_) => FailureCategory::System,
+        // A recording whose duration cannot be established is a property of the
+        // media on disk, not of the request or of a worker: ffprobe could not
+        // read it, or it is empty. `System` is the category an operator should
+        // look at the host for.
+        ServerError::RecordingDuration(_) => FailureCategory::System,
     }
 }
 

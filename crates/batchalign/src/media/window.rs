@@ -17,7 +17,7 @@
 
 use std::ffi::OsString;
 
-use crate::api::DurationMs;
+use crate::time::FileMs;
 
 /// A non-empty half-open window of a source file.
 ///
@@ -25,57 +25,60 @@ use crate::api::DurationMs;
 /// already proved the window can contain audio. `artifacts_v2` used to check
 /// this inline and report the failure as `io::ErrorKind::InvalidInput`, which
 /// described an invalid ARGUMENT as a failure of the filesystem.
+/// The bounds are [`FileMs`] because they are POSITIONS, not lengths; see
+/// [`crate::time`] for why that distinction has its own module.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MediaWindow {
-    start: DurationMs,
-    end: DurationMs,
+    start: FileMs,
+    end: FileMs,
 }
 
 /// A window whose end does not follow its start.
 #[derive(Debug, thiserror::Error)]
 #[error("media window end {end} must be greater than start {start}")]
 pub struct EmptyWindow {
-    /// Requested start, in milliseconds from the beginning of the source.
-    pub start: u64,
-    /// Requested end, in milliseconds from the beginning of the source.
-    pub end: u64,
+    /// Requested start.
+    pub start: FileMs,
+    /// Requested end.
+    pub end: FileMs,
 }
 
 impl MediaWindow {
     /// The window from `start` to `end`, or [`EmptyWindow`] if it holds nothing.
-    pub fn new(start: DurationMs, end: DurationMs) -> Result<Self, EmptyWindow> {
-        if end.0 <= start.0 {
-            return Err(EmptyWindow {
-                start: start.0,
-                end: end.0,
-            });
+    pub fn new(start: FileMs, end: FileMs) -> Result<Self, EmptyWindow> {
+        if end <= start {
+            return Err(EmptyWindow { start, end });
         }
         Ok(Self { start, end })
     }
 
-    /// Start, in milliseconds from the beginning of the source.
+    /// Start, as the position it is.
     ///
-    /// These two were deleted as dead surface once and are back because the
-    /// window reached the callers that need its numbers: the UTR segment cache
-    /// key is derived from them, and the tests assert merge boundaries.
+    /// There is no `start_ms() -> u64` beside this. There was, and adding
+    /// `start()` without removing it meant the change added two accessors and
+    /// removed nothing, leaving the untyped route out with the shorter name so
+    /// a new call site would reach for it. Callers that genuinely need the
+    /// integer (a cache key, a `Display`, tracing fields) spell the lowering
+    /// themselves with `.get()`, which is one visible step rather than a second
+    /// sanctioned way to ask the same question.
     #[must_use]
-    pub fn start_ms(self) -> u64 {
-        self.start.0
+    pub fn start(self) -> FileMs {
+        self.start
     }
 
-    /// End, in milliseconds from the beginning of the source.
+    /// End, as the position it is.
     #[must_use]
-    pub fn end_ms(self) -> u64 {
-        self.end.0
+    pub fn end(self) -> FileMs {
+        self.end
     }
 
     /// `ffmpeg`'s seconds-with-milliseconds spelling of this window.
     pub(in crate::media) fn as_seek_args(self) -> [OsString; 4] {
         [
             OsString::from("-ss"),
-            OsString::from(format!("{:.3}", self.start.0 as f64 / 1000.0)),
+            OsString::from(format!("{:.3}", self.start.get() as f64 / 1000.0)),
             OsString::from("-to"),
-            OsString::from(format!("{:.3}", self.end.0 as f64 / 1000.0)),
+            OsString::from(format!("{:.3}", self.end.get() as f64 / 1000.0)),
         ]
     }
 }
@@ -109,8 +112,8 @@ impl std::fmt::Display for EmptySegment {
         write!(
             f,
             "[{}ms..{}ms) in {}",
-            self.window.start_ms(),
-            self.window.end_ms(),
+            self.window.start().get(),
+            self.window.end().get(),
             self.path
         )
     }

@@ -8,6 +8,14 @@ use talkbank_model::UtteranceIdx;
 use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
 
+/// A recording of a stated length, for grouping tests.
+///
+/// These call sites used to pass `Option<u64>`, and several passed `None`. That
+/// meant "the audio length is unknown", a state `Recording` deleted: grouping
+/// silently SKIPPED untimed utterances whenever it held, so their words were
+/// never aligned. The tests that passed `None` were not asserting that
+/// behaviour, they were asserting grouping shape, so they get a recording long
+/// enough not to bound anything they check.
 #[test]
 fn utr_serialize_reparse_no_internal_bullets() {
     let input = include_str!("../../../../../../test-fixtures/fa_untimed_for_utr.cha");
@@ -65,7 +73,7 @@ fn apply_fa_produces_no_double_bullets_after_utr() {
     utr::inject_utr_timing(&mut chat, &tokens);
 
     // Group and create synthetic FA timings
-    let groups = group_utterances(&chat, 30_000, Some(10_000));
+    let groups = group_utterances(&chat, 30_000, &test_recording(10_000)).groups;
     let responses: Vec<Vec<Option<WordTiming>>> = groups
         .iter()
         .map(|g| {
@@ -85,12 +93,12 @@ fn apply_fa_produces_no_double_bullets_after_utr() {
                 })
                 .sum();
             (0..word_count)
-                .map(|i| WordTiming::new((i as u64) * 500 + 1000, (i as u64) * 500 + 1400))
+                .map(|i| WordTiming::fixture((i as u64) * 500 + 1000, (i as u64) * 500 + 1400))
                 .collect()
         })
         .collect();
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
@@ -199,7 +207,7 @@ fn test_monotonicity_clamp_does_not_create_zero_duration_bullet() {
 @End\n\
 ";
     let mut chat = parse_chat(input);
-    enforce_monotonicity(&mut chat);
+    let _ = enforce_monotonicity(&mut chat);
 
     // After monotonicity enforcement, no bullet may have start_ms >= end_ms.
     for (i, line) in chat.lines.iter().enumerate() {

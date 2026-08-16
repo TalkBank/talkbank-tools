@@ -297,8 +297,8 @@ impl PreparedArtifactRuntimeV2 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::DurationMs;
     use crate::media::tools::MediaTool;
+    use crate::time::FileMs;
 
     /// Create a temporary prepared-artifact store for unit tests.
     fn test_store() -> (PreparedArtifactStoreV2, tempfile::TempDir) {
@@ -412,7 +412,7 @@ mod tests {
             .extract_prepared_audio_segment_f32le(
                 &WorkerArtifactIdV2::from("audio-segment-ref"),
                 &wav_path,
-                MediaWindow::new(DurationMs(0u64), DurationMs(100u64)).expect("non-empty"),
+                MediaWindow::new(FileMs::new(0), FileMs::new(100)).expect("non-empty"),
             )
             .await
             .expect("extract prepared audio segment");
@@ -472,7 +472,7 @@ mod tests {
             .extract_prepared_audio_segment_f32le(
                 &WorkerArtifactIdV2::from("empty-audio-test"),
                 &wav_path,
-                MediaWindow::new(DurationMs(500u64), DurationMs(600u64)).expect("non-empty"),
+                MediaWindow::new(FileMs::new(500), FileMs::new(600)).expect("non-empty"),
             )
             .await;
 
@@ -481,8 +481,8 @@ mod tests {
         };
         // The window travels whole, so the test can assert it as one value
         // rather than pattern-matching two loose integers out of the variant.
-        assert_eq!(segment.window.start_ms(), 500);
-        assert_eq!(segment.window.end_ms(), 600);
+        assert_eq!(segment.window.start().get(), 500);
+        assert_eq!(segment.window.end().get(), 600);
     }
 
     #[test]

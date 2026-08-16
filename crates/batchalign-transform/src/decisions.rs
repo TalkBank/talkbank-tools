@@ -99,6 +99,22 @@ pub enum FaStrategy {
     WordsTimingDropped,
     /// A too-narrow utterance bullet was expanded to fit its word count.
     NarrowBulletRescued,
+    /// How this utterance's word timings were produced.
+    ///
+    /// Not a decision in the sense the others are: nothing was changed. It
+    /// reports what a `Bullet` cannot carry, so a reader can tell a measured
+    /// timing from one this pipeline inferred or invented. Without it the
+    /// distinction exists only inside the process that made it.
+    TimingProvenance,
+    /// A run of untimed utterances was left unaligned because the audio
+    /// remaining for it could not physically contain its words.
+    ///
+    /// Distinct from every other variant here: the rest describe a timing this
+    /// pipeline ADJUSTED, this one describes words that will have NO timing at
+    /// all, permanently. A reader of the transcript cannot otherwise tell that
+    /// from an alignment failure, which is why it is a recorded decision rather
+    /// than a log line.
+    UnplaceableRun,
 }
 
 impl FaStrategy {
@@ -109,6 +125,8 @@ impl FaStrategy {
             Self::BoundaryAveraged => "boundary_averaged",
             Self::LisRemoval => "lis_removal",
             Self::TimingStripped => "timing_stripped",
+            Self::TimingProvenance => "timing_provenance",
+            Self::UnplaceableRun => "unplaceable_run",
             Self::WordsTimingDropped => "words_timing_dropped",
             Self::NarrowBulletRescued => "narrow_bullet_rescued",
         }

@@ -13,8 +13,7 @@ use crate::api::DurationMs;
 use crate::cache::CacheBackend;
 use crate::chat_ops::fa::{
     FaGroup, WordTiming, apply_fa_results, cache_key, collect_existing_fa_word_timings,
-    enforce_monotonicity, expand_bullets_for_edge_fillers, group_utterances,
-    refresh_existing_alignment_for_utterance,
+    expand_bullets_for_edge_fillers, group_utterances, refresh_existing_alignment_for_utterance,
 };
 use crate::chat_ops::{CacheKey, ChatFile, Line, Utterance};
 use crate::error::ServerError;
@@ -32,6 +31,7 @@ use tracing::{info, warn};
 
 use super::transport::{FaWorkerBatch, FaWorkerTransport};
 use super::{CACHE_TASK, collect_final_timings, process_fa};
+use crate::chat_ops::fa::Grouping;
 
 /// Process a CHAT file through forced alignment incrementally.
 ///
@@ -113,11 +113,16 @@ pub(crate) async fn process_fa_incremental(
 
     expand_bullets_for_edge_fillers(&mut chat_file);
 
-    let groups = group_utterances(
-        &chat_file,
-        fa_params.max_group_ms().0,
-        audio.total_audio_ms.map(|ms| ms.0),
-    );
+    // Resolved once, here, and used for BOTH grouping and the containment
+    // checks on what the engine returns. Grouping used to take an
+    // `Option<u64>` and invent its own behaviour when it was absent; there is
+    // one recording and one answer.
+    let recording = audio.recording().await?;
+    let Grouping {
+        groups,
+        refusals: unplaceable_decisions,
+        windows_clamped,
+    } = group_utterances(&chat_file, fa_params.max_group_ms().0, &recording);
     if groups.is_empty() {
         return Ok(FaResult {
             chat_text: to_chat_string(&chat_file),
@@ -151,6 +156,9 @@ pub(crate) async fn process_fa_incremental(
         total_groups = groups.len(),
         realign_groups = realign_count,
         reused_groups = reused_group_count,
+        // Same fact the full path reports, in the same place, so the two runs
+        // stay comparable line for line.
+        windows_clamped,
         "Incremental FA: selective group re-alignment with stable %wor reuse"
     );
 
@@ -242,6 +250,10 @@ pub(crate) async fn process_fa_incremental(
 
     // Send miss groups through the shared FA worker transport adapter.
     if !miss_indices.is_empty() {
+        // Resolved before dispatch so every group's reply can be checked
+        // against the audio it describes. Fails the file rather than running
+        // unbounded: a pass that cannot state the recording's length cannot
+        // tell a measurement from a moment that does not exist.
         let parsed_results = transport
             .infer_groups(FaWorkerBatch {
                 word_texts: &word_texts,
@@ -251,6 +263,7 @@ pub(crate) async fn process_fa_incremental(
                 worker_lang: worker_lang.into(),
                 engine: fa_params.engine,
                 gap_healing: fa_params.gap_healing,
+                recording,
             })
             .await?;
 
@@ -307,20 +320,20 @@ pub(crate) async fn process_fa_incremental(
         })
         .collect();
 
-    let _fa_decisions = apply_fa_results(
+    // Injection, then monotonicity enforcement, as ONE step. The sequence used
+    // to be two statements plus a comment saying the second must follow the
+    // first, and this path shipped without it: UTR anchor drift survived into
+    // the output (APROCSA 2256_T4.cha, 2026-04-09). Consuming `FaApplied` is
+    // now the only way to reach the injection records, so the comment is a
+    // signature.
+    let ordered = apply_fa_results(
         &mut chat_file,
         &groups,
         &final_timings,
         fa_params.word_end_policy(),
         fa_params.wor_tier.should_write(),
-    );
-
-    // Strip backward timestamps (E362/E704 violations).  The full FA path
-    // (`run_fa_from_ast`) calls this unconditionally after injection; the
-    // incremental path must do the same.  Without this call, anchor drift from
-    // UTR (e.g., repeated scripted phrases matched to an earlier audio window)
-    // survives into the output, as seen in APROCSA 2256_T4.cha (2026-04-09).
-    enforce_monotonicity(&mut chat_file);
+    )
+    .then_enforce_monotonicity(&mut chat_file);
 
     // Post-FA bullet repair (experimental, opt-in via --bullet-repair).
     let repair_decisions = if fa_params.bullet_repair {
@@ -331,18 +344,25 @@ pub(crate) async fn process_fa_incremental(
         Vec::new()
     };
 
-    // Always strip stale decision tiers from previous runs before injecting new
-    // ones.  inject_review_tiers does this internally, but only when
-    // review_level != None.  Stripping unconditionally prevents stale tiers from
-    // accumulating when review_level == None or when no new decisions are made.
-    batchalign_transform::decisions::strip_decision_tiers(&mut chat_file);
-    if fa_params.review_level != crate::chat_ops::fa::ReviewLevel::None {
-        crate::chat_ops::fa::inject_review_tiers(
-            &mut chat_file,
-            &repair_decisions,
-            fa_params.review_level,
-        );
-    }
+    // The same owner the full path uses, so the ORDER lives in one place and a
+    // new source cannot reach one path only. The strip and the two guards this
+    // block used to carry (one on `review_level`, one on emptiness) moved into
+    // `write_decision_tiers`, which the injector already enforced anyway.
+    //
+    // `rescue` is stated EMPTY rather than omitted: this path never runs
+    // narrow-bullet rescue, and until 2026-08-15 that legitimate difference was
+    // hidden behind a comment claiming the two lists were the same. Saying it
+    // outright is what makes the next divergence visible.
+    crate::chat_ops::fa::write_decision_tiers(
+        &mut chat_file,
+        crate::chat_ops::fa::FaDecisions {
+            rescue: Vec::new(),
+            unplaceable: unplaceable_decisions,
+            ordered,
+            repair: repair_decisions.iter().map(Into::into).collect(),
+        },
+        fa_params.review_level,
+    );
 
     let violations = if let Err(errors) = validate_output(&chat_file, "align") {
         let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
@@ -523,7 +543,15 @@ mod tests {
         let reused = reuse_stable_wor_timing_from_before(&before, &mut after, &deltas, true);
         assert_eq!(reused.len(), 2);
 
-        let groups = group_utterances(&after, 20_000, Some(4_000));
+        let groups = group_utterances(
+            &after,
+            20_000,
+            &crate::chat_ops::fa::coordinates::Recording::of_duration(
+                crate::chat_ops::fa::coordinates::Ms(4_000),
+            )
+            .expect("test recording is non-empty"),
+        )
+        .groups;
         let timings = collect_preserved_group_timings(&after, &groups[0])
             .expect("group timings should exist");
         assert_eq!(timings.len(), groups[0].words.len());
@@ -560,12 +588,18 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------------
-    // Regression test: enforce_monotonicity must be called in incremental path
+    // What monotonicity enforcement DOES, which no type can hold
     // ---------------------------------------------------------------------------
     //
-    // The full FA path (`run_fa_from_ast`) calls `enforce_monotonicity`
-    // unconditionally after `apply_fa_results`.  The incremental path omitted
-    // this call, allowing backward timestamps to survive.
+    // This was a regression test for the CALL BEING SKIPPED: the full FA path
+    // ran `enforce_monotonicity` after `apply_fa_results` and the incremental
+    // path omitted it, so backward timestamps survived. That scenario is no
+    // longer writable. `apply_fa_results` returns `FaApplied`, whose records are
+    // reachable only through `then_enforce_monotonicity`, so a path that skips
+    // enforcement cannot obtain the records it needs for `%xalign`.
+    //
+    // What survives here is the part a signature cannot express: that
+    // enforcement strips a backward bullet and leaves the forward one alone.
     //
     // Incident (2026-04-09): 2256_T4.cha (APROCSA aphasia protocol) produced
     // •639095_640375• immediately after •731556_733418• because the global
@@ -630,22 +664,20 @@ mod tests {
         // Group 0: forward timing (correct).
         // Group 1: backward timing, earlier than group 0's end time (639095 < 733418).
         let timings = vec![
-            vec![crate::chat_ops::fa::WordTiming::new(731556, 733418)],
-            vec![crate::chat_ops::fa::WordTiming::new(639095, 639300)],
+            vec![crate::chat_ops::fa::WordTiming::fixture(731556, 733418)],
+            vec![crate::chat_ops::fa::WordTiming::fixture(639095, 639300)],
         ];
 
-        // Replicate what the FIXED `process_fa_incremental` does: apply results,
-        // then call `enforce_monotonicity` to strip non-monotonic bullets.
-        apply_fa_results(
+        let applied = apply_fa_results(
             &mut chat,
             &groups,
             &timings,
             WordEndPolicy::measured(WordGapHealing::Heal),
             false,
         );
-        // `process_fa_incremental` must call this after `apply_fa_results`;
-        // the bug was that it did not.
-        enforce_monotonicity(&mut chat);
+        // Through the same route production takes, rather than replicating the
+        // sequence by hand.
+        let _ = applied.then_enforce_monotonicity(&mut chat);
 
         let utt0 = get_utterance(&chat, 0).expect("utterance 0 must exist");
         let utt1 = get_utterance(&chat, 1).expect("utterance 1 must exist");

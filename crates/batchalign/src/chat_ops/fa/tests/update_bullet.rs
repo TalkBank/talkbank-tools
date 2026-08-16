@@ -4,6 +4,7 @@
 
 use super::*;
 
+use crate::chat_ops::fa::injection::InjectedTimings;
 use talkbank_model::UtteranceIdx;
 use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
@@ -21,17 +22,19 @@ fn test_update_utterance_bullet_preserves_start_with_leading_fillers() {
 
     // Simulate FA: only "I", "went", "home" get timed (filler &-uh does not)
     let timings = vec![
-        WordTiming::new(42221, 42582),
-        WordTiming::new(42582, 42782),
-        WordTiming::new(42782, 42983),
+        WordTiming::fixture(42221, 42582),
+        WordTiming::fixture(42582, 42782),
+        WordTiming::fixture(42782, 42983),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
+    let injected = InjectedTimings::from_transcript(utt);
     postprocess_utterance_timings(
         utt,
         WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
+        &injected,
     );
     update_utterance_bullet(utt);
 
@@ -61,18 +64,20 @@ fn test_update_utterance_bullet_preserves_end_with_trailing_gesture() {
 
     // Simulate FA: "and", "it", "screwed", "up" get timed; &=laughs does not
     let timings = vec![
-        WordTiming::new(50616, 52596),
-        WordTiming::new(52596, 54637),
-        WordTiming::new(54637, 55718),
-        WordTiming::new(55718, 55898),
+        WordTiming::fixture(50616, 52596),
+        WordTiming::fixture(52596, 54637),
+        WordTiming::fixture(54637, 55718),
+        WordTiming::fixture(55718, 55898),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
+    let injected = InjectedTimings::from_transcript(utt);
     postprocess_utterance_timings(
         utt,
         WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
+        &injected,
     );
     update_utterance_bullet(utt);
 
@@ -98,7 +103,10 @@ fn test_update_utterance_bullet_sets_new_bullet_when_none_existed() {
     // No pre-existing bullet
     assert!(utt.main.content.bullet.is_none());
 
-    let timings = vec![WordTiming::new(100, 500), WordTiming::new(600, 1000)];
+    let timings = vec![
+        WordTiming::fixture(100, 500),
+        WordTiming::fixture(600, 1000),
+    ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
@@ -138,12 +146,12 @@ fn test_apply_fa_results_preserves_pretimed_bullet() {
     }];
 
     let responses = vec![vec![
-        WordTiming::new(42221, 42582),
-        WordTiming::new(42582, 42782),
-        WordTiming::new(42782, 42983),
+        WordTiming::fixture(42221, 42582),
+        WordTiming::fixture(42582, 42782),
+        WordTiming::fixture(42782, 42983),
     ]];
 
-    apply_fa_results(
+    let _ = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
@@ -174,9 +182,9 @@ fn test_update_utterance_bullet_expands_when_words_exceed_original() {
     // Original bullet: 37397_42983
     // Simulate FA returning words that start before and end after the bullet
     let timings = vec![
-        WordTiming::new(37000, 38000),
-        WordTiming::new(38000, 43500),
-        WordTiming::new(43500, 44000),
+        WordTiming::fixture(37000, 38000),
+        WordTiming::fixture(38000, 43500),
+        WordTiming::fixture(43500, 44000),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
@@ -215,9 +223,9 @@ fn test_update_utterance_bullet_discards_large_stale_start_on_rerun_without_lead
     let utt = get_test_utterance(&mut chat, 0);
 
     let timings = vec![
-        WordTiming::new(9443, 9643),
-        WordTiming::new(9643, 9783),
-        WordTiming::new(9783, 9970),
+        WordTiming::fixture(9443, 9643),
+        WordTiming::fixture(9643, 9783),
+        WordTiming::fixture(9783, 9970),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);
@@ -255,15 +263,15 @@ fn test_update_utterance_bullet_discards_large_stale_start_when_leading_filler_i
     let utt = get_test_utterance(&mut chat, 0);
 
     let timings = vec![
-        WordTiming::new(8473, 8693),
-        WordTiming::new(8693, 8813),
-        WordTiming::new(8813, 8954),
-        WordTiming::new(8954, 9074),
-        WordTiming::new(9074, 9815),
-        WordTiming::new(9815, 10136),
-        WordTiming::new(10136, 10216),
-        WordTiming::new(10216, 10437),
-        WordTiming::new(10437, 10590),
+        WordTiming::fixture(8473, 8693),
+        WordTiming::fixture(8693, 8813),
+        WordTiming::fixture(8813, 8954),
+        WordTiming::fixture(8954, 9074),
+        WordTiming::fixture(9074, 9815),
+        WordTiming::fixture(9815, 10136),
+        WordTiming::fixture(10136, 10216),
+        WordTiming::fixture(10216, 10437),
+        WordTiming::fixture(10437, 10590),
     ];
     let mut offset = 0;
     inject_timings_for_utterance(utt, &timings, &mut offset);

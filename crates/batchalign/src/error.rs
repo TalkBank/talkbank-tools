@@ -175,6 +175,20 @@ pub enum ServerError {
         "job {0} is not in this server's local JobStore; local execution state is inconsistent"
     )]
     JobNotInLocalStore(JobId),
+
+    /// The recording's duration could not be established, so no timing this
+    /// job produces could be checked against it.
+    ///
+    /// **HTTP 500.** Deliberately fatal rather than degrading to an unbounded
+    /// run. Timings are only meaningful relative to the audio they describe,
+    /// and a pass that cannot state the audio's length cannot tell a
+    /// measurement from a moment that does not exist: that is precisely how
+    /// alignment output came to carry timings 28.2 seconds past the end of
+    /// their own media. Forced alignment always has an audio file and the
+    /// engine must read the same bytes, so failing here means something is
+    /// wrong with the media, not with the request.
+    #[error("cannot establish the recording's duration: {0}")]
+    RecordingDuration(String),
 }
 
 #[cfg(feature = "server")]
@@ -200,6 +214,10 @@ impl ServerError {
             // user-facing 404. It only surfaces during local runner dispatch,
             // so HTTP mapping is defensive but rare.
             Self::JobNotInLocalStore(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            // The request was fine; the media could not be measured. A 400
+            // would tell the caller to fix a payload that has nothing wrong
+            // with it.
+            Self::RecordingDuration(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

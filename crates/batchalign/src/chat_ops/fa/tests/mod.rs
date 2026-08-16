@@ -8,6 +8,22 @@
 
 #![allow(unused_imports, dead_code, ambiguous_glob_reexports)]
 
+/// A recording of a known length, for tests that only need a bound.
+///
+/// One copy, because this module's docstring above promises exactly that and
+/// three children had grown their own. Two of them carried an identical
+/// five-line paragraph explaining why these tests pass a long recording: the
+/// bound used to be `Option<u64>`, where `None` meant "audio length unknown"
+/// and grouping silently SKIPPED untimed utterances, so their words were never
+/// aligned. `Recording` deleted that state. These tests assert grouping SHAPE,
+/// so they take a recording long enough not to bound anything they check.
+pub(super) fn test_recording(ms: u64) -> crate::chat_ops::fa::coordinates::Recording {
+    crate::chat_ops::fa::coordinates::Recording::of_duration(crate::chat_ops::fa::coordinates::Ms(
+        ms,
+    ))
+    .expect("test recordings are non-empty")
+}
+
 // Re-export `fa::*` into `fa::tests::*` so child files can `use super::*;`
 // to pull in both fa internals (the implementation under test) and the
 // shared helpers defined below. Without this re-export, child modules

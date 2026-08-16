@@ -48,6 +48,7 @@ use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to
 use tracing::{info, warn};
 
 use crate::api::DurationMs;
+use crate::chat_ops::fa::Grouping;
 use crate::error::ServerError;
 use crate::runner::util::{FileStage, ProgressSender, ProgressUpdate};
 use crate::types::results::FaResult;
@@ -271,12 +272,17 @@ pub(crate) async fn run_fa_from_ast(
     // whose audio lives in the gap between utterances.
     expand_bullets_for_edge_fillers(&mut chat_file);
 
+    // Resolved once, here, and used for BOTH grouping and the containment
+    // checks on what the engine returns. Grouping used to take an
+    // `Option<u64>` and invent its own behaviour when it was absent; there is
+    // one recording and one answer.
+    let recording = audio.recording().await?;
     // 2c. Group utterances
-    let groups = group_utterances(
-        &chat_file,
-        fa_params.max_group_ms().0,
-        audio.total_audio_ms.map(|ms| ms.0),
-    );
+    let Grouping {
+        groups,
+        refusals: unplaceable_decisions,
+        windows_clamped,
+    } = group_utterances(&chat_file, fa_params.max_group_ms().0, &recording);
 
     if groups.is_empty() {
         return Ok(FaResult {
@@ -292,6 +298,10 @@ pub(crate) async fn run_fa_from_ast(
     info!(
         num_groups = groups.len(),
         total_words = groups.iter().map(|g| g.words.len()).sum::<usize>(),
+        // Reported beside the other grouping facts rather than only as its own
+        // warning, so a reader of one line sees whether our gap arithmetic
+        // overshot the audio.
+        windows_clamped,
         "FA grouping complete"
     );
 
@@ -403,6 +413,10 @@ pub(crate) async fn run_fa_from_ast(
 
     // 6. Dispatch miss groups through the FA worker transport adapter
     if !miss_indices.is_empty() {
+        // Resolved before dispatch so every group's reply can be checked
+        // against the audio it describes. Fails the file rather than running
+        // unbounded: a pass that cannot state the recording's length cannot
+        // tell a measurement from a moment that does not exist.
         let parsed_results = transport
             .infer_groups(FaWorkerBatch {
                 word_texts: &word_texts,
@@ -412,6 +426,7 @@ pub(crate) async fn run_fa_from_ast(
                 worker_lang: worker_lang.into(),
                 engine: fa_params.engine,
                 gap_healing: fa_params.gap_healing,
+                recording,
             })
             .await?;
 
@@ -477,7 +492,7 @@ pub(crate) async fn run_fa_from_ast(
         })
         .collect();
 
-    let fa_decisions = apply_fa_results(
+    let fa_applied = apply_fa_results(
         &mut chat_file,
         &groups,
         &final_timings,
@@ -501,40 +516,22 @@ pub(crate) async fn run_fa_from_ast(
     //    apply_fa_results) because it stripped too aggressively. The current
     //    version only strips start-time regressions and clamps end times to
     //    the next utterance's start, no timing is destroyed, only truncated.
-    let monotonicity_decisions = crate::chat_ops::fa::enforce_monotonicity(&mut chat_file);
+    let ordered = fa_applied.then_enforce_monotonicity(&mut chat_file);
 
     // 9d. Inject decision provenance tiers (%xalign / %xrev) for all
-    //    pipeline decisions that altered the output.
-    {
-        let mut all_decisions: Vec<batchalign_transform::decisions::DecisionRecord> = Vec::new();
-
-        // Narrow-bullet rescue decisions (from step 2a, before grouping).
-        // Surfaced via %xalign so the audit trail records which utterances
-        // had their bullets pre-expanded due to transcribe under-budgeting.
-        all_decisions.extend(rescue_decisions);
-
-        // FA postprocessing decisions (word timing drops, from step 8)
-        all_decisions.extend(fa_decisions);
-
-        // Repair decisions (from bullet repair, step 9)
-        all_decisions.extend(repair_decisions.iter().map(Into::into));
-
-        // Monotonicity decisions (from step 9c)
-        all_decisions.extend(monotonicity_decisions);
-
-        // Always strip stale decision tiers from previous runs, regardless of
-        // whether new decisions were made.  Without this, a clean re-run (no
-        // decisions) leaves old %xalign/%xrev tiers in place; the NEXT run that
-        // DOES produce decisions then appends to them, creating duplicates.
-        batchalign_transform::decisions::strip_decision_tiers(&mut chat_file);
-        if !all_decisions.is_empty() {
-            batchalign_transform::decisions::inject_decision_tiers(
-                &mut chat_file,
-                &all_decisions,
-                fa_params.review_level,
-            );
-        }
-    }
+    //    pipeline decisions that altered the output. Order, strip and inject
+    //    all live in `write_decision_tiers`; this states the SOURCES only, and
+    //    a sixth would not compile until both FA paths named it.
+    crate::chat_ops::fa::write_decision_tiers(
+        &mut chat_file,
+        crate::chat_ops::fa::FaDecisions {
+            rescue: rescue_decisions,
+            unplaceable: unplaceable_decisions,
+            ordered,
+            repair: repair_decisions.iter().map(Into::into).collect(),
+        },
+        fa_params.review_level,
+    );
 
     // 10. Post-validation check (warn only, cross-speaker overlap is normal in
     //    conversation data).
