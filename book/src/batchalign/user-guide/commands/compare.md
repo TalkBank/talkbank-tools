@@ -81,7 +81,7 @@ flowchart TD
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--lang CODE` | `eng` | 3-letter ISO language code |
-| `-n`, `--num-speakers N` | `2` | Number of speakers |
+| `--num-speakers N` | `2` | Number of speakers |
 | `--merge-abbrev` | off | Merge abbreviations in the output |
 
 Use `--override-media-cache` (global flag) when you need to force fresh

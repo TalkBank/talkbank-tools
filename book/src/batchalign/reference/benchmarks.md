@@ -139,7 +139,7 @@ batchalign3 benchmark ~/ba_data/input -o ~/ba_data/output --lang eng
 | `--asr-engine {rev,whisper,whisper-oai}` | ASR engine (default: rev) |
 | `--asr-engine-custom NAME` | Deprecated alias for `--asr-engine`, still honoured, hidden from help |
 | `--lang CODE` | 3-letter ISO language code (default: `eng`) |
-| `-n`, `--num-speakers N` | Number of speakers (default: `2`) |
+| `--num-speakers N` | Number of speakers (default: `2`) |
 | `--wor` / `--nowor` | Toggle `%wor` tier output |
 | `--merge-abbrev` | Merge abbreviations in output |
 | `--bank NAME` | Legacy remote media selector (unsupported in the current CLI; pass filesystem paths instead) |

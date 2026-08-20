@@ -26,6 +26,7 @@ pub mod cantonese;
 mod chunking;
 mod cleanup;
 mod compounds;
+mod english_caps;
 mod expand;
 pub mod lang_detect;
 mod num2chinese;

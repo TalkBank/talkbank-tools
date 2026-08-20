@@ -641,9 +641,7 @@ mod tests {
             deferred_indices: vec![0],
             line_idx: 3,
             target_lang: LanguageCode::new("spa").expect("valid test language code"),
-            words: vec![talkbank_model::ChatCleanedText::test_unchecked(
-                "extranjero",
-            )],
+            words: vec![crate::parsed_word_text_cleaned("extranjero")],
             attachment: L2Attachment::ExternalRoot {
                 host_deprel: UdDeprel::new("obj"),
                 root_anchor: crate::morphosyntax::l2::plan::L2RootAnchor::HostGovernor {
@@ -655,7 +653,7 @@ mod tests {
             },
         };
         let deferred = vec![super::super::extract::L2DeferredPosition {
-            word: talkbank_model::ChatCleanedText::test_unchecked("extranjero"),
+            word: crate::parsed_word_text_cleaned("extranjero"),
             terminator: talkbank_model::Terminator::Period {
                 span: talkbank_model::Span::DUMMY,
             },

@@ -60,7 +60,7 @@ batchalign3 transcribe input/ -o output/ --lang yue \
 batchalign3 transcribe input/ -o output/ --lang yue \
   --asr-engine qwen
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
+  --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B-hf"}'
 
 # Whisper (explicit opt-in; not recommended for Cantonese)
 batchalign3 transcribe input/ -o output/ --lang yue \
@@ -115,7 +115,7 @@ through to Whisper.
 first use). Two variants are publicly released, 1.7B (default,
 heavier) and 0.6B (lighter, smaller download). Select the 0.6B
 variant via `--asr-engine qwen --engine-overrides
-'{"qwen_model": "Qwen/Qwen3-ASR-0.6B"}'`. Note the division of labour:
+'{"qwen_model": "Qwen/Qwen3-ASR-0.6B-hf"}'`. Note the division of labour:
 the ENGINE is chosen with the flag, while per-engine extras like
 `qwen_model` and `qwen_device` stay in `--engine-overrides`, which is
 what that option is actually for. External evaluations report competitive

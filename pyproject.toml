@@ -10,10 +10,13 @@ readme = "batchalign/README.md"
 license = "BSD-3-Clause"
 requires-python = ">=3.13"
 # Primary author first, matching the Cargo manifests and the commit history.
+# The addresses are deliberate: publishing one is what an `authors` field is
+# for, and it is the ecosystem norm (71% of 282 surveyed installed packages
+# publish an author email), including academic peers this project depends on.
 authors = [
     { name = "Franklin Chen", email = "franklinchen@franklinchen.com" },
-    { name = "Brian MacWhinney", email = "macw@cmu.edu" },
-    { name = "Houjun Liu", email = "houjun@cmu.edu" },
+    { name = "Brian MacWhinney", email = "macw@cmu.edu" },  # screen-allow: cmu-email public authorship credit for a published academic tool
+    { name = "Houjun Liu", email = "houjun@cmu.edu" },  # screen-allow: cmu-email public authorship credit for a published academic tool
 ]
 keywords = ["nlp", "linguistics", "chat", "talkbank", "transcription", "forced-alignment", "morphosyntax"]
 classifiers = [
@@ -33,7 +36,7 @@ dependencies = [
     # Core ML
     "torch>=2.4.0",
     "torchaudio>=2.4.0",
-    "transformers>=4.38.2",
+    "transformers>=5.13.0",
     "tokenizers>=0.14.1",
     "numpy>=1.26",
     "stanza[transformers]>=1.14.0,<1.15",
@@ -74,7 +77,6 @@ dependencies = [
     # Qwen3-ASR: Alibaba's open-weight Cantonese-capable ASR. Local
     # model (~3.4 GB fp16) downloaded from HuggingFace on first use.
     # Recommended default for ``yue`` per Lee et al. (2026).
-    "qwen-asr",
     # Bounded pin so PyCantonese major-version bumps (which can change
     # transitive Rust dependencies) are deliberate decisions, not
     # accidental upgrades.

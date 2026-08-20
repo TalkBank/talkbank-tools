@@ -162,12 +162,10 @@ fn test_validate_mor_alignment_no_mor_tier() {
 /// Verify MorphosyntaxBatchItem serializes to the JSON shape Python expects.
 #[test]
 fn snapshot_morphosyntax_batch_item() {
-    // Test fixture path via the explicitly-labeled
-    // `ChatCleanedText::test_unchecked` escape hatch (gated behind the
-    // `test-utils` feature on `talkbank-model`).
+    // Fixtures go through the parser; see `crate::parsed_word_text_cleaned`.
     let words: Vec<talkbank_model::ChatCleanedText> = ["the", "dog", "runs"]
         .iter()
-        .map(|s| talkbank_model::ChatCleanedText::test_unchecked(*s))
+        .map(|s| crate::parsed_word_text_cleaned(s))
         .collect();
     let item = MorphosyntaxBatchItem {
         words,

@@ -22,7 +22,7 @@ Diarization runs the pyannote pipeline that also powers
 batchalign3 diarize recordings/ -o turns/
 
 # One file, with a known speaker count
-batchalign3 diarize session.mp3 -o turns/ -n 2
+batchalign3 diarize session.mp3 -o turns/ --num-speakers 2
 
 # Then repair a transcript's speaker attribution with chatter
 chatter rediarize session.cha --turns turns/session.turns.json
@@ -49,7 +49,7 @@ flowchart TD
 | --- | --- | --- |
 | `PATHS...` | | Input media files and/or directories (`.mp3`, `.mp4`, `.wav`) |
 | `-o, --output DIR` | | Output directory for `.turns.json` artifacts |
-| `-n, --num-speakers N` | auto-detect | Expected speaker count hint. Omit unless known: auto-detection is the point of the engine |
+| `--num-speakers N` | auto-detect | Expected speaker count hint. Omit unless known: auto-detection is the point of the engine |
 | `--lang CODE` | `eng` | 3-letter ISO code for worker-pool selection only; diarization itself is language-independent |
 
 ---
@@ -83,9 +83,10 @@ assignment happens downstream, e.g. in `chatter rediarize`.
 the other audio commands. Use `--no-server` for one-off in-process runs or
 explicit `--server` to target a remote daemon.
 
-**Auto-detect beats a wrong hint.** Passing `-n 2` when four voices are
+**Auto-detect beats a wrong hint.** Passing `--num-speakers 2` when four voices are
 present forces the model to collapse speakers, which is the classic failure
-mode this command exists to repair. Omit `-n` unless the count is certain.
+mode this command exists to repair. Omit `--num-speakers` unless the count is
+certain. (`-n` was removed on 2026-08-19; it read as a worker count.)
 
 **Turns JSON is strict on the chatter side.** `chatter rediarize` rejects
 files with unknown or missing fields rather than guessing; do not

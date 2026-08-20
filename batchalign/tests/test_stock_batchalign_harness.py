@@ -194,7 +194,7 @@ def _write_case_manifest(tmp_path: Path) -> Path:
                         "command": "benchmark",
                         "audio_path": str(audio_path),
                         "gold_path": str(gold_path),
-                        "argv": ["--lang", "yue", "-n", "1"],
+                        "argv": ["--lang", "yue", "--num-speakers", "1"],
                     }
                 ],
             }
@@ -268,7 +268,7 @@ def test_default_manifest_points_at_in_repo_cantonese_fixture() -> None:
     assert case["id"] == "cantonese-05b-clip-whisper"
     assert audio_path == cantonese_fixtures / "05b_clip.mp3"
     assert gold_path == cantonese_fixtures / "benchmark" / "05b_clip.cha"
-    assert case["argv"] == ["--lang", "yue", "--whisper", "-n", "1"]
+    assert case["argv"] == ["--lang", "yue", "--whisper", "--num-speakers", "1"]
     assert audio_path.is_file()
     assert gold_path.is_file()
     assert allowlist == {"schema_version": 1, "entries": []}

@@ -513,10 +513,10 @@ pub fn apply_english_transcribe_rules_post_retokenize(utterances: &mut [Utteranc
 /// (POST_NEUTRAL) and `_I_CONTRACTION_CASES` (POST_NEUTRAL).
 fn apply_i_capitalization_to_words(words: &mut [AsrWord]) {
     for word in words.iter_mut() {
-        // Shared with chatter's model-level capitalizer: identical pronoun-"I"
+        // A deliberate copy of chatter's former table, which now lives in
+        // `english_caps.rs`; the MICASE converter holds the other copy. Pronoun-"I"
         // rewrite table.
-        if let Some(dst) = talkbank_transform::capitalize::capitalized_pronoun_i(word.text.as_str())
-        {
+        if let Some(dst) = super::english_caps::capitalized_pronoun_i(word.text.as_str()) {
             word.text = AsrNormalizedText::new(dst);
         }
     }
@@ -574,10 +574,10 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
             if !owns_utterance_initial_cap(text) {
                 continue;
             }
-            // First real word: capitalize it via the shared helper (a no-op if
+            // First real word: capitalize it via the local helper (a no-op if
             // it already starts with an uppercase or non-letter character), then
             // stop: one capitalization per utterance.
-            let capitalized = talkbank_transform::capitalize::capitalize_first(text);
+            let capitalized = super::english_caps::capitalize_first(text);
             word.text = AsrNormalizedText::new(capitalized);
             break;
         }
@@ -586,9 +586,10 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
 
 /// Does this surface OWN the utterance-initial capitalization slot?
 ///
-/// # Why this is not `talkbank_transform::capitalize::is_capitalizable_initial`
+/// # Why this is not chatter's `is_capitalizable_initial`
 ///
-/// chatter has a public function of that name and it answers a DIFFERENT
+/// chatter HAD a public function of that name, deleted 2026-08-19 with the rest
+/// of its English-orthography module, and it answered a DIFFERENT
 /// question: "could this token itself be capitalized", decided by
 /// `first char is_alphabetic`. This one asks "is this the token the slot
 /// belongs to", and its caller `break`s on true and `continue`s on false, so
@@ -626,17 +627,26 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
 /// capitalization, while a leading digit IS the word's head and is OPAQUE. One
 /// rule, and `3rd` stays `3rd` with no special case. Wanted: `'Twas`.
 ///
-/// Still not fixed HERE, because the fix belongs in `capitalize_first`, which
-/// is chatter's, and this call site gets it on the next tag bump. Do not
-/// reimplement it locally to get there sooner: that would put a second copy of
-/// an orthography rule in the crate that just finished arguing there should be
-/// one owner.
+/// STILL NOT FIXED HERE, and the reason has changed. It used to be "the fix
+/// belongs in `capitalize_first`, which is chatter's, and this call site gets
+/// it on the next tag bump; do not reimplement it locally". That is now
+/// impossible advice: chatter deleted the whole `capitalize` module on
+/// 2026-08-19, `capitalize_first` is this crate's own `english_caps.rs`, and no
+/// tag bump will ever deliver anything. Waiting on it would defer the fix
+/// forever.
+///
+/// The ruled-correct implementation EXISTS, in the MICASE converter's
+/// `capitalize_head_letter`: skip an elision apostrophe, stop at a digit. Port
+/// it here. It is deliberately a separate change from the move, because
+/// altering ASR output for the whole fleet inside a commit that relocates code
+/// is not reviewable.
 ///
 /// # What this crate does NOT have, and why
 ///
-/// chatter's predicate also has a DEAD `&` test: its caller passes
-/// `cleaned_text()`, which has already stripped the `&-`, so `&-um` reaches it
-/// looking like a word and TAKES the slot. Ours does not, because `AsrWord.text`
+/// chatter's predicate ALSO HAD a DEAD `&` test (it is deleted now, and the
+/// MICASE copy fixed it): its caller passed `cleaned_text()`, which has already
+/// stripped the `&-`, so `&-um` reached it looking like a word and TOOK the
+/// slot. Ours does not, because `AsrWord.text`
 /// retains the `&-` prefix by design (stage 7 rewrites `um` to `&-um` and that
 /// prefix is the stable marker this module keys on). Verified:
 /// `&-um the dog barked` capitalizes `The`, not the filler.
@@ -680,10 +690,12 @@ mod tests {
     /// A non-letter-initial token OWNS the slot; the word after it must not
     /// take the capital.
     ///
-    /// Pins the divergence from `talkbank_transform::capitalize::
-    /// is_capitalizable_initial`, which decides on `first char is_alphabetic`
-    /// and would skip these, capitalizing the following word. `'twas` is the
-    /// case that makes it more than theoretical for conversational data.
+    /// The rejected alternative decides on `first char is_alphabetic` and would
+    /// skip these, capitalizing the following word. That was chatter's
+    /// `is_capitalizable_initial`, since deleted; the MICASE converter reached
+    /// the same conclusion this test encodes and fixed its copy the same way.
+    /// `'twas` is the case that makes it more than theoretical for
+    /// conversational data.
     ///
     /// Owning the slot is NECESSARY, not sufficient: see the known defect on
     /// `owns_utterance_initial_cap`. This test pins WHICH token the slot
@@ -691,8 +703,8 @@ mod tests {
     /// resulting capital is currently wrong for the apostrophe cases.
     ///
     /// This is a POLICY test, not an invariant a type could hold: which token
-    /// owns the slot is a choice with a real alternative, and chatter makes the
-    /// other one for its own question.
+    /// owns the slot is a choice with a real alternative, and the alternative
+    /// was a shipped function until it was deleted.
     #[test]
     fn a_non_letter_initial_token_still_owns_the_capitalization_slot() {
         for surface in ["3rd", "42", "'twas", "$5"] {

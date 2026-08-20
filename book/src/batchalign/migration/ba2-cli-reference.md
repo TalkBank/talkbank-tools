@@ -81,7 +81,9 @@ Create transcripts from audio files via ASR.
 | `--wor` / `--nowor` | bool | `False` | Write %wor tier | Wired |
 | `--merge-abbrev` / `--no-merge-abbrev` | bool | `False` | Merge abbreviations **(Feb 9 only)** | Wired |
 | `--lang` | str | `"eng"` | Language code | Wired |
-| `-n` / `--num_speakers` | int | `2` | Expected speaker count | Wired |
+| `-n` / `--num_speakers` | int | `2` | Expected speaker count | **Not as spelled.** BA3 takes `--num-speakers` (kebab). It never accepted BA2's `--num_speakers` underscore, and it stopped accepting `-n` on 2026-08-19. |
+
+
 
 **Pipeline task:** `"asr"` (without diarization) or `transcribe_s` dispatch →
 `"asr,speaker"` (with `--diarize`).
@@ -172,7 +174,7 @@ Utterance segmentation.
 | Flag | Type | Default | Help | BA3 Status |
 |------|------|---------|------|------------|
 | `--lang` | str | `"eng"` | Language code | Wired |
-| `-n` / `--num_speakers` | int | `2` | Expected speaker count | Wired |
+| `-n` / `--num_speakers` | int | `2` | Expected speaker count | **Not as spelled.** BA3 takes `--num-speakers` (kebab). It never accepted BA2's `--num_speakers` underscore, and it stopped accepting `-n` on 2026-08-19. |
 | `--merge-abbrev` / `--no-merge-abbrev` | bool | `False` | Merge abbreviations **(Feb 9 only)** | Wired |
 
 **Pipeline task:** `"utseg"`.
@@ -186,7 +188,7 @@ ASR word error rate benchmarking against gold transcripts.
 | `--whisper` / `--rev` | exclusive pair | `--rev` | ASR engine (HF variant) | Hidden compat alias → `--asr-engine` |
 | `--whisper_oai` / `--rev` | exclusive pair | `--rev` | ASR engine (OAI variant) | Hidden compat alias → `--asr-engine` |
 | `--lang` | str | `"eng"` | Language code | Wired |
-| `-n` / `--num_speakers` | int | `2` | Expected speaker count | Wired |
+| `-n` / `--num_speakers` | int | `2` | Expected speaker count | **Not as spelled.** BA3 takes `--num-speakers` (kebab). It never accepted BA2's `--num_speakers` underscore, and it stopped accepting `-n` on 2026-08-19. |
 | `--wor` / `--nowor` | bool | `False` | Write %wor tier | Wired |
 | `--merge-abbrev` / `--no-merge-abbrev` | bool | `False` | Merge abbreviations **(Feb 9 only)** | Wired |
 

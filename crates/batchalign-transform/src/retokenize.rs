@@ -250,24 +250,27 @@ pub fn retokenize_utterance(
 
 #[cfg(test)]
 mod tests {
-    use talkbank_model::{ChatCleanedText, ChatRawText, WordIdx};
+    use talkbank_model::WordIdx;
 
     use super::*;
 
     fn extracted_words(words: &[&str]) -> Vec<ExtractedWord> {
-        // Test fixture path via the explicit `test_unchecked` escape
-        // hatch on each text type (gated behind the `test-utils`
-        // feature in this crate's [dev-dependencies]). Production
-        // builds cannot reach these constructors.
+        // Fixtures go through the PARSER. chatter v0.12.0 removed the
+        // `test_unchecked` escape hatch on these text types, correctly: a type
+        // that exists to prove "this came from a parsed AST" is only as strong
+        // as its weakest constructor. See `crate::parsed_word_text`.
         words
             .iter()
             .enumerate()
-            .map(|(idx, word)| ExtractedWord {
-                text: ChatCleanedText::test_unchecked(*word),
-                raw_text: ChatRawText::test_unchecked(*word),
-                utterance_word_index: WordIdx::new(idx),
-                form_type: None,
-                lang: None,
+            .map(|(idx, word)| {
+                let (text, raw_text) = crate::parsed_word_text(word);
+                ExtractedWord {
+                    text,
+                    raw_text,
+                    utterance_word_index: WordIdx::new(idx),
+                    form_type: None,
+                    lang: None,
+                }
             })
             .collect()
     }

@@ -390,7 +390,7 @@ def test_load_qwen_asr_times_out_on_hang(monkeypatch) -> None:
 
     start = time.monotonic()
     with pytest.raises(TimeoutError, match=r"Qwen3-ASR.*timed out after 1 second"):
-        _qwen_asr.load_qwen_asr("yue", {"qwen_model": "Qwen/Qwen3-ASR-0.6B"})
+        _qwen_asr.load_qwen_asr("yue", {"qwen_model": "Qwen/Qwen3-ASR-0.6B-hf"})
     elapsed = time.monotonic() - start
 
     assert hang_invocations == [1], "warm() should have been entered exactly once"

@@ -97,3 +97,39 @@ pub mod wer_conform;
 // talkbank_transform::*` glob above. Only the batchalign-specific convenience
 // re-export stays here.
 pub use self::merge_abbrev::{merge_abbreviations, merge_abbreviations_in_chat_text};
+
+/// A `ChatCleanedText` / `ChatRawText` pair built the way production builds
+/// them: by PARSING.
+///
+/// # Why this exists
+///
+/// chatter v0.12.0 removed `ChatCleanedText::test_unchecked` and the
+/// `test-utils` feature that gated it. That removal is right: a type whose
+/// whole job is to prove "this text came from a parsed AST" is only as strong
+/// as its weakest constructor, and an escape hatch any dev-dependency could
+/// enable was that constructor. Fixtures now go through `parse_word`, so a
+/// fixture cannot assert a projection the parser would not produce.
+///
+/// One owner per crate rather than a call at each site, because building a
+/// parser is not free and because the next reader should see one route.
+#[cfg(test)]
+use talkbank_model::{ChatCleanedText, ChatRawText};
+
+#[cfg(test)]
+pub(crate) fn parsed_word_text(word: &str) -> (ChatCleanedText, ChatRawText) {
+    let parser = talkbank_parser::TreeSitterParser::new()
+        .expect("tree-sitter parser must initialise for fixtures");
+    let parsed = parser
+        .parse_word(word)
+        .unwrap_or_else(|e| panic!("fixture {word:?} must parse as a CHAT word: {e:?}"));
+    (
+        ChatCleanedText::from_word(&parsed),
+        ChatRawText::from_word_raw(&parsed),
+    )
+}
+
+/// The cleaned projection only, for fixtures that do not need the raw text.
+#[cfg(test)]
+pub(crate) fn parsed_word_text_cleaned(word: &str) -> ChatCleanedText {
+    parsed_word_text(word).0
+}

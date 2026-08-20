@@ -58,7 +58,7 @@ flowchart TD
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--lang CODE` | `eng` | 3-letter ISO language code |
-| `-n`, `--num-speakers N` | `2` | Number of speakers |
+| `--num-speakers N` | `2` | Number of speakers. No short flag; `-n` was removed 2026-08-19. |
 | `--asr-engine {rev,whisper,whisper-oai}` | `rev` | ASR engine |
 | `--asr-engine-custom NAME` |: | **Deprecated alias for `--asr-engine`**, still honoured, hidden from `--help`. |
 | `--wor` / `--nowor` | `--nowor` | Include or suppress the `%wor` tier in the hypothesis output |

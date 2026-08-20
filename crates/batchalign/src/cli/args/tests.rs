@@ -202,7 +202,7 @@ fn parse_transcribe_with_lang() {
         "audio/",
         "--lang",
         "spa",
-        "-n",
+        "--num-speakers",
         "3",
         "--whisperx",
     ]);
@@ -458,7 +458,7 @@ fn parse_utseg_with_file_list_lang_and_speakers() {
         "utseg",
         "--lang",
         "spa",
-        "-n",
+        "--num-speakers",
         "3",
         "--file-list",
         "inputs.txt",
@@ -1587,8 +1587,8 @@ fn build_options_override_media_cache_global() {
 #[case(&["batchalign3", "morphotag", "corpus/"], ReleasedCommand::Morphotag, "per-file", 1, InputKind::Chat)]
 #[case(&["batchalign3", "coref", "corpus/"], ReleasedCommand::Coref, "per-file", 1, InputKind::Chat)]
 #[case(&["batchalign3", "compare", "corpus/"], ReleasedCommand::Compare, "eng", 2, InputKind::Chat)]
-#[case(&["batchalign3", "compare", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Compare, "spa", 3, InputKind::Chat)]
-#[case(&["batchalign3", "utseg", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Utseg, "spa", 3, InputKind::Chat)]
+#[case(&["batchalign3", "compare", "--lang", "spa", "--num-speakers", "3", "corpus/"], ReleasedCommand::Compare, "spa", 3, InputKind::Chat)]
+#[case(&["batchalign3", "utseg", "--lang", "spa", "--num-speakers", "3", "corpus/"], ReleasedCommand::Utseg, "spa", 3, InputKind::Chat)]
 #[case(&["batchalign3", "benchmark", "audio/"], ReleasedCommand::Benchmark, "eng", 2, InputKind::Media)]
 #[case(&["batchalign3", "opensmile", "in/", "out/"], ReleasedCommand::Opensmile, "eng", 1, InputKind::Media)]
 #[case(&["batchalign3", "avqi", "in/", "out/", "--lang", "yue"], ReleasedCommand::Avqi, "yue", 1, InputKind::Media)]

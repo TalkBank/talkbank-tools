@@ -36,7 +36,7 @@ insta = { workspace = true }
 # Enables `ChatCleanedText::test_unchecked` for test fixture
 # construction. Production builds of this crate cannot reach the
 # escape hatch.
-talkbank-model = { workspace = true, features = ["test-utils"] }
+talkbank-model = { workspace = true }
 
 # Panic-site audit completed 2026-04-29 (see
 # `docs/panic-audit/talkbank-transform.md`).

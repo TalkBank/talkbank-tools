@@ -294,7 +294,7 @@ mod tests {
             line_idx,
             word_idx,
             target_lang: LanguageCode::new(lang).expect("valid test language code"),
-            word: talkbank_model::ChatCleanedText::test_unchecked(word),
+            word: crate::parsed_word_text_cleaned(word),
             terminator: talkbank_model::Terminator::Period {
                 span: talkbank_model::Span::DUMMY,
             },

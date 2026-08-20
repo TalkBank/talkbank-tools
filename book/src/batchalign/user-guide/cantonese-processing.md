@@ -44,7 +44,7 @@ batchalign3 transcribe input/ -o output/ --lang yue \
 
 # Pick the 0.6B model for faster inference on tight hardware
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
+  --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B-hf"}'
 
 # Transcribe with Tencent Cloud ASR (cloud, needs CAM credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
@@ -55,7 +55,7 @@ batchalign3 transcribe input/ -o output/ --lang yue \
   --asr-engine funaudio
 
 # Benchmark against a gold CHAT companion in the input directory
-batchalign3 benchmark input/ --output output/ --lang yue -n 1 \
+batchalign3 benchmark input/ --output output/ --lang yue --num-speakers 1 \
   --asr-engine qwen
 
 # Force align with Cantonese FA engine
@@ -115,11 +115,11 @@ indicating which keys are needed.
 ### Qwen3-ASR
 
 Qwen3-ASR has no cloud credentials, it is a local HuggingFace model
-downloaded on first use (~3.4 GB for the default `Qwen/Qwen3-ASR-1.7B`).
+downloaded on first use (~3.4 GB for the default `Qwen/Qwen3-ASR-1.7B-hf`).
 Two `--engine-overrides` knobs are recognized:
 
 - `qwen_model`: override the HuggingFace model id. The 1.7B default
-  is the recommended-quality variant; pass `Qwen/Qwen3-ASR-0.6B` for
+  is the recommended-quality variant; pass `Qwen/Qwen3-ASR-0.6B-hf` for
   faster inference at some accuracy cost.
 - `qwen_device`: `"cpu"` (default), `"cuda"`, or `"mps"`. The
   Apple Silicon fleet defaults to CPU because empirical testing
@@ -175,7 +175,7 @@ dependencies (like OpenCC) are required.
 
 - Local model via the [`qwen-asr`](https://github.com/QwenLM/Qwen3-ASR)
   PyPI package, no cloud credentials, no network at inference time.
-- Default model is `Qwen/Qwen3-ASR-1.7B`. The 0.6B variant is
+- Default model is `Qwen/Qwen3-ASR-1.7B-hf`. The 0.6B variant is
   noticeably faster (smaller model, lighter compute) at some
   accuracy cost.
 - First run downloads ~3.4 GB (1.7B fp16) or ~1.2 GB (0.6B) from

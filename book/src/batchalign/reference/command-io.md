@@ -111,7 +111,7 @@ paths-mode preparation.
 | **Extensions filter** | `["mp3", "mp4", "wav"]` | Same |
 | **Output** | New `.cha` files (audio extension replaced: `foo.wav` → `foo.cha`) | Same `.cha` files returned to the client, which writes them locally |
 | **Mutation** | **Never mutates input.** Creates new `.cha` files in `OUT_DIR`. Original audio untouched. If `OUT_DIR = IN_DIR`, the new `.cha` appears alongside the audio. | Same |
-| **Key options** | `--asr-engine`, `--diarization`, `--wor/--nowor`, `--lang`, `-n`, `--batch-size` | Same |
+| **Key options** | `--asr-engine`, `--diarization`, `--wor/--nowor`, `--lang`, `--num-speakers`, `--batch-size` | Same |
 
 **Current routing note (Rust CLI):** when `auto_daemon` is enabled (the
 default), `transcribe`-family commands try the local daemon first. Explicit
@@ -204,7 +204,7 @@ may be retokenized if `--retokenize` is set. Special `%mor` notation
 | **Extensions filter** | `["cha"]` | Same |
 | **Output** | `.cha` with utterance boundaries recomputed | Same |
 | **Mutation** | If `OUT_DIR = IN_DIR`: **overwrites original `.cha` in place**. | Same |
-| **Key options** | `--lang`, `-n`, `--merge-abbrev` | All passed |
+| **Key options** | `--lang`, `--num-speakers`, `--merge-abbrev` | All passed |
 
 **What changes in the `.cha`:** Utterance boundaries (`*SPK:` lines) are
 recomputed. Existing `%mor`/`%gra` tiers may be invalidated (would need
@@ -314,7 +314,7 @@ matches BA2 behavior without copying BA2's string/document shell.
 | **Extensions filter** | `["mp3", "mp4", "wav"]` | Same |
 | **Output** | New `.cha` files with ASR output + eval metrics | Same files returned to the client, which writes them locally |
 | **Mutation** | **Never mutates input.** Creates new `.cha` files. | Same |
-| **Key options** | `--asr-engine`, `--lang`, `-n`, `--wor/--nowor` | All passed |
+| **Key options** | `--asr-engine`, `--lang`, `--num-speakers`, `--wor/--nowor` | All passed |
 
 **Same I/O pattern as transcribe**: creates new `.cha` files with audio
 extension renamed. Additionally includes evaluation metrics from comparing

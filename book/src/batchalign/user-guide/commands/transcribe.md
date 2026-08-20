@@ -148,11 +148,48 @@ CHAT transcripts.
 | `--lang CODE` | `eng` | 3-letter ISO language code, or `auto` for language auto-detection |
 | `--asr-engine NAME` | `rev` | ASR engine; see the table below. `--help` prints the same list, generated from the engines that exist, so neither can go stale. |
 | `--asr-engine-custom NAME` |: | **Deprecated alias for `--asr-engine`**, still honoured so existing scripts keep working. Hidden from `--help`. |
-| `-n`, `--num-speakers N` | `2` | Expected number of speakers |
+| `--num-speakers N` | `2` | Expected number of speakers. NOT a worker count; see `--workers`. No short flag, deliberately: see below. |
 | `--diarization {auto,enabled,disabled}` | `auto` | Dedicated Pyannote speaker diarization stage (`auto` = disabled) |
 | `--wor` / `--nowor` | `--nowor` | Include or suppress the `%wor` word-timing tier |
 | `--merge-abbrev` | off | Merge abbreviations in the output |
 | `--utseg-fallback-stanza` | off | Opt in to the legacy Stanza constituency-parser fallback for utterance segmentation when no TalkBank BERT model is configured for `--lang`. Default refuses substitution. See [utseg → Language support](utseg.md#language-support). |
+
+
+### Why `--num-speakers` has no short flag
+
+`-n` was a short form for it until 2026-08-19. It was removed because `-n`
+reads as a job or worker count nearly everywhere it appears, `pytest -n` most
+of all, and this CLI has its own `--workers` beside the `make -j` and
+`xargs -P` conventions. A caller reaching for parallelism was therefore
+reconfiguring DIARIZATION, silently.
+
+That is not a hypothetical. On 2026-08-19 a re-transcription of four sessions
+was submitted as `-n 4` meaning four workers. Four speakers would have
+over-diarized those sessions against the 361 siblings in the same delivery,
+which were built with two.
+
+**How visible would that have been?** Less than nothing, and more than an
+earlier draft of this page claimed. The run SUCCEEDS, and no warning is
+printed. The effect is visible if you look: `@Participants` and the `@ID`
+headers are rebuilt from the speakers the diarizer actually returned, so an
+over-diarized transcript lists more of them and carries extra `*SPK:`
+prefixes. What is genuinely absent is the CAUSE. The requested count is
+recorded nowhere in the file, so a reader seeing four speakers cannot tell an
+over-diarized run from a session that really had four.
+
+Note also that an UNDER-count is absorbed: the pipeline takes
+`max(num_speakers, detected)`. Only over-counts change the result.
+
+`-n` is now a hard error, which is the point. A caller who meant parallelism
+goes looking and finds `--workers`; a caller who meant speakers finds
+`--num-speakers`. Both land where they intended, and neither is silently
+misread. On every command but `diarize` the flag defaults to 2, so most
+callers never type either; `diarize` has no default, because omitting it and
+letting the engine auto-detect is the recommendation there.
+
+Note that `--workers` has its own trap, documented on the flag itself: it
+applies to NEW daemons, and does not change the parallelism of a daemon that
+is already running and being reused.
 
 #### ASR engines
 

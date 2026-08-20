@@ -204,7 +204,7 @@ fn command_matrix_common_io_modes_reach_offline_dispatch() {
                 "utseg".into(),
                 "--lang".into(),
                 "spa".into(),
-                "-n".into(),
+                "--num-speakers".into(),
                 "3".into(),
                 "--file-list".into(),
                 file_list.display().to_string(),

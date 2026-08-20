@@ -264,3 +264,24 @@ pub fn command_uses_local_audio(command: &str) -> bool {
 pub fn released_command_supports_paths_mode(command: ReleasedCommand) -> bool {
     command_model::released_command_supports_paths_mode(command)
 }
+
+/// A `ChatCleanedText` built the way production builds one: by PARSING.
+///
+/// chatter v0.12.0 removed `ChatCleanedText::test_unchecked` and the
+/// `test-utils` feature gating it, correctly: a type whose job is to prove
+/// "this text came from a parsed AST" is only as strong as its weakest
+/// constructor, and an escape hatch any dev-dependency could switch on was
+/// that constructor. Fixtures go through the parser now, so a fixture cannot
+/// assert a projection the parser would not produce.
+///
+/// One owner rather than a call per site, because building a parser is not
+/// free and the next reader should see a single route.
+#[cfg(test)]
+pub(crate) fn parsed_word_text_cleaned(word: &str) -> talkbank_model::ChatCleanedText {
+    let parser = talkbank_parser::TreeSitterParser::new()
+        .expect("tree-sitter parser must initialise for fixtures");
+    let parsed = parser
+        .parse_word(word)
+        .unwrap_or_else(|e| panic!("fixture {word:?} must parse as a CHAT word: {e:?}"));
+    talkbank_model::ChatCleanedText::from_word(&parsed)
+}

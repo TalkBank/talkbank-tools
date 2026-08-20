@@ -861,7 +861,7 @@ mod cardinality_tests {
             line_idx,
             word_idx: 1,
             target_lang: LanguageCode::new("ara").expect("valid test language code"),
-            word: talkbank_model::ChatCleanedText::test_unchecked("mrhba"),
+            word: crate::parsed_word_text_cleaned("mrhba"),
             terminator: talkbank_model::Terminator::Period {
                 span: talkbank_model::Span::DUMMY,
             },
@@ -958,7 +958,7 @@ mod cardinality_tests {
             line_idx,
             word_idx,
             target_lang: LanguageCode::new(target_lang).expect("valid test language code"),
-            word: talkbank_model::ChatCleanedText::test_unchecked("word"),
+            word: crate::parsed_word_text_cleaned("word"),
             terminator: talkbank_model::Terminator::Period {
                 span: talkbank_model::Span::DUMMY,
             },

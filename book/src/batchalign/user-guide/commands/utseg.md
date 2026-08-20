@@ -84,7 +84,7 @@ or scheduling.
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--lang CODE` | `eng` | 3-letter ISO language code |
-| `-n`, `--num-speakers N` | `2` | Number of speakers |
+| `--num-speakers N` | `2` | Number of speakers. No short flag; `-n` was removed 2026-08-19. |
 | `--merge-abbrev` | off | Merge abbreviations in the output |
 
 ---

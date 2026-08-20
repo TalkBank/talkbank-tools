@@ -480,7 +480,7 @@ fast machine, cached thereafter).
 # Terminal 1: run any batchalign3 command with the debug-runtime binary.
 # The console gRPC server starts on 127.0.0.1:6669 at process startup.
 ./target/debug/batchalign3 transcribe input/ -o out/ --lang yue \
-    --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B"}' \
+    --asr-engine qwen --engine-overrides '{"qwen_model": "Qwen/Qwen3-ASR-0.6B-hf"}' \
     --sequential --no-server -vv
 
 # Terminal 2: install (once) and attach the TUI client.

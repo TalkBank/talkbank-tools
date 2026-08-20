@@ -32,7 +32,7 @@ Global options go before the command name.
 | `--timeout SECONDS` | Inference timeout for audio tasks (default: 1800 = 30 min) |
 | `--tui` / `--no-tui` | Toggle full-screen TUI for server-backed jobs (`DirectHost` local runs stay on terminal progress bars) |
 | `--open-dashboard` / `--no-open-dashboard` | Toggle browser auto-open for submitted server job pages (macOS only, interactive TTY only) |
-| `--engine-overrides JSON` | Per-engine PARAMETERS, as a `{string:string}` JSON object, e.g. `{"qwen_model":"Qwen/Qwen3-ASR-0.6B","qwen_device":"cpu"}`. Forwarded to the worker as opaque knobs. The `asr` / `fa` / `utr` / `translate` keys additionally select an engine and beat the per-command flags; see "Engine selection" below. Invalid JSON is rejected. |
+| `--engine-overrides JSON` | Per-engine PARAMETERS, as a `{string:string}` JSON object, e.g. `{"qwen_model":"Qwen/Qwen3-ASR-0.6B-hf","qwen_device":"cpu"}`. Forwarded to the worker as opaque knobs. The `asr` / `fa` / `utr` / `translate` keys additionally select an engine and beat the per-command flags; see "Engine selection" below. Invalid JSON is rejected. |
 | `--sequential` | Process files one at a time with a single worker. No memory gate, no server. Ideal for small jobs on laptops |
 | `--no-server` | Skip auto-detection of a local server; force direct in-process execution |
 

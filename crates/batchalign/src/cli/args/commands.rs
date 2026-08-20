@@ -444,8 +444,9 @@ pub struct TranscribeArgs {
     #[arg(long, default_value = "eng")]
     pub lang: String,
 
-    /// Number of speakers.
-    #[arg(short = 'n', long, default_value_t = 2)]
+    /// Expected number of speakers. NOT a worker count: see `--workers`.
+    /// No short flag by design; the book explains why `-n` was removed.
+    #[arg(long, default_value_t = 2)]
     pub num_speakers: u32,
 
     // -- Hidden BA2 compatibility aliases --
@@ -614,8 +615,9 @@ pub struct CompareArgs {
     #[arg(long, default_value = "eng")]
     pub lang: String,
 
-    /// Number of speakers.
-    #[arg(short = 'n', long, default_value_t = 2)]
+    /// Expected number of speakers. NOT a worker count: see `--workers`.
+    /// No short flag by design; the book explains why `-n` was removed.
+    #[arg(long, default_value_t = 2)]
     pub num_speakers: u32,
 
     /// Merge abbreviations in output.
@@ -638,8 +640,9 @@ pub struct UtsegArgs {
     #[arg(long, default_value = "eng")]
     pub lang: String,
 
-    /// Number of speakers.
-    #[arg(short = 'n', long, default_value_t = 2)]
+    /// Expected number of speakers. NOT a worker count: see `--workers`.
+    /// No short flag by design; the book explains why `-n` was removed.
+    #[arg(long, default_value_t = 2)]
     pub num_speakers: u32,
 
     /// Merge abbreviations in output.
@@ -679,8 +682,9 @@ pub struct BenchmarkArgs {
     #[arg(long, default_value = "eng")]
     pub lang: String,
 
-    /// Number of speakers.
-    #[arg(short = 'n', long, default_value_t = 2)]
+    /// Expected number of speakers. NOT a worker count: see `--workers`.
+    /// No short flag by design; the book explains why `-n` was removed.
+    #[arg(long, default_value_t = 2)]
     pub num_speakers: u32,
 
     /// Write word-level alignment (%wor) tier. See
@@ -708,7 +712,6 @@ pub struct BenchmarkArgs {
     /// Subdirectory under the bank.
     #[arg(long)]
     pub subdir: Option<String>,
-    // -- Hidden BA2 compatibility aliases --
 }
 
 /// Arguments for the `opensmile` command.
@@ -745,7 +748,9 @@ pub struct DiarizeArgs {
     pub common: CommonOpts,
 
     /// Expected number of speakers. Omit to auto-detect (recommended).
-    #[arg(short = 'n', long)]
+    ///
+    /// NOT a worker count: see `--workers`. No short flag by design.
+    #[arg(long)]
     pub num_speakers: Option<u32>,
 
     /// Language (3-letter ISO code). Worker-pool selection only;

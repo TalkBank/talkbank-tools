@@ -96,11 +96,13 @@ def load_qwen_asr(lang: LanguageCode, engine_overrides: EngineOverrides | None) 
     Recognized ``engine_overrides`` keys:
 
     - ``qwen_model``: HuggingFace model id of the Qwen3-ASR
-      checkpoint. Default ``"Qwen/Qwen3-ASR-1.7B"``. ``"Qwen/Qwen3-ASR-0.6B"``
-      is the smaller faster alternative.
+      checkpoint, in the ``-hf`` spelling the native ``transformers``
+      module targets. Default ``"Qwen/Qwen3-ASR-1.7B-hf"``;
+      ``"Qwen/Qwen3-ASR-0.6B-hf"`` is the smaller faster alternative.
     - ``qwen_device``: torch device string (``"cpu"``, ``"cuda"``, ``"mps"``).
-      Default ``"cpu"`` (Apple Silicon fleet has no CUDA, and MPS gives
-      degraded output on 1.7B as of 2026-05-26).
+      Default ``"cpu"`` (Apple Silicon fleet has no CUDA, and MPS is
+      unusable for this model: measured 2026-08-20 to be SIGKILLed on
+      long audio and to segfault at load in float16).
 
     Eager-warms the model at the end of bootstrap so the first
     inference request sees a warm cache. The worker bootstrap
@@ -108,7 +110,7 @@ def load_qwen_asr(lang: LanguageCode, engine_overrides: EngineOverrides | None) 
     """
     global _recognizer
 
-    model_id = "Qwen/Qwen3-ASR-1.7B"
+    model_id = "Qwen/Qwen3-ASR-1.7B-hf"
     device = "cpu"
     if engine_overrides:
         if "qwen_model" in engine_overrides:

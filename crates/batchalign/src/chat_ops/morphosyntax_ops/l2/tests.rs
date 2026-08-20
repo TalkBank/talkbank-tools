@@ -27,13 +27,17 @@ fn make_special_forms(
 }
 
 fn make_words(texts: &[&str]) -> Vec<talkbank_model::ChatCleanedText> {
-    // Test fixture path: `ChatCleanedText::test_unchecked` is the
-    // explicit test escape hatch (gated behind the `test-utils`
-    // feature on `talkbank-model`, declared in this crate's
-    // `[dev-dependencies]`). Production builds cannot call it.
+    // Fixtures go through the parser; see `crate::parsed_word_text_cleaned`.
+    //
+    // NOTE the terminator is NOT a word. `MorphosyntaxBatchItem` carries it in
+    // its own typed field, and its `words` docstring says each element derives
+    // from a parsed `Word` or `Separator`. Three fixtures here used to append
+    // `"."` to this list, which production cannot produce; the old
+    // `test_unchecked` hatch is what let them. The parser refuses it, which is
+    // how they were found.
     texts
         .iter()
-        .map(|s| talkbank_model::ChatCleanedText::test_unchecked(*s))
+        .map(|s| crate::parsed_word_text_cleaned(s))
         .collect()
 }
 
@@ -93,7 +97,7 @@ fn make_deferred(line_idx: usize, word_idx: usize, lang: &str, word: &str) -> L2
         line_idx,
         word_idx,
         target_lang: LanguageCode::new(lang).expect("valid test language code"),
-        word: talkbank_model::ChatCleanedText::test_unchecked(word),
+        word: crate::parsed_word_text_cleaned(word),
         terminator: talkbank_model::Terminator::Period {
             span: talkbank_model::Span::DUMMY,
         },
@@ -346,8 +350,8 @@ fn no_inference_when_head_unknown() {
 
 #[test]
 fn single_at_s_word_single_span() {
-    let sf = make_special_forms(&[None, None, Some("spa"), None]);
-    let words = make_words(&["I", "like", "tienda", "."]);
+    let sf = make_special_forms(&[None, None, Some("spa")]);
+    let words = make_words(&["I", "like", "tienda"]);
     let spans = group_l2_spans(&sf, &words);
     assert_eq!(spans.len(), 1);
     assert_eq!(spans[0].word_indices, vec![2]);
@@ -357,8 +361,8 @@ fn single_at_s_word_single_span() {
 
 #[test]
 fn contiguous_same_lang_merged() {
-    let sf = make_special_forms(&[None, None, Some("spa"), Some("spa"), None]);
-    let words = make_words(&["we", "about", "los", "niños", "."]);
+    let sf = make_special_forms(&[None, None, Some("spa"), Some("spa")]);
+    let words = make_words(&["we", "about", "los", "niños"]);
     let spans = group_l2_spans(&sf, &words);
     assert_eq!(spans.len(), 1);
     assert_eq!(spans[0].word_indices, vec![2, 3]);
@@ -423,8 +427,8 @@ fn unresolved_skipped() {
 
 #[test]
 fn no_at_s_words_empty() {
-    let sf = make_special_forms(&[None, None, None]);
-    let words = make_words(&["hello", "world", "."]);
+    let sf = make_special_forms(&[None, None]);
+    let words = make_words(&["hello", "world"]);
     let spans = group_l2_spans(&sf, &words);
     assert!(spans.is_empty());
 }

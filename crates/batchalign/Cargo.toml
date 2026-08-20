@@ -181,7 +181,7 @@ tracing-subscriber = { workspace = true }
 proptest = { workspace = true }
 # Enables `ChatCleanedText::test_unchecked` for test fixture
 # construction. Production builds cannot reach the escape hatch.
-talkbank-model = { workspace = true, features = ["test-utils"] }
+talkbank-model = { workspace = true }
 
 # Deterministic simulation testing (network faults, virtual time)
 turmoil = "0.7"
