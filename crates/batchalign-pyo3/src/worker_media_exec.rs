@@ -18,8 +18,8 @@ use numpy::IntoPyArray;
 use pyo3::prelude::*;
 
 use crate::py_json_bridge::py_to_json_value;
-use crate::worker_artifacts::{decode_f32le_audio, 
-    load_prepared_audio_bytes_impl, require_prepared_audio_attachment,
+use crate::worker_artifacts::{
+    decode_f32le_audio, load_prepared_audio_bytes_impl, require_prepared_audio_attachment,
     validate_attachment_descriptors,
 };
 

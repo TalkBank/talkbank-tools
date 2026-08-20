@@ -19,8 +19,8 @@ use pyo3::prelude::*;
 use crate::error::BatchalignBoundaryError;
 
 use crate::py_json_bridge::py_to_json_value;
-use crate::worker_artifacts::{decode_f32le_audio, 
-    load_prepared_audio_bytes_impl, load_prepared_text_json_impl,
+use crate::worker_artifacts::{
+    decode_f32le_audio, load_prepared_audio_bytes_impl, load_prepared_text_json_impl,
     require_prepared_audio_attachment, require_prepared_text_attachment,
     validate_attachment_descriptors,
 };
