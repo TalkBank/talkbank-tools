@@ -19,7 +19,7 @@ use pyo3::prelude::*;
 use crate::error::BatchalignBoundaryError;
 
 use crate::py_json_bridge::py_to_json_value;
-use crate::worker_artifacts::{
+use crate::worker_artifacts::{decode_f32le_audio, 
     load_prepared_audio_bytes_impl, load_prepared_text_json_impl,
     require_prepared_audio_attachment, require_prepared_text_attachment,
     validate_attachment_descriptors,
@@ -43,12 +43,6 @@ enum FaExecuteFailure {
 fn parse_execute_request(request: &Bound<'_, PyAny>) -> PyResult<ExecuteRequestV2> {
     serde_json::from_value(py_to_json_value(request)?)
         .map_err(|error| BatchalignBoundaryError::internal(error).into_py_err())
-}
-
-fn decode_f32le_audio(raw: Vec<u8>) -> Vec<f32> {
-    raw.chunks_exact(4)
-        .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
-        .collect()
 }
 
 fn extract_fa_request(

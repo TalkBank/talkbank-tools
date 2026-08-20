@@ -237,3 +237,23 @@ pub(crate) fn load_worker_prepared_audio_f32le_bytes<'py>(
     let raw = load_prepared_audio_bytes_impl(&attachment)?;
     Ok(PyBytes::new(py, &raw))
 }
+
+/// Decode a prepared-audio payload of little-endian `f32` samples.
+///
+/// One owner for what were three byte-identical copies in the ASR, FA and
+/// media executors. Clippy found them (`chunks_exact_to_as_chunks`) only
+/// because a lint moved; the duplication had been there the whole time, which
+/// is the actual defect: three places to fix when the wire encoding changes.
+///
+/// A trailing partial chunk is dropped, which preserves the previous
+/// behaviour. That remainder can only occur if the payload is not a whole
+/// number of `f32` values, i.e. if the producer and this reader disagree about
+/// the encoding; it is silent today and worth returning rather than dropping
+/// if that ever needs diagnosing.
+pub(crate) fn decode_f32le_audio(raw: Vec<u8>) -> Vec<f32> {
+    raw.as_chunks::<4>()
+        .0
+        .iter()
+        .map(|chunk| f32::from_le_bytes(*chunk))
+        .collect()
+}
