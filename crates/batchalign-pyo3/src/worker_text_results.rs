@@ -1,6 +1,6 @@
 //! Rust-owned normalization for worker-protocol V2 text-task batch results.
 //!
-//! **See also:** [INTERFACE_MAP.md](../INTERFACE_MAP.md) section "7. Text Task Result Normalization" for:
+//! **See also:** [INTERFACE_MAP.md](../../../INTERFACE_MAP.md) section "7. Text Task Result Normalization" for:
 //! - Python caller: `batchalign/worker/_text_v2.py`
 //! - Full Rust/Python responsibility split and input/output contracts.
 
@@ -13,19 +13,26 @@ use batchalign_types::worker_v2::{
 };
 use pyo3::prelude::*;
 
-use crate::error::BatchalignBoundaryError;
-use crate::py_json_bridge::py_to_json_value;
+/// Why a host response could not be normalized into a typed V2 payload.
+///
+/// A plain message: the CATEGORY is always the same (the host returned a
+/// shape the contract does not allow), and the two consumers wrap it
+/// differently at their own boundaries (the pyfunction raises it as an
+/// internal error; the Rust text executor folds it into
+/// `runtime_failure` with the established "invalid <task> host output"
+/// prefix the Python test matrix asserts on).
+pub(crate) struct TextResultShapeError(pub(crate) String);
 
 fn normalize_result_count<'a>(
     response: &'a BatchInferResponse,
     expected_count: usize,
     task: &str,
-) -> PyResult<&'a [InferResponse]> {
+) -> Result<&'a [InferResponse], TextResultShapeError> {
     let actual_count = response.results.len();
     if actual_count != expected_count {
-        return Err(BatchalignBoundaryError::internal(format!(
+        return Err(TextResultShapeError(format!(
             "worker protocol V2 {task} host returned {actual_count} items, expected {expected_count}"
-        )).into_py_err());
+        )));
     }
     Ok(response.results.as_slice())
 }
@@ -33,20 +40,19 @@ fn normalize_result_count<'a>(
 fn response_object<'a>(
     result: Option<&'a serde_json::Value>,
     task: &str,
-) -> PyResult<Option<&'a serde_json::Map<String, serde_json::Value>>> {
+) -> Result<Option<&'a serde_json::Map<String, serde_json::Value>>, TextResultShapeError> {
     match result {
         None | Some(serde_json::Value::Null) => Ok(None),
         Some(serde_json::Value::Object(obj)) => Ok(Some(obj)),
-        Some(_) => Err(BatchalignBoundaryError::internal(format!(
+        Some(_) => Err(TextResultShapeError(format!(
             "{task} V2 expected a JSON-object result"
-        ))
-        .into_py_err()),
+        ))),
     }
 }
 
 fn normalize_morphosyntax_raw_sentences(
     result: Option<&serde_json::Value>,
-) -> PyResult<Option<Vec<serde_json::Value>>> {
+) -> Result<Option<Vec<serde_json::Value>>, TextResultShapeError> {
     let Some(obj) = response_object(result, "morphosyntax")? else {
         return Ok(None);
     };
@@ -54,19 +60,17 @@ fn normalize_morphosyntax_raw_sentences(
     if let Some(raw_sentences) = obj.get("raw_sentences") {
         return match raw_sentences {
             serde_json::Value::Array(items) => Ok(Some(items.clone())),
-            _ => Err(BatchalignBoundaryError::internal(
-                "morphosyntax V2 raw_sentences must be a list",
-            )
-            .into_py_err()),
+            _ => Err(TextResultShapeError(
+                "morphosyntax V2 raw_sentences must be a list".to_owned(),
+            )),
         };
     }
 
     match obj.get("sentences") {
         Some(serde_json::Value::Array(sentences)) if sentences.is_empty() => Ok(Some(Vec::new())),
-        _ => Err(BatchalignBoundaryError::internal(
-            "morphosyntax V2 expected raw_sentences in worker result",
-        )
-        .into_py_err()),
+        _ => Err(TextResultShapeError(
+            "morphosyntax V2 expected raw_sentences in worker result".to_owned(),
+        )),
     }
 }
 
@@ -74,7 +78,7 @@ fn normalize_string_list(
     result: Option<&serde_json::Value>,
     field_name: &str,
     task: &str,
-) -> PyResult<Option<Vec<String>>> {
+) -> Result<Option<Vec<String>>, TextResultShapeError> {
     let Some(obj) = response_object(result, task)? else {
         return Ok(None);
     };
@@ -92,10 +96,9 @@ fn normalize_string_list(
                     .collect(),
             ))
         }
-        _ => Err(BatchalignBoundaryError::internal(format!(
+        _ => Err(TextResultShapeError(format!(
             "{task} V2 field {field_name:?} must be a list[str]"
-        ))
-        .into_py_err()),
+        ))),
     }
 }
 
@@ -103,7 +106,7 @@ fn normalize_usize_list(
     result: Option<&serde_json::Value>,
     field_name: &str,
     task: &str,
-) -> PyResult<Option<Vec<usize>>> {
+) -> Result<Option<Vec<usize>>, TextResultShapeError> {
     let Some(obj) = response_object(result, task)? else {
         return Ok(None);
     };
@@ -120,22 +123,19 @@ fn normalize_usize_list(
                     .as_u64()
                     .and_then(|number| usize::try_from(number).ok())
                     .ok_or_else(|| {
-                        BatchalignBoundaryError::internal(format!(
+                        TextResultShapeError(format!(
                             "{task} V2 field {field_name:?} values must be non-negative integers"
                         ))
-                        .into_py_err()
                     }),
-                _ => Err(BatchalignBoundaryError::internal(format!(
+                _ => Err(TextResultShapeError(format!(
                     "{task} V2 field {field_name:?} must be a list[usize]"
-                ))
-                .into_py_err()),
+                ))),
             })
-            .collect::<PyResult<Vec<_>>>()
+            .collect::<Result<Vec<_>, TextResultShapeError>>()
             .map(Some),
-        _ => Err(BatchalignBoundaryError::internal(format!(
+        _ => Err(TextResultShapeError(format!(
             "{task} V2 field {field_name:?} must be a list[usize]"
-        ))
-        .into_py_err()),
+        ))),
     }
 }
 
@@ -143,7 +143,7 @@ fn normalize_string_field(
     result: Option<&serde_json::Value>,
     field_name: &str,
     task: &str,
-) -> PyResult<Option<String>> {
+) -> Result<Option<String>, TextResultShapeError> {
     let Some(obj) = response_object(result, task)? else {
         return Ok(None);
     };
@@ -154,26 +154,24 @@ fn normalize_string_field(
 
     match value {
         serde_json::Value::String(text) => Ok(Some(text.clone())),
-        _ => Err(BatchalignBoundaryError::internal(format!(
+        _ => Err(TextResultShapeError(format!(
             "{task} V2 field {field_name:?} must be a string"
-        ))
-        .into_py_err()),
+        ))),
     }
 }
 
 fn normalize_coref_annotations(
     result: Option<&serde_json::Value>,
-) -> PyResult<Option<Vec<CorefAnnotationV2>>> {
+) -> Result<Option<Vec<CorefAnnotationV2>>, TextResultShapeError> {
     let Some(obj) = response_object(result, "coref")? else {
         return Ok(None);
     };
 
     let raw: CorefRawResponse = serde_json::from_value(serde_json::Value::Object(obj.clone()))
         .map_err(|error| {
-            BatchalignBoundaryError::internal(format!(
+            TextResultShapeError(format!(
                 "coref V2 annotations must match CorefRawResponse: {error}"
             ))
-            .into_py_err()
         })?;
 
     Ok(Some(
@@ -200,10 +198,10 @@ fn normalize_coref_annotations(
     ))
 }
 
-fn normalize_morphosyntax_result(
+pub(crate) fn normalize_morphosyntax_result(
     response: &BatchInferResponse,
     expected_count: usize,
-) -> PyResult<String> {
+) -> Result<MorphosyntaxResultV2, TextResultShapeError> {
     let payload = MorphosyntaxResultV2 {
         items: normalize_result_count(response, expected_count, "morphosyntax")?
             .iter()
@@ -215,16 +213,15 @@ fn normalize_morphosyntax_result(
                     error: infer_result.error.clone(),
                 })
             })
-            .collect::<PyResult<Vec<_>>>()?,
+            .collect::<Result<Vec<_>, TextResultShapeError>>()?,
     };
-    serde_json::to_string(&payload)
-        .map_err(|error| BatchalignBoundaryError::internal(error.to_string()).into_py_err())
+    Ok(payload)
 }
 
-fn normalize_utseg_result(
+pub(crate) fn normalize_utseg_result(
     response: &BatchInferResponse,
     expected_count: usize,
-) -> PyResult<String> {
+) -> Result<UtsegResultV2, TextResultShapeError> {
     let payload = UtsegResultV2 {
         items: normalize_result_count(response, expected_count, "utseg")?
             .iter()
@@ -239,16 +236,15 @@ fn normalize_utseg_result(
                     error: infer_result.error.clone(),
                 })
             })
-            .collect::<PyResult<Vec<_>>>()?,
+            .collect::<Result<Vec<_>, TextResultShapeError>>()?,
     };
-    serde_json::to_string(&payload)
-        .map_err(|error| BatchalignBoundaryError::internal(error.to_string()).into_py_err())
+    Ok(payload)
 }
 
-fn normalize_translation_result(
+pub(crate) fn normalize_translation_result(
     response: &BatchInferResponse,
     expected_count: usize,
-) -> PyResult<String> {
+) -> Result<TranslationResultV2, TextResultShapeError> {
     let payload = TranslationResultV2 {
         items: normalize_result_count(response, expected_count, "translate")?
             .iter()
@@ -262,16 +258,15 @@ fn normalize_translation_result(
                     error: infer_result.error.clone(),
                 })
             })
-            .collect::<PyResult<Vec<_>>>()?,
+            .collect::<Result<Vec<_>, TextResultShapeError>>()?,
     };
-    serde_json::to_string(&payload)
-        .map_err(|error| BatchalignBoundaryError::internal(error.to_string()).into_py_err())
+    Ok(payload)
 }
 
-fn normalize_coref_result(
+pub(crate) fn normalize_coref_result(
     response: &BatchInferResponse,
     expected_count: usize,
-) -> PyResult<String> {
+) -> Result<CorefResultV2, TextResultShapeError> {
     let payload = CorefResultV2 {
         items: normalize_result_count(response, expected_count, "coref")?
             .iter()
@@ -281,33 +276,9 @@ fn normalize_coref_result(
                     error: infer_result.error.clone(),
                 })
             })
-            .collect::<PyResult<Vec<_>>>()?,
+            .collect::<Result<Vec<_>, TextResultShapeError>>()?,
     };
-    serde_json::to_string(&payload)
-        .map_err(|error| BatchalignBoundaryError::internal(error.to_string()).into_py_err())
-}
-
-#[pyfunction]
-#[pyo3(signature = (task, response, expected_count))]
-pub(crate) fn normalize_text_task_result(
-    _py: Python<'_>,
-    task: &str,
-    response: &Bound<'_, PyAny>,
-    expected_count: usize,
-) -> PyResult<String> {
-    let response: BatchInferResponse = serde_json::from_value(py_to_json_value(response)?)
-        .map_err(|error| BatchalignBoundaryError::internal(error.to_string()).into_py_err())?;
-
-    match task {
-        "morphosyntax" => normalize_morphosyntax_result(&response, expected_count),
-        "utseg" => normalize_utseg_result(&response, expected_count),
-        "translate" => normalize_translation_result(&response, expected_count),
-        "coref" => normalize_coref_result(&response, expected_count),
-        _ => Err(BatchalignBoundaryError::internal(format!(
-            "unsupported text task result normalization: {task}"
-        ))
-        .into_py_err()),
-    }
+    Ok(payload)
 }
 
 // ---------------------------------------------------------------------------

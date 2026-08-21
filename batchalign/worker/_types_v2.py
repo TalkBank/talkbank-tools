@@ -670,12 +670,31 @@ ExecuteOutcomeV2: TypeAlias = Annotated[
 
 
 class ExecuteResponseV2(BaseModel):
-    """Top-level V2 execute response."""
+    """Top-level V2 execute response.
+
+    The outcome/result pairing is STRUCTURAL on both sides of the FFI since
+    2026-08-21: the Rust type refuses a disagreeing pair at deserialization,
+    and this validator refuses it where a Python handler would BUILD one, so
+    the violation fails at its producer instead of surfacing as a refused
+    wire line on the Rust side.
+    """
 
     request_id: WorkerRequestIdV2
     outcome: ExecuteOutcomeV2
     result: TaskResultV2 | None = None
     elapsed_s: FiniteNonNegativeFloat
+
+    @model_validator(mode="after")
+    def _outcome_and_result_agree(self) -> ExecuteResponseV2:
+        if isinstance(self.outcome, ExecuteSuccessV2) and self.result is None:
+            raise ValueError(
+                "execute response claimed success but carried no result payload"
+            )
+        if isinstance(self.outcome, ExecuteErrorV2) and self.result is not None:
+            raise ValueError(
+                "execute response reported an error but also carried a result payload"
+            )
+        return self
 
 
 class ProgressEventV2(BaseModel):

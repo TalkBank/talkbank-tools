@@ -1,28 +1,24 @@
 //! Rust-owned worker-protocol V2 forced-alignment executor control plane.
 //!
-//! **See also:** [INTERFACE_MAP.md](../INTERFACE_MAP.md) section "3. Forced Alignment V2" for:
+//! **See also:** [INTERFACE_MAP.md](../../../INTERFACE_MAP.md) section "3. Forced Alignment V2" for:
 //! - Python caller: `batchalign/worker/_fa_v2.py::execute_forced_alignment_request_v2()`
 //! - Full Rust/Python responsibility split and input/output contracts.
 
-use std::time::Instant;
-
 use batchalign_types::api::{DurationMs, DurationSeconds};
 use batchalign_types::worker_v2::{
-    ExecuteOutcomeV2, ExecuteRequestV2, ExecuteResponseV2, FaBackendV2, FaTextModeV2,
-    ForcedAlignmentRequestV2, IndexedWordTimingResultV2, IndexedWordTimingV2, InferenceTaskV2,
-    ProtocolErrorCodeV2, TaskRequestV2, TaskResultV2, WhisperTokenTimingResultV2,
-    WhisperTokenTimingV2,
+    ExecuteRequestV2, FaBackendV2, FaTextModeV2, ForcedAlignmentRequestV2,
+    IndexedWordTimingResultV2, IndexedWordTimingV2, TaskRequestV2, TaskResultV2,
+    WhisperTokenTimingResultV2, WhisperTokenTimingV2,
 };
 use numpy::IntoPyArray;
 use pyo3::prelude::*;
 
-use crate::error::BatchalignBoundaryError;
-
-use crate::py_json_bridge::py_to_json_value;
 use crate::worker_artifacts::{
-    decode_f32le_audio, load_prepared_audio_bytes_impl, load_prepared_text_json_impl,
-    require_prepared_audio_attachment, require_prepared_text_attachment,
-    validate_attachment_descriptors,
+    load_prepared_text_json_impl, require_mono_prepared_audio, require_prepared_text_attachment,
+};
+use crate::worker_execute::{
+    ExecuteFailure, ValidatedRequestV2, execute_request_v2, extract_task_payload,
+    parse_host_output, require_runner,
 };
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -33,80 +29,14 @@ struct PreparedFaPayloadV2 {
     word_utterance_word_indices: Vec<i64>,
 }
 
-enum FaExecuteFailure {
-    Artifact(String),
-    InvalidPayload(String),
-    ModelUnavailable(String),
-    Runtime(String),
-}
-
-fn parse_execute_request(request: &Bound<'_, PyAny>) -> PyResult<ExecuteRequestV2> {
-    serde_json::from_value(py_to_json_value(request)?)
-        .map_err(|error| BatchalignBoundaryError::internal(error).into_py_err())
-}
-
-fn extract_fa_request(
-    request: &ExecuteRequestV2,
-) -> Result<&ForcedAlignmentRequestV2, FaExecuteFailure> {
-    if request.task != InferenceTaskV2::ForcedAlignment {
-        return Err(FaExecuteFailure::InvalidPayload(format!(
-            "expected forced_alignment task, got {:?}",
-            request.task
-        )));
-    }
-    match &request.payload {
-        TaskRequestV2::ForcedAlignment(value) => Ok(value),
-        _ => Err(FaExecuteFailure::InvalidPayload(
-            "execute payload did not contain forced-alignment request data".to_owned(),
-        )),
-    }
-}
-
 fn load_fa_payload(
     request: &ExecuteRequestV2,
     fa_request: &ForcedAlignmentRequestV2,
-) -> Result<PreparedFaPayloadV2, FaExecuteFailure> {
+) -> Result<PreparedFaPayloadV2, ExecuteFailure> {
     let attachment =
-        require_prepared_text_attachment(&request.attachments, fa_request.payload_ref_id.as_ref())
-            .map_err(|error| FaExecuteFailure::Artifact(error.to_string()))?;
-    let raw = load_prepared_text_json_impl(attachment)
-        .map_err(|error| FaExecuteFailure::Artifact(error.to_string()))?;
-    serde_json::from_str(&raw).map_err(|error| FaExecuteFailure::InvalidPayload(error.to_string()))
-}
-
-fn artifact_code(message: &str) -> ProtocolErrorCodeV2 {
-    if message.contains("missing worker protocol V2 attachment") {
-        ProtocolErrorCodeV2::MissingAttachment
-    } else {
-        ProtocolErrorCodeV2::AttachmentUnreadable
-    }
-}
-
-fn error_response(
-    request: &ExecuteRequestV2,
-    code: ProtocolErrorCodeV2,
-    message: String,
-    started_at: Instant,
-) -> ExecuteResponseV2 {
-    ExecuteResponseV2 {
-        request_id: request.request_id.clone(),
-        outcome: ExecuteOutcomeV2::Error { code, message },
-        result: None,
-        elapsed_s: DurationSeconds(started_at.elapsed().as_secs_f64()),
-    }
-}
-
-fn success_response(
-    request: &ExecuteRequestV2,
-    result: TaskResultV2,
-    started_at: Instant,
-) -> ExecuteResponseV2 {
-    ExecuteResponseV2 {
-        request_id: request.request_id.clone(),
-        outcome: ExecuteOutcomeV2::Success,
-        result: Some(result),
-        elapsed_s: DurationSeconds(started_at.elapsed().as_secs_f64()),
-    }
+        require_prepared_text_attachment(&request.attachments, fa_request.payload_ref_id.as_ref())?;
+    let raw = load_prepared_text_json_impl(attachment)?;
+    serde_json::from_str(&raw).map_err(|error| ExecuteFailure::InvalidPayload(error.to_string()))
 }
 
 fn join_fa_words(words: &[String], text_mode: FaTextModeV2) -> String {
@@ -129,19 +59,13 @@ fn join_fa_words(words: &[String], text_mode: FaTextModeV2) -> String {
 
 fn parse_whisper_tokens(
     response: &Bound<'_, PyAny>,
-) -> Result<WhisperTokenTimingResultV2, FaExecuteFailure> {
-    let tokens: Vec<(String, f64)> =
-        serde_json::from_value(py_to_json_value(response).map_err(|error| {
-            FaExecuteFailure::Runtime(format!("invalid forced-alignment host output: {error}"))
-        })?)
-        .map_err(|error| {
-            FaExecuteFailure::Runtime(format!("invalid forced-alignment host output: {error}"))
-        })?;
+) -> Result<WhisperTokenTimingResultV2, ExecuteFailure> {
+    let tokens: Vec<(String, f64)> = parse_host_output(response, "forced-alignment")?;
 
     let mut normalized = Vec::with_capacity(tokens.len());
     for (text, time_s) in tokens {
         if time_s < 0.0 {
-            return Err(FaExecuteFailure::Runtime(
+            return Err(ExecuteFailure::Runtime(
                 "invalid forced-alignment host output: Whisper token time_s must be >= 0"
                     .to_owned(),
             ));
@@ -157,19 +81,13 @@ fn parse_whisper_tokens(
 fn parse_indexed_timings(
     response: &Bound<'_, PyAny>,
     expected_words: usize,
-) -> Result<IndexedWordTimingResultV2, FaExecuteFailure> {
-    let spans: Vec<(String, (u64, u64))> =
-        serde_json::from_value(py_to_json_value(response).map_err(|error| {
-            FaExecuteFailure::Runtime(format!("invalid forced-alignment host output: {error}"))
-        })?)
-        .map_err(|error| {
-            FaExecuteFailure::Runtime(format!("invalid forced-alignment host output: {error}"))
-        })?;
+) -> Result<IndexedWordTimingResultV2, ExecuteFailure> {
+    let spans: Vec<(String, (u64, u64))> = parse_host_output(response, "forced-alignment")?;
 
     let mut indexed_timings = vec![None; expected_words];
     for (index, (_, (start_ms, end_ms))) in spans.into_iter().take(expected_words).enumerate() {
         if end_ms < start_ms {
-            return Err(FaExecuteFailure::Runtime(
+            return Err(ExecuteFailure::Runtime(
                 "invalid forced-alignment host output: Indexed word timing end_ms must be >= start_ms"
                     .to_owned(),
             ));
@@ -188,34 +106,50 @@ fn run_whisper(
     request: &ExecuteRequestV2,
     fa_request: &ForcedAlignmentRequestV2,
     whisper_runner: Option<Py<PyAny>>,
-) -> Result<TaskResultV2, FaExecuteFailure> {
+) -> Result<TaskResultV2, ExecuteFailure> {
     let payload = load_fa_payload(request, fa_request)?;
-    let attachment =
-        require_prepared_audio_attachment(&request.attachments, fa_request.audio_ref_id.as_ref())
-            .map_err(|error| FaExecuteFailure::Artifact(error.to_string()))?;
-    if attachment.channels.0 != 1 {
-        return Err(FaExecuteFailure::InvalidPayload(
-            "forced-alignment V2 currently expects mono prepared audio".to_owned(),
-        ));
-    }
-    let runner = whisper_runner.ok_or_else(|| {
-        FaExecuteFailure::ModelUnavailable(
-            "no whisper FA host loaded for worker protocol V2".to_owned(),
-        )
-    })?;
-    let audio = decode_f32le_audio(
-        load_prepared_audio_bytes_impl(attachment)
-            .map_err(|error| FaExecuteFailure::Artifact(error.to_string()))?,
-    );
-    let audio_array = audio.into_pyarray(py);
+    let audio = require_mono_prepared_audio(
+        &request.attachments,
+        fa_request.audio_ref_id.as_ref(),
+        "forced-alignment V2",
+    )?;
+    let runner = require_runner(
+        whisper_runner,
+        "no whisper FA host loaded for worker protocol V2",
+    )?;
+    let audio_array = audio.samples()?.into_pyarray(py);
     let text = join_fa_words(&payload.words, fa_request.text_mode);
     let response = runner
         .bind(py)
         .call1((audio_array, text.as_str()))
-        .map_err(|error| FaExecuteFailure::Runtime(error.to_string()))?;
+        .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
     Ok(TaskResultV2::WhisperTokenTimingResult(
         parse_whisper_tokens(&response)?,
     ))
+}
+
+/// Which wave2vec-family FA host a request targets.
+///
+/// Replaces a `canto_mode: bool` that travelled beside a separately supplied
+/// unavailable-message: the same fact arrived twice and only the untyped copy
+/// decided the call shape. The flavor now owns both decisions, so a message
+/// cannot be paired with the wrong call shape.
+#[derive(Clone, Copy)]
+enum Wave2vecFlavor {
+    /// The standard wave2vec host: called with the word list.
+    Standard,
+    /// The Cantonese host: called with the serialized payload and request,
+    /// because it re-derives its own tokenization.
+    Cantonese,
+}
+
+impl Wave2vecFlavor {
+    fn unavailable_message(self) -> &'static str {
+        match self {
+            Self::Standard => "no wave2vec FA host loaded for worker protocol V2",
+            Self::Cantonese => "no Cantonese FA host loaded for worker protocol V2",
+        }
+    }
 }
 
 fn run_wave2vec_like(
@@ -223,39 +157,32 @@ fn run_wave2vec_like(
     request: &ExecuteRequestV2,
     fa_request: &ForcedAlignmentRequestV2,
     runner: Option<Py<PyAny>>,
-    unavailable_message: &'static str,
-    canto_mode: bool,
-) -> Result<TaskResultV2, FaExecuteFailure> {
+    flavor: Wave2vecFlavor,
+) -> Result<TaskResultV2, ExecuteFailure> {
     let payload = load_fa_payload(request, fa_request)?;
-    let attachment =
-        require_prepared_audio_attachment(&request.attachments, fa_request.audio_ref_id.as_ref())
-            .map_err(|error| FaExecuteFailure::Artifact(error.to_string()))?;
-    if attachment.channels.0 != 1 {
-        return Err(FaExecuteFailure::InvalidPayload(
-            "forced-alignment V2 currently expects mono prepared audio".to_owned(),
-        ));
-    }
-    let runner =
-        runner.ok_or_else(|| FaExecuteFailure::ModelUnavailable(unavailable_message.to_owned()))?;
-    let audio = decode_f32le_audio(
-        load_prepared_audio_bytes_impl(attachment)
-            .map_err(|error| FaExecuteFailure::Artifact(error.to_string()))?,
-    );
-    let audio_array = audio.into_pyarray(py);
-    let response = if canto_mode {
-        let payload_json = serde_json::to_string(&payload)
-            .map_err(|error| FaExecuteFailure::Runtime(error.to_string()))?;
-        let request_json = serde_json::to_string(fa_request)
-            .map_err(|error| FaExecuteFailure::Runtime(error.to_string()))?;
-        runner
-            .bind(py)
-            .call1((audio_array, payload_json.as_str(), request_json.as_str()))
-            .map_err(|error| FaExecuteFailure::Runtime(error.to_string()))?
-    } else {
-        runner
+    let audio = require_mono_prepared_audio(
+        &request.attachments,
+        fa_request.audio_ref_id.as_ref(),
+        "forced-alignment V2",
+    )?;
+    let runner = runner
+        .ok_or_else(|| ExecuteFailure::ModelUnavailable(flavor.unavailable_message().to_owned()))?;
+    let audio_array = audio.samples()?.into_pyarray(py);
+    let response = match flavor {
+        Wave2vecFlavor::Cantonese => {
+            let payload_json = serde_json::to_string(&payload)
+                .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
+            let request_json = serde_json::to_string(fa_request)
+                .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
+            runner
+                .bind(py)
+                .call1((audio_array, payload_json.as_str(), request_json.as_str()))
+                .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?
+        }
+        Wave2vecFlavor::Standard => runner
             .bind(py)
             .call1((audio_array, payload.words.clone()))
-            .map_err(|error| FaExecuteFailure::Runtime(error.to_string()))?
+            .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?,
     };
     Ok(TaskResultV2::IndexedWordTimingResult(
         parse_indexed_timings(&response, payload.words.len())?,
@@ -264,29 +191,34 @@ fn run_wave2vec_like(
 
 fn run_fa(
     py: Python<'_>,
-    request: &ExecuteRequestV2,
+    request: ValidatedRequestV2<'_>,
     whisper_runner: Option<Py<PyAny>>,
     wave2vec_runner: Option<Py<PyAny>>,
     canto_runner: Option<Py<PyAny>>,
-) -> Result<TaskResultV2, FaExecuteFailure> {
-    let fa_request = extract_fa_request(request)?;
+) -> Result<TaskResultV2, ExecuteFailure> {
+    let fa_request = extract_task_payload(
+        &request,
+        |payload| match payload {
+            TaskRequestV2::ForcedAlignment(value) => Some(value),
+            _ => None,
+        },
+        "forced-alignment",
+    )?;
     match fa_request.backend {
-        FaBackendV2::Whisper => run_whisper(py, request, fa_request, whisper_runner),
+        FaBackendV2::Whisper => run_whisper(py, &request, fa_request, whisper_runner),
         FaBackendV2::Wave2vec => run_wave2vec_like(
             py,
-            request,
+            &request,
             fa_request,
             wave2vec_runner,
-            "no wave2vec FA host loaded for worker protocol V2",
-            false,
+            Wave2vecFlavor::Standard,
         ),
         FaBackendV2::Wav2vecCanto => run_wave2vec_like(
             py,
-            request,
+            &request,
             fa_request,
             canto_runner,
-            "no Cantonese FA host loaded for worker protocol V2",
-            true,
+            Wave2vecFlavor::Cantonese,
         ),
     }
 }
@@ -300,40 +232,7 @@ pub(crate) fn execute_forced_alignment_request_v2(
     wave2vec_runner: Option<Py<PyAny>>,
     canto_runner: Option<Py<PyAny>>,
 ) -> PyResult<String> {
-    let request = parse_execute_request(request)?;
-    let started_at = Instant::now();
-    let response = match validate_attachment_descriptors(&request.attachments) {
-        Err(message) => error_response(
-            &request,
-            ProtocolErrorCodeV2::InvalidPayload,
-            message,
-            started_at,
-        ),
-        Ok(()) => match run_fa(py, &request, whisper_runner, wave2vec_runner, canto_runner) {
-            Ok(result) => success_response(&request, result, started_at),
-            Err(FaExecuteFailure::Artifact(message)) => {
-                error_response(&request, artifact_code(&message), message, started_at)
-            }
-            Err(FaExecuteFailure::InvalidPayload(message)) => error_response(
-                &request,
-                ProtocolErrorCodeV2::InvalidPayload,
-                message,
-                started_at,
-            ),
-            Err(FaExecuteFailure::ModelUnavailable(message)) => error_response(
-                &request,
-                ProtocolErrorCodeV2::ModelUnavailable,
-                message,
-                started_at,
-            ),
-            Err(FaExecuteFailure::Runtime(message)) => error_response(
-                &request,
-                ProtocolErrorCodeV2::RuntimeFailure,
-                message,
-                started_at,
-            ),
-        },
-    };
-    serde_json::to_string(&response)
-        .map_err(|error| BatchalignBoundaryError::internal(error).into_py_err())
+    execute_request_v2(request, |request| {
+        run_fa(py, request, whisper_runner, wave2vec_runner, canto_runner)
+    })
 }

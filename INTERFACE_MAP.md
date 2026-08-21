@@ -132,19 +132,23 @@ This document is the unified reference for all Python/Rust interface boundaries 
 
 ---
 
-### 7. Text Task Result Normalization (`pyo3-text`)
-**Purpose:** Reshape BatchInferResponse (legacy V1) into V2 shapes for morphotag, utseg, translate, coref
+### 7. Text Task Execution V2 (`pyo3-text`)
+**Purpose:** Rust control plane for the four batched text tasks (morphosyntax, utseg, translate, coref)
 
 | Aspect | Location |
 |--------|----------|
-| Rust FFI | `crates/batchalign-pyo3/src/worker_text_results.rs::normalize_text_task_result()` |
-| Rust FFI | `crates/batchalign-pyo3/src/worker_text_results.rs::align_tokens()` |
-| Python caller | `batchalign/worker/_execute_v2.py::execute_text_request_v2()` (legacy path) |
+| Rust FFI | `crates/batchalign-pyo3/src/worker_text_exec.rs::execute_{morphosyntax,utseg,translate,coref}_request_v2()` |
+| Result normalization | `crates/batchalign-pyo3/src/worker_text_results.rs::normalize_*_result()` (Rust-internal, called by the executors) |
+| Rust FFI | `crates/batchalign-pyo3/src/worker_text_results.rs::align_tokens()` (tokenizer realignment, separate concern) |
+| Python caller | `batchalign/worker/_text_v2.py::execute_*_request_v2()` |
 | Schema | Responds with V2 ExecuteResponseV2 |
 
-**Purpose:** During cutover from V1 to V2, this normalizer bridges the old text-pipeline response types into the new V2 response envelope.
-
-**Future:** Once all text tasks migrate to V2, this can be removed.
+**Rust/Python contract (since 2026-08-21):** Rust owns request parsing,
+task/payload agreement, prepared-batch loading and item-count checks, the
+failure taxonomy, and result normalization into the typed V2 payloads. Python
+keeps the host of loaded model runners plus one adapter per task, which
+parses the frozen batch into typed batch items, builds `BatchInferRequest`,
+manages the morphosyntax progress callback, and calls the model.
 
 ---
 
@@ -153,19 +157,21 @@ This document is the unified reference for all Python/Rust interface boundaries 
 
 | Aspect | Location |
 |--------|----------|
-| Rust FFI functions | `crates/batchalign-pyo3/src/worker_artifacts.rs` (6 functions) |
-| Python caller | `batchalign/worker/_execute_v2.py` + `batchalign/worker/_asr_v2.py` etc. |
+| Rust-internal loaders | `crates/batchalign-pyo3/src/worker_artifacts.rs` |
+| Consumers | the Rust executors in `worker_{asr,fa,media,text}_exec.rs` |
 
-**Functions:**
-- `find_worker_attachment_by_id()`: locate artifact by ID
-- `load_worker_json_attachment()`: deserialize JSON artifact
-- `load_worker_prepared_text_json()`: load prepared text payload
-- `load_worker_prepared_audio_f32le_bytes()`: load audio bytes (F32LE codec)
+**Functions (Rust-internal since 2026-08-21; the FFI loader pyfunctions were
+deleted when their last Python caller, the old text control plane, was
+ported):**
+- `find_attachment()`: locate artifact by ID
+- `load_json_attachment_text()`: JSON batch payload as frozen text
+- `load_prepared_text_json_impl()`: load prepared text payload
+- `require_mono_prepared_audio()`: mono-checked audio proof (`MonoPreparedAudio`)
 
 **Design:**
 - Artifacts are **file-backed** in a per-worker temp directory
 - IPC message contains artifact references (`ArtifactRefV2`)
-- Python loads refs → Rust returns bytes or JSON
+- The Rust executors resolve refs and load bytes or JSON; Python receives typed arguments
 - Future: Can migrate to shared memory without changing Python logic
 
 ---

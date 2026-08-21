@@ -4,22 +4,12 @@
 //! This adapter keeps Rust in charge of interpreting the typed response shape
 //! instead of letting downstream callers pattern-match on generic JSON.
 
-use crate::types::worker_v2::{ExecuteOutcomeV2, ExecuteResponseV2, SpeakerResultV2, TaskResultV2};
+use crate::types::worker_v2::{ExecuteResponseV2, SpeakerResultV2, TaskResultV2};
+use crate::worker::execute_result_v2::require_success_result;
 
 /// Parse one V2 speaker execute response into the typed segment list.
 pub fn parse_speaker_result_v2(response: &ExecuteResponseV2) -> Result<&SpeakerResultV2, String> {
-    match &response.outcome {
-        ExecuteOutcomeV2::Success => {}
-        ExecuteOutcomeV2::Error { code, message } => {
-            return Err(format!(
-                "worker protocol V2 speaker request failed with {code:?}: {message}"
-            ));
-        }
-    }
-
-    let Some(result) = &response.result else {
-        return Err("worker protocol V2 speaker response was missing a result payload".into());
-    };
+    let result = require_success_result(response, "speaker")?;
 
     match result {
         TaskResultV2::SpeakerResult(result) => Ok(result),
@@ -66,18 +56,17 @@ mod tests {
 
     #[test]
     fn parses_speaker_segments_from_typed_v2_result() {
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-speaker-v2-1"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::SpeakerResult(SpeakerResultV2 {
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-speaker-v2-1"),
+            TaskResultV2::SpeakerResult(SpeakerResultV2 {
                 segments: vec![SpeakerSegmentV2 {
                     start_ms: DurationMs(0),
                     end_ms: DurationMs(900),
                     speaker: "SPEAKER_1".into(),
                 }],
-            })),
-            elapsed_s: DurationSeconds(0.01),
-        };
+            }),
+            DurationSeconds(0.01),
+        );
 
         let parsed = parse_speaker_result_v2(&response).expect("speaker result should parse");
         assert_eq!(parsed.segments[0].speaker, "SPEAKER_1");
@@ -86,19 +75,16 @@ mod tests {
 
     #[test]
     fn rejects_non_speaker_v2_payloads() {
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-speaker-v2-2"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::TranslationResult(
-                crate::types::worker_v2::TranslationResultV2 {
-                    items: vec![crate::types::worker_v2::TranslationItemResultV2 {
-                        raw_translation: Some("hola".into()),
-                        error: None,
-                    }],
-                },
-            )),
-            elapsed_s: DurationSeconds(0.01),
-        };
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-speaker-v2-2"),
+            TaskResultV2::TranslationResult(crate::types::worker_v2::TranslationResultV2 {
+                items: vec![crate::types::worker_v2::TranslationItemResultV2 {
+                    raw_translation: Some("hola".into()),
+                    error: None,
+                }],
+            }),
+            DurationSeconds(0.01),
+        );
 
         let error =
             parse_speaker_result_v2(&response).expect_err("translation result should be rejected");

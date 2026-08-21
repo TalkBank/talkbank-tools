@@ -47,7 +47,10 @@ pub(super) fn execute_v2_worker_key(
         if bootstrap_mode == WorkerBootstrapMode::LazyProfile && target.is_concurrent() {
             EngineSelection::none()
         } else {
-            EngineSelection::from_execute_request(request)
+            // Eager mode: the worker bootstrap preloads the whole profile, so
+            // the selection must name an engine for every preloaded task, not
+            // only the one this request carries.
+            EngineSelection::from_execute_request_for_target(target, request)
         };
 
     Ok(WorkerKey {
@@ -64,19 +67,37 @@ impl EngineSelection {
     /// `EngineOverrides` retains every opaque ASR extra, including
     /// `qwen_model`, until it is serialized for Python worker startup.
     pub(super) fn from_execute_request(request: &ExecuteRequestV2) -> Self {
-        let overrides = match &request.payload {
-            TaskRequestV2::Asr(request) => EngineOverrides {
-                asr: Some(asr_backend_engine(request.backend)),
-                extras: request.extras.clone(),
-                ..EngineOverrides::default()
-            },
-            TaskRequestV2::ForcedAlignment(request) => EngineOverrides {
-                fa: Some(fa_backend_engine(request.backend)),
-                ..EngineOverrides::default()
-            },
-            _ => EngineOverrides::default(),
-        };
-        Self::from_overrides(overrides)
+        Self::from_overrides(execute_request_overrides(request))
+    }
+
+    /// Like [`Self::from_execute_request`], for spawning an EAGER worker
+    /// whose target may preload more tasks than the request names. The
+    /// target-driven fill has one owner (`fill_for_preloaded_tasks`), shared
+    /// with the command spawn route.
+    pub(super) fn from_execute_request_for_target(
+        target: WorkerTarget,
+        request: &ExecuteRequestV2,
+    ) -> Self {
+        Self::from_overrides(Self::fill_for_preloaded_tasks(
+            target,
+            execute_request_overrides(request),
+        ))
+    }
+}
+
+/// The engines a V2 request itself names, before any target-driven filling.
+fn execute_request_overrides(request: &ExecuteRequestV2) -> EngineOverrides {
+    match &request.payload {
+        TaskRequestV2::Asr(request) => EngineOverrides {
+            asr: Some(asr_backend_engine(request.backend)),
+            extras: request.extras.clone(),
+            ..EngineOverrides::default()
+        },
+        TaskRequestV2::ForcedAlignment(request) => EngineOverrides {
+            fa: Some(fa_backend_engine(request.backend)),
+            ..EngineOverrides::default()
+        },
+        _ => EngineOverrides::default(),
     }
 }
 
@@ -121,6 +142,7 @@ fn fa_backend_engine(backend: FaBackendV2) -> FaEngineName {
 mod tests {
     use super::*;
     use crate::api::LanguageCode3;
+    use crate::types::engines::SelectableEngine;
     use crate::types::worker_v2::{
         AsrInputV2, AsrRequestV2, FaTextModeV2, ForcedAlignmentRequestV2, MorphosyntaxRequestV2,
         PreparedAudioInputV2, WorkerArtifactIdV2, WorkerRequestIdV2,
@@ -136,6 +158,40 @@ mod tests {
         }
     }
 
+    /// Regression (2026-08-21): in eager Profile mode an ASR request spawns a
+    /// profile worker whose bootstrap preloads FA too, and the Python side
+    /// refuses a preloaded task with no named engine rather than defaulting.
+    /// The V2 route used to name only the engines the request itself carried,
+    /// so the worker died at bootstrap ("no 'fa' engine in overrides") and
+    /// every eager-mode whisper transcription failed as an internal error.
+    #[test]
+    fn eager_profile_asr_key_names_an_fa_engine_for_the_preloaded_task() {
+        let request = request_with_payload(
+            InferenceTaskV2::Asr,
+            TaskRequestV2::Asr(AsrRequestV2 {
+                lang: WorkerLanguage::from(LanguageCode3::eng()),
+                backend: AsrBackendV2::LocalWhisper,
+                input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
+                    audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
+                }),
+                extras: std::collections::BTreeMap::new(),
+            }),
+        );
+
+        let key = execute_v2_worker_key(
+            WorkerLanguage::from(LanguageCode3::eng()),
+            &request,
+            WorkerBootstrapMode::Profile,
+        )
+        .expect("eager ASR request must derive a worker key");
+
+        assert_eq!(
+            key.engine_selection.overrides().fa,
+            Some(FaEngineName::DEFAULT),
+            "an eager profile worker preloads FA, so its key must name an FA engine"
+        );
+    }
+
     #[test]
     fn maps_forced_alignment_execute_v2_to_fa_worker_profile() {
         assert_eq!(
@@ -146,6 +202,12 @@ mod tests {
 
     #[test]
     fn execute_v2_asr_worker_key_uses_request_backend_override() {
+        // Policy change (2026-08-21): this test used to pin the key JSON as
+        // {"asr":"whisper"} alone, which was the DEFECT: in eager Profile
+        // mode the spawned worker preloads FA too, and the Python bootstrap
+        // refuses a preloaded task with no named engine, so the pinned value
+        // was a worker that dies at startup. The eager key now also names
+        // the default FA engine.
         let request = request_with_payload(
             InferenceTaskV2::Asr,
             TaskRequestV2::Asr(AsrRequestV2 {
@@ -169,7 +231,7 @@ mod tests {
         assert_eq!(key.language, WorkerLanguage::from(LanguageCode3::fra()));
         assert_eq!(
             key.engine_selection.worker_config_json(),
-            r#"{"asr":"whisper"}"#
+            r#"{"asr":"whisper","fa":"wave2vec"}"#
         );
     }
 

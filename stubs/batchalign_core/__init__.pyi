@@ -56,35 +56,27 @@ def execute_speaker_request_v2(
     pyannote_prepared_audio_runner: Callable[..., object] | None = None,
     nemo_prepared_audio_runner: Callable[..., object] | None = None,
 ) -> str: ...
-def normalize_text_task_result(
-    task: str,
-    response: object,
-    expected_count: int,
+def execute_morphosyntax_request_v2(
+    request: object,
+    runner: Callable[..., object] | None = None,
+) -> str: ...
+def execute_utseg_request_v2(
+    request: object,
+    runner: Callable[..., object] | None = None,
+) -> str: ...
+def execute_translate_request_v2(
+    request: object,
+    runner: Callable[..., object] | None = None,
+) -> str: ...
+def execute_coref_request_v2(
+    request: object,
+    runner: Callable[..., object] | None = None,
 ) -> str: ...
 def align_tokens(
     original_words: list[str],
     stanza_tokens: list[str],
     alpha2: str = "",
 ) -> list[str | tuple[str, bool]]: ...
-
-# ---------------------------------------------------------------------------
-# Worker artifact loaders
-# ---------------------------------------------------------------------------
-
-def find_worker_attachment_by_id(
-    attachments: object,
-    artifact_id: str,
-) -> str: ...
-def load_worker_json_attachment(
-    attachments: object,
-    artifact_id: str,
-) -> str: ...
-def load_worker_prepared_text_json(
-    attachment: object,
-) -> str: ...
-def load_worker_prepared_audio_f32le_bytes(
-    attachment: object,
-) -> bytes: ...
 
 # ---------------------------------------------------------------------------
 # Cantonese ASR bridges

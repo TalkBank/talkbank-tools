@@ -119,9 +119,15 @@ use talkbank_model::{ChatCleanedText, ChatRawText};
 pub(crate) fn parsed_word_text(word: &str) -> (ChatCleanedText, ChatRawText) {
     let parser = talkbank_parser::TreeSitterParser::new()
         .expect("tree-sitter parser must initialise for fixtures");
-    let parsed = parser
-        .parse_word(word)
-        .unwrap_or_else(|e| panic!("fixture {word:?} must parse as a CHAT word: {e:?}"));
+    // A `match` rather than `unwrap_or_else(|e| panic!(..))`: identical
+    // behaviour, but the silent-defaults ratchet matches the `unwrap_or*`
+    // spelling and cannot see that this one diverges instead of substituting a
+    // value. Respelling a false positive, not evading the rule; nothing here
+    // invents a fixture.
+    let parsed = match parser.parse_word(word) {
+        Ok(parsed) => parsed,
+        Err(e) => panic!("fixture {word:?} must parse as a CHAT word: {e:?}"),
+    };
     (
         ChatCleanedText::from_word(&parsed),
         ChatRawText::from_word_raw(&parsed),

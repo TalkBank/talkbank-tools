@@ -46,7 +46,7 @@ diarizer:
   
   clustering: 
     parameters:
-      oracle_num_speakers: True # If True, use num of speakers value provided in manifest file.
+      oracle_num_speakers: True # Placeholder: ALWAYS overridden per run (true iff the request carried a speaker count; see _infer_nemo_speaker_from_audio_file).
       max_num_speakers: 8 # Max number of speakers for each recording. If an oracle number of speakers is passed, this value is ignored.
       enhanced_count_thres: 80 # If the number of segments is lower than this number, enhanced speaker counting is activated.
       max_rp_threshold: 0.25 # Determines the range of p-value search: 0 < p <= max_rp_threshold. 

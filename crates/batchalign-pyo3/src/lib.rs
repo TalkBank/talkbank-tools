@@ -22,6 +22,7 @@
 //! - `worker_asr_exec`: ASR execution (Whisper, HK providers)
 //! - `worker_fa_exec`: Forced alignment execution
 //! - `worker_media_exec`: Speaker diarization, OpenSMILE, AVQI
+//! - `worker_text_exec`: Batched text-task executor control plane
 //! - `worker_text_results`: Text task result normalization + token alignment
 //! - `worker_artifacts`: Prepared artifact loading from IPC attachments
 //! - `cantonese_asr_bridge`: HK/Cantonese provider projection + normalization
@@ -34,9 +35,11 @@ pub(crate) mod error;
 pub(crate) mod py_json_bridge;
 mod worker_artifacts;
 mod worker_asr_exec;
+mod worker_execute;
 mod worker_fa_exec;
 mod worker_media_exec;
 mod worker_protocol;
+mod worker_text_exec;
 mod worker_text_results;
 
 use pyo3::prelude::*;
@@ -85,6 +88,10 @@ fn batchalign_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
         py.get_type::<error::PayloadTooLargeError>(),
     )?;
     m.add("SkipFileWarning", py.get_type::<error::SkipFileWarning>())?;
+    m.add(
+        "ArtifactInputError",
+        py.get_type::<error::ArtifactInputError>(),
+    )?;
 
     // Worker protocol dispatch
     m.add_function(wrap_pyfunction!(
@@ -113,29 +120,25 @@ fn batchalign_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
         worker_media_exec::execute_speaker_request_v2,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(worker_text_results::align_tokens, m)?)?;
     m.add_function(wrap_pyfunction!(
-        worker_text_results::normalize_text_task_result,
+        worker_text_exec::execute_morphosyntax_request_v2,
         m
     )?)?;
-    m.add_function(wrap_pyfunction!(worker_text_results::align_tokens, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        worker_text_exec::execute_utseg_request_v2,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        worker_text_exec::execute_translate_request_v2,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        worker_text_exec::execute_coref_request_v2,
+        m
+    )?)?;
 
     // Worker artifact loaders
-    m.add_function(wrap_pyfunction!(
-        worker_artifacts::find_worker_attachment_by_id,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(
-        worker_artifacts::load_worker_json_attachment,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(
-        worker_artifacts::load_worker_prepared_text_json,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(
-        worker_artifacts::load_worker_prepared_audio_f32le_bytes,
-        m
-    )?)?;
 
     // HK/Cantonese ASR bridges
     m.add_function(wrap_pyfunction!(

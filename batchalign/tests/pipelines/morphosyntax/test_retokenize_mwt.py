@@ -274,10 +274,11 @@ class TestWorkerPipelineRetokenize:
 # Q6: Does the V2 execute handler preserve retokenize=True through the full
 #     path (artifact loading -> batch_infer -> normalization -> response)?
 #
-# Q5 tests batch_infer_morphosyntax directly. Q6 tests the V2 execute handler
-# which wraps batch_infer with artifact loading and result normalization via
-# batchalign_core.normalize_text_task_result(). The normalization is a
-# potential lossy boundary where Range token data could be dropped.
+# Q5 tests batch_infer_morphosyntax directly. Q6 tests the V2 execute handler,
+# whose Rust control plane (worker_text_exec.rs) wraps batch_infer with
+# artifact loading and result normalization (normalize_morphosyntax_result).
+# The normalization is a potential lossy boundary where Range token data could
+# be dropped.
 # ---------------------------------------------------------------------------
 
 

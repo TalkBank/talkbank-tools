@@ -378,10 +378,24 @@ def test_infer_nemo_speaker_prepared_audio_writes_temp_wav_and_forwards(
     assert segments == [SpeakerSegment(start_ms=0, end_ms=100, speaker="SPEAKER_0")]
 
 
+@pytest.mark.parametrize(
+    ("num_speakers", "expected_oracle", "expected_manifest_fragment"),
+    [
+        (3, True, '"num_speakers": 3'),
+        # POLICY (ruled 2026-08-21, superseding the earlier refusal): an
+        # unspecified count runs NeMo with oracle mode OFF so clustering
+        # estimates, bounded by max_num_speakers. A specified count still
+        # forces oracle mode.
+        (None, False, '"num_speakers": null'),
+    ],
+)
 def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(
     monkeypatch,
+    num_speakers,
+    expected_oracle,
+    expected_manifest_fragment,
 ) -> None:
-    """NeMo file-path inference should build the manifest, run diarization, and parse RTTM output."""
+    """NeMo file-path inference should build the manifest, derive oracle mode from the request, run diarization, and parse RTTM output."""
 
     captured: dict[str, object] = {}
 
@@ -405,7 +419,14 @@ def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(
         def load(path: str):
             captured["config_path"] = path
             return SimpleNamespace(
-                diarizer=SimpleNamespace(manifest_filepath=None, out_dir=None),
+                diarizer=SimpleNamespace(
+                    manifest_filepath=None,
+                    out_dir=None,
+                    clustering=SimpleNamespace(
+                        # The YAML placeholder the override must replace.
+                        parameters=SimpleNamespace(oracle_num_speakers=True)
+                    ),
+                ),
                 device=None,
             )
 
@@ -416,6 +437,9 @@ def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(
                 Path(cfg.diarizer.manifest_filepath).read_text(encoding="utf-8").strip()
             )
             captured["out_dir"] = cfg.diarizer.out_dir
+            captured["oracle_num_speakers"] = (
+                cfg.diarizer.clustering.parameters.oracle_num_speakers
+            )
             captured["device"] = cfg.device
 
         def diarize(self) -> None:
@@ -474,12 +498,13 @@ def test_infer_nemo_speaker_from_audio_file_builds_manifest_and_parses_rttm(
 
     segments = _infer_nemo_speaker_from_audio_file(
         "/tmp/input.wav",
-        3,
+        num_speakers,
         device_policy="force-cpu",
     )
 
     assert '"audio_filepath"' in captured["manifest_text"]
-    assert '"num_speakers": 3' in captured["manifest_text"]
+    assert expected_manifest_fragment in captured["manifest_text"]
+    assert captured["oracle_num_speakers"] is expected_oracle
     assert captured["config_path"] == "/tmp/speaker-config.yaml"
     assert captured["source_audio"] == "/tmp/input.wav"
     assert captured["channels"] == 1

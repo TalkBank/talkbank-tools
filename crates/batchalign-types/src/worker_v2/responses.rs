@@ -314,17 +314,232 @@ pub enum ExecuteOutcomeV2 {
 }
 
 /// Top-level V2 execute response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+///
+/// STRUCTURAL (ruled 2026-08-21): the outcome and payload are stored as ONE
+/// private enum, so a success without a payload, or an error carrying one, has
+/// no representation at all. The two constructors build the two legal shapes;
+/// deserialization goes through a validating wire shape and refuses the
+/// disagreeing pairings by name; `Serialize` and the JSON Schema still present
+/// the wire's four fields. What holds Serialize to the wire shape is the
+/// roundtrip test below (the schema gate never observes Serialize; it
+/// regenerates from the wire struct and byte-compares the committed files).
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExecuteResponseV2 {
+    request_id: WorkerRequestIdV2,
+    body: ExecuteResponseBodyV2,
+    elapsed_s: DurationSeconds,
+}
+
+/// The validated interior: outcome and payload as one fact. Private, so the
+/// pairing can neither be built nor read apart.
+#[derive(Debug, Clone, PartialEq)]
+enum ExecuteResponseBodyV2 {
+    /// Succeeded, with the payload success promises.
+    Success(TaskResultV2),
+    /// Failed, with the code and message a failure promises, and nothing else.
+    Failure {
+        code: ProtocolErrorCodeV2,
+        message: String,
+    },
+}
+
+// The unvalidated wire shape `ExecuteResponseV2` deserializes THROUGH, and
+// the single source of the published JSON Schema (schemars is renamed onto
+// the public type's identity). Private: no code outside this module can hold
+// the unvalidated pairing. Its DOC comments ship as the schema descriptions,
+// so they must stay byte-identical to the published schema; the drift gate
+// compares against the committed schema files and caught the first draft
+// shipping a maintenance note as the type description.
+#[derive(Deserialize, schemars::JsonSchema)]
+#[schemars(rename = "ExecuteResponseV2")]
+/// Top-level V2 execute response.
+struct ExecuteResponseWireV2 {
     /// Correlation id for the request.
-    pub request_id: WorkerRequestIdV2,
+    request_id: WorkerRequestIdV2,
     /// Success or typed protocol/runtime error.
-    pub outcome: ExecuteOutcomeV2,
+    outcome: ExecuteOutcomeV2,
     /// Typed task result when execution succeeded.
     #[serde(default)]
-    pub result: Option<TaskResultV2>,
+    result: Option<TaskResultV2>,
     /// Execution time in seconds.
-    pub elapsed_s: DurationSeconds,
+    elapsed_s: DurationSeconds,
+}
+
+impl<'de> Deserialize<'de> for ExecuteResponseV2 {
+    /// Refuse the two pairings the type makes unrepresentable, at the only
+    /// remaining door (the wire). A worker that claims success and sends
+    /// nothing, or reports an error while also sending a payload, is a worker
+    /// bug, and it is reported as a parse failure naming the disagreement
+    /// rather than surfacing downstream as a half-read response.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ExecuteResponseWireV2::deserialize(deserializer)?;
+        let body = match (wire.outcome, wire.result) {
+            (ExecuteOutcomeV2::Success, Some(result)) => ExecuteResponseBodyV2::Success(result),
+            (ExecuteOutcomeV2::Success, None) => {
+                return Err(serde::de::Error::custom(
+                    "execute response claimed success but carried no result payload",
+                ));
+            }
+            (ExecuteOutcomeV2::Error { code, message }, None) => {
+                ExecuteResponseBodyV2::Failure { code, message }
+            }
+            (ExecuteOutcomeV2::Error { .. }, Some(_)) => {
+                return Err(serde::de::Error::custom(
+                    "execute response reported an error but also carried a result payload",
+                ));
+            }
+        };
+        Ok(Self {
+            request_id: wire.request_id,
+            body,
+            elapsed_s: wire.elapsed_s,
+        })
+    }
+}
+
+impl Serialize for ExecuteResponseV2 {
+    /// Emit the wire's four-field shape from the validated interior. The
+    /// borrowed outcome mirror below must serialize identically to
+    /// [`ExecuteOutcomeV2`]; the byte-stable roundtrip test in this file is
+    /// what holds that equivalence (the schema drift gate cannot: it never
+    /// observes Serialize).
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        /// Borrowed serialization mirror of [`ExecuteOutcomeV2`].
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum OutcomeWireRef<'a> {
+            Success,
+            Error {
+                code: ProtocolErrorCodeV2,
+                message: &'a str,
+            },
+        }
+
+        let (outcome, result) = match &self.body {
+            ExecuteResponseBodyV2::Success(result) => (OutcomeWireRef::Success, Some(result)),
+            ExecuteResponseBodyV2::Failure { code, message } => (
+                OutcomeWireRef::Error {
+                    code: *code,
+                    message,
+                },
+                None,
+            ),
+        };
+
+        let mut state = serializer.serialize_struct("ExecuteResponseV2", 4)?;
+        state.serialize_field("request_id", &self.request_id)?;
+        state.serialize_field("outcome", &outcome)?;
+        state.serialize_field("result", &result)?;
+        state.serialize_field("elapsed_s", &self.elapsed_s)?;
+        state.end()
+    }
+}
+
+impl schemars::JsonSchema for ExecuteResponseV2 {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        ExecuteResponseWireV2::schema_name()
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        ExecuteResponseWireV2::schema_id()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        ExecuteResponseWireV2::json_schema(generator)
+    }
+}
+
+/// What a response actually says, with its outcome and payload read as ONE
+/// thing.
+///
+/// [`ExecuteResponseV2`] used to pair an [`ExecuteOutcomeV2`] with an
+/// `Option<TaskResultV2>` in two public fields the wire format could not keep
+/// in agreement, so every consumer checked both by hand in an order nobody
+/// stated. Four got the order right and two got it wrong, which is the cost of
+/// a rule that lives in a reader's head: the openSMILE and AVQI dispatch paths
+/// tested the payload first, and since a failed request carries no payload,
+/// every typed error response was reported as "missing a result payload" with
+/// the code and message the worker actually sent thrown away.
+///
+/// The pairing is now enforced structurally, so this view is total: there is
+/// no malformed case left for a consumer to name.
+// No `Eq`: task results carry floating-point measurements.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ExecuteOutcomeRef<'a> {
+    /// Succeeded, and the payload it produced.
+    Success(&'a TaskResultV2),
+    /// Failed, with the protocol category and detail the worker reported.
+    Failed {
+        /// Stable protocol error category.
+        code: ProtocolErrorCodeV2,
+        /// Human-readable detail for logs and tests.
+        message: &'a str,
+    },
+}
+
+impl ExecuteResponseV2 {
+    /// Build the one legal success shape: `Success` WITH a payload.
+    #[must_use]
+    pub fn success(
+        request_id: WorkerRequestIdV2,
+        result: TaskResultV2,
+        elapsed_s: DurationSeconds,
+    ) -> Self {
+        Self {
+            request_id,
+            body: ExecuteResponseBodyV2::Success(result),
+            elapsed_s,
+        }
+    }
+
+    /// Build the one legal failure shape: an error code and message, and no
+    /// payload. Takes the code and message rather than an [`ExecuteOutcomeV2`]
+    /// so `failure(Success)` has no signature to travel through.
+    #[must_use]
+    pub fn failure(
+        request_id: WorkerRequestIdV2,
+        code: ProtocolErrorCodeV2,
+        message: String,
+        elapsed_s: DurationSeconds,
+    ) -> Self {
+        Self {
+            request_id,
+            body: ExecuteResponseBodyV2::Failure { code, message },
+            elapsed_s,
+        }
+    }
+
+    /// Correlation id for the request this response answers.
+    #[must_use]
+    pub fn request_id(&self) -> &WorkerRequestIdV2 {
+        &self.request_id
+    }
+
+    /// Execution time in seconds, as the worker measured it.
+    #[must_use]
+    pub fn elapsed_s(&self) -> DurationSeconds {
+        self.elapsed_s
+    }
+
+    /// Read the outcome and payload together.
+    #[must_use]
+    pub fn read(&self) -> ExecuteOutcomeRef<'_> {
+        match &self.body {
+            ExecuteResponseBodyV2::Success(result) => ExecuteOutcomeRef::Success(result),
+            ExecuteResponseBodyV2::Failure { code, message } => ExecuteOutcomeRef::Failed {
+                code: *code,
+                message,
+            },
+        }
+    }
 }
 
 /// Progress event emitted by long-running V2 tasks.
@@ -345,4 +560,67 @@ pub struct ProgressEventV2 {
 pub struct ShutdownRequestV2 {
     /// Correlation id for the shutdown message.
     pub request_id: WorkerRequestIdV2,
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)] // fixture parses and refusals are the assertions themselves
+mod tests {
+    use super::*;
+
+    /// WIRE FORMAT: both legal response shapes roundtrip byte-stably through
+    /// the manual `Serialize`/`Deserialize` pair, which is exactly the kind of
+    /// property no type can pin (two separate functions must agree).
+    #[test]
+    fn legal_response_shapes_roundtrip_byte_stably() {
+        let success = serde_json::json!({
+            "request_id": "req-1",
+            "outcome": {"kind": "success"},
+            "result": {"kind": "speaker_result", "segments": []},
+            "elapsed_s": 0.5
+        });
+        let failure = serde_json::json!({
+            "request_id": "req-2",
+            "outcome": {"kind": "error", "code": "runtime_failure", "message": "boom"},
+            "result": null,
+            "elapsed_s": 0.25
+        });
+        for wire in [success, failure] {
+            let parsed: ExecuteResponseV2 =
+                serde_json::from_value(wire.clone()).expect("legal shape must parse");
+            let emitted = serde_json::to_value(&parsed).expect("must serialize");
+            assert_eq!(emitted, wire);
+        }
+    }
+
+    /// The two pairings the structural type exists to refuse (ruled
+    /// 2026-08-21): a success with no payload, and an error carrying one. Both
+    /// used to deserialize and travel until a consumer noticed, or did not.
+    #[test]
+    fn disagreeing_pairings_are_refused_at_the_wire() {
+        let success_without_result = serde_json::json!({
+            "request_id": "req-3",
+            "outcome": {"kind": "success"},
+            "elapsed_s": 0.5
+        });
+        let error_with_result = serde_json::json!({
+            "request_id": "req-4",
+            "outcome": {"kind": "error", "code": "runtime_failure", "message": "boom"},
+            "result": {"kind": "speaker_result", "segments": []},
+            "elapsed_s": 0.5
+        });
+
+        let error = serde_json::from_value::<ExecuteResponseV2>(success_without_result)
+            .expect_err("success without a result must be refused");
+        assert!(
+            error.to_string().contains("carried no result payload"),
+            "{error}"
+        );
+
+        let error = serde_json::from_value::<ExecuteResponseV2>(error_with_result)
+            .expect_err("an error carrying a result must be refused");
+        assert!(
+            error.to_string().contains("also carried a result payload"),
+            "{error}"
+        );
+    }
 }

@@ -14,9 +14,7 @@ use tracing::{debug, error, warn};
 use tokio::io::AsyncBufReadExt;
 
 use crate::api::DurationSeconds;
-use crate::types::worker_v2::{
-    ExecuteOutcomeV2, ExecuteResponseV2, ProtocolErrorCodeV2, WorkerRequestIdV2,
-};
+use crate::types::worker_v2::{ExecuteResponseV2, ProtocolErrorCodeV2, WorkerRequestIdV2};
 use crate::worker::WorkerPid;
 
 use super::WorkerControlResponse;
@@ -71,7 +69,7 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
                     "execute_v2" => {
                         match serde_json::from_value::<ExecuteResponseV2Envelope>(parsed.clone()) {
                             Ok(envelope) => {
-                                let request_id = envelope.response.request_id.to_string();
+                                let request_id = envelope.response.request_id().to_string();
                                 let mut pending = super::super::lock_recovered(&pending);
                                 if let Some(tx) = pending.remove(&request_id) {
                                     let _ = tx.send(envelope.response);
@@ -84,11 +82,41 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
                                 }
                             }
                             Err(e) => {
+                                // A refused response must still RESOLVE its
+                                // pending dispatch, or the caller blocks for
+                                // the full per-request timeout (1800 s,
+                                // retried) on what is a millisecond-diagnosable
+                                // protocol violation. The envelope did not
+                                // parse, but the raw JSON is still in hand, so
+                                // pull the correlation id from it, exactly as
+                                // the tagged op=error arm below already does.
                                 error!(
                                     pid = %pid,
                                     error = %e,
                                     "GPU worker: failed to parse execute_v2 response"
                                 );
+                                let request_id = parsed
+                                    .get("response")
+                                    .and_then(|r| r.get("request_id"))
+                                    .and_then(|v| v.as_str())
+                                    .map(WorkerRequestIdV2::from);
+                                if let Some(request_id) = request_id {
+                                    let routed = {
+                                        let mut pending = super::super::lock_recovered(&pending);
+                                        pending.remove(request_id.as_ref())
+                                    };
+                                    if let Some(tx) = routed {
+                                        let _ = tx.send(ExecuteResponseV2::failure(
+                                            request_id,
+                                            ProtocolErrorCodeV2::InvalidPayload,
+                                            format!(
+                                                "worker sent an execute_v2 response the \
+                                                 protocol refuses: {e}"
+                                            ),
+                                            DurationSeconds(0.0),
+                                        ));
+                                    }
+                                }
                             }
                         }
                     }
@@ -163,15 +191,12 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
                                     error = %error_msg,
                                     "GPU worker: routing tagged error to pending V2 dispatch"
                                 );
-                                let _ = tx.send(ExecuteResponseV2 {
+                                let _ = tx.send(ExecuteResponseV2::failure(
                                     request_id,
-                                    outcome: ExecuteOutcomeV2::Error {
-                                        code: ProtocolErrorCodeV2::InvalidPayload,
-                                        message: error_msg,
-                                    },
-                                    result: None,
-                                    elapsed_s: DurationSeconds(0.0),
-                                });
+                                    ProtocolErrorCodeV2::InvalidPayload,
+                                    error_msg,
+                                    DurationSeconds(0.0),
+                                ));
                                 continue;
                             }
                             warn!(
@@ -225,12 +250,59 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::worker_v2::ExecuteOutcomeRef;
     use tokio::io::BufReader;
 
     /// `op=error` envelopes tagged with `request_id` must fail the matching
     /// V2 dispatch's pending oneshot immediately, rather than be silently
     /// routed to the empty control channel and leave the dispatch sitting
     /// on its per-request timeout.
+    /// An `op=execute_v2` line the strict response parse REFUSES (here a
+    /// success with no result, unrepresentable since 2026-08-21) must still
+    /// resolve the pending dispatch as a fast typed failure. The first
+    /// version of the strict parse only logged the refusal, so the dispatch
+    /// sat on its full per-request timeout (1800 s, retried) for a
+    /// millisecond-diagnosable protocol violation.
+    #[tokio::test]
+    async fn refused_execute_v2_response_fails_pending_v2_dispatch() {
+        let pid = WorkerPid(12346);
+        let pending = Arc::new(std::sync::Mutex::new(HashMap::<
+            String,
+            oneshot::Sender<ExecuteResponseV2>,
+        >::new()));
+        let control = Arc::new(tokio::sync::Mutex::new(
+            None::<oneshot::Sender<WorkerControlResponse>>,
+        ));
+
+        let (tx, rx) = oneshot::channel();
+        let request_id = "asr-v2-request-88";
+        super::super::super::lock_recovered(&pending).insert(request_id.into(), tx);
+
+        let envelope = format!(
+            "{{\"op\":\"execute_v2\",\"response\":{{\"request_id\":\"{request_id}\",             \"outcome\":{{\"kind\":\"success\"}},\"elapsed_s\":0.5}}}}\n",
+        );
+        let mut reader = BufReader::new(envelope.as_bytes());
+
+        reader_loop_generic(&mut reader, pending.clone(), control.clone(), pid).await;
+
+        let response = rx
+            .await
+            .expect("pending oneshot must resolve when the response is refused");
+        assert_eq!(response.request_id().as_ref(), request_id);
+        match response.read() {
+            ExecuteOutcomeRef::Failed { code, message } => {
+                assert_eq!(code, ProtocolErrorCodeV2::InvalidPayload);
+                assert!(
+                    message.contains("carried no result payload"),
+                    "the refusal detail must reach the caller, got: {message}"
+                );
+            }
+            ExecuteOutcomeRef::Success(_) => {
+                panic!("a refused response must resolve as a failure")
+            }
+        }
+    }
+
     #[tokio::test]
     async fn tagged_error_envelope_fails_pending_v2_dispatch() {
         let pid = WorkerPid(12345);
@@ -257,17 +329,17 @@ mod tests {
         let response = rx
             .await
             .expect("pending oneshot must resolve when error is routed");
-        assert_eq!(response.request_id.as_ref(), request_id);
-        match response.outcome {
-            ExecuteOutcomeV2::Error { code, message } => {
+        assert_eq!(response.request_id().as_ref(), request_id);
+        match response.read() {
+            ExecuteOutcomeRef::Failed { code, message } => {
                 assert_eq!(code, ProtocolErrorCodeV2::InvalidPayload);
                 assert!(
                     message.contains("ValidationError"),
                     "expected worker error message to propagate, got: {message}"
                 );
             }
-            ExecuteOutcomeV2::Success => {
-                panic!("tagged error envelope must produce ExecuteOutcomeV2::Error")
+            ExecuteOutcomeRef::Success(_) => {
+                panic!("tagged error envelope must produce a Failed outcome")
             }
         }
 

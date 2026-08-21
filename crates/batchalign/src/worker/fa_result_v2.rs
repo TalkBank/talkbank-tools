@@ -15,8 +15,9 @@ use crate::chat_ops::fa::coordinates::FaWindow;
 use crate::chat_ops::fa::origin::EngineId;
 use crate::chat_ops::fa::{FaWord, WordTiming, parse_fa_response};
 use crate::chat_ops::nlp::{FaIndexedTiming, FaRawResponse, FaRawToken};
+use crate::worker::execute_result_v2::require_success_result;
 
-use crate::types::worker_v2::{ExecuteOutcomeV2, ExecuteResponseV2, TaskResultV2};
+use crate::types::worker_v2::{ExecuteResponseV2, TaskResultV2};
 
 /// Parse one staged V2 FA execute response into the established FA timing
 /// domain.
@@ -26,20 +27,7 @@ pub fn parse_forced_alignment_result_v2(
     window: &FaWindow,
     engine: &EngineId,
 ) -> Result<Vec<Option<WordTiming>>, String> {
-    match &response.outcome {
-        ExecuteOutcomeV2::Success => {}
-        ExecuteOutcomeV2::Error { code, message } => {
-            return Err(format!(
-                "worker protocol V2 forced-alignment request failed with {code:?}: {message}"
-            ));
-        }
-    }
-
-    let Some(result) = &response.result else {
-        return Err(
-            "worker protocol V2 forced-alignment response was missing a result payload".into(),
-        );
-    };
+    let result = require_success_result(response, "forced-alignment")?;
 
     let raw_response = match result {
         TaskResultV2::WhisperTokenTimingResult(result) => FaRawResponse::TokenLevel {
@@ -134,8 +122,8 @@ mod tests {
 
     use crate::api::{DurationMs, DurationSeconds};
     use crate::types::worker_v2::{
-        ExecuteOutcomeV2, ExecuteResponseV2, IndexedWordTimingResultV2, IndexedWordTimingV2,
-        TaskResultV2, WhisperTokenTimingResultV2, WhisperTokenTimingV2, WorkerRequestIdV2,
+        ExecuteResponseV2, IndexedWordTimingResultV2, IndexedWordTimingV2, TaskResultV2,
+        WhisperTokenTimingResultV2, WhisperTokenTimingV2, WorkerRequestIdV2,
     };
 
     use crate::chat_ops::fa::coordinates::{FileMs, Ms, Recording};
@@ -172,25 +160,22 @@ mod tests {
 
     #[test]
     fn parses_whisper_token_result_into_established_alignment_domain() {
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-fa-v2-1"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::WhisperTokenTimingResult(
-                WhisperTokenTimingResultV2 {
-                    tokens: vec![
-                        WhisperTokenTimingV2 {
-                            text: "hello".into(),
-                            time_s: DurationSeconds(0.10),
-                        },
-                        WhisperTokenTimingV2 {
-                            text: "world".into(),
-                            time_s: DurationSeconds(0.35),
-                        },
-                    ],
-                },
-            )),
-            elapsed_s: DurationSeconds(0.01),
-        };
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-fa-v2-1"),
+            TaskResultV2::WhisperTokenTimingResult(WhisperTokenTimingResultV2 {
+                tokens: vec![
+                    WhisperTokenTimingV2 {
+                        text: "hello".into(),
+                        time_s: DurationSeconds(0.10),
+                    },
+                    WhisperTokenTimingV2 {
+                        text: "world".into(),
+                        time_s: DurationSeconds(0.35),
+                    },
+                ],
+            }),
+            DurationSeconds(0.01),
+        );
 
         let timings = parse_forced_alignment_result_v2(
             &response,
@@ -207,23 +192,20 @@ mod tests {
 
     #[test]
     fn parses_indexed_timing_result_into_established_alignment_domain() {
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-fa-v2-2"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::IndexedWordTimingResult(
-                IndexedWordTimingResultV2 {
-                    indexed_timings: vec![
-                        Some(IndexedWordTimingV2 {
-                            start_ms: DurationMs(25),
-                            end_ms: DurationMs(75),
-                            confidence: Some(0.9),
-                        }),
-                        None,
-                    ],
-                },
-            )),
-            elapsed_s: DurationSeconds(0.01),
-        };
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-fa-v2-2"),
+            TaskResultV2::IndexedWordTimingResult(IndexedWordTimingResultV2 {
+                indexed_timings: vec![
+                    Some(IndexedWordTimingV2 {
+                        start_ms: DurationMs(25),
+                        end_ms: DurationMs(75),
+                        confidence: Some(0.9),
+                    }),
+                    None,
+                ],
+            }),
+            DurationSeconds(0.01),
+        );
 
         let timings = parse_forced_alignment_result_v2(
             &response,
@@ -239,19 +221,16 @@ mod tests {
 
     #[test]
     fn rejects_non_fa_result_payloads() {
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-fa-v2-3"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::TranslationResult(
-                crate::types::worker_v2::TranslationResultV2 {
-                    items: vec![crate::types::worker_v2::TranslationItemResultV2 {
-                        raw_translation: Some("hola".into()),
-                        error: None,
-                    }],
-                },
-            )),
-            elapsed_s: DurationSeconds(0.01),
-        };
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-fa-v2-3"),
+            TaskResultV2::TranslationResult(crate::types::worker_v2::TranslationResultV2 {
+                items: vec![crate::types::worker_v2::TranslationItemResultV2 {
+                    raw_translation: Some("hola".into()),
+                    error: None,
+                }],
+            }),
+            DurationSeconds(0.01),
+        );
 
         let error = parse_forced_alignment_result_v2(
             &response,

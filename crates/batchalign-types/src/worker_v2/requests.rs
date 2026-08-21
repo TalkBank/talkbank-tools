@@ -216,6 +216,58 @@ pub enum ProtocolErrorCodeV2 {
     RuntimeFailure,
 }
 
+impl ProtocolErrorCodeV2 {
+    /// The wire spelling of this code, as it appears in serialized responses.
+    ///
+    /// Exists so callers that must hand the category to another language (the
+    /// PyO3 boundary passes it to the Python worker layer) can name it without
+    /// inventing a second spelling. The test below pins every variant against
+    /// what serde actually emits, which is the one case where a second
+    /// representation earns a test: this is a WIRE FORMAT, and no type can
+    /// state that a `#[serde(rename_all)]` attribute and a match arm agree.
+    #[must_use]
+    pub const fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::UnsupportedProtocol => "unsupported_protocol",
+            Self::InvalidPayload => "invalid_payload",
+            Self::MissingAttachment => "missing_attachment",
+            Self::AttachmentUnreadable => "attachment_unreadable",
+            Self::ModelUnavailable => "model_unavailable",
+            Self::RuntimeFailure => "runtime_failure",
+        }
+    }
+}
+
+#[cfg(test)]
+mod protocol_error_code_tests {
+    use super::ProtocolErrorCodeV2;
+
+    /// Every variant's `as_wire_str` must equal what serde serializes it to.
+    /// Exhaustive by construction: adding a variant without extending the list
+    /// leaves the new arm unproven, and adding one without extending
+    /// `as_wire_str` fails to compile.
+    #[test]
+    fn wire_spelling_matches_serde() {
+        let all = [
+            ProtocolErrorCodeV2::UnsupportedProtocol,
+            ProtocolErrorCodeV2::InvalidPayload,
+            ProtocolErrorCodeV2::MissingAttachment,
+            ProtocolErrorCodeV2::AttachmentUnreadable,
+            ProtocolErrorCodeV2::ModelUnavailable,
+            ProtocolErrorCodeV2::RuntimeFailure,
+        ];
+        for code in all {
+            // Compared as `Option`, so a serialization failure shows up as a
+            // mismatch rather than needing an `expect` the crate's lints ban.
+            assert_eq!(
+                serde_json::to_string(&code).ok(),
+                Some(format!("\"{}\"", code.as_wire_str())),
+                "wire spelling drifted for {code:?}"
+            );
+        }
+    }
+}
+
 /// Text-joining mode for forced-alignment payloads.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -618,6 +670,26 @@ impl ExecuteRequestV2 {
 }
 
 impl TaskRequestV2 {
+    /// The task family this payload belongs to, derived from the variant.
+    ///
+    /// [`ExecuteRequestV2`] carries the discriminant twice: as `task` and again
+    /// as the payload variant. This accessor is what lets the agreement between
+    /// them be checked in ONE place (the executor control plane) instead of
+    /// re-checked by every executor with its own message.
+    pub fn task(&self) -> InferenceTaskV2 {
+        match self {
+            Self::Asr(_) => InferenceTaskV2::Asr,
+            Self::ForcedAlignment(_) => InferenceTaskV2::ForcedAlignment,
+            Self::Morphosyntax(_) => InferenceTaskV2::Morphosyntax,
+            Self::Utseg(_) => InferenceTaskV2::Utseg,
+            Self::Translate(_) => InferenceTaskV2::Translate,
+            Self::Coref(_) => InferenceTaskV2::Coref,
+            Self::Speaker(_) => InferenceTaskV2::Speaker,
+            Self::Opensmile(_) => InferenceTaskV2::Opensmile,
+            Self::Avqi(_) => InferenceTaskV2::Avqi,
+        }
+    }
+
     /// Return the timeout budget this task family should receive on the worker
     /// transport.
     pub fn timeout_seconds(&self) -> u64 {

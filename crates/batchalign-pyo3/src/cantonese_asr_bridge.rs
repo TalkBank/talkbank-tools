@@ -1,6 +1,6 @@
 //! Rust helpers for Hong Kong ASR provider projection.
 //!
-//! **See also:** [INTERFACE_MAP.md](../INTERFACE_MAP.md) section "9. HK/Cantonese ASR Bridges" for:
+//! **See also:** [INTERFACE_MAP.md](../../../INTERFACE_MAP.md) section "9. HK/Cantonese ASR Bridges" for:
 //! - Python callers: `batchalign/inference/languages/cantonese/`, `batchalign/worker/_asr_v2.py`
 //! - Design: Projects provider-specific output into common MonologueAsrResultV2 shapes.
 //!

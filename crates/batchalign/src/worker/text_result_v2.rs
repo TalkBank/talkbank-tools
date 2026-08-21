@@ -6,9 +6,10 @@
 //! reconstructs established Rust domains.
 
 use crate::types::worker_v2::{
-    CorefResultV2, ExecuteOutcomeV2, ExecuteResponseV2, MorphosyntaxResultV2, TaskResultV2,
-    TranslationResultV2, UtsegResultV2,
+    CorefResultV2, ExecuteResponseV2, MorphosyntaxResultV2, TaskResultV2, TranslationResultV2,
+    UtsegResultV2,
 };
+use crate::worker::execute_result_v2::require_success_result;
 
 /// Parse one V2 morphosyntax execute response into the typed batch result.
 pub fn parse_morphosyntax_result_v2(
@@ -45,24 +46,4 @@ pub fn parse_coref_result_v2(response: &ExecuteResponseV2) -> Result<&CorefResul
         TaskResultV2::CorefResult(result) => Ok(result),
         _ => Err("worker protocol V2 coref response returned the wrong result type".into()),
     }
-}
-
-/// Require that one execute response succeeded and produced a result payload.
-fn require_success_result<'a>(
-    response: &'a ExecuteResponseV2,
-    task: &str,
-) -> Result<&'a TaskResultV2, String> {
-    match &response.outcome {
-        ExecuteOutcomeV2::Success => {}
-        ExecuteOutcomeV2::Error { code, message } => {
-            return Err(format!(
-                "worker protocol V2 {task} request failed with {code:?}: {message}"
-            ));
-        }
-    }
-
-    response
-        .result
-        .as_ref()
-        .ok_or_else(|| format!("worker protocol V2 {task} response was missing a result payload"))
 }

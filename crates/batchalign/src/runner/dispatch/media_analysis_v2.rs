@@ -19,13 +19,12 @@ use crate::runner::util::{
 };
 use crate::scheduling::{FailureCategory, RetryPolicy, WorkUnitKind};
 use crate::store::{PendingJobFile, RunnerJobSnapshot, unix_now};
-use crate::types::worker_v2::{
-    AvqiResultV2, ExecuteOutcomeV2, OpenSmileResultV2, SpeakerBackendV2, TaskResultV2,
-};
+use crate::types::worker_v2::{AvqiResultV2, OpenSmileResultV2, SpeakerBackendV2, TaskResultV2};
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::avqi_request_v2::{
     AvqiBuildInputV2, PreparedAvqiRequestIdsV2, build_avqi_request_v2,
 };
+use crate::worker::execute_result_v2::require_success_result;
 use crate::worker::opensmile_request_v2::{
     OpenSmileBuildInputV2, PreparedOpenSmileRequestIdsV2, build_opensmile_request_v2,
 };
@@ -325,32 +324,26 @@ async fn dispatch_opensmile_attempt(
             DispatchFailure::RetryableWorker(error.to_string(), classify_worker_error(&error))
         })?;
 
-    let result = match response.result {
-        Some(TaskResultV2::OpensmileResult(result)) => result,
-        Some(other) => {
+    // Outcome and payload are read as one thing. This path used to test the
+    // payload first, and since a failed request carries `result: None` by
+    // construction, every typed error response came out as "missing a result
+    // payload" with the worker's own code and message discarded.
+    let result = match require_success_result(&response, "openSMILE")
+        .map_err(|message| DispatchFailure::Terminal(message, FailureCategory::ProviderTerminal))?
+    {
+        TaskResultV2::OpensmileResult(result) => result,
+        other => {
             return Err(DispatchFailure::Terminal(
                 format!("openSMILE V2 returned unexpected payload: {other:?}"),
                 FailureCategory::ProviderTerminal,
             ));
         }
-        None => {
-            return Err(DispatchFailure::Terminal(
-                "openSMILE V2 response was missing a result payload".into(),
-                FailureCategory::ProviderTerminal,
-            ));
-        }
     };
-
-    if !matches!(response.outcome, ExecuteOutcomeV2::Success) {
-        return Err(DispatchFailure::Terminal(
-            format!("openSMILE V2 request failed: {:?}", response.outcome),
-            FailureCategory::ProviderTerminal,
-        ));
-    }
     if !result.success {
         return Err(DispatchFailure::Terminal(
             result
                 .error
+                .clone()
                 .unwrap_or_else(|| "openSMILE V2 runtime failed without detail".into()),
             FailureCategory::ProviderTerminal,
         ));
@@ -358,7 +351,7 @@ async fn dispatch_opensmile_attempt(
 
     Ok((
         opensmile_result_filename(filename),
-        format_opensmile_csv(&result),
+        format_opensmile_csv(result),
         ContentType::Csv,
     ))
 }
@@ -432,32 +425,24 @@ async fn dispatch_avqi_attempt(
             DispatchFailure::RetryableWorker(error.to_string(), classify_worker_error(&error))
         })?;
 
-    let result = match response.result {
-        Some(TaskResultV2::AvqiResult(result)) => result,
-        Some(other) => {
+    // Outcome and payload read as one thing, for the reason in the openSMILE
+    // path above.
+    let result = match require_success_result(&response, "AVQI")
+        .map_err(|message| DispatchFailure::Terminal(message, FailureCategory::ProviderTerminal))?
+    {
+        TaskResultV2::AvqiResult(result) => result,
+        other => {
             return Err(DispatchFailure::Terminal(
                 format!("AVQI V2 returned unexpected payload: {other:?}"),
                 FailureCategory::ProviderTerminal,
             ));
         }
-        None => {
-            return Err(DispatchFailure::Terminal(
-                "AVQI V2 response was missing a result payload".into(),
-                FailureCategory::ProviderTerminal,
-            ));
-        }
     };
-
-    if !matches!(response.outcome, ExecuteOutcomeV2::Success) {
-        return Err(DispatchFailure::Terminal(
-            format!("AVQI V2 request failed: {:?}", response.outcome),
-            FailureCategory::ProviderTerminal,
-        ));
-    }
     if !result.success {
         return Err(DispatchFailure::Terminal(
             result
                 .error
+                .clone()
                 .unwrap_or_else(|| "AVQI V2 runtime failed without detail".into()),
             FailureCategory::ProviderTerminal,
         ));
@@ -465,7 +450,7 @@ async fn dispatch_avqi_attempt(
 
     Ok((
         avqi_result_filename(filename),
-        format_avqi_report(&result, &pool_key.0),
+        format_avqi_report(result, &pool_key.0),
         ContentType::Text,
     ))
 }

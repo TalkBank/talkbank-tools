@@ -7,8 +7,9 @@
 use crate::api::LanguageCode3;
 use crate::transcribe::{AsrResponse, AsrToken};
 use crate::types::worker_v2::{
-    AsrElementKindV2, ExecuteOutcomeV2, ExecuteResponseV2, TaskResultV2, WhisperChunkResultV2,
+    AsrElementKindV2, ExecuteResponseV2, TaskResultV2, WhisperChunkResultV2,
 };
+use crate::worker::execute_result_v2::require_success_result;
 use batchalign_transform::asr_postprocess::{
     AsrElement, AsrElementKind, AsrMonologue, AsrOutput, AsrRawText, AsrTimestampSecs, SpeakerIndex,
 };
@@ -25,18 +26,7 @@ pub fn parse_asr_response_v2(
     response: &ExecuteResponseV2,
     fallback_lang: Option<&LanguageCode3>,
 ) -> Result<AsrResponse, String> {
-    match &response.outcome {
-        ExecuteOutcomeV2::Success => {}
-        ExecuteOutcomeV2::Error { code, message } => {
-            return Err(format!(
-                "worker protocol V2 ASR request failed with {code:?}: {message}"
-            ));
-        }
-    }
-
-    let Some(result) = &response.result else {
-        return Err("worker protocol V2 ASR response was missing a result payload".into());
-    };
+    let result = require_success_result(response, "ASR")?;
 
     match result {
         TaskResultV2::WhisperChunkResult(result) => {
@@ -220,17 +210,15 @@ mod tests {
     use super::*;
     use crate::api::{DurationSeconds, LanguageCode3};
     use crate::types::worker_v2::{
-        AsrElementKindV2, AsrElementV2, AsrMonologueV2, ExecuteOutcomeV2, ExecuteResponseV2,
-        MonologueAsrResultV2, TaskResultV2, WhisperChunkResultV2, WhisperChunkSpanV2,
-        WorkerRequestIdV2,
+        AsrElementKindV2, AsrElementV2, AsrMonologueV2, ExecuteResponseV2, MonologueAsrResultV2,
+        TaskResultV2, WhisperChunkResultV2, WhisperChunkSpanV2, WorkerRequestIdV2,
     };
 
     #[test]
     fn parses_whisper_chunk_result_into_established_asr_domain() {
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-asr-v2-1"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::WhisperChunkResult(WhisperChunkResultV2 {
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-asr-v2-1"),
+            TaskResultV2::WhisperChunkResult(WhisperChunkResultV2 {
                 lang: LanguageCode3::eng(),
                 text: "hello world".into(),
                 chunks: vec![
@@ -245,9 +233,9 @@ mod tests {
                         end_s: DurationSeconds(1.0),
                     },
                 ],
-            })),
-            elapsed_s: DurationSeconds(0.01),
-        };
+            }),
+            DurationSeconds(0.01),
+        );
 
         let parsed = parse_asr_response_v2(&response, Some(&LanguageCode3::eng()))
             .expect("V2 ASR response should parse");
@@ -260,10 +248,9 @@ mod tests {
 
     #[test]
     fn parses_monologue_result_into_established_asr_domain() {
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-asr-v2-provider"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::MonologueAsrResult(MonologueAsrResultV2 {
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-asr-v2-provider"),
+            TaskResultV2::MonologueAsrResult(MonologueAsrResultV2 {
                 lang: LanguageCode3::yue(),
                 monologues: vec![AsrMonologueV2 {
                     speaker: "1".into(),
@@ -291,9 +278,9 @@ mod tests {
                         },
                     ],
                 }],
-            })),
-            elapsed_s: DurationSeconds(0.01),
-        };
+            }),
+            DurationSeconds(0.01),
+        );
 
         let parsed = parse_asr_response_v2(&response, Some(&LanguageCode3::eng()))
             .expect("V2 monologue response should parse");

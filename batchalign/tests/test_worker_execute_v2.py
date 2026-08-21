@@ -816,6 +816,178 @@ def test_invalid_morphosyntax_host_output_becomes_runtime_failure(
     _assert_runtime_failure_response(response, "invalid morphosyntax host output")
 
 
+def test_morphosyntax_item_count_mismatch_is_invalid_payload(tmp_path: Path) -> None:
+    """A batch whose length disagrees with the request metadata is refused
+    before any model runs.
+
+    Pins the Rust control plane's count check (`CountedBatch::load`), which
+    replaced `_text_v2.py`'s `_validate_item_count` in the 2026-08-21 port:
+    the runner must never be reached with a miscounted batch.
+    """
+
+    payload_path = tmp_path / "morphosyntax-batch-miscounted.json"
+    item = {
+        "words": ["hi"],
+        "terminator": ".",
+        "special_forms": [[None, None]],
+        "lang": "eng",
+    }
+    _write_json_payload(payload_path, {"items": [item, item], "mwt": {}})
+
+    def _must_not_run(_req: object) -> BatchInferResponse:
+        raise AssertionError("the runner must not be called for a miscounted batch")
+
+    response = execute_request_v2(
+        request=ExecuteRequestV2(
+            request_id="req-execute-v2-morphosyntax-miscount",
+            task=InferenceTaskV2.MORPHOSYNTAX,
+            payload=MorphosyntaxRequestV2(
+                lang="eng",
+                payload_ref_id="text-ref-morphosyntax-miscount",
+                item_count=1,
+            ),
+            attachments=[
+                PreparedTextRefV2(
+                    id="text-ref-morphosyntax-miscount",
+                    path=str(payload_path),
+                    encoding=PreparedTextEncodingV2.UTF8_JSON,
+                    byte_offset=0,
+                    byte_len=payload_path.stat().st_size,
+                )
+            ],
+        ),
+        host=WorkerExecutionHostV2(
+            text=TextExecutionHostV2(morphosyntax_runner=_must_not_run)
+        ),
+    )
+
+    assert isinstance(response.outcome, ExecuteErrorV2)
+    assert response.outcome.code is ProtocolErrorCodeV2.INVALID_PAYLOAD
+    assert "payload had 2 items, expected 1" in response.outcome.message
+    assert response.result is None
+
+
+def test_malformed_batch_with_no_runner_reports_model_unavailable(
+    tmp_path: Path,
+) -> None:
+    """PRECEDENCE, stated as intended (2026-08-21 port): runner availability
+    is checked before the batch's per-item shape.
+
+    The Rust control plane checks only the item COUNT before requiring a
+    runner; per-item validation lives in the runner adapter, which cannot run
+    without a runner. So a shape-malformed batch on a host with no runner
+    reports model_unavailable, where the old Python order (pydantic first)
+    reported invalid_payload. Both facts are true of such a request; the
+    ruling here is that a host that cannot run the task says so first.
+    """
+
+    payload_path = tmp_path / "morphosyntax-batch-malformed.json"
+    _write_json_payload(
+        payload_path,
+        {"items": [{"words": 7}], "mwt": {}},
+    )
+
+    response = execute_request_v2(
+        request=ExecuteRequestV2(
+            request_id="req-execute-v2-morphosyntax-malformed-no-runner",
+            task=InferenceTaskV2.MORPHOSYNTAX,
+            payload=MorphosyntaxRequestV2(
+                lang="eng",
+                payload_ref_id="text-ref-morphosyntax-malformed",
+                item_count=1,
+            ),
+            attachments=[
+                PreparedTextRefV2(
+                    id="text-ref-morphosyntax-malformed",
+                    path=str(payload_path),
+                    encoding=PreparedTextEncodingV2.UTF8_JSON,
+                    byte_offset=0,
+                    byte_len=payload_path.stat().st_size,
+                )
+            ],
+        ),
+        host=WorkerExecutionHostV2(text=TextExecutionHostV2()),
+    )
+
+    assert isinstance(response.outcome, ExecuteErrorV2)
+    assert response.outcome.code is ProtocolErrorCodeV2.MODEL_UNAVAILABLE
+    assert "no morphosyntax host loaded" in response.outcome.message
+
+
+def test_corrupt_prepared_batch_artifact_is_attachment_unreadable(
+    tmp_path: Path,
+) -> None:
+    """A frozen batch artifact that is not valid JSON is corrupt STORAGE.
+
+    Adjudicated 2026-08-21: the category is attachment_unreadable, because
+    the artifact is a file Rust froze, not part of the request envelope; the
+    old Python path's invalid_payload here was an accident of its exception
+    ladder, not a decision.
+    """
+
+    payload_path = tmp_path / "morphosyntax-batch-corrupt.json"
+    payload_path.write_text("{not json", encoding="utf-8")
+
+    response = execute_request_v2(
+        request=ExecuteRequestV2(
+            request_id="req-execute-v2-morphosyntax-corrupt",
+            task=InferenceTaskV2.MORPHOSYNTAX,
+            payload=MorphosyntaxRequestV2(
+                lang="eng",
+                payload_ref_id="text-ref-morphosyntax-corrupt",
+                item_count=1,
+            ),
+            attachments=[
+                PreparedTextRefV2(
+                    id="text-ref-morphosyntax-corrupt",
+                    path=str(payload_path),
+                    encoding=PreparedTextEncodingV2.UTF8_JSON,
+                    byte_offset=0,
+                    byte_len=payload_path.stat().st_size,
+                )
+            ],
+        ),
+        host=WorkerExecutionHostV2(text=TextExecutionHostV2()),
+    )
+
+    assert isinstance(response.outcome, ExecuteErrorV2)
+    assert response.outcome.code is ProtocolErrorCodeV2.ATTACHMENT_UNREADABLE
+    assert "held invalid JSON" in response.outcome.message
+
+
+def test_batch_without_items_list_is_invalid_payload(tmp_path: Path) -> None:
+    """Valid JSON with no items list is a malformed PAYLOAD, not bad storage."""
+
+    payload_path = tmp_path / "morphosyntax-batch-itemless.json"
+    _write_json_payload(payload_path, {"mwt": {}})
+
+    response = execute_request_v2(
+        request=ExecuteRequestV2(
+            request_id="req-execute-v2-morphosyntax-itemless",
+            task=InferenceTaskV2.MORPHOSYNTAX,
+            payload=MorphosyntaxRequestV2(
+                lang="eng",
+                payload_ref_id="text-ref-morphosyntax-itemless",
+                item_count=1,
+            ),
+            attachments=[
+                PreparedTextRefV2(
+                    id="text-ref-morphosyntax-itemless",
+                    path=str(payload_path),
+                    encoding=PreparedTextEncodingV2.UTF8_JSON,
+                    byte_offset=0,
+                    byte_len=payload_path.stat().st_size,
+                )
+            ],
+        ),
+        host=WorkerExecutionHostV2(text=TextExecutionHostV2()),
+    )
+
+    assert isinstance(response.outcome, ExecuteErrorV2)
+    assert response.outcome.code is ProtocolErrorCodeV2.INVALID_PAYLOAD
+    assert "must carry an items list" in response.outcome.message
+
+
 def test_routes_utseg_execute_v2_request(tmp_path: Path) -> None:
     """The live V2 router should hand utseg requests to the text host."""
 

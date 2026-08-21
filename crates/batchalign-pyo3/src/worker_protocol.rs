@@ -1,6 +1,6 @@
 //! Rust-owned request validation and op dispatch for the Python worker stdio loop.
 //!
-//! **See also:** [INTERFACE_MAP.md](../INTERFACE_MAP.md) section "1. Worker Protocol Dispatch" for:
+//! **See also:** [INTERFACE_MAP.md](../../../INTERFACE_MAP.md) section "1. Worker Protocol Dispatch" for:
 //! - Python implementation: `batchalign/worker/_protocol.py` + `batchalign/worker/_handlers.py`
 //! - Shared schema: `ipc-schema/worker_v2/`
 //! - Full Rust/Python responsibility split.

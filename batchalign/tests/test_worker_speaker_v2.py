@@ -121,10 +121,29 @@ def test_execute_speaker_request_v2_returns_typed_segments(tmp_path: Path) -> No
     assert response.result.segments[0].start_ms == 10
 
 
-def test_execute_speaker_request_v2_defaults_expected_speakers_to_two(
+def test_execute_speaker_request_v2_preserves_an_unspecified_speaker_count(
     tmp_path: Path,
 ) -> None:
-    """Missing expected_speakers should preserve the batchalign default of 2."""
+    """An omitted expected_speakers reaches the runner as None, not as 2.
+
+    POLICY CHANGED 2026-08-21, and this test asserted the old behaviour, so it
+    is rewritten rather than deleted. It used to be named
+    ``..._defaults_expected_speakers_to_two`` and pinned ``num_speakers == 2``
+    for a request that had specified nothing.
+
+    That default was the defect. The CLI records an absent ``--num-speakers``
+    as auto-detect (it says so in ``cli/args/mod.rs``), the protocol omits the
+    field entirely, and pyannote estimates the count when given None. Rust
+    collapsed all of that with ``.unwrap_or(2)`` at the FFI, so a request
+    saying "I do not know" was indistinguishable from one asking for exactly
+    two, and estimation was unreachable through the V2 path. Since ``diarize``
+    hardcodes the pyannote backend, every run without an explicit count was
+    quietly forced to two speakers.
+
+    The value a caller SPECIFIED and a value we INVENTED must not arrive
+    looking the same; keeping None intact is how that holds across the
+    boundary.
+    """
 
     captured: dict[str, object] = {}
 
@@ -140,7 +159,7 @@ def test_execute_speaker_request_v2_defaults_expected_speakers_to_two(
     )
 
     assert isinstance(response.outcome, ExecuteSuccessV2)
-    assert captured == {"shape": (4,), "sample_rate_hz": 16000, "num_speakers": 2}
+    assert captured == {"shape": (4,), "sample_rate_hz": 16000, "num_speakers": None}
 
 
 def test_execute_speaker_request_v2_routes_nemo_backend(tmp_path: Path) -> None:
@@ -170,7 +189,14 @@ def test_execute_speaker_request_v2_routes_nemo_backend(tmp_path: Path) -> None:
 
 
 def test_execute_speaker_request_v2_rejects_wrong_task() -> None:
-    """Speaker executor should fail with a typed protocol error on wrong tasks."""
+    """A task/payload mismatch fails with a typed protocol error.
+
+    Policy change (2026-08-21): the agreement check moved from each executor
+    into the shared Rust control plane, so the diagnostic is now the control
+    plane's single wording ("declared task ... does not match payload task
+    ...") rather than the speaker executor's old "expected speaker task"
+    message. The wire code is unchanged (INVALID_PAYLOAD).
+    """
 
     response = execute_speaker_request_v2(
         ExecuteRequestV2(
@@ -186,7 +212,7 @@ def test_execute_speaker_request_v2_rejects_wrong_task() -> None:
     )
 
     _assert_error_response(
-        response, ProtocolErrorCodeV2.INVALID_PAYLOAD, "expected speaker task"
+        response, ProtocolErrorCodeV2.INVALID_PAYLOAD, "does not match payload task"
     )
 
 

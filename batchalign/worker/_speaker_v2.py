@@ -30,11 +30,14 @@ if TYPE_CHECKING:
 class SpeakerExecutionHostV2:
     """Injected speaker execution hooks for the live V2 path."""
 
+    # The third argument is the speaker count, or None for "not specified",
+    # which the CLI defines as auto-detect. It is Optional so that state can
+    # reach the diarizer instead of being collapsed into a number.
     pyannote_prepared_audio_runner: (
-        Callable[[np.ndarray, int, int], SpeakerResponse] | None
+        Callable[[np.ndarray, int, int | None], SpeakerResponse] | None
     ) = None
     nemo_prepared_audio_runner: (
-        Callable[[np.ndarray, int, int], SpeakerResponse] | None
+        Callable[[np.ndarray, int, int | None], SpeakerResponse] | None
     ) = None
 
 
@@ -46,9 +49,17 @@ def build_default_speaker_execution_host_v2(
     def _run_prepared(
         audio: np.ndarray,
         sample_rate_hz: int,
-        num_speakers: int,
+        num_speakers: int | None,
         engine: str,
     ) -> SpeakerResponse:
+        """Run one prepared-audio item.
+
+        ``num_speakers`` is ``None`` when the caller did not specify a count,
+        which the CLI defines as auto-detect. It is passed through rather than
+        defaulted here: the Rust boundary used to substitute 2, which made
+        "estimate the count" unreachable.
+        """
+
         return infer_speaker_prepared_audio(
             audio,
             sample_rate_hz,

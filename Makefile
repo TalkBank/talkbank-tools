@@ -165,8 +165,41 @@ batchalign-python-prepare: batchalign-build-wheel
 	uv sync --group dev --no-install-project
 	@echo "==> Installing imported Batchalign wheel into the dev environment..."
 	uv pip install --reinstall --no-deps dist/*.whl
+	@# THE INVARIANT: after this target, exactly one compiled extension is
+	@# importable, and it is the one this target just built.
+	@#
+	@# `uv run maturin develop` writes batchalign_core/batchalign_core.abi3.so
+	@# into the working tree, and because python-source is "." the repo-root
+	@# batchalign_core package shadows site-packages for anything run from here.
+	@# Leaving that file behind means this target installs a wheel that nothing
+	@# imports, and the suite silently reports on whatever develop last built.
+	@# That is not hypothetical: it happened on 2026-08-21 and made a session of
+	@# PyO3 verification meaningless.
+	@#
+	@# Removing it is not extra damage. `uv pip install` above has already
+	@# replaced the editable install that file belonged to, so it is orphaned
+	@# either way. Verified the same day: with it gone, the shim's extend_path
+	@# resolves to the wheel's extension in site-packages.
+	@# Globbed rather than naming one file: the invariant is "no in-tree
+	@# extension shadows the wheel", not "this filename does not". The tree also
+	@# accumulates fossils under other ABI tags, e.g. a cpython-312 build left
+	@# from before the move to 3.13, which a filename-specific rm would miss.
+	@count=$$(ls batchalign_core/*.so 2>/dev/null | wc -l | tr -d ' '); \
+	if [ "$$count" != "0" ]; then \
+	  echo "==> Cleared $$count in-tree extension(s); the wheel is what runs"; \
+	  rm -f batchalign_core/*.so; \
+	else \
+	  echo "==> No in-tree extension present; the wheel is what runs"; \
+	fi
 
 _batchalign-test-python:
+	@# Proves the invariant rather than assuming it: resolves the extension
+	@# Python will actually import and refuses if it is older than the Rust it
+	@# is built from. Covers both install modes and the no-extension case, so
+	@# it holds whether you came via batchalign-python-prepare or maturin
+	@# develop. Fails closed.
+	@echo "==> Checking the extension Python will import is current..."
+	bash scripts/check_extension_freshness.sh
 	@echo "==> Running imported Batchalign Python tests..."
 	uv run --no-sync pytest $(BATCHALIGN_PYTEST_ARGS)
 

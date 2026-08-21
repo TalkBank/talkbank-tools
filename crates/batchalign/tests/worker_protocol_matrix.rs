@@ -28,7 +28,7 @@ use std::path::{Path, PathBuf};
 
 use batchalign::api::{DurationSeconds, NumSpeakers};
 use batchalign::types::worker_v2::{
-    ArtifactRefV2, AsrBackendV2, AsrInputV2, AsrRequestV2, ExecuteOutcomeV2, ExecuteRequestV2,
+    ArtifactRefV2, AsrBackendV2, AsrInputV2, AsrRequestV2, ExecuteOutcomeRef, ExecuteRequestV2,
     ExecuteResponseV2, FaBackendV2, FaTextModeV2, ForcedAlignmentRequestV2, InferenceTaskV2,
     ProtocolErrorCodeV2, ProviderMediaInputV2, SpeakerBackendV2, TaskRequestV2, TaskResultV2,
     WorkerArtifactIdV2,
@@ -77,8 +77,13 @@ fn load_execute_request(file: &str) -> ExecuteRequestV2 {
 /// Load one execute-response fixture through the Rust schema.
 fn load_execute_response(file: &str) -> ExecuteResponseV2 {
     let path = fixture_root().join(file);
-    let raw = fs::read_to_string(path).expect("worker protocol v2 response fixture should exist");
-    serde_json::from_str(&raw).expect("worker protocol v2 response fixture should parse")
+    let raw = fs::read_to_string(path)
+        .unwrap_or_else(|e| panic!("response fixture {file} should exist: {e}"));
+    // Refusal at deserialization replaced the per-fixture invariant arms, so
+    // the panic must name the file and the serde detail or a bad fixture in a
+    // manifest loop is unattributable.
+    serde_json::from_str(&raw)
+        .unwrap_or_else(|e| panic!("response fixture {file} failed to parse: {e}"))
 }
 
 /// Return the canonical execute-request fixture entries from the shared manifest.
@@ -473,16 +478,20 @@ fn validate_execute_response_invariants(
     file: &str,
     response: &ExecuteResponseV2,
 ) -> Result<(), String> {
-    if response.elapsed_s.0 < 0.0 {
+    if response.elapsed_s().0 < 0.0 {
         return Err(format!(
             "response fixture {file} had negative elapsed_s {}",
-            response.elapsed_s.0
+            response.elapsed_s().0
         ));
     }
 
-    match (&response.outcome, &response.result) {
-        (ExecuteOutcomeV2::Success, Some(result)) => {
-            if response.elapsed_s.0 <= 0.0 {
+    // The outcome/result pairing itself is now structural: a success fixture
+    // with no result, or an error fixture carrying one, fails DESERIALIZATION
+    // in `load_execute_response`, so those two arms stopped being writable
+    // here. What remains are the invariants the schema alone cannot encode.
+    match response.read() {
+        ExecuteOutcomeRef::Success(result) => {
+            if response.elapsed_s().0 <= 0.0 {
                 return Err(format!(
                     "success response fixture {file} must record elapsed_s > 0"
                 ));
@@ -497,10 +506,7 @@ fn validate_execute_response_invariants(
             }
             validate_task_result_shape(result)
         }
-        (ExecuteOutcomeV2::Success, None) => Err(format!(
-            "success response fixture {file} was missing a result"
-        )),
-        (ExecuteOutcomeV2::Error { message, .. }, None) => {
+        ExecuteOutcomeRef::Failed { message, .. } => {
             if message.trim().is_empty() {
                 return Err(format!(
                     "error response fixture {file} had an empty message"
@@ -513,9 +519,6 @@ fn validate_execute_response_invariants(
             }
             Ok(())
         }
-        (ExecuteOutcomeV2::Error { .. }, Some(_)) => Err(format!(
-            "error response fixture {file} unexpectedly included a result"
-        )),
     }
 }
 
@@ -774,7 +777,7 @@ fn worker_protocol_v2_response_manifest_covers_result_shape_matrix() {
         validate_execute_response_invariants(&entry.file, &response).unwrap_or_else(|error| {
             panic!("response fixture {} failed invariants: {error}", entry.file)
         });
-        if let Some(result) = &response.result {
+        if let ExecuteOutcomeRef::Success(result) = response.read() {
             result_kinds.insert(result_kind_name(result).to_string());
         }
     }
@@ -881,13 +884,9 @@ async fn worker_execute_v2_returns_typed_invalid_payload_for_mismatched_task_mat
             .await
             .expect("worker should return a typed invalid-payload response");
 
-        assert_eq!(&*response.request_id, request_id);
-        assert!(
-            response.result.is_none(),
-            "invalid payloads should not return a result"
-        );
-        match response.outcome {
-            ExecuteOutcomeV2::Error { code, message } => {
+        assert_eq!(&**response.request_id(), request_id);
+        match response.read() {
+            ExecuteOutcomeRef::Failed { code, message } => {
                 assert_eq!(code, ProtocolErrorCodeV2::InvalidPayload);
                 assert!(
                     !message.trim().is_empty(),

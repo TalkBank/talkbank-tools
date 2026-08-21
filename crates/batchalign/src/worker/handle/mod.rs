@@ -439,9 +439,14 @@ mod tests {
 
     /// Verify backward compatibility: a response stream with zero progress
     /// events still deserializes the final `ExecuteV2` response correctly.
+    ///
+    /// The fixture used to claim success while carrying no result, which the
+    /// structural `ExecuteResponseV2` (2026-08-21) now refuses at parse time;
+    /// the pairing was incidental to this test's purpose (op-level routing),
+    /// so the fixture became a legal error response instead.
     #[test]
     fn deserialize_execute_v2_without_progress() {
-        let json = r#"{"op": "execute_v2", "response": {"request_id": "req-002", "outcome": {"kind": "success"}, "elapsed_s": 1.5}}"#;
+        let json = r#"{"op": "execute_v2", "response": {"request_id": "req-002", "outcome": {"kind": "error", "code": "runtime_failure", "message": "boom"}, "elapsed_s": 1.5}}"#;
         let resp: super::protocol::WorkerResponse = serde_json::from_str(json).unwrap();
         assert!(matches!(
             resp,

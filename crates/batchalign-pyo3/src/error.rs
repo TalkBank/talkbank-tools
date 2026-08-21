@@ -76,6 +76,16 @@ create_exception!(
      failed. Carries the optional raw `chat_text: str` to copy to \
      output unchanged."
 );
+create_exception!(
+    batchalign_core,
+    ArtifactInputError,
+    BatchalignError,
+    "Raised when a prepared worker artifact is missing or unreadable. \
+     Carries `code: str`, the wire spelling of the protocol error code \
+     (\"missing_attachment\" or \"attachment_unreadable\"), so Python \
+     callers can branch on the category instead of matching on the \
+     message text."
+);
 
 /// One structured CHAT-validation entry surfaced through
 /// [`BatchalignBoundaryError::ChatValidation`]. Mirrors the
@@ -176,6 +186,15 @@ pub(crate) enum BatchalignBoundaryError {
         chat_text: Option<String>,
     },
 
+    /// A prepared artifact was missing or unreadable. Maps to
+    /// `ArtifactInputError` and carries the wire spelling of the protocol
+    /// error code, so the Python worker layer reads the CATEGORY as data
+    /// rather than recovering it from the message text. It used to do exactly
+    /// that (`"missing worker protocol V2 attachment" in str(error)`), which
+    /// made a `format!` on the Rust side and an `in` test on the Python side
+    /// one coupled unit that no test in either language could hold together.
+    ArtifactInput { code: &'static str, message: String },
+
     /// Any other Rust-side failure that doesn't fit the typed buckets
     /// above. Maps to a `BatchalignError` (the Python parent class).
     /// Not a fallback to `PyValueError`: the typed parent gives
@@ -220,6 +239,7 @@ impl std::fmt::Display for BatchalignBoundaryError {
                 configured_bytes,
             ),
             Self::SkipFileWarning { message, .. } => write!(f, "{message}"),
+            Self::ArtifactInput { message, .. } => write!(f, "{message}"),
             Self::Internal { message } => write!(f, "{message}"),
         }
     }
@@ -294,6 +314,14 @@ impl From<BatchalignBoundaryError> for PyErr {
                     py_err
                 })
             }
+            BatchalignBoundaryError::ArtifactInput { code, .. } => Python::attach(|py| -> PyErr {
+                let py_err = ArtifactInputError::new_err(message);
+                let value = py_err.value(py);
+                if let Err(e) = value.setattr("code", code) {
+                    return e;
+                }
+                py_err
+            }),
             BatchalignBoundaryError::Internal { .. } => BatchalignError::new_err(message),
         }
     }

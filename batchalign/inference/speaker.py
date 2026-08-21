@@ -41,11 +41,23 @@ def infer_speaker_prepared_audio(
     audio: np.ndarray,
     sample_rate_hz: int,
     *,
-    num_speakers: NumSpeakers = 2,
+    num_speakers: NumSpeakers | None = None,
     engine: str = "pyannote",
     device_policy=None,
 ) -> SpeakerResponse:
-    """Run one prepared-audio diarization item through the requested backend."""
+    """Run one prepared-audio diarization item through the requested backend.
+
+    ``num_speakers`` of ``None`` means "not specified", which the CLI defines
+    as auto-detect, and BOTH engines honour it (ruled by the operator,
+    2026-08-21): pyannote estimates the count natively, and NeMo runs with
+    oracle mode off so clustering estimates a count bounded by the config's
+    ``max_num_speakers``. A specified count still forces exactly that count
+    on either engine.
+
+    The default used to be ``2`` at all three levels of this module and again
+    in Rust, so a caller who said nothing got exactly two speakers and no way
+    to tell that from having asked for two.
+    """
 
     if engine == "nemo":
         segments = infer_nemo_speaker_prepared_audio(
@@ -221,11 +233,18 @@ def _write_prepared_audio_wav(
 
 def _infer_nemo_speaker_from_audio_file(
     audio_path: str,
-    num_speakers: NumSpeakers,
+    num_speakers: NumSpeakers | None,
     *,
     device_policy=None,
 ) -> list[SpeakerSegment]:
-    """Run NeMo diarization from a concrete audio file path."""
+    """Run NeMo diarization from a concrete audio file path.
+
+    Oracle mode is DERIVED here, not read from the YAML: a provided count
+    turns it on (NeMo takes the manifest count verbatim), an absent one turns
+    it off (clustering estimates, bounded by the config's
+    ``max_num_speakers``). The YAML value is a placeholder this override
+    always replaces, so the request is the single owner of the decision.
+    """
     import copy
     import json
     import os
@@ -260,6 +279,9 @@ def _infer_nemo_speaker_from_audio_file(
             fp.write("\n")
         config.diarizer.manifest_filepath = manifest_path
         config.diarizer.out_dir = workdir
+        config.diarizer.clustering.parameters.oracle_num_speakers = (
+            num_speakers is not None
+        )
         config.device = _device_for_speaker_runtime(device_policy)
 
         with _temporary_conv_scale_weights_override(MSDD_module):
@@ -278,11 +300,20 @@ def _infer_nemo_speaker_from_audio_file(
 def infer_nemo_speaker_prepared_audio(
     audio: np.ndarray,
     sample_rate_hz: int,
-    num_speakers: NumSpeakers = 2,
+    num_speakers: NumSpeakers | None = None,
     *,
     device_policy=None,
 ) -> list[SpeakerSegment]:
-    """Run NeMo diarization on Rust-prepared mono PCM audio."""
+    """Run NeMo diarization on Rust-prepared mono PCM audio.
+
+    ``None`` means "not specified" and NeMo now estimates the count (ruled by
+    the operator, 2026-08-21, superseding the earlier refusal): oracle mode is
+    derived per run from whether a count was provided, so a specified count is
+    still forced exactly. This CHANGES output for unspecified-count NeMo runs
+    relative to the era when the config's static ``oracle_num_speakers: True``
+    made "unspecified" undefined.
+    """
+
     import os
     import tempfile
 
@@ -299,9 +330,13 @@ def infer_nemo_speaker_prepared_audio(
 def infer_pyannote_speaker_prepared_audio(
     audio: np.ndarray,
     sample_rate_hz: int,
-    num_speakers: NumSpeakers = 2,
+    num_speakers: NumSpeakers | None = None,
 ) -> list[SpeakerSegment]:
-    """Run Pyannote diarization on Rust-prepared mono PCM audio."""
+    """Run Pyannote diarization on Rust-prepared mono PCM audio.
+
+    ``None`` is passed straight through: pyannote estimates the speaker count
+    when ``num_speakers`` is absent, which is what "not specified" means.
+    """
     import torch
 
     waveform = torch.from_numpy(np.asarray(audio, dtype=np.float32)).unsqueeze(0)

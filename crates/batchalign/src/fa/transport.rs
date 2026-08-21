@@ -564,8 +564,8 @@ mod tests {
     use super::*;
     use crate::api::DurationSeconds;
     use crate::types::worker_v2::{
-        ExecuteOutcomeV2, ExecuteResponseV2, TaskResultV2, TranslationItemResultV2,
-        TranslationResultV2, WorkerRequestIdV2,
+        ExecuteResponseV2, TaskResultV2, TranslationItemResultV2, TranslationResultV2,
+        WorkerRequestIdV2,
     };
     use crate::worker::error::WorkerError;
 
@@ -641,17 +641,16 @@ mod tests {
             words: vec![make_word(0, "hello")],
             utterance_indices: vec![UtteranceIdx::new(0)],
         };
-        let response = ExecuteResponseV2 {
-            request_id: WorkerRequestIdV2::from("req-fa-v2-bad"),
-            outcome: ExecuteOutcomeV2::Success,
-            result: Some(TaskResultV2::TranslationResult(TranslationResultV2 {
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("req-fa-v2-bad"),
+            TaskResultV2::TranslationResult(TranslationResultV2 {
                 items: vec![TranslationItemResultV2 {
                     raw_translation: Some("hola".into()),
                     error: None,
                 }],
-            })),
-            elapsed_s: DurationSeconds(0.01),
-        };
+            }),
+            DurationSeconds(0.01),
+        );
 
         let recording = test_recording();
         let window = FaWindow::within(

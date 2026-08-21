@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from batchalign.inference.languages.cantonese._cantonese_fa import CantoneseFaHost
+    from batchalign.worker._types_v2 import TaskResultV2
 
 from dataclasses import dataclass, field
 
@@ -133,10 +134,19 @@ def execute_request_v2(
         if _state.test_delay_ms > 0:
             time.sleep(_state.test_delay_ms / 1000.0)
 
+        # The payload is an EMPTY placeholder of the requested task's own
+        # result kind: transport tests read only the request_id, but the
+        # protocol makes success-with-no-result unrepresentable (the Rust
+        # reader refuses it at deserialization since 2026-08-21), and a
+        # double that lies about the contract hangs every dispatch waiting
+        # on its reply. Deriving the kind from the task keeps downstream
+        # parsers honest; an echo answer must still never be READ as a
+        # result, which is why echo-mode server jobs are short-circuited
+        # before dispatch.
         return ExecuteResponseV2(
             request_id=request.request_id,
             outcome=ExecuteSuccessV2(),
-            result=None,
+            result=_echo_placeholder_result(request.task),
             elapsed_s=0.001,
         )
 
@@ -166,6 +176,61 @@ def execute_request_v2(
             return execute_avqi_request_v2(request, execution_host.avqi)
         case _:
             return _unsupported_task_response(request)
+
+
+def _echo_placeholder_result(task: InferenceTaskV2) -> TaskResultV2:
+    """Empty result payload of the task's own kind, for test-echo mode only."""
+
+    from batchalign.worker._types_v2 import (
+        AvqiResultPayloadV2,
+        CorefResultPayloadV2,
+        IndexedWordTimingResultPayloadV2,
+        MonologueAsrResultPayloadV2,
+        MorphosyntaxResultPayloadV2,
+        OpenSmileResultPayloadV2,
+        SpeakerResultPayloadV2,
+        TranslationResultPayloadV2,
+        UtsegResultPayloadV2,
+    )
+
+    match task:
+        case InferenceTaskV2.MORPHOSYNTAX:
+            return MorphosyntaxResultPayloadV2(items=[])
+        case InferenceTaskV2.UTSEG:
+            return UtsegResultPayloadV2(items=[])
+        case InferenceTaskV2.TRANSLATE:
+            return TranslationResultPayloadV2(items=[])
+        case InferenceTaskV2.COREF:
+            return CorefResultPayloadV2(items=[])
+        case InferenceTaskV2.ASR:
+            return MonologueAsrResultPayloadV2(lang="eng", monologues=[])
+        case InferenceTaskV2.FORCED_ALIGNMENT:
+            return IndexedWordTimingResultPayloadV2(indexed_timings=[])
+        case InferenceTaskV2.SPEAKER:
+            return SpeakerResultPayloadV2(segments=[])
+        case InferenceTaskV2.OPENSMILE:
+            return OpenSmileResultPayloadV2(
+                feature_set="echo",
+                feature_level="echo",
+                num_features=0,
+                duration_segments=0,
+                audio_file="echo",
+                rows=[],
+                success=True,
+            )
+        case InferenceTaskV2.AVQI:
+            return AvqiResultPayloadV2(
+                avqi=0.0,
+                cpps=0.0,
+                hnr=0.0,
+                shimmer_local=0.0,
+                shimmer_local_db=0.0,
+                slope=0.0,
+                tilt=0.0,
+                cs_file="echo",
+                sv_file="echo",
+                success=True,
+            )
 
 
 def _unsupported_task_response(request: ExecuteRequestV2) -> ExecuteResponseV2:

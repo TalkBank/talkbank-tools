@@ -177,11 +177,31 @@ impl EngineSelection {
     /// Lazy-profile workers preload nothing and are keyed without a selection;
     /// they name an engine per request instead.
     pub(super) fn for_target(target: WorkerTarget, options: &CommandOptions) -> Self {
-        let mut overrides = Self::overrides_for_command(options);
+        Self::from_overrides(Self::fill_for_preloaded_tasks(
+            target,
+            Self::overrides_for_command(options),
+        ))
+    }
+
+    /// Name an engine for every task the target's bootstrap will PRELOAD,
+    /// beyond what the command or request itself named.
+    ///
+    /// One owner for a guarantee two spawn routes rely on: the command route
+    /// (`for_target`) and the V2 execute route
+    /// (`from_execute_request_for_target`) both spawn eager profile workers,
+    /// and the Python bootstrap REFUSES a preloaded task with no named engine
+    /// rather than defaulting (`resolve_fa_engine`). Until 2026-08-21 only
+    /// the command route filled this in, so an eager-mode V2 ASR request
+    /// spawned a profile worker that preloaded FA with no `fa` override and
+    /// died at bootstrap ("no 'fa' engine in overrides").
+    pub(super) fn fill_for_preloaded_tasks(
+        target: WorkerTarget,
+        mut overrides: EngineOverrides,
+    ) -> EngineOverrides {
         if target.preloaded_tasks().contains(&InferTask::Fa) {
             overrides.fa.get_or_insert(FaEngineName::DEFAULT);
         }
-        Self::from_overrides(overrides)
+        overrides
     }
 
     /// Parse the JSON held by an externally managed registry entry.

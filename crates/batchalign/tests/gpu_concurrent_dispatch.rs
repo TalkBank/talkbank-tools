@@ -283,14 +283,15 @@ async fn gpu_concurrent_dispatch_all_responses_arrive() {
     for (i, response) in results.iter().enumerate() {
         let expected_id = format!("concurrent-{i}");
         assert_eq!(
-            &*response.request_id, &expected_id,
+            &**response.request_id(),
+            &expected_id,
             "response {i} has wrong request_id: got {}, expected {expected_id}",
-            response.request_id
+            response.request_id()
         );
         assert!(
-            seen_ids.insert(response.request_id.to_string()),
+            seen_ids.insert(response.request_id().to_string()),
             "duplicate request_id in responses: {}",
-            response.request_id
+            response.request_id()
         );
     }
 
@@ -414,7 +415,7 @@ async fn gpu_sequential_after_concurrent_works() {
             .await
             .expect("phase 2 sequential dispatch failed");
         assert_eq!(
-            &*response.request_id,
+            &**response.request_id(),
             &format!("phase2-{i}"),
             "sequential request {i} got wrong request_id"
         );
@@ -535,7 +536,8 @@ async fn gpu_single_execute_v2_through_pool() {
         .expect("GPU dispatch_execute_v2 failed");
 
     assert_eq!(
-        &*response.request_id, "single-dispatch-test",
+        &**response.request_id(),
+        "single-dispatch-test",
         "response request_id should match request"
     );
 
@@ -566,7 +568,7 @@ async fn gpu_repeated_execute_v2_through_pool() {
             .unwrap_or_else(|e| panic!("GPU dispatch_execute_v2 failed on request {i}: {e}"));
 
         assert_eq!(
-            &*response.request_id,
+            &**response.request_id(),
             &format!("repeat-{i}"),
             "response {i} has wrong request_id"
         );
@@ -623,7 +625,7 @@ async fn gpu_dispatch_after_pre_scale_shutdown_spawns_fallback() {
         .dispatch_execute_v2(&LanguageCode3::eng(), &request)
         .await
         .expect("first dispatch should succeed");
-    assert_eq!(&*response.request_id, "before-shutdown");
+    assert_eq!(&**response.request_id(), "before-shutdown");
 
     // Shut down the pool's GPU workers (simulates worker crash/restart).
     pool.shutdown().await;
@@ -910,7 +912,7 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
         match handle.await.expect("dispatch task panicked") {
             Ok(response) => {
                 assert_eq!(
-                    &*response.request_id,
+                    &**response.request_id(),
                     &format!("queue-wait-{i}"),
                     "response {i} has wrong request_id"
                 );
