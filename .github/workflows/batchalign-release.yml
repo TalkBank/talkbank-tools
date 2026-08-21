@@ -91,7 +91,12 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             manylinux: "2_28"
-          - os: ubuntu-latest
+          # Native arm64 runner, NOT a cross container: the Debian cross
+          # image's aarch64 GCC is too old for whisper.cpp's NEON intrinsics
+          # (int8x16x4_t assignment errors, first met when whisper-rs became
+          # a default dependency), while the pypa manylinux_2_28 containers
+          # ship a modern gcc-toolset on both architectures.
+          - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             manylinux: "2_28"
           - os: windows-latest
@@ -155,26 +160,37 @@ jobs:
           args: --release --out dist
           before-script-linux: |
             set -euo pipefail
-            # The manylinux container has no protoc; the bundled batchalign3
-            # CLI binary's prost / tonic deps need it. protoc runs on the
-            # x86_64 build host even when cross-compiling, so the x86_64
-            # release is correct for both linux targets. matrix.target is
+            # The manylinux container has no protoc (the bundled batchalign3
+            # CLI binary's prost / tonic deps need it), no libclang (the
+            # whisper-rs-sys bindgen build needs one), and no cmake (which
+            # builds the bundled whisper.cpp). Both Linux wheels now build in
+            # pypa manylinux_2_28 containers (x86_64 on the x86_64 runner,
+            # aarch64 natively on the arm64 runner), which are AlmaLinux
+            # (dnf) and ship a modern gcc-toolset. matrix.target is
             # interpolated by Actions, so it is a literal here (not a shell
-            # variable that set -u would reject). The x86_64 wheel uses an
-            # AlmaLinux (dnf) image and the aarch64 cross build a Debian
-            # (apt) one, so install unzip via whichever manager is present.
+            # variable that set -u would reject). The non-dnf branches stay
+            # as a guard against a container swap silently changing the
+            # distro underneath this script.
             if command -v dnf >/dev/null 2>&1; then
-              dnf install -y unzip
+              dnf install -y unzip clang-devel cmake
             elif command -v apt-get >/dev/null 2>&1; then
-              apt-get update -y && apt-get install -y unzip
+              apt-get update -y && apt-get install -y unzip libclang-dev cmake
             elif command -v yum >/dev/null 2>&1; then
-              yum install -y unzip
+              yum install -y unzip clang-devel cmake
             else
               echo "no supported package manager to install unzip" >&2
               exit 1
             fi
+            # protoc's release assets name the architectures x86_64 and
+            # aarch_64; pick the one matching the container, since the
+            # aarch64 wheel now builds natively rather than cross.
+            case "$(uname -m)" in
+              aarch64) PROTOC_ARCH="aarch_64" ;;
+              x86_64) PROTOC_ARCH="x86_64" ;;
+              *) echo "unsupported container arch: $(uname -m)" >&2; exit 1 ;;
+            esac
             curl -fsSL -o /tmp/protoc.zip \
-              https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protoc-35.1-linux-x86_64.zip
+              "https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protoc-35.1-linux-${PROTOC_ARCH}.zip"
             unzip -o /tmp/protoc.zip -d /usr/local bin/protoc 'include/*'
             export PROTOC=/usr/local/bin/protoc
             cargo build --release -p batchalign --target "${{ matrix.target }}"
