@@ -39,6 +39,27 @@ fn check_version_sync(root: &Path) -> std::result::Result<(), String> {
             "Version mismatch: pyproject.toml={py_version} != batchalign/Cargo.toml={cargo_version}"
         ));
     }
+
+    // The GENERATED artifact that embeds the same version. The 0.2.0 release
+    // bump synced the two manifests above (this check caught the half-bump)
+    // and still shipped a red main, because openapi.json is regenerated only
+    // by a CI job that is not on the pre-push path. Every committed home of
+    // the version belongs to ONE local check, so a bump that misses a regen
+    // fails here, before the push, like any other mismatch.
+    let openapi_path = root.join("openapi.json");
+    let openapi_str = std::fs::read_to_string(&openapi_path)
+        .map_err(|e| format!("Cannot read {}: {e}", openapi_path.display()))?;
+    let openapi: serde_json::Value = serde_json::from_str(&openapi_str)
+        .map_err(|e| format!("Cannot parse openapi.json: {e}"))?;
+    let openapi_version = openapi["info"]["version"]
+        .as_str()
+        .ok_or("openapi.json missing info.version")?;
+    if py_version != openapi_version {
+        return Err(format!(
+            "Version mismatch: pyproject.toml={py_version} != openapi.json={openapi_version} \
+             (regenerate with `make batchalign-dashboard-api-check` after a version bump)"
+        ));
+    }
     Ok(())
 }
 
