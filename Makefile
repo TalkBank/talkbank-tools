@@ -312,17 +312,16 @@ lint:
 
 # Lints run FIRST: they are the cheapest gates here.
 batchalign-ci-rust:
-	@# EVERY job the `CI` workflow runs, so this target cannot be weaker than
-	@# CI. It was, on 2026-08-25: this chain was green and the pushed commit
-	@# failed CI's rustfmt job. The cause was not a missing check anywhere, it
-	@# was SEVERAL local gates of differing strength (`ci-local` did run
-	@# rustfmt; this one did not), so reaching for the wrong one still printed
-	@# success. A gate that can be weaker than CI is two lists of what must
-	@# pass, and the weaker one is the one that gets run.
-	@echo "==> shellcheck (mirrors CI's 'Shell scripts' job)"
-	bash scripts/lint/shellcheck-all.sh
-	@echo "==> actionlint (mirrors CI's 'Workflow files' job)"
-	actionlint
+	@# THIS TARGET IS INVOKED BY CI ITSELF (the `Batchalign Rust` workflow), so
+	@# it may only use tools that runner installs: cargo and its components.
+	@# Shellcheck and actionlint are separate CI JOBS with their own setup, and
+	@# calling them here made the Rust workflow die with `Error 127` on a runner
+	@# that has neither. The developer-facing target that mirrors ALL of CI is
+	@# `make ci-local`; use that before pushing.
+	@#
+	@# `lint` gained `cargo fmt --all -- --check`, which is what this chain was
+	@# actually missing on 2026-08-25 when it went green and the pushed commit
+	@# failed CI's rustfmt job.
 	@$(MAKE) lint
 	@$(MAKE) batchalign-check
 	@$(MAKE) batchalign-test-rust
@@ -406,6 +405,15 @@ smoke:
 
 # Fast local CI: fmt + dependency-aware compile checks + structural lints.
 ci-local:
+	@# THE PRE-PUSH TARGET. Unlike `batchalign-ci-rust` (which CI itself runs on
+	@# a cargo-only runner), this is for a developer machine and therefore
+	@# mirrors EVERY job the `CI` workflow has: shellcheck, actionlint, rustfmt,
+	@# and the Rust chain. Reaching for a weaker target is how a red push
+	@# happens; there is now one target whose name means "what CI will say".
+	@echo "==> shellcheck (mirrors CI's 'Shell scripts' job)"
+	bash scripts/lint/shellcheck-all.sh
+	@echo "==> actionlint (mirrors CI's 'Workflow files' job)"
+	actionlint
 	@echo "==> fmt check (main workspace)"
 	cargo fmt --all -- --check
 	@echo "==> affected compile check"
