@@ -42,7 +42,7 @@ use crate::chat_ops::fa::{
 use crate::chat_ops::{CacheKey, CacheTaskName};
 use crate::params::{AudioContext, FaParams};
 use crate::pipeline::PipelineServices;
-use batchalign_transform::parse::{is_dummy, is_no_align, parse_lenient};
+use batchalign_transform::parse::{is_ca, is_dummy, is_no_align, parse_lenient};
 use batchalign_transform::serialize::to_chat_string;
 use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
@@ -155,17 +155,7 @@ pub(crate) async fn run_fa_from_ast(
     // CA transcripts (@Options: CA) use prosodic notation (⌈⌉⌊⌋, arrows,
     // lengthening marks) that %wor cannot represent. Generating %wor for
     // these files adds noise that CA researchers must manually remove.
-    // Matches the FLAG, not one of its effects. chatter 0.14.0 replaced
-    // `enables_ca_mode()` with `has_effect(CaOptionEffect)` because the old name
-    // asserted that `@Options: CA` turns CA parsing on, which it does not: CA
-    // notation needs no option at all. This site genuinely means "does the file
-    // DECLARE the option", which its comment above already says, so it asks that
-    // directly rather than borrowing an effect that means something else.
-    let write_wor = if chat_file
-        .options
-        .iter()
-        .any(|f| matches!(f, talkbank_model::model::ChatOptionFlag::Ca))
-    {
+    let write_wor = if is_ca(&chat_file) {
         info!("@Options: CA detected: suppressing %wor generation");
         false
     } else {

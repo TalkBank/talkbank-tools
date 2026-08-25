@@ -252,12 +252,12 @@ pub fn collect_payloads(
                         // and diagnostics land on the real word.
                         let resolved_lang = match &w.language {
                             ExtractedLanguage::Utterance => None,
-                            governed => {
-                                let outcome = governed.resolve(
-                                    w.span,
-                                    tier_language,
-                                    declared_languages,
-                                );
+                            // Explicit arms, not a catch-all binding: a fourth
+                            // variant added in chatter must fail to compile here
+                            // rather than silently routing into this branch.
+                            governed @ (ExtractedLanguage::Own(_) | ExtractedLanguage::Span(_)) => {
+                                let outcome =
+                                    governed.resolve(w.span, tier_language, declared_languages);
                                 for err in &outcome.diagnostics {
                                     tracing::warn!(
                                         error = %err,

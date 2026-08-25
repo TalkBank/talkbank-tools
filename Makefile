@@ -278,6 +278,13 @@ batchalign-dashboard-e2e-real:
 # nobody runs, so its table drifted for two months. Adding a sixth lint is now
 # one line here.
 lint:
+	@echo "==> rustfmt (mirrors CI's 'Rust formatting (rustfmt)' job)"
+	@# CI runs this as its OWN job, so `lint` not running it meant the local
+	@# gate could pass while CI went red on formatting alone. That happened on
+	@# 2026-08-25: `make batchalign-ci-rust` was green and the pushed commit
+	@# failed CI's rustfmt job. A local gate that does not run what CI runs is
+	@# two lists of what must pass, and the weaker one still prints success.
+	cargo fmt --all -- --check
 	@echo "==> clippy (CI-gated crates)"
 	@# CI runs `lint` via `batchalign-ci-rust`, and until now nothing in that
 	@# chain ran clippy, so every `#![deny(clippy::...)]` in the tree fired
@@ -305,6 +312,17 @@ lint:
 
 # Lints run FIRST: they are the cheapest gates here.
 batchalign-ci-rust:
+	@# EVERY job the `CI` workflow runs, so this target cannot be weaker than
+	@# CI. It was, on 2026-08-25: this chain was green and the pushed commit
+	@# failed CI's rustfmt job. The cause was not a missing check anywhere, it
+	@# was SEVERAL local gates of differing strength (`ci-local` did run
+	@# rustfmt; this one did not), so reaching for the wrong one still printed
+	@# success. A gate that can be weaker than CI is two lists of what must
+	@# pass, and the weaker one is the one that gets run.
+	@echo "==> shellcheck (mirrors CI's 'Shell scripts' job)"
+	bash scripts/lint/shellcheck-all.sh
+	@echo "==> actionlint (mirrors CI's 'Workflow files' job)"
+	actionlint
 	@$(MAKE) lint
 	@$(MAKE) batchalign-check
 	@$(MAKE) batchalign-test-rust

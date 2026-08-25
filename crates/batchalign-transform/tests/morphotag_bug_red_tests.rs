@@ -647,8 +647,11 @@ fn a_code_switch_span_reaches_the_stanza_payload_as_its_own_language() -> TestRe
     let (_line_idx, _utt_idx, batch_item, _extracted) = &collected.batch_items[0];
     let hin = LanguageCode::new("hin").expect("valid test language code");
 
-    let resolved: Vec<Option<&talkbank_model::validation::LanguageResolution>> =
-        batch_item.special_forms.iter().map(|(_, r)| r.as_ref()).collect();
+    let resolved: Vec<Option<&talkbank_model::validation::LanguageResolution>> = batch_item
+        .special_forms
+        .iter()
+        .map(|(_, r)| r.as_ref())
+        .collect();
 
     // `I` and `said` are outside the span and carry no mark of their own.
     assert!(resolved[0].is_none(), "`I` takes the utterance language");
@@ -658,11 +661,12 @@ fn a_code_switch_span_reaches_the_stanza_payload_as_its_own_language() -> TestRe
     for (offset, word) in ["kyaa", "hotaa", "hai"].iter().enumerate() {
         assert_eq!(
             resolved[2 + offset],
-            Some(&talkbank_model::validation::LanguageResolution::Single(hin.clone())),
+            Some(&talkbank_model::validation::LanguageResolution::Single(
+                hin.clone()
+            )),
             "`{word}` is governed by the span and must dispatch as Hindi"
         );
     }
 
     Ok(())
 }
-
