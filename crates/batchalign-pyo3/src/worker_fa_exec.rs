@@ -84,8 +84,19 @@ fn parse_indexed_timings(
 ) -> Result<IndexedWordTimingResultV2, ExecuteFailure> {
     let spans: Vec<(String, (u64, u64))> = parse_host_output(response, "forced-alignment")?;
 
+    // The host must answer with exactly one timing per word it was asked
+    // about. A short answer used to be padded with `None` and a long one
+    // silently truncated by `.take(expected_words)`, so a miscounted response
+    // was indistinguishable from a partial alignment. Refuse it instead.
+    if spans.len() != expected_words {
+        return Err(ExecuteFailure::Runtime(format!(
+            "invalid forced-alignment host output: expected {expected_words} word timings, got {}",
+            spans.len()
+        )));
+    }
+
     let mut indexed_timings = vec![None; expected_words];
-    for (index, (_, (start_ms, end_ms))) in spans.into_iter().take(expected_words).enumerate() {
+    for (index, (_, (start_ms, end_ms))) in spans.into_iter().enumerate() {
         if end_ms < start_ms {
             return Err(ExecuteFailure::Runtime(
                 "invalid forced-alignment host output: Indexed word timing end_ms must be >= start_ms"
