@@ -23,6 +23,16 @@
 # commit CI has already seen. See `docs/contributing/pushing.md`.
 set -euo pipefail
 
+# The hygiene jobs CI runs in their OWN jobs. They are separate targets rather
+# than prerequisites of `lint` because CI invokes `lint` (via
+# `batchalign-ci-rust`) on a cargo-only runner: adding shellcheck or actionlint
+# there kills that job with `Error 127`, which is exactly what happened on
+# 2026-08-25 when they were briefly folded in.
+echo "==> pre-push: shellcheck (CI's 'Shell scripts' job)"
+make lint-shell
+echo "==> pre-push: actionlint (CI's 'Workflow files' job)"
+make lint-actionlint
+
 echo "==> pre-push: the CI target (make batchalign-ci-rust)"
 make batchalign-ci-rust
 

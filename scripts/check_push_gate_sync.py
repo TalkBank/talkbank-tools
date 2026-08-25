@@ -79,10 +79,38 @@ EXEMPT: dict[str, str] = {
 
 
 def make_targets(text: str) -> set[str]:
-    """Every `make <target>` invoked in a shell snippet."""
+    """Every `make <target>` INVOKED in a shell snippet.
+
+    Comment lines are stripped first, and that is load-bearing rather than
+    tidiness. A recipe comment reading "the developer target is `make ci-local`"
+    is prose, not an invocation, but it was read as one: `batchalign-ci-rust`
+    carried exactly that sentence, so the hook appeared to reach `ci-local`, and
+    through it `lint-shell`. Removing `make lint-shell` from the hook then
+    changed nothing this checker could see, and it reported success on a hook
+    that had stopped running a CI job.
+
+    A guard defeated by a comment about the guard is worse than no guard,
+    because it reports clean. Proved by deleting a hook line and watching this
+    fail; before the strip, it passed.
+
+    Both comment forms matter: `#` at the start of a Makefile line, and the
+    `@#` a recipe body uses to keep the comment from being echoed.
+    """
+    without_comments = "\n".join(
+        line for line in text.splitlines() if not _is_comment(line)
+    )
     return {
-        match.group(1) for match in re.finditer(r"\bmake\s+([a-z0-9][a-z0-9-]*)", text)
+        match.group(1)
+        for match in re.finditer(r"\bmake\s+([a-z0-9][a-z0-9-]*)", without_comments)
     }
+
+
+def _is_comment(line: str) -> bool:
+    """Whether a Makefile, recipe, or shell line is wholly a comment."""
+    stripped = line.strip()
+    if stripped.startswith("@#"):
+        return True
+    return stripped.startswith("#")
 
 
 class Uncovered(NamedTuple):

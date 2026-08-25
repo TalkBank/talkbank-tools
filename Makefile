@@ -1,4 +1,4 @@
-.PHONY: help hooks-check lint test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-test-ml-golden batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
+.PHONY: help hooks-check lint fmt-check lint-shell lint-actionlint test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-test-ml-golden batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
 
 help:
 	@echo "talkbank-tools task index (batchalign3 workspace)"
@@ -277,14 +277,31 @@ batchalign-dashboard-e2e-real:
 # batchalign-ci-rust), and `lint-wide-structs` reached only `ci-local`, which
 # nobody runs, so its table drifted for two months. Adding a sixth lint is now
 # one line here.
-lint:
-	@echo "==> rustfmt (mirrors CI's 'Rust formatting (rustfmt)' job)"
-	@# CI runs this as its OWN job, so `lint` not running it meant the local
-	@# gate could pass while CI went red on formatting alone. That happened on
-	@# 2026-08-25: `make batchalign-ci-rust` was green and the pushed commit
-	@# failed CI's rustfmt job. A local gate that does not run what CI runs is
-	@# two lists of what must pass, and the weaker one still prints success.
+# The three CI hygiene jobs, each a NAMED TARGET so `ci.yml` can invoke it by
+# name. That is the whole point: `scripts/check_push_gate_sync.py` exists to
+# fail when the pre-push hook does not run everything CI runs, but it can only
+# see CI steps written as `make <target>`. These three jobs used to be raw
+# commands, so the intersection it computes was EMPTY and it compared `ci.yml`
+# against nothing and printed success -- which is exactly how an unformatted
+# commit reached CI on 2026-08-25 in a repo that already owns an anti-drift
+# checker. Naming them puts them under that check mechanically, instead of
+# under a hand-written mirror somebody has to remember to update.
+fmt-check:
 	cargo fmt --all -- --check
+
+lint-shell:
+	bash scripts/lint/shellcheck-all.sh
+
+lint-actionlint:
+	actionlint
+
+lint:
+	@echo "==> rustfmt"
+	@# Safe to run from here even though CI invokes `lint` via
+	@# `batchalign-ci-rust` on a cargo-only runner: rustfmt is a cargo
+	@# component. shellcheck and actionlint are NOT, which is why they are
+	@# separate targets the hook runs directly rather than prerequisites here.
+	@$(MAKE) fmt-check
 	@echo "==> clippy (CI-gated crates)"
 	@# CI runs `lint` via `batchalign-ci-rust`, and until now nothing in that
 	@# chain ran clippy, so every `#![deny(clippy::...)]` in the tree fired
@@ -318,10 +335,6 @@ batchalign-ci-rust:
 	@# calling them here made the Rust workflow die with `Error 127` on a runner
 	@# that has neither. The developer-facing target that mirrors ALL of CI is
 	@# `make ci-local`; use that before pushing.
-	@#
-	@# `lint` gained `cargo fmt --all -- --check`, which is what this chain was
-	@# actually missing on 2026-08-25 when it went green and the pushed commit
-	@# failed CI's rustfmt job.
 	@$(MAKE) lint
 	@$(MAKE) batchalign-check
 	@$(MAKE) batchalign-test-rust
@@ -405,17 +418,13 @@ smoke:
 
 # Fast local CI: fmt + dependency-aware compile checks + structural lints.
 ci-local:
-	@# THE PRE-PUSH TARGET. Unlike `batchalign-ci-rust` (which CI itself runs on
-	@# a cargo-only runner), this is for a developer machine and therefore
-	@# mirrors EVERY job the `CI` workflow has: shellcheck, actionlint, rustfmt,
-	@# and the Rust chain. Reaching for a weaker target is how a red push
-	@# happens; there is now one target whose name means "what CI will say".
-	@echo "==> shellcheck (mirrors CI's 'Shell scripts' job)"
-	bash scripts/lint/shellcheck-all.sh
-	@echo "==> actionlint (mirrors CI's 'Workflow files' job)"
-	actionlint
-	@echo "==> fmt check (main workspace)"
-	cargo fmt --all -- --check
+	@# Calls the SAME targets `ci.yml` invokes, rather than restating their
+	@# commands. An earlier version of this recipe spelled them out and called
+	@# itself "the pre-push target", which was false twice over: the hook runs
+	@# `batchalign-ci-rust`, and a hand-written mirror is the drift the named
+	@# targets above exist to eliminate.
+	@$(MAKE) lint-shell
+	@$(MAKE) lint-actionlint
 	@echo "==> affected compile check"
 	cargo run -q -p xtask -- affected-rust check
 	@$(MAKE) lint
@@ -423,8 +432,9 @@ ci-local:
 
 # Full local CI: mirrors the stricter CI-style gate.
 ci-full:
-	@echo "==> fmt check (main workspace)"
-	cargo fmt --all -- --check
+	@# No direct fmt call: `batchalign-ci-rust` -> `lint` -> `fmt-check` reaches
+	@# it. The duplicate is the defect `lint`'s own header records for the purity
+	@# gate, recreated for rustfmt and removed again.
 	@echo "==> clippy"
 	cargo clippy --all-targets -- -D warnings
 	@echo "==> compile check (main workspace)"
