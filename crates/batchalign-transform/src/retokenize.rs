@@ -269,7 +269,8 @@ mod tests {
                     raw_text,
                     utterance_word_index: WordIdx::new(idx),
                     form_type: None,
-                    lang: None,
+                    language: talkbank_transform::extract::ExtractedLanguage::Utterance,
+                    span: talkbank_model::Span::DUMMY,
                 }
             })
             .collect()

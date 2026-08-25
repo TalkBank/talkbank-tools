@@ -611,3 +611,58 @@ fn current_e724_genitive_cycle_must_attach_case_marker_under_year() -> TestResul
         "E724",
     )
 }
+
+// =====================================================================
+// Code-switch spans: a `<...> [@s:hin]` span must reach L2 dispatch.
+//
+// The payload collector read a word's OWN `@s` marker only, so every
+// unmarked word inside a span looked unlanguaged, was skipped by
+// `group_l2_spans`, and got morphotagged against the tier language.
+// chatter 0.15.0 made the extractor carry the GOVERNING mark; this is
+// the boundary test that the pipeline actually consumes it.
+// =====================================================================
+
+/// Every word inside `<...> [@s:hin]` resolves to Hindi at the payload
+/// boundary, including the ones carrying no marker of their own.
+///
+/// A test rather than a type: nothing in a signature can say that the
+/// collector's traversal reached the span.
+#[test]
+fn a_code_switch_span_reaches_the_stanza_payload_as_its_own_language() -> TestResult {
+    let chat = "@UTF8\n\
+                @Begin\n\
+                @Languages:\teng, hin\n\
+                @Participants:\tCHI Target_Child\n\
+                @ID:\teng, hin|test|CHI||female|||Target_Child|||\n\
+                *CHI:\tI said <kyaa hotaa hai> [@s:hin] .\n\
+                @End\n";
+    let parser = TreeSitterParser::new()?;
+    let chat_file = parse_strict_file(&parser, chat)?;
+
+    let primary = LanguageCode::new("eng").expect("valid test language code");
+    let langs = declared_languages(&chat_file, &primary);
+    let collected = collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll);
+    assert_eq!(collected.batch_items.len(), 1, "one utterance, one item");
+
+    let (_line_idx, _utt_idx, batch_item, _extracted) = &collected.batch_items[0];
+    let hin = LanguageCode::new("hin").expect("valid test language code");
+
+    let resolved: Vec<Option<&talkbank_model::validation::LanguageResolution>> =
+        batch_item.special_forms.iter().map(|(_, r)| r.as_ref()).collect();
+
+    // `I` and `said` are outside the span and carry no mark of their own.
+    assert!(resolved[0].is_none(), "`I` takes the utterance language");
+    assert!(resolved[1].is_none(), "`said` takes the utterance language");
+
+    // All three span words resolve to Hindi, though none carries `@s`.
+    for (offset, word) in ["kyaa", "hotaa", "hai"].iter().enumerate() {
+        assert_eq!(
+            resolved[2 + offset],
+            Some(&talkbank_model::validation::LanguageResolution::Single(hin.clone())),
+            "`{word}` is governed by the span and must dispatch as Hindi"
+        );
+    }
+
+    Ok(())
+}
+

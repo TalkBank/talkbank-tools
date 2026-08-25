@@ -3,7 +3,7 @@
 use talkbank_model::NullErrorSink;
 use talkbank_model::model::{BracketedItem, UtteranceContent, Word};
 
-use crate::extract::ExtractedWord;
+use crate::extract::{ExtractedLanguage, ExtractedWord};
 
 /// Try to parse a token into an `UtteranceContent` item.
 pub fn try_parse_token_as_utterance_content(
@@ -134,7 +134,13 @@ pub fn resolve_token_text(
 ) -> String {
     if stanza_text == "xbxxx"
         && let Some(word) = original_words.get(orig_word_idx)
-        && (word.form_type.is_some() || word.lang.is_some())
+        // `Own` specifically, which is exactly what the old `lang.is_some()`
+        // meant: this asks whether the WORD carried CHAT markers of its own,
+        // because that is what makes its surface text worth restoring over
+        // Stanza's placeholder. A `<...> [@s]` span sits on the enclosing group
+        // and changes no word's text, so it deliberately does not count here.
+        && (word.form_type.is_some()
+            || matches!(word.language, ExtractedLanguage::Own(_)))
     {
         return word.text.as_str().to_string();
     }

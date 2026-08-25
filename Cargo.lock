@@ -3888,9 +3888,9 @@ dependencies = [
 
 [[package]]
 name = "jsonschema"
-version = "0.50.0"
+version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bd2225bc56c338f18465ce618e5e56fff1295fcb0a0cb338b28010193f26949"
+checksum = "152999731bfbe0bb82d561550be73b0c31a9827d6ebe3fe96ad47563703b5328"
 dependencies = [
  "ahash",
  "bytecount",
@@ -3917,18 +3917,18 @@ dependencies = [
 
 [[package]]
 name = "jsonschema-regex"
-version = "0.50.0"
+version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b11520e5257651f31068fa2c959ce28b09d8a217ffe42338bc27d690f06c0f8c"
+checksum = "8cb2e614e1c610e31e947d53156e877340c718e053cfce0dfe9b9ce7beff4d31"
 dependencies = [
  "regex-syntax 0.8.11",
 ]
 
 [[package]]
 name = "jsonschema-value"
-version = "0.50.0"
+version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccefde026ba6e6e23002c4e1e087b5f411ef5bc90f3e7febb7cf3c498ca8b169"
+checksum = "24373bc85409cb935a46af0ffb41294c5372c08cf9b0709913d908154cd10582"
 dependencies = [
  "ahash",
  "bytecount",
@@ -6232,9 +6232,9 @@ dependencies = [
 
 [[package]]
 name = "referencing"
-version = "0.50.0"
+version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b228fc6035ae00a9008ba156c0dfc98f0b6ebc5f3c8db7ac7006dcf8e56f15a"
+checksum = "0aff997fc7eecb671a947b0f73f5ce4bcb4ad3534fd5bff2dd752718a8107525"
 dependencies = [
  "ahash",
  "fluent-uri",
@@ -7889,8 +7889,8 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "talkbank-derive"
-version = "0.13.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.13.0#79ab46dc48fddd038efb4d29ea12919a85f13f17"
+version = "0.15.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.15.0#7f8a4388d46df435fd217438f85a7fc7bbde8143"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7899,8 +7899,8 @@ dependencies = [
 
 [[package]]
 name = "talkbank-model"
-version = "0.13.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.13.0#79ab46dc48fddd038efb4d29ea12919a85f13f17"
+version = "0.15.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.15.0#7f8a4388d46df435fd217438f85a7fc7bbde8143"
 dependencies = [
  "dashmap",
  "indexmap 2.14.0",
@@ -7921,8 +7921,8 @@ dependencies = [
 
 [[package]]
 name = "talkbank-parser"
-version = "0.13.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.13.0#79ab46dc48fddd038efb4d29ea12919a85f13f17"
+version = "0.15.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.15.0#7f8a4388d46df435fd217438f85a7fc7bbde8143"
 dependencies = [
  "indexmap 2.14.0",
  "smallvec",
@@ -7936,8 +7936,8 @@ dependencies = [
 
 [[package]]
 name = "talkbank-parser-re2c"
-version = "0.13.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.13.0#79ab46dc48fddd038efb4d29ea12919a85f13f17"
+version = "0.15.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.15.0#7f8a4388d46df435fd217438f85a7fc7bbde8143"
 dependencies = [
  "chumsky",
  "indexmap 2.14.0",
@@ -7953,8 +7953,8 @@ dependencies = [
 
 [[package]]
 name = "talkbank-transform"
-version = "0.13.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.13.0#79ab46dc48fddd038efb4d29ea12919a85f13f17"
+version = "0.15.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.15.0#7f8a4388d46df435fd217438f85a7fc7bbde8143"
 dependencies = [
  "chrono",
  "jsonschema",
@@ -9127,9 +9127,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.26.12"
+version = "0.26.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83c567a8e18ae93f20982c90370b16fd24023aeaf52f6052b96957ab253a0fec"
+checksum = "17ebdd3a5a7e28a1890b876fdbd0c3c0fe0a6336cffaa104f11b9f720c9daa29"
 dependencies = [
  "cc",
  "regex",
@@ -9148,7 +9148,7 @@ checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
 [[package]]
 name = "tree-sitter-talkbank"
 version = "0.1.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.13.0#79ab46dc48fddd038efb4d29ea12919a85f13f17"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.15.0#7f8a4388d46df435fd217438f85a7fc7bbde8143"
 dependencies = [
  "cc",
  "tree-sitter-language",

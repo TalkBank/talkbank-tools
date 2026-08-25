@@ -13,7 +13,7 @@ use talkbank_model::WriteChat;
 use talkbank_model::alignment::helpers::TierDomain;
 use talkbank_model::model::{Line, SpeakerCode};
 
-use crate::extract::{self, ExtractedWord};
+use crate::extract::{self, ExtractedLanguage, ExtractedWord};
 
 use super::outcome::{MorOutcome, MorOutcomeKind, classify_not_applicable};
 use super::types::MultilingualPolicy;
@@ -238,25 +238,34 @@ pub fn collect_payloads(
                 )> = words
                     .iter()
                     .map(|w| {
-                        let resolved_lang = if let Some(ref lang_marker) = w.lang {
-                            use talkbank_model::model::Word;
-                            use talkbank_model::validation::resolve_word_language;
-
-                            let mut temp_word =
-                                Word::new_unchecked(w.text.as_str(), w.text.as_str());
-                            temp_word.lang = Some(lang_marker.clone());
-
-                            let outcome = resolve_word_language(
-                                &temp_word,
-                                tier_language,
-                                declared_languages,
-                            );
-                            for err in &outcome.diagnostics {
-                                tracing::warn!(error = %err, "word language resolution issue");
+                        // The GOVERNING mark, which is the word's own `@s` if it
+                        // has one and otherwise any enclosing `<...> [@s:hin]`
+                        // span. Reading `w.lang` alone (a word's own marker) was
+                        // the bug: every unmarked word inside a Hindi span looked
+                        // unlanguaged, so it fell out of L2 dispatch and was
+                        // morphotagged against the tier language instead.
+                        //
+                        // No throwaway `Word` any more either. This used to build
+                        // a `Word::new_unchecked` purely to satisfy a resolver
+                        // signature that wanted a `&Word` for its span; chatter
+                        // now takes the span directly, so the fabrication is gone
+                        // and diagnostics land on the real word.
+                        let resolved_lang = match &w.language {
+                            ExtractedLanguage::Utterance => None,
+                            governed => {
+                                let outcome = governed.resolve(
+                                    w.span,
+                                    tier_language,
+                                    declared_languages,
+                                );
+                                for err in &outcome.diagnostics {
+                                    tracing::warn!(
+                                        error = %err,
+                                        "word language resolution issue"
+                                    );
+                                }
+                                Some(outcome.resolution)
                             }
-                            Some(outcome.resolution)
-                        } else {
-                            None
                         };
 
                         (w.form_type.clone(), resolved_lang)
