@@ -78,10 +78,22 @@ fn start_daemon_on_ephemeral_port(
         .timeout(std::time::Duration::from_secs(60))
         .output()
         .expect("start CLI test server");
+    // The full evidence, because the parent's stderr ALONE cannot explain a
+    // failure here. `serve start` redirects the CHILD daemon's stderr into
+    // `server.log`, so a child that dies leaves the parent with nothing to
+    // print; and when this command hits the 60 s timeout above, assert_cmd
+    // kills it, leaving only whatever it had written before the wait. That is
+    // exactly what one intermittent failure on 2026-08-27 looked like: a bare
+    // media-roots warning, no `error:` line, and no way to tell a timeout from
+    // a crash. Print the exit status, both streams and the server log.
     assert!(
         start.status.success(),
-        "serve start should succeed. stderr: {}",
-        String::from_utf8_lossy(&start.stderr)
+        "serve start should succeed.\n  status: {:?}\n  stdout: {}\n  stderr: {}\n  server.log:\n{}",
+        start.status,
+        String::from_utf8_lossy(&start.stdout),
+        String::from_utf8_lossy(&start.stderr),
+        std::fs::read_to_string(harness.server_log_path())
+            .unwrap_or_else(|e| format!("    <could not read server.log: {e}>"))
     );
 
     batchalign::server_handshake::ServerHandshake::read(

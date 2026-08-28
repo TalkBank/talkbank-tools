@@ -48,6 +48,32 @@ pub fn cli_cmd() -> assert_cmd::Command {
     command
 }
 
+/// The server config every harness starts from: no auto-daemon, and no
+/// port to discover.
+///
+/// `auto_daemon: false` stops the harness SPAWNING a daemon on the default
+/// port 8000. It does not stop the CLI DISCOVERING whatever already listens
+/// there: dispatch step 4 auto-detects a loopback server started outside the
+/// daemon flow, and that path does not consult `auto_daemon` (correctly, since
+/// a launchd- or `serve`-started server is exactly what it is for). So the
+/// harness used to isolate half the hazard its own comment described, and on
+/// 2026-08-27 two tests failed against an unrelated local service that held
+/// port 8000.
+///
+/// `port: 0` closes the other half: it parses as `PortRequest::Ephemeral`, for
+/// which `local_port` returns `None` because there is nothing to guess, so
+/// `local_server_url` is `None` and discovery is skipped outright. No test now
+/// depends on what happens to be listening on the developer's machine.
+///
+/// Defence in depth, not the fix: the probe itself no longer accepts a process
+/// that fails to identify as a Batchalign server. Both matter, because a real
+/// Batchalign daemon on 8000 would pass identification and still be the wrong
+/// server for a test to use.
+///
+/// Tests that exercise the auto-daemon path overwrite this via
+/// `write_server_config` and stop the daemon themselves.
+const ISOLATED_SERVER_YAML: &str = "auto_daemon: false\nport: 0\n";
+
 /// Shared isolated filesystem layout for CLI subprocess tests.
 pub struct CliHarness {
     _scratch: tempfile::TempDir,
@@ -77,15 +103,7 @@ impl CliHarness {
         std::fs::write(&config_path, "[asr]\nengine = whisper\n")
             .expect("write test .batchalign.ini");
 
-        // Isolation default: NO auto-daemon. Without this, any test that
-        // exercises a processing command under the config default would
-        // auto-spawn a real daemon on the DEFAULT port 8000 with no
-        // teardown; the leaked daemon then poisons every later
-        // offline-dispatch test in the run ("no server available"
-        // assertions see a live server). Tests that exercise the
-        // auto-daemon path overwrite this via `write_server_config`
-        // with an ephemeral port and stop the daemon themselves.
-        std::fs::write(state_dir.join("server.yaml"), "auto_daemon: false\n")
+        std::fs::write(state_dir.join("server.yaml"), ISOLATED_SERVER_YAML)
             .expect("write isolation server.yaml");
 
         Self {
@@ -112,6 +130,15 @@ impl CliHarness {
         &self.state_dir
     }
 
+    /// Path to the daemon's log under this harness.
+    ///
+    /// The same join the production writer uses
+    /// (`RuntimeLayout::server_log_path`), rather than a second spelling that
+    /// would go stale if the layout moved.
+    pub fn server_log_path(&self) -> PathBuf {
+        self.state_dir.join("server.log")
+    }
+
     /// Path to the default daemon/server config under this harness.
     pub fn server_config_path(&self) -> PathBuf {
         self.state_dir.join("server.yaml")
@@ -122,9 +149,16 @@ impl CliHarness {
         std::fs::write(self.server_config_path(), yaml).expect("write server config");
     }
 
-    /// Disable auto-daemon startup for subprocess tests.
+    /// Restore this harness's isolation config.
+    ///
+    /// Writes [`ISOLATED_SERVER_YAML`], the SAME bytes the constructor does.
+    /// It used to write `"auto_daemon: false\n"` by hand, which silently
+    /// dropped the `port: 0` half of the isolation for any binary that called
+    /// it (`command_matrix.rs` does), leaving those tests probing whatever
+    /// held port 8000 again. Two writers of one config that disagreed; there
+    /// is one owner now.
     pub fn disable_auto_daemon(&self) {
-        self.write_server_config("auto_daemon: false\n");
+        self.write_server_config(ISOLATED_SERVER_YAML);
     }
 }
 

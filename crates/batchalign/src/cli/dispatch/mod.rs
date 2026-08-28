@@ -622,9 +622,15 @@ async fn probe_local_server(url: &str) -> Option<String> {
         .build()
         .ok()?;
     let resp = client.get(&health_url).send().await.ok()?;
+    // Parsing IS the identification: `status` and `version` are required, so a
+    // body that is not a Batchalign health response fails here rather than
+    // arriving with defaults that agree with whatever was asked of it.
     let health: crate::api::HealthResponse = resp.json().await.ok()?;
-    if health.status != crate::api::HealthStatus::Ok {
-        return None;
+    // Exhaustive: a future non-`Ok` variant must be decided here, not
+    // accepted. Why the `if` this replaces could never fire: see
+    // `HealthResponse::status`.
+    match health.status {
+        crate::api::HealthStatus::Ok => {}
     }
     let label = if health.active_jobs > 0 {
         format!(
@@ -725,6 +731,85 @@ mod tests {
         apply_sequential_config(&mut cfg);
         assert_eq!(cfg.max_workers_per_key, Some(1));
         assert_eq!(cfg.max_concurrent_worker_startups, 1);
+    }
+
+    /// Answer one HTTP request on an ephemeral loopback port with a canned
+    /// body, and hand back the URL.
+    ///
+    /// A real listener rather than a mocked client, because the defect was in
+    /// what the probe ACCEPTS off the wire: a double that returned a
+    /// `HealthResponse` would have modelled the bug out of existence.
+    async fn serve_canned(status_line: &str, body: &'static str) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind an ephemeral loopback port");
+        let port = listener.local_addr().expect("local addr").port();
+        let status_line = status_line.to_string();
+        tokio::spawn(async move {
+            // One request is all the probe makes.
+            if let Ok((mut socket, _)) = listener.accept().await {
+                use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                let mut buf = [0u8; 2048];
+                let _ = socket.read(&mut buf).await;
+                let response = format!(
+                    "{status_line}\r\nContent-Type: application/json\r\n\
+                     Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = socket.write_all(response.as_bytes()).await;
+                let _ = socket.flush().await;
+            }
+        });
+        format!("http://127.0.0.1:{port}")
+    }
+
+    /// A foreign HTTP process on the loopback port is NOT a Batchalign server.
+    ///
+    /// Measured on 2026-08-27: an unrelated local service was listening on the
+    /// default port 8000 and answering every path with
+    /// `{"error":{"message":"unknown endpoint",...}}`. `batchalign3 align`
+    /// printed `Using local server at http://127.0.0.1:8000 (0 workers
+    /// available)` and dispatched the job to it.
+    ///
+    /// The cause was not this function's logic but the TYPE it parsed into;
+    /// the account is on `HealthResponse::status`. A probe whose output is
+    /// identical whether or not the thing being probed exists is not evidence,
+    /// which is why the assertion below is about REJECTION and there is a
+    /// control test beside it.
+    #[tokio::test]
+    async fn a_foreign_http_process_is_not_accepted_as_a_local_server() {
+        let url = serve_canned(
+            "HTTP/1.1 404 Not Found",
+            r#"{"error":{"message":"unknown endpoint","type":"invalid_request_error"}}"#,
+        )
+        .await;
+
+        assert!(
+            probe_local_server(&url).await.is_none(),
+            "a process that answers /health with a foreign body was accepted \
+             as a Batchalign server; jobs would be dispatched to it"
+        );
+    }
+
+    /// The control: a real server must still be accepted.
+    ///
+    /// The cheapest way to pass the test above is to reject everything, which
+    /// would silently disable local-server dispatch for every user.
+    #[tokio::test]
+    async fn a_real_batchalign_health_response_is_still_accepted() {
+        let url = serve_canned(
+            "HTTP/1.1 200 OK",
+            r#"{"status":"ok","version":"0.2.0","node_id":"test-node",
+                "free_threaded":false,"capabilities":["align"],
+                "loaded_pipelines":[],"media_roots":[],"media_mapping_keys":[],
+                "workers_available":2,"active_jobs":0}"#,
+        )
+        .await;
+
+        assert!(
+            probe_local_server(&url).await.is_some(),
+            "a genuine Batchalign health response was rejected"
+        );
     }
 
     /// `--sequential` + `--server` is rejected.

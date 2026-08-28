@@ -293,11 +293,39 @@ mod tests {
         assert_eq!(entry, back);
     }
 
+    /// A body must IDENTIFY as a health response; the rest may default.
+    ///
+    /// This test previously asserted that `"{}"` deserialized into a healthy
+    /// `HealthResponse`, which is the behaviour later found to be a defect
+    /// (the account is on [`HealthResponse::status`]). The old assertion was
+    /// not wrong about the code; it was wrong about the policy, and it kept
+    /// the code that way.
+    ///
+    /// The policy now: `status` and `version` identify the response and are
+    /// REQUIRED, so parsing is the identification. Every OTHER field stays
+    /// optional, so a server predating a field still parses. Both halves are
+    /// asserted here, because dropping the second to get the first would
+    /// break forward compatibility with older servers.
     #[test]
-    fn health_response_defaults() {
-        let json = "{}";
-        let health: HealthResponse = serde_json::from_str(json).unwrap();
+    fn health_response_requires_identifying_fields_and_defaults_the_rest() {
+        for not_a_health_response in [
+            "{}",
+            r#"{"error":{"message":"unknown endpoint","type":"invalid_request_error"}}"#,
+            r#"{"version":"0.2.0"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<HealthResponse>(not_a_health_response).is_err(),
+                "{not_a_health_response} is not a Batchalign health response and must \
+                 not parse as one; accepting it is how a foreign process on the port \
+                 gets treated as a server"
+            );
+        }
+
+        // A minimal GENUINE response: identified, everything else defaulted.
+        let health: HealthResponse = serde_json::from_str(r#"{"status":"ok","version":"0.2.0"}"#)
+            .expect("an identified response with no optional fields must parse");
         assert_eq!(health.status, HealthStatus::Ok);
+        assert_eq!(health.version, "0.2.0");
         assert_eq!(health.cache_backend, "sqlite");
         assert!(!health.free_threaded);
         assert_eq!(health.workers_available, 0);

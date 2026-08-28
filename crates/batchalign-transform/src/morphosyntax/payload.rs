@@ -13,7 +13,8 @@ use talkbank_model::WriteChat;
 use talkbank_model::alignment::helpers::TierDomain;
 use talkbank_model::model::{Line, SpeakerCode};
 
-use crate::extract::{self, ExtractedLanguage, ExtractedWord};
+use crate::extract::{self, ExtractedWord};
+use talkbank_model::GoverningMarkKind;
 
 use super::outcome::{MorOutcome, MorOutcomeKind, classify_not_applicable};
 use super::types::MultilingualPolicy;
@@ -247,17 +248,18 @@ pub fn collect_payloads(
                         //
                         // No throwaway `Word` any more either. This used to build
                         // a `Word::new_unchecked` purely to satisfy a resolver
-                        // signature that wanted a `&Word` for its span; chatter
-                        // now takes the span directly, so the fabrication is gone
-                        // and diagnostics land on the real word.
-                        let resolved_lang = match &w.language {
-                            ExtractedLanguage::Utterance => None,
+                        // signature that wanted a `&Word` for its span. As of
+                        // chatter 0.16.0 the mark CARRIES the word's span, so
+                        // there is no span to pass and no way to pair a mark
+                        // with a different word's position: `resolve_language`
+                        // takes only the language context.
+                        let resolved_lang = match w.language_kind() {
+                            GoverningMarkKind::Utterance => None,
                             // Explicit arms, not a catch-all binding: a fourth
                             // variant added in chatter must fail to compile here
                             // rather than silently routing into this branch.
-                            governed @ (ExtractedLanguage::Own(_) | ExtractedLanguage::Span(_)) => {
-                                let outcome =
-                                    governed.resolve(w.span, tier_language, declared_languages);
+                            GoverningMarkKind::Own | GoverningMarkKind::Span => {
+                                let outcome = w.resolve_language(tier_language, declared_languages);
                                 for err in &outcome.diagnostics {
                                     tracing::warn!(
                                         error = %err,

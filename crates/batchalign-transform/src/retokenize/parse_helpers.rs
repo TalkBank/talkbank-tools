@@ -3,7 +3,8 @@
 use talkbank_model::NullErrorSink;
 use talkbank_model::model::{BracketedItem, UtteranceContent, Word};
 
-use crate::extract::{ExtractedLanguage, ExtractedWord};
+use crate::extract::ExtractedWord;
+use talkbank_model::GoverningMarkKind;
 
 /// Try to parse a token into an `UtteranceContent` item.
 pub fn try_parse_token_as_utterance_content(
@@ -140,7 +141,7 @@ pub fn resolve_token_text(
         // Stanza's placeholder. A `<...> [@s]` span sits on the enclosing group
         // and changes no word's text, so it deliberately does not count here.
         && (word.form_type.is_some()
-            || matches!(word.language, ExtractedLanguage::Own(_)))
+            || matches!(word.language_kind(), GoverningMarkKind::Own))
     {
         return word.text.as_str().to_string();
     }

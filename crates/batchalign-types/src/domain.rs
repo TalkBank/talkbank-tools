@@ -1025,11 +1025,24 @@ numeric_id!(
 );
 
 /// Server health status.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+///
+/// Deliberately has NO `Default`, and that is the whole point rather than an
+/// oversight. While it derived one, `#[serde(default)]` on
+/// `HealthResponse::status` was writable, and it was written: every field of
+/// that struct defaulted, so any JSON object deserialized into a healthy
+/// response and the probe's `status != Ok` guard could never be false. On
+/// 2026-08-27 an unrelated local service holding port 8000 was accepted as a
+/// Batchalign server and had jobs dispatched to it.
+///
+/// Removing the `#[serde(default)]` fixed that VALUE; removing this `Default`
+/// is what stops it being re-expressible, because re-adding the attribute now
+/// fails to compile instead of silently restoring the behaviour. A `Default`
+/// on a domain type is an affordance for fabrication: audit the `Default`, not
+/// only the call site.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum HealthStatus {
     /// Server is accepting work.
-    #[default]
     Ok,
 }
 

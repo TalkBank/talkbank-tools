@@ -351,11 +351,23 @@ pub struct HealthResponse {
     /// Server health status.  Always `Ok` in the current implementation
     /// (the endpoint itself being reachable implies health), but future
     /// versions may report degraded states.
-    #[serde(default)]
+    ///
+    /// REQUIRED, and that is what makes this type an identification rather
+    /// than a shape any JSON happens to fit. With `#[serde(default)]` here and
+    /// on every other field, `{"error":{"message":"unknown endpoint"}}`
+    /// deserialized into a perfectly healthy response, because `HealthStatus`
+    /// has a single `#[default] Ok` variant. On 2026-08-27 an unrelated local
+    /// service holding port 8000 was therefore accepted as a Batchalign
+    /// server and dispatched real jobs. Parse at the boundary into a type
+    /// whose existence proves what it claims: a body without these fields is
+    /// not a Batchalign health response and must fail to parse, not arrive
+    /// pre-filled with agreeable values.
     pub status: HealthStatus,
     /// Server software version (e.g. `"0.6.0"`).  Used by the CLI to
     /// detect stale daemons and auto-restart them.
-    #[serde(default)]
+    ///
+    /// REQUIRED for the same reason as `status`. A server that could omit it
+    /// would already have broken the stale-daemon check this field exists for.
     pub version: String,
     /// Identifier of the current server node.
     #[serde(default)]

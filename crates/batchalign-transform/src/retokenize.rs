@@ -250,30 +250,66 @@ pub fn retokenize_utterance(
 
 #[cfg(test)]
 mod tests {
-    use talkbank_model::WordIdx;
-
     use super::*;
 
+    /// Extract `words` as a real utterance, through the real parser.
+    ///
+    /// This used to be a struct literal, and chatter 0.16.0 made that
+    /// unwritable by making `ExtractedWord::language` private and deleting its
+    /// public `synthetic` constructor. That is the same weakest-constructor
+    /// reasoning that took the `test_unchecked` hatch off the text types in
+    /// v0.12.0 (see `crate::parsed_word_text`), applied to the whole struct:
+    /// the old literal also had to invent a `Span::DUMMY` and assert
+    /// `Utterance` governance for words it had never looked at, so a fixture
+    /// could claim a shape the extractor would never produce.
+    ///
+    /// Now the extractor builds them, which is what the tests below are about
+    /// in the first place: they exercise the mapping from EXTRACTED words to
+    /// Stanza tokens.
     fn extracted_words(words: &[&str]) -> Vec<ExtractedWord> {
-        // Fixtures go through the PARSER. chatter v0.12.0 removed the
-        // `test_unchecked` escape hatch on these text types, correctly: a type
-        // that exists to prove "this came from a parsed AST" is only as strong
-        // as its weakest constructor. See `crate::parsed_word_text`.
-        words
-            .iter()
-            .enumerate()
-            .map(|(idx, word)| {
-                let (text, raw_text) = crate::parsed_word_text(word);
-                ExtractedWord {
-                    text,
-                    raw_text,
-                    utterance_word_index: WordIdx::new(idx),
-                    form_type: None,
-                    language: talkbank_transform::extract::ExtractedLanguage::Utterance,
-                    span: talkbank_model::Span::DUMMY,
-                }
-            })
-            .collect()
+        let source = format!(
+            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n\
+             @ID:\teng|corpus|CHI|2;||||Target_Child|||\n*CHI:\t{} .\n@End\n",
+            words.join(" ")
+        );
+        // One parser for the whole module, not one per fixture.
+        // `parse_and_validate` is `TreeSitterParser::new()` plus the real work,
+        // and chatter documents the `_with_parser` sibling as the way to avoid
+        // per-call construction. Five call sites, one parser.
+        thread_local! {
+            static PARSER: talkbank_parser::TreeSitterParser =
+                match talkbank_parser::TreeSitterParser::new() {
+                    Ok(parser) => parser,
+                    Err(e) => panic!("tree-sitter parser must initialise for fixtures: {e:?}"),
+                };
+        }
+        let options = talkbank_model::ParseValidateOptions::default();
+        let chat_file = PARSER.with(|parser| {
+            match crate::parse_and_validate_with_parser(parser, &source, options) {
+                Ok(chat_file) => chat_file,
+                Err(e) => panic!("fixture {words:?} must parse as a CHAT utterance: {e:?}"),
+            }
+        });
+        let mut utterances = crate::extract::extract_words(
+            &chat_file,
+            talkbank_model::alignment::helpers::TierDomain::Mor,
+        );
+        assert_eq!(
+            utterances.len(),
+            1,
+            "fixture {words:?} must yield exactly one utterance"
+        );
+        let extracted = utterances.remove(0).words;
+        // A fixture that silently loses a word would make every assertion
+        // below about a shorter list than the test says it is testing.
+        assert_eq!(
+            extracted.len(),
+            words.len(),
+            "fixture {words:?} extracted {} word(s); the mapping tests below \
+             index by position and would silently test something else",
+            extracted.len()
+        );
+        extracted
     }
 
     #[test]
