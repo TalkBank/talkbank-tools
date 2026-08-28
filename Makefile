@@ -162,7 +162,9 @@ batchalign-build-wheel:
 	@# `maturin develop` loop. Deployment wheels must override it explicitly;
 	@# PEP 517's `uv build` used that dev profile and shipped an unoptimized
 	@# batchalign_core extension even though the bundled CLI above was release.
-	uv run --no-sync maturin build --release --out dist/
+	@# `--only-dev` provisions Maturin from the frozen lock even in a fresh CI
+	@# checkout; `--no-sync` is invalid there because no tool exists to spawn.
+	uv run --frozen --only-dev maturin build --release --out dist/
 
 batchalign-python-prepare: batchalign-build-wheel
 	@echo "==> Syncing imported Batchalign dev dependencies..."

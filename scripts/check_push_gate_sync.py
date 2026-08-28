@@ -92,7 +92,7 @@ EXEMPT: dict[str, Exemption] = {
     "batchalign-python-prepare": HookExemption("builds the wheel these depend on"),
     "batchalign-build-wheel": RecipeInvariantExemption(
         "maturin release build",
-        required_recipe_prefix="uv run --no-sync maturin build --release",
+        required_recipe_prefix="uv run --frozen --only-dev maturin build --release",
     ),
     # NOT here any more: `batchalign-ipc-schema-check`. It was exempt for
     # "needs the built binary", which is true in isolation and irrelevant in
