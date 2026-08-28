@@ -63,6 +63,39 @@ The local engine uses ambient Hugging Face auth. The machine running
 `HF_TOKEN` exported in that process environment. `--speaker-engine nemo` is a
 second local alternative.
 
+### Rev and speaker evidence caching
+
+Rev.AI transcription now caches the raw provider-shaped transcript before BA3
+token conversion and post-processing. A normal warm run checks and validates
+that evidence before submitting anything to Rev, so it avoids another Rev
+call. Keeping raw monologues, elements, punctuation, timings, confidence, and
+resolved language also lets BA3 post-processing experiments replay the same
+service output locally.
+
+With `--diarization enabled`, BA3 durably caches the normalized dedicated
+speaker turns used by the transcribe pipeline. Repeating the same recording
+with the same speaker backend, expected speaker count, preparation recipe, and
+model revision replays those validated turns without calling the diarization
+backend again. Copies and renames of byte-identical recordings share the
+entry.
+
+This is particularly important for the paid `pyannote-ai` default. A corrupt
+entry fails visibly and does not fall through to another paid call. Concurrent
+identical files in one server are coalesced so only the first miss runs
+inference.
+
+To run a deliberate fresh experiment, use the global override:
+
+```bash
+batchalign3 --override-media-cache transcribe interview.wav -o out/ \
+  --diarization enabled
+```
+
+The fresh results replace the matching cache entries. The override can incur
+new Rev and pyannoteAI charges. Other ASR engines are not yet cached in
+ordinary `transcribe` runs. See [Caching](../caching.md) for exact invalidation
+rules and limitations.
+
 ---
 
 ## Pipeline
@@ -82,12 +115,16 @@ flowchart TD
     engine_check{--asr-engine?}
     engine_check -->|whisper| whisper[Whisper local ASR]
     engine_check -->|whisper_hub| whisper_hub["HF Whisper fine-tune\n(per-language model_id)"]
-    engine_check -->|rev| rev_preflight["Rev.AI preflight\nPre-submit audio in parallel\nskip_postprocessing=true for en/es"]
+    engine_check -->|rev| rev_key["Hash provider media + Rev request semantics"]
     engine_check -->|whisperx| whisperx[WhisperX ASR]
     engine_check -->|whisper_oai| whisper_oai[OpenAI Whisper ASR]
 
-    rev_preflight --> rev_poll[Poll Rev.AI for results]
-    rev_poll --> asr_tokens
+    rev_key --> rev_cache{"Validated raw Rev-evidence cache"}
+    rev_cache -->|hit| rev_convert["Convert retained raw Rev transcript"]
+    rev_cache -->|miss/forced refresh| rev_call["Authorized Rev language-ID/submit/poll"]
+    rev_call --> rev_store["Validate + required durable commit"]
+    rev_store --> rev_convert
+    rev_convert --> asr_tokens
 
     whisper --> asr_tokens
     whisper_hub --> asr_tokens
@@ -98,8 +135,12 @@ flowchart TD
     asr_tokens --> convert["convert_asr_response()\nGroups tokens by speaker label"]
     convert --> dedicated_check{"--diarization enabled?"}
     dedicated_check -->|No| postprocess
-    dedicated_check -->|Yes| speaker_v2["execute_v2(task=speaker)\nprepared audio → diarization segments\npyannoteAI Precision-2 by default"]
-    speaker_v2 --> retain_check{"--debug-dir?"}
+    dedicated_check -->|Yes| speaker_key["Hash source bytes + semantic request"]
+    speaker_key --> speaker_cache{"Validated speaker-evidence cache"}
+    speaker_cache -->|hit| retain_check
+    speaker_cache -->|miss/forced refresh| speaker_v2["execute_v2(task=speaker)\nprepared audio → diarization segments\npyannoteAI Precision-2 by default"]
+    speaker_v2 --> speaker_store["Validate + required durable commit"]
+    speaker_store --> retain_check{"--debug-dir?"}
     retain_check -->|Yes| retain_turns["Write same-job canonical speaker turns\nwith typed backend provenance"]
     retain_check -->|No| postprocess
     retain_turns --> postprocess

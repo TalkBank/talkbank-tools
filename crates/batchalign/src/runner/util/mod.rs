@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn should_preflight_transcribe_default() {
-        assert!(should_preflight(ReleasedCommand::Transcribe, None));
+        assert!(!should_preflight(ReleasedCommand::Transcribe, None));
     }
 
     #[test]
@@ -391,7 +391,26 @@ mod tests {
             batch_size: 4,
             utseg_fallback: false.into(),
         });
-        assert!(should_preflight(ReleasedCommand::Transcribe, Some(&opts)));
+        assert!(!should_preflight(ReleasedCommand::Transcribe, Some(&opts)));
+    }
+
+    #[test]
+    fn should_not_preflight_transcribe_explicit_refresh_before_typed_miss() {
+        use crate::options::{CommonOptions, TranscribeOptions};
+        let common = CommonOptions {
+            override_media_cache: true,
+            ..CommonOptions::default()
+        };
+        let opts = CommandOptions::Transcribe(TranscribeOptions {
+            common,
+            asr_engine: AsrEngineName::RevAi,
+            diarize: false,
+            wor: false.into(),
+            merge_abbrev: false.into(),
+            batch_size: 4,
+            utseg_fallback: false.into(),
+        });
+        assert!(!should_preflight(ReleasedCommand::Transcribe, Some(&opts)));
     }
 
     #[test]
@@ -411,12 +430,12 @@ mod tests {
 
     #[test]
     fn should_preflight_benchmark() {
-        assert!(should_preflight(ReleasedCommand::Benchmark, None));
+        assert!(!should_preflight(ReleasedCommand::Benchmark, None));
     }
 
     #[test]
     fn should_preflight_align_default() {
-        assert!(should_preflight(ReleasedCommand::Align, None));
+        assert!(!should_preflight(ReleasedCommand::Align, None));
     }
 
     #[test]

@@ -19,11 +19,17 @@ use crate::error::ServerError;
 use crate::params::MorphosyntaxParams;
 use crate::pipeline::PipelineServices;
 use crate::pipeline::plan::{PipelinePlan, StageFuture, StageId, StageSpec, run_plan};
+use crate::revai::{
+    RevAsrEvidenceRequest, RevAsrEvidenceResolution, RevAsrEvidenceResolutionError,
+    RevAsrModelRevision, RevAsrService, resolve_rev_asr_evidence, rev_evidence_to_asr_response,
+};
 use crate::runner::debug_dumper::DebugDumper;
 use crate::runner::util::{FileStage, ProgressSender, ProgressUpdate};
 use crate::transcribe::{
-    AsrInferParams, AsrResponse, SpeakerInferParams, TranscribeOptions, build_empty_chat_text,
-    convert_asr_response, generate_participant_ids, infer_asr, infer_speaker,
+    AsrInferParams, AsrResponse, SpeakerEvidenceModelRevision, SpeakerEvidenceRequest,
+    SpeakerEvidenceResolution, SpeakerEvidenceResolutionError, SpeakerInferParams,
+    SpeakerWorkerInference, TranscribeOptions, build_empty_chat_text, convert_asr_response,
+    generate_participant_ids, infer_asr, resolve_speaker_evidence,
 };
 use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 
@@ -311,18 +317,66 @@ fn stage_asr_infer<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
             "Starting ASR inference"
         );
 
-        let response = infer_asr(
-            ctx.services.pool,
-            &AsrInferParams {
-                backend: ctx.opts.backend,
-                audio_path: ctx.audio_path,
-                lang: &ctx.opts.lang,
-                num_speakers: NumSpeakers(ctx.opts.num_speakers as u32),
-                rev_job_id: ctx.opts.rev_job_id.as_deref(),
-                extras: &ctx.opts.engine_extras,
-            },
-        )
-        .await?;
+        let num_speakers = NumSpeakers(ctx.opts.num_speakers as u32);
+        let response = if let Some(backend) = ctx.opts.backend.as_non_rev() {
+            infer_asr(
+                ctx.services.pool,
+                &AsrInferParams {
+                    backend,
+                    audio_path: ctx.audio_path,
+                    lang: &ctx.opts.lang,
+                    num_speakers,
+                    extras: &ctx.opts.engine_extras,
+                },
+            )
+            .await?
+        } else {
+            let request = RevAsrEvidenceRequest::from_audio(
+                ctx.audio_path,
+                &ctx.opts.lang,
+                num_speakers,
+                &RevAsrModelRevision::current(),
+            )
+            .await
+            .map_err(|error| ServerError::Persistence(error.to_string()))?;
+            let service = RevAsrService::new(
+                ctx.audio_path,
+                &ctx.opts.lang,
+                num_speakers,
+                ctx.opts.rev_job_id.as_deref(),
+            );
+            let resolution = resolve_rev_asr_evidence(
+                &request,
+                ctx.services.cache,
+                crate::params::CachePolicy::from(ctx.opts.override_media_cache),
+                &service,
+            )
+            .await
+            .map_err(|error| match error {
+                RevAsrEvidenceResolutionError::Evidence(error) => {
+                    ServerError::Persistence(error.to_string())
+                }
+                RevAsrEvidenceResolutionError::Inference(error) => error,
+            })?;
+            let evidence = match resolution {
+                RevAsrEvidenceResolution::Replayed(evidence) => {
+                    info!(
+                        cache_key = %request.cache_key(),
+                        "Replaying validated raw Rev.AI transcript evidence"
+                    );
+                    evidence
+                }
+                RevAsrEvidenceResolution::Inferred { evidence, reason } => {
+                    info!(
+                        cache_key = %request.cache_key(),
+                        reason = ?reason,
+                        "Committed fresh raw Rev.AI transcript evidence"
+                    );
+                    evidence
+                }
+            };
+            rev_evidence_to_asr_response(&evidence)
+        };
         let filename = ctx
             .audio_path
             .file_name()
@@ -668,23 +722,69 @@ fn stage_speaker_diarization<'a, 'ctx>(
             .speaker_backend
             .expect("speaker backend presence checked above");
 
-        let lang = &ctx.opts.lang;
+        // Speaker workers require a concrete routing language. `opts.lang`
+        // remains `Auto` even after ASR, so derive a resolved value from the
+        // response here rather than relying on a pipeline-order comment that
+        // the type did not enforce.
+        let speaker_lang = LanguageSpec::Resolved(resolved_asr_language(ctx.opts, response)?);
         info!(
             audio_path = %ctx.audio_path.display(),
             speaker_backend = ?speaker_backend,
             num_speakers = ctx.opts.num_speakers,
             "Running dedicated speaker diarization"
         );
-        let segments = infer_speaker(
+        let expected_speakers = NumSpeakers(ctx.opts.num_speakers as u32);
+        let model_revision = SpeakerEvidenceModelRevision::for_backend(speaker_backend);
+        let evidence_request = SpeakerEvidenceRequest::from_audio(
+            ctx.audio_path,
+            speaker_backend,
+            expected_speakers,
+            &model_revision,
+        )
+        .await
+        .map_err(|error| ServerError::Persistence(error.to_string()))?;
+        let cache_policy = crate::params::CachePolicy::from(ctx.opts.override_media_cache);
+        let inference = SpeakerWorkerInference::new(
             ctx.services.pool,
-            &SpeakerInferParams {
+            SpeakerInferParams {
                 audio_path: ctx.audio_path,
-                lang,
-                expected_speakers: NumSpeakers(ctx.opts.num_speakers as u32),
+                lang: &speaker_lang,
+                expected_speakers,
                 backend: speaker_backend,
             },
+        );
+        let resolution = resolve_speaker_evidence(
+            &evidence_request,
+            ctx.services.cache,
+            cache_policy,
+            &inference,
         )
-        .await?;
+        .await
+        .map_err(|error| match error {
+            SpeakerEvidenceResolutionError::Evidence(error) => {
+                ServerError::Persistence(error.to_string())
+            }
+            SpeakerEvidenceResolutionError::Inference(error) => error,
+        })?;
+        let segments = match resolution {
+            SpeakerEvidenceResolution::Replayed(evidence) => {
+                info!(
+                    cache_key = %evidence_request.cache_key(),
+                    num_segments = evidence.segments().len(),
+                    "Replaying validated speaker diarization evidence"
+                );
+                evidence.into_segments()
+            }
+            SpeakerEvidenceResolution::Inferred { evidence, reason } => {
+                info!(
+                    cache_key = %evidence_request.cache_key(),
+                    reason = ?reason,
+                    num_segments = evidence.segments().len(),
+                    "Committed fresh speaker diarization evidence"
+                );
+                evidence.into_segments()
+            }
+        };
         info!(
             num_segments = segments.len(),
             "Speaker diarization complete"

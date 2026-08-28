@@ -56,6 +56,16 @@ pub(crate) enum AsrBackend {
     Worker(AsrWorkerMode),
 }
 
+/// ASR backend proven not to be Rev.AI.
+///
+/// Raw Rev calls require a cache-miss authorization, so the generic worker
+/// inference function accepts this smaller sum and cannot bypass that gate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NonRevAsrBackend {
+    RustWhisperRs,
+    Worker(AsrWorkerMode),
+}
+
 /// Concrete Python-worker ASR execution mode selected by the Rust control
 /// plane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,6 +123,14 @@ impl AsrBackend {
             other => Self::Worker(AsrWorkerMode::from_engine_name(other)),
         }
     }
+
+    pub(crate) fn as_non_rev(self) -> Option<NonRevAsrBackend> {
+        match self {
+            Self::RustRevAi => None,
+            Self::RustWhisperRs => Some(NonRevAsrBackend::RustWhisperRs),
+            Self::Worker(mode) => Some(NonRevAsrBackend::Worker(mode)),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -151,7 +169,8 @@ pub struct TranscribeOptions {
     pub with_utseg: bool,
     /// Whether to run morphosyntax after CHAT assembly.
     pub with_morphosyntax: bool,
-    /// Whether to override the cache for utseg/morphosyntax.
+    /// Whether to bypass reusable audio evidence, including dedicated
+    /// speaker-diarization evidence, and replace it with fresh inference.
     pub override_media_cache: bool,
     /// Operator opt-in to the legacy Stanza constituency-parser
     /// fallback for utseg when no language-specific TalkBank BERT

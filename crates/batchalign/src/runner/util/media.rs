@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::api::ReleasedCommand;
-use crate::options::{CommandOptions, UtrEngine};
+use crate::options::CommandOptions;
 use crate::store::{PendingJobFile, RunnerJobSnapshot};
 use batchalign_types::paths::ClientPath;
 
@@ -12,30 +12,16 @@ use crate::media::MediaExtensions;
 use crate::media::probe::MediaProbe;
 use tracing::warn;
 
-/// Check if a job should use Rev.AI preflight submission.
+/// Check if a job should use the legacy untyped Rev.AI preflight submission.
 ///
-/// Preflight pre-submits all audio files to Rev.AI before processing,
-/// allowing Rev.AI to process them in parallel server-side.
+/// Disabled for every command: it crossed a paid boundary before the durable
+/// evidence cache could prove a miss. A future parallel preflight must carry
+/// the same typed miss authorization as per-file Rev inference.
 pub(in crate::runner) fn should_preflight(
-    command: ReleasedCommand,
-    typed_options: Option<&CommandOptions>,
+    _command: ReleasedCommand,
+    _typed_options: Option<&CommandOptions>,
 ) -> bool {
-    match (command, typed_options) {
-        (
-            ReleasedCommand::Transcribe | ReleasedCommand::TranscribeS,
-            Some(CommandOptions::Transcribe(t) | CommandOptions::TranscribeS(t)),
-        ) => t.effective_asr_engine().is_revai(),
-        (ReleasedCommand::Transcribe | ReleasedCommand::TranscribeS, None) => true,
-        (ReleasedCommand::Benchmark, Some(CommandOptions::Benchmark(b))) => {
-            b.effective_asr_engine().is_revai()
-        }
-        (ReleasedCommand::Benchmark, None) => true,
-        (ReleasedCommand::Align, Some(CommandOptions::Align(a))) => {
-            matches!(a.utr_engine, Some(UtrEngine::RevAi))
-        }
-        (ReleasedCommand::Align, None) => true,
-        _ => false,
-    }
+    false
 }
 
 /// Pre-validate media files before dispatch.

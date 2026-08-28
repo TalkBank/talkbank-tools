@@ -1,7 +1,7 @@
 # Server Dispatch Architecture
 
 **Status:** Current
-**Last updated:** 2026-08-05 22:40 EDT
+**Last updated:** 2026-08-28 17:00 EDT
 
 This page describes the implemented `batchalign3` runtime:
 
@@ -448,13 +448,20 @@ This path is intentionally **not** the target boundary for new work. New
 control-plane logic should land either in Rust or on the typed `execute_v2`
 surface, not by widening `process` or `batch_infer`.
 
-Rev.AI preflight submission is no longer a worker IPC operation. The Rust
-server now performs that upload burst directly through the
-`batchalign::revai` module (`crates/batchalign/src/revai/`) so the
-Python boundary stays inference-only. The same
-server-owned boundary now also handles Rev.AI-backed raw ASR inference for
-`transcribe` and `benchmark`, plus Rev-backed timed-word recovery for `align`
-UTR.
+Rev.AI submission is no longer a worker IPC operation. The Rust server owns
+Rev.AI-backed raw-ASR evidence lookup, language identification, submission,
+polling, validation, and durable commit through `batchalign::revai`
+(`crates/batchalign/src/revai/`), so the Python boundary stays inference-only.
+Only a typed cache miss can authorize a paid request, and a per-key lease makes
+concurrent identical requests converge on one service crossing. The same
+server-owned boundary handles Rev-backed timed-word recovery for `align` UTR.
+
+The legacy batch preflight upload path is deliberately disabled: it submitted
+before evidence lookup and could not enforce the typed miss authorization
+boundary. Cold Rev.AI batches therefore run through the normal per-file
+concurrency today. A future parallel preflight replacement must plan each file
+as either a validated evidence hit or an authorized miss before submitting any
+provider work.
 
 ### Capability detection
 

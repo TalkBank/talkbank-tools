@@ -60,6 +60,13 @@ pub enum CacheTaskName {
     ForcedAlignment,
     /// UTR ASR result (full-file ASR for timing recovery). Wire name: `"utr_asr"`.
     UtrAsr,
+    /// Immutable speaker-diarization evidence consumed by transcribe.
+    /// Wire name: `"speaker_diarization_evidence"`.
+    SpeakerDiarizationEvidence,
+    /// Immutable raw Rev.AI transcript evidence consumed by transcription and
+    /// Rev-backed UTR during alignment.
+    /// Wire name: `"rev_asr_evidence"`.
+    RevAsrEvidence,
 }
 
 impl CacheTaskName {
@@ -70,6 +77,8 @@ impl CacheTaskName {
         match self {
             Self::ForcedAlignment => "forced_alignment",
             Self::UtrAsr => "utr_asr",
+            Self::SpeakerDiarizationEvidence => "speaker_diarization_evidence",
+            Self::RevAsrEvidence => "rev_asr_evidence",
         }
     }
 }
@@ -123,11 +132,21 @@ mod tests {
     fn cache_task_name_wire_strings_are_stable() {
         assert_eq!(CacheTaskName::ForcedAlignment.as_str(), "forced_alignment");
         assert_eq!(CacheTaskName::UtrAsr.as_str(), "utr_asr");
+        assert_eq!(
+            CacheTaskName::SpeakerDiarizationEvidence.as_str(),
+            "speaker_diarization_evidence"
+        );
+        assert_eq!(CacheTaskName::RevAsrEvidence.as_str(), "rev_asr_evidence");
     }
 
     #[test]
     fn cache_task_name_display_matches_as_str() {
-        for variant in [CacheTaskName::ForcedAlignment, CacheTaskName::UtrAsr] {
+        for variant in [
+            CacheTaskName::ForcedAlignment,
+            CacheTaskName::UtrAsr,
+            CacheTaskName::SpeakerDiarizationEvidence,
+            CacheTaskName::RevAsrEvidence,
+        ] {
             assert_eq!(format!("{variant}"), variant.as_str());
         }
     }

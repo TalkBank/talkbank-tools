@@ -2,10 +2,10 @@
 
 use std::path::Path;
 
-use super::types::{AsrBackend, AsrResponse, AsrWorkerMode};
+use super::types::{AsrResponse, AsrWorkerMode, NonRevAsrBackend};
+use super::{SpeakerEvidenceInference, SpeakerInferenceAuthorization};
 use crate::api::{LanguageCode3, LanguageSpec, NumSpeakers, WorkerLanguage};
 use crate::error::ServerError;
-use crate::revai::infer_revai_asr;
 use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::asr_request_v2::{
@@ -25,7 +25,7 @@ use crate::worker::speaker_result_v2::parse_speaker_result_v2;
 /// Parameters for ASR worker inference.
 pub(crate) struct AsrInferParams<'a> {
     /// Which runtime boundary owns raw ASR inference.
-    pub backend: AsrBackend,
+    pub backend: NonRevAsrBackend,
     /// Audio file to transcribe.
     pub audio_path: &'a Path,
     /// Language specification for ASR dispatch. May be `Auto`, the GPU
@@ -33,8 +33,6 @@ pub(crate) struct AsrInferParams<'a> {
     pub lang: &'a LanguageSpec,
     /// Expected number of speakers for diarization.
     pub num_speakers: NumSpeakers,
-    /// Rev.AI pre-submitted job ID (from preflight).
-    pub rev_job_id: Option<&'a str>,
     /// Per-engine configuration extras (e.g. `qwen_model`,
     /// `qwen_device`) drawn from `CommonOptions.engine_overrides.extras`.
     /// Plumbed through to the worker spawn argv so the engine's load
@@ -91,21 +89,10 @@ pub(crate) async fn infer_asr(
     let (worker_lang, fallback_lang) = asr_worker_languages(params.lang)?;
 
     match params.backend {
-        AsrBackend::RustRevAi => {
-            // Rev.AI path receives the full LanguageSpec so it can pass
-            // "auto" to Rev.AI and read the detected language from the job.
-            infer_revai_asr(
-                params.audio_path,
-                params.lang,
-                params.num_speakers,
-                params.rev_job_id,
-            )
-            .await
-        }
-        AsrBackend::RustWhisperRs => {
+        NonRevAsrBackend::RustWhisperRs => {
             infer_whisper_rs_asr(params.audio_path, params.lang, params.extras).await
         }
-        AsrBackend::Worker(worker_mode) => {
+        NonRevAsrBackend::Worker(worker_mode) => {
             infer_asr_via_worker_v2(
                 pool,
                 params,
@@ -254,9 +241,10 @@ async fn infer_asr_via_worker_v2(
 
 /// Call the live V2 Python worker path for dedicated speaker diarization on a
 /// single audio file.
-pub(crate) async fn infer_speaker(
+async fn infer_speaker(
     pool: &WorkerPool,
     params: &SpeakerInferParams<'_>,
+    _authorization: &SpeakerInferenceAuthorization,
 ) -> Result<Vec<SpeakerSegmentV2>, ServerError> {
     let artifacts = PreparedArtifactRuntimeV2::new("speaker_v2").map_err(|error| {
         ServerError::Validation(format!(
@@ -301,6 +289,28 @@ pub(crate) async fn infer_speaker(
         .map_err(|error| {
             ServerError::Validation(format!("speaker V2 response parse failed: {error}"))
         })
+}
+
+/// Production implementation of the typed speaker-evidence service boundary.
+pub(crate) struct SpeakerWorkerInference<'a> {
+    pool: &'a WorkerPool,
+    params: SpeakerInferParams<'a>,
+}
+
+impl<'a> SpeakerWorkerInference<'a> {
+    pub(crate) fn new(pool: &'a WorkerPool, params: SpeakerInferParams<'a>) -> Self {
+        Self { pool, params }
+    }
+}
+
+#[async_trait::async_trait]
+impl SpeakerEvidenceInference for SpeakerWorkerInference<'_> {
+    async fn infer(
+        &self,
+        authorization: &SpeakerInferenceAuthorization,
+    ) -> Result<Vec<SpeakerSegmentV2>, ServerError> {
+        infer_speaker(self.pool, &self.params, authorization).await
+    }
 }
 
 #[cfg(test)]

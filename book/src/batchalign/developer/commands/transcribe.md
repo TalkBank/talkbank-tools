@@ -22,9 +22,11 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 | Pre-CHAT utterance segmentation | `crates/batchalign/src/pipeline/transcribe.rs:421-457`: `process_asr_with_prechat_segmentation()` | Runs for eng/cmn/zho/yue: BERT utseg applied to prepared chunks BEFORE build_chat |
 | CHAT assembly | `crates/batchalign-transform/src/build_chat/mod.rs:41`: `build_chat()` | Assembles `ChatFile` AST from `TranscriptDescription` (typed bridge) |
 | Speaker projection | `crates/batchalign/src/chat_ops/speaker.rs`: `project_speakers_onto_chunks()` | Projects raw segments onto timed ASR words and splits prepared chunks before utseg and CHAT assembly |
+| Speaker evidence cache | `crates/batchalign/src/transcribe/evidence_cache.rs` | Content-derived request identity, validated envelope, per-key lease, miss authorization, durable commit, fakeable inference boundary |
 | Same-job turn retention | `crates/batchalign/src/runner/debug_dumper.rs`: `dump_speaker_turns()` | When `--debug-dir` is set, writes the exact dedicated turns used by transcribe or returns a typed failure |
 | Canonical turns schema | `crates/batchalign/src/runner/dispatch/diarize_turns.rs` | Serializes chatter-compatible turns with backend-derived provenance |
-| ASR worker IPC | `batchalign/inference/asr.py` | Whisper/Rev.AI ASR, returns raw tokens |
+| ASR worker IPC | `batchalign/inference/asr.py` | Python-hosted ASR engines; Rev is Rust-owned |
+| Raw Rev evidence cache | `crates/batchalign/src/revai/evidence_cache.rs` | Provider-media identity, raw transcript envelope, miss authorization, durable commit, fakeable Rev boundary |
 | Speaker worker IPC | `batchalign/inference/speaker.py`: `batch_infer_speaker()` | Exhaustive dispatch over pyannoteAI, local Pyannote, and NeMo, returning raw millisecond segments |
 | pyannoteAI adapter | `batchalign/inference/pyannote_ai.py` | Typed prepare, upload, submit, complete lifecycle for Precision-2 exclusive diarization |
 
@@ -146,6 +148,51 @@ states: `PreparedWav`, `UploadedMedia`, `SubmittedDiarizationJob`, and
 `CompletedDiarizationJob`. Only a completed job can be converted to speaker
 segments. It requests `exclusive: true` and prefers `exclusiveDiarization`,
 which is the provider output designed for ASR reconciliation.
+
+Before that worker call, `SpeakerEvidenceRequest::from_audio()` hashes the full
+inference media source and combines the digest with the preparation revision,
+backend, expected speaker count, speaker-model revision, and evidence schema.
+The model revision is a dedicated `SpeakerEvidenceModelRevision` newtype; the
+pipeline cannot substitute its ASR `EngineVersion`.
+
+`resolve_speaker_evidence()` owns the production decision:
+
+1. Acquire the process-local lease for the semantic cache key.
+2. Validate and replay a durable hit, or produce a typed
+   `SpeakerEvidenceMiss`.
+3. Consume the miss into `SpeakerInferenceAuthorization`.
+4. Cross the `SpeakerEvidenceInference` boundary exactly once.
+5. Validate and durably commit the normalized segments before releasing the
+   lease.
+
+`SpeakerWorkerInference` is the production implementation. Tests use the same
+resolver with a call-counting fake, which proves how many times the billable
+boundary is crossed. `infer_speaker()` itself is private behind the adapter.
+Concurrent identical requests wait on the same lease and re-check SQLite after
+the first request commits.
+
+Cache corruption and cache-write errors fail the file. They never become a
+miss, because that would make broken local state authorize a surprise paid
+call. `--override-media-cache` deliberately constructs a forced-refresh miss,
+then replaces the entry after successful inference.
+
+The envelope stores normalized `SpeakerSegmentV2` evidence, not the complete
+raw provider JSON. The pyannoteAI key uses its visible `precision-2` alias;
+the provider does not expose an immutable backend build hash. These limits are
+documented rather than hidden behind an overclaim of perfect invalidation.
+
+Rev.AI transcription follows the same stronger pattern through
+`resolve_rev_asr_evidence()`. Its durable `CompletedRevAsrEvidence` retains the
+resolved language and provider-shaped `Transcript` before token conversion.
+`RevAsrService` cannot perform provider work without
+`RevAsrInferenceAuthorization`, and generic ASR accepts `NonRevAsrBackend`, so
+`RustRevAi` cannot bypass the cache gate through that function.
+
+The legacy batch preflight shortcut is disabled for transcribe, benchmark, and
+align because it submitted before evidence lookup. Cold calls currently use
+normal per-file concurrency. A future cache-aware parallel preflight must use
+plan variants that contain either validated evidence or an authorized miss;
+an optional untyped job ID is not an acceptable replacement.
 
 `project_speakers_onto_chunks()` treats those segments as authoritative before
 utterance segmentation. Each timed ASR word receives the label with the

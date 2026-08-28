@@ -10,11 +10,13 @@
 //! - [`asr_output`]: ASR response conversion, participant IDs, CHAT helpers
 
 mod asr_output;
+mod evidence_cache;
 mod infer;
 pub mod types;
 
 // Re-export the public API so callers don't need to know about the split.
 pub(crate) use asr_output::*;
+pub(crate) use evidence_cache::*;
 pub(crate) use infer::*;
 pub use types::*;
 

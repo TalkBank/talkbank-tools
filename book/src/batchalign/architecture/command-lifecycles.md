@@ -186,8 +186,8 @@ sequenceDiagram
    Rust-owned UTR backend on the full audio, then `inject_utr_timing()`
    first tries a cheap exact-subsequence match and falls back to one global
    Hirschberg DP when the transcript/ASR match is missing or ambiguous. For
-   `--utr-engine rev`, the server uses the shared Rust Rev.AI client directly
-   and can reuse preflight-submitted job IDs. For worker-backed engines such as
+   `--utr-engine rev`, the server uses the shared Rust Rev.AI client directly.
+   For worker-backed engines such as
    Whisper, the server still uses the worker ASR task. If all utterances are
    already timed, UTR is skipped entirely. If no UTR engine is configured
    (`--no-utr`), untimed utterances fall back to proportional interpolation.
@@ -393,31 +393,25 @@ sequenceDiagram
 
     Note over Server: Runner: mark Running
 
-    opt Rev.AI engine selected
-        alt --lang is explicit
-            Server->>Server: parallel Rev.AI preflight uploads
-            Note over Server: Use explicit language request settings
-        else --lang auto
-            Server->>Server: Rev.AI language ID
-            alt Language ID maps to supported ISO-639-3
-                Note over Server: Collapse to resolved language before submission<br/>If resolved=eng, request path matches explicit --lang eng
-                Server->>Server: parallel Rev.AI preflight uploads
-            else Language ID fails or code is unmapped
-                Note over Server: Keep true Rev auto request<br/>speakers_count and skip_postprocessing differ from explicit eng
-                Server->>Server: parallel Rev.AI preflight uploads
-            end
-        end
-    end
-
     Server->>Server: resolve audio path
     Server->>Server: ensure_wav(): convert mp4→wav if needed (cached)
-    Server->>Pool: checkout worker
-    Pool-->>Server: CheckedOutWorker
-
-    Server->>W: execute_v2(task="asr", typed_input)
-    Note over W: Run ASR model or provider SDK<br/>(Whisper local or Cantonese engine)
-    W-->>Server: typed raw ASR result (monologue_asr_result or whisper_chunk_result)
-    Note over Server: Worker returned to pool
+    alt Rev.AI engine selected
+        Server->>Server: derive evidence key and acquire per-key lease
+        alt valid durable evidence hit
+            Server->>Server: replay provider-shaped transcript evidence
+        else typed cache miss
+            Server->>Server: authorize one Rev.AI request
+            Server->>Server: optional language ID, submit, poll, validate
+            Server->>Server: durably commit evidence before continuing
+        end
+    else worker-backed ASR engine
+        Server->>Pool: checkout worker
+        Pool-->>Server: CheckedOutWorker
+        Server->>W: execute_v2(task="asr", typed_input)
+        Note over W: Run local or provider-backed ASR model
+        W-->>Server: typed raw ASR result
+        Note over Server: Worker returned to pool
+    end
 
     Note over Server: convert_asr_response(): ALWAYS groups<br/>tokens by speaker label (no flag gating)
 
@@ -469,12 +463,14 @@ sequenceDiagram
 
 ### Walkthrough
 
-1. **Rev.AI preflight** (optional): For Rev.AI-backed transcription, the server
-   pre-submits all audio files in parallel before the per-file loop. This lets
-   Rev.AI start processing immediately, reducing wall-clock time 2-5x for large
-   batches. The `rev_job_id` is stored in the job's runtime state and passed to
-   the worker later. For English, `skip_postprocessing=true` is sent so BA3's
-   own pre-CHAT utterance model handles segmentation.
+1. **Rev.AI evidence resolution**: For Rev.AI-backed transcription, the server
+   hashes the complete provider-visible inference media plus all
+   inference-affecting request settings, then acquires a per-key singleflight
+   lease. A valid hit replays provider-shaped transcript evidence without a
+   network request. A typed miss is the only state allowed to authorize
+   language ID and paid submission; validated evidence must be durably committed
+   before the pipeline continues. For English, `skip_postprocessing=true` is
+   sent so BA3's own pre-CHAT utterance model handles segmentation.
    In `--lang auto` mode there are two real branches:
    - **Language ID succeeds and maps cleanly**: BA3 collapses to a resolved
      language before submission. If it resolves to `eng`, the Rev request path
@@ -483,7 +479,10 @@ sequenceDiagram
      auto request. Downstream code may still later resolve the transcript to
      English for segmentation and CHAT headers, but provider-side options such
      as `speakers_count` and `skip_postprocessing` were not the explicit-English
-     ones.
+     ones. The former parallel pre-submission path is currently disabled because
+     it submitted work before cache lookup and bypassed typed miss authorization.
+     This protects correctness and billing at the cost of lower cold-cache batch
+     throughput until a cache-aware typed parallel planner is implemented.
 2. The worker or Rust-owned Rev path returns a typed ASR response. BA3
    preserves both a flattened token view and provider-shaped monologues so
    later stages can keep punctuation and speaker boundaries instead of trying to

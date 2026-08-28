@@ -1,69 +1,36 @@
-//! Rust-owned Rev.AI timed-word projection for utterance timing recovery.
+//! Pure projection from durable Rev.AI evidence into the UTR cache shape.
 //!
-//! UTR only needs monotonically ordered timed words. Keeping this projection in
-//! Rust means the FA/UTR path can reuse the shared Rev.AI client without
-//! widening the Python worker boundary with another provider-specific fallback.
+//! Provider I/O is deliberately absent from this module. The caller must first
+//! obtain [`CompletedRevAsrEvidence`] through the typed evidence resolver, so a
+//! projection change can be replayed without another paid request.
 
-use std::path::Path;
+use crate::api::DurationSeconds;
+use crate::transcribe::{AsrResponse, AsrToken};
 
-use crate::chat_ops::fa::utr::AsrTimingToken;
-use crate::revai::extract_timed_words;
+use super::{CompletedRevAsrEvidence, extract_timed_words};
 
-use crate::api::{LanguageCode3, LanguageSpec, NumSpeakers};
-use crate::error::ServerError;
-
-use super::{asr::fetch_revai_transcript, load_revai_api_key};
-
-/// Download Rev.AI timed words for UTR through the Rust-owned control-plane
-/// transport.
-///
-/// When `rev_job_id` is present, this function polls the already-submitted
-/// Rev.AI job instead of uploading the audio again. That lets the UTR path
-/// reuse the same preflight submission mechanism as other Rust-owned Rev flows.
-pub(crate) async fn infer_revai_utr(
-    audio_path: &Path,
-    lang: &LanguageCode3,
-    rev_job_id: Option<&str>,
-) -> Result<Vec<AsrTimingToken>, ServerError> {
-    let api_key =
-        load_revai_api_key().map_err(|error| ServerError::Validation(error.to_string()))?;
-    let audio_path = audio_path.to_path_buf();
-    // UTR always uses a concrete language, wrap in LanguageSpec::Resolved
-    // for the shared fetch_revai_transcript signature.
-    let lang_spec = LanguageSpec::Resolved(lang.clone());
-    let rev_job_id = rev_job_id.map(str::to_string);
-
-    tokio::task::spawn_blocking(move || {
-        let result = fetch_revai_transcript(
-            &api_key,
-            &audio_path,
-            &lang_spec,
-            NumSpeakers(1),
-            rev_job_id.as_deref(),
-        )
-        .map_err(|error| ServerError::Validation(error.to_string()))?;
-        Ok(transcript_to_utr_tokens(&result.transcript))
-    })
-    .await
-    .map_err(|error| ServerError::Validation(format!("Rev.AI task join error: {error}")))?
-}
-
-/// Project the shared Rev.AI transcript model into the simplified timed-token
-/// shape consumed by `batchalign-chat-ops` UTR injection.
-fn transcript_to_utr_tokens(transcript: &crate::revai::Transcript) -> Vec<AsrTimingToken> {
-    extract_timed_words(transcript)
-        .into_iter()
-        .map(|word| AsrTimingToken {
-            text: word.word,
-            start_ms: word.start_ms,
-            end_ms: word.end_ms,
-        })
-        .collect()
+/// Project provider evidence into the normalized response consumed by UTR.
+pub(crate) fn rev_evidence_to_utr_asr_response(evidence: &CompletedRevAsrEvidence) -> AsrResponse {
+    AsrResponse {
+        tokens: extract_timed_words(&evidence.transcript)
+            .into_iter()
+            .map(|word| AsrToken {
+                text: word.word,
+                start_s: Some(DurationSeconds(word.start_ms as f64 / 1000.0)),
+                end_s: Some(DurationSeconds(word.end_ms as f64 / 1000.0)),
+                speaker: None,
+                confidence: None,
+            })
+            .collect(),
+        lang: evidence.resolved_language.clone(),
+        source_monologues: None,
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::transcript_to_utr_tokens;
+    use super::*;
+    use crate::api::LanguageCode3;
 
     #[test]
     fn transcript_projection_discards_blank_rev_tokens() {
@@ -81,11 +48,14 @@ mod tests {
         )
         .unwrap();
 
-        let tokens = transcript_to_utr_tokens(&transcript);
-        assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].text, "hello");
-        assert_eq!(tokens[0].start_ms, 100);
-        assert_eq!(tokens[1].text, "world");
-        assert_eq!(tokens[1].end_ms, 1200);
+        let response = rev_evidence_to_utr_asr_response(&CompletedRevAsrEvidence {
+            transcript,
+            resolved_language: LanguageCode3::eng(),
+        });
+        assert_eq!(response.tokens.len(), 2);
+        assert_eq!(response.tokens[0].text, "hello");
+        assert_eq!(response.tokens[0].start_s, Some(DurationSeconds(0.1)));
+        assert_eq!(response.tokens[1].text, "world");
+        assert_eq!(response.tokens[1].end_s, Some(DurationSeconds(1.2)));
     }
 }

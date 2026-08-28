@@ -159,7 +159,13 @@ flowchart TD
         direction TB
         ff_cache{Full-file\ncache hit?}
         ff_cache -->|Hit| ff_use[Use cached ASR]
-        ff_cache -->|Miss| ff_infer[infer_asr on full audio]
+        ff_cache -->|Miss, non-Rev| ff_infer[infer_asr on full audio]
+        ff_cache -->|Miss, Rev| ff_rev{Validated raw Rev\nevidence?}
+        ff_rev -->|Hit| ff_project[Project retained timed words]
+        ff_rev -->|Typed miss| ff_rev_call[Authorized Rev request]
+        ff_rev_call --> ff_rev_commit[Validate + required durable commit]
+        ff_rev_commit --> ff_project
+        ff_project --> ff_store
         ff_infer --> ff_store[Cache full result]
         ff_store --> ff_use
     end
@@ -362,12 +368,16 @@ flowchart TD
 
     engine_check{--asr-engine?}
     engine_check -->|whisper| whisper[Whisper local ASR]
-    engine_check -->|rev| rev_preflight["Rev.AI preflight\nPre-submit audio in parallel\nskip_postprocessing=true for en/fr"]
+    engine_check -->|rev| rev_cache["Rev.AI evidence resolution\ncontent-addressed lookup + per-key lease"]
     engine_check -->|whisperx| whisperx[WhisperX ASR]
     engine_check -->|whisper_oai| whisper_oai[OpenAI Whisper ASR]
 
-    rev_preflight --> rev_poll[Poll Rev.AI for results]
-    rev_poll --> asr_tokens
+    rev_cache --> rev_hit{valid evidence hit?}
+    rev_hit -->|Yes| rev_replay[Replay provider-shaped transcript]
+    rev_hit -->|No| rev_infer["Typed miss authorizes Rev.AI\nlanguage ID + submit + poll"]
+    rev_infer --> rev_commit[Validate and durably commit evidence]
+    rev_replay --> asr_tokens
+    rev_commit --> asr_tokens
 
     whisper --> asr_tokens
     whisperx --> asr_tokens

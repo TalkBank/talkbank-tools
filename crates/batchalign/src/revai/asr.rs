@@ -1,4 +1,4 @@
-//! Rust-owned Rev.AI ASR inference for server-mode transcription.
+//! Rust-owned Rev.AI ASR inference for server-mode transcription and UTR.
 //!
 //! This path exists so `transcribe` and `benchmark` do not need to route the
 //! Rev.AI provider through the Python worker at all. The only engines that
@@ -17,7 +17,10 @@ use crate::api::{DurationSeconds, LanguageCode3, LanguageSpec, NumSpeakers};
 use crate::error::ServerError;
 use crate::transcribe::{AsrResponse, AsrToken};
 
-use super::load_revai_api_key;
+use super::{
+    CompletedRevAsrEvidence, RevAsrEvidenceInference, RevAsrInferenceAuthorization,
+    load_revai_api_key,
+};
 use crate::types::revai_language::RevAiLanguageHint;
 
 /// Run Rev.AI ASR directly from Rust and map the transcript into the shared
@@ -26,12 +29,13 @@ use crate::types::revai_language::RevAiLanguageHint;
 /// When `lang` is `LanguageSpec::Auto`, passes `"auto"` to Rev.AI so it
 /// auto-detects the spoken language, and reads the detected language from
 /// the completed job to populate `AsrResponse.lang`.
-pub(crate) async fn infer_revai_asr(
+async fn infer_revai_evidence(
     audio_path: &Path,
     lang: &LanguageSpec,
     num_speakers: NumSpeakers,
     rev_job_id: Option<&str>,
-) -> Result<AsrResponse, ServerError> {
+    _authorization: &RevAsrInferenceAuthorization,
+) -> Result<CompletedRevAsrEvidence, ServerError> {
     let api_key =
         load_revai_api_key().map_err(|error| ServerError::Validation(error.to_string()))?;
     let audio_path = audio_path.to_path_buf();
@@ -110,13 +114,59 @@ pub(crate) async fn infer_revai_asr(
                 })?,
         };
 
-        Ok(transcript_to_asr_response(
-            &result.transcript,
-            &resolved_lang,
-        ))
+        Ok(CompletedRevAsrEvidence {
+            transcript: result.transcript,
+            resolved_language: resolved_lang,
+        })
     })
     .await
     .map_err(|error| ServerError::Validation(format!("Rev.AI task join error: {error}")))?
+}
+
+/// Production Rev.AI boundary carrying all inputs authorized by an evidence
+/// cache miss or explicit refresh.
+pub(crate) struct RevAsrService<'a> {
+    audio_path: &'a Path,
+    lang: &'a LanguageSpec,
+    num_speakers: NumSpeakers,
+    rev_job_id: Option<&'a str>,
+}
+
+impl<'a> RevAsrService<'a> {
+    pub(crate) fn new(
+        audio_path: &'a Path,
+        lang: &'a LanguageSpec,
+        num_speakers: NumSpeakers,
+        rev_job_id: Option<&'a str>,
+    ) -> Self {
+        Self {
+            audio_path,
+            lang,
+            num_speakers,
+            rev_job_id,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl RevAsrEvidenceInference for RevAsrService<'_> {
+    async fn infer(
+        &self,
+        authorization: &RevAsrInferenceAuthorization,
+    ) -> Result<CompletedRevAsrEvidence, ServerError> {
+        infer_revai_evidence(
+            self.audio_path,
+            self.lang,
+            self.num_speakers,
+            self.rev_job_id,
+            authorization,
+        )
+        .await
+    }
+}
+
+pub(crate) fn rev_evidence_to_asr_response(evidence: &CompletedRevAsrEvidence) -> AsrResponse {
+    transcript_to_asr_response(&evidence.transcript, &evidence.resolved_language)
 }
 
 /// Fetch a Rev.AI transcript either by polling an existing submitted job or by
@@ -136,10 +186,10 @@ pub(crate) async fn infer_revai_asr(
 ///   CHAT records spoken form, so we skip ITN wherever the flag is available.
 ///   For other languages the flag is a no-op per Rev.AI docs, so we omit it.
 ///
-/// The typical production path is preflight-submitted jobs (see
-/// `revai/preflight.rs`); callers pass `rev_job_id: Some(id)` and this
-/// function just polls. The non-preflight branch below is for other flows
-/// (UTR ASR, tests) and uses the same policy helpers from `preflight`.
+/// Current production resolves the durable evidence cache first and normally
+/// reaches this function without a job ID. The optional ID remains for the
+/// disabled legacy preflight path; when present, it polls that already-created
+/// job. Direct submission uses the same request-policy helpers as preflight.
 pub(super) fn fetch_revai_transcript(
     api_key: &super::RevAiApiKey,
     audio_path: &Path,

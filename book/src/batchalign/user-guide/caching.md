@@ -1,7 +1,7 @@
 # Caching
 
 **Status:** Current
-**Last updated:** 2026-04-27 10:28 EDT
+**Last updated:** 2026-08-28 17:15 EDT
 
 ## What gets cached
 
@@ -11,12 +11,15 @@ Batchalign caches **only audio-task results**:
 |----------|---------|
 | Forced alignment word timings (`align`) | Yes |
 | ASR results for utterance timing recovery (`align`'s UTR pre-pass) | Yes |
+| Dedicated speaker evidence (`transcribe --diarization enabled`) | Yes |
 | Media conversion (`.mp4`/`.m4a` → `.wav`) | Yes |
+| Raw Rev.AI transcript evidence (`transcribe`, `benchmark`, Rev-backed `align` UTR) | Yes |
+| Other ordinary ASR output (`transcribe`) | No |
 | Morphosyntax (`morphotag`) | **No**: always recomputed |
 | Utterance segmentation (`utseg`) | **No**: always recomputed |
 | Translation (`translate`) | **No**: always recomputed |
 | Coreference (`coref`) | **No**: always recomputed |
-| Speaker diarization | No |
+| Standalone speaker diarization (`diarize`) | No |
 | OpenSMILE features (`opensmile`) | No |
 | AVQI scores (`avqi`) | No |
 
@@ -27,24 +30,99 @@ showed it was about 25× slower than just re-inferring (6-16% hit rate;
 architecture page on Caching for the detailed reasoning.
 
 In practice: a re-run of `morphotag` on the same corpus takes the
-same time as the first run. A re-run of `align` on the same audio
-is much faster, that's where the cache pays for itself.
+same time as the first run. A re-run of `align` on the same audio is
+much faster. A repeat `transcribe --diarization enabled` run with the
+same speaker settings reuses the exact normalized speaker turns that
+the first run consumed, instead of calling the diarization backend
+again.
+
+For Rev.AI transcription, BA3 stores the provider-shaped monologues and
+elements before converting them to BA3 tokens. A warm run therefore avoids
+both Rev submission and polling, and later post-processing experiments can
+replay the same raw transcript evidence locally.
+
+### Dedicated speaker evidence
+
+The speaker cache applies to the dedicated diarization stage of
+`transcribe`, for all three speaker engines (`pyannote-ai`, `pyannote`,
+and `nemo`). It is especially useful with the paid pyannoteAI service.
+
+The key includes:
+
+- a BLAKE3 digest of the full media-source bytes;
+- the canonical audio-preparation recipe revision;
+- the selected speaker backend;
+- the expected speaker count;
+- the speaker-model revision; and
+- the stored evidence schema version.
+
+Paths and modification times are deliberately excluded. Renaming or copying
+an unchanged recording therefore reuses its speaker evidence. Re-encoding the
+recording changes its bytes and causes a miss even if it sounds identical.
+
+BA3 stores the normalized speaker intervals and labels that its projection
+stage actually consumes. It validates the schema, request fingerprint,
+speaker labels, interval direction, and ordering on every durable hit. A
+missing entry permits inference; a corrupt or invalid entry fails the file
+instead of being treated as a miss and silently causing another billable call.
+Concurrent identical requests in one BA3 server are serialized: the first
+miss performs and commits inference, while followers wait and then replay the
+result.
+
+The cache does not currently retain the provider's complete raw JSON response.
+That is a separate future evidence/provenance feature; the cached value is the
+canonical segment list used by today's pipeline.
+
+### Raw Rev.AI transcript evidence
+
+Normal `transcribe`, `benchmark`, and Rev-backed `align` UTR runs check durable
+raw Rev evidence before submitting anything to Rev. Only a missing entry, or
+an explicit `--override-media-cache`, authorizes submission. Corrupt evidence
+fails closed without a service call, and concurrent identical requests are
+coalesced. Concurrent identical forced refreshes also share the first fresh
+commit rather than each issuing a sequential paid call.
+
+The key includes the full bytes of the provider-visible inference media,
+requested language, expected speaker count, Rev request-policy revision,
+provider/model alias, and evidence schema. The stored envelope contains the
+resolved language plus Rev's raw monologues, elements, timings, confidence,
+and punctuation. It does not store credentials or temporary job IDs.
+
+The old batch pre-submission shortcut is disabled because it submitted paid
+jobs before a cache hit could be known. Cold misses currently fan out through
+BA3's normal per-file worker limit. Reintroducing wider parallel preflight is a
+performance follow-up; it must consume the same typed miss authorization and
+cannot restore the old unguarded optional-job-ID path.
+
+Other ASR engines remain uncached in ordinary `transcribe` runs. Align's UTR
+ASR also keeps its older normalized-result cache. If that derived entry is
+missing, Rev-backed UTR can re-project the durable raw transcript without a
+service call. A corrupt normalized UTR entry fails closed instead of silently
+falling through to inference. The legacy Rev pre-submission path is disabled.
 
 ## What invalidates the cache
 
 | What changed | What re-runs | What stays cached |
 |---|---|---|
 | Edited the transcript words | FA (per-group cache key includes text) | UTR ASR (only depends on audio) |
-| Re-recorded or replaced the audio | FA, UTR ASR | (n/a, audio is the cache key) |
-| Changed the language code | UTR ASR (key includes lang) | (other corpora's entries) |
-| Upgraded batchalign (new ASR engine version) | Stale entries auto-invalidated | Entries from unchanged engines |
+| Re-recorded or replaced the audio | FA, UTR ASR, Rev evidence, speaker evidence | (n/a, audio is the cache key) |
+| Changed the language code | UTR ASR and Rev evidence | (other corpora's entries) |
+| Changed expected speaker count | Rev evidence and speaker evidence | FA and UTR ASR |
+| Changed speaker backend | Speaker evidence | FA, UTR ASR, and Rev evidence |
+| Upgraded batchalign or an identified model revision | Affected audio evidence | Entries from unchanged engines/models |
 
-Cache keys are content-addressed: they hash the actual input (audio
-identity, time spans, words, engine version). Changing any input
-component produces a different key, so stale results are never
-returned. Engine version strings are stored alongside each entry, so
-upgrading a model (e.g., a new ASR release) automatically invalidates
-old results without manual intervention.
+Cache keys hash the inputs relevant to each task. FA and UTR use the legacy
+path/mtime/size `AudioIdentity`; Rev and speaker evidence use a true digest of
+the inference-media bytes so copies and renames share results. Engine or model
+revision strings are stored alongside each entry.
+
+pyannoteAI currently exposes the `precision-2` model alias, but not an
+immutable backend build hash. BA3 scopes cloud evidence to that alias and its
+own evidence schema. If the provider changes the implementation behind the
+same alias and you want fresh evidence, use `--override-media-cache`. The
+local Pyannote and NeMo identifiers likewise include their configured model
+identity and the BA3 package version; floating external model revisions remain
+a reason to force a refresh during controlled experiments.
 
 ## How to force fresh results
 
@@ -52,10 +130,21 @@ Use the `--override-media-cache` global flag:
 
 ```bash
 batchalign3 --override-media-cache align corpus/ -o output/
+
+# Force and store fresh Rev and dedicated speaker evidence. This may incur charges.
+batchalign3 --override-media-cache transcribe recordings/ -o output/ \
+  --diarization enabled
 ```
 
-This skips all cache lookups, forcing every audio span through fresh
-inference. New results are still stored in the cache for future runs.
+This skips all applicable cache lookups, forcing fresh inference. New results
+replace the matching entries and are stored for future runs. With
+Rev ASR or `--speaker-engine pyannote-ai`, this can make new paid service calls
+even when reusable evidence exists.
+
+The narrower `--override-media-cache-tasks` flag currently accepts only
+`forced_alignment` and `utr_asr`. Use the global `--override-media-cache` when
+an experiment must refresh Rev or dedicated-speaker evidence. Selective names
+for the new evidence tasks are a future CLI extension.
 
 Use this when you suspect cached results are wrong, or after manually
 updating model files outside of a normal batchalign upgrade.

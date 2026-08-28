@@ -357,9 +357,10 @@ async fn run_hosted_job(
         .await;
     }
 
-    // Preflight: pre-submit audio files to Rev.AI for parallel server-side processing.
-    // This collects Rev.AI job IDs that individual file tasks will poll instead of
-    // re-uploading, reducing total wall-clock time by 2-5x for large batches.
+    // Legacy Rev.AI batch preflight. `should_preflight()` currently returns
+    // false for every command because submission must follow typed evidence
+    // lookup. Keep the compatibility path isolated until a future planner can
+    // carry either a validated hit or an authorized miss for every file.
     let rev_job_ids: Arc<HashMap<PathBuf, RevAiJobId>> = {
         if should_preflight(command, Some(&job.dispatch.options)) {
             let audio_paths = collect_preflight_audio_paths(command, &job, &file_list).await;

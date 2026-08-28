@@ -8,10 +8,11 @@
 //!
 //! [`CacheBackend`] models a key-value store with three dimensions per entry:
 //!
-//! 1. **`key`** -- a content-derived identifier (typically SHA-256 of the
-//!    utterance text, language, and any task-specific parameters).
-//! 2. **`task`** -- the NLP task name (e.g. `"morphosyntax"`,
-//!    `"utterance_segmentation"`, `"forced_alignment"`, `"translation"`).
+//! 1. **`key`** -- a content-derived identifier (currently BLAKE3 over each
+//!    audio task's inference-affecting inputs).
+//! 2. **`task`** -- the audio task name (for example `"forced_alignment"`,
+//!    `"utr_asr"`, `"rev_asr_evidence"`, or
+//!    `"speaker_diarization_evidence"`).
 //! 3. **`engine_version`** -- the version string of the model that produced
 //!    the result (e.g. `"stanza-1.9.2"`).
 //!
@@ -29,9 +30,8 @@
 //! # Batch operations
 //!
 //! [`get_batch`](CacheBackend::get_batch) and
-//! [`put_batch`](CacheBackend::put_batch) exist for performance: the
-//! morphosyntax orchestrator may need to look up hundreds of utterances at
-//! once.  The SQLite implementation uses chunked `IN (...)` clauses and
+//! [`put_batch`](CacheBackend::put_batch) exist for grouped audio-task lookup.
+//! The SQLite implementation uses chunked `IN (...)` clauses and
 //! single-transaction inserts to minimize round trips.
 //!
 //! # Implementing a new backend

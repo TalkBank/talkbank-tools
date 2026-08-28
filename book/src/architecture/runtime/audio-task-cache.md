@@ -1,10 +1,11 @@
 # Audio-Task Cache
 
 **Status:** Current
-**Last updated:** 2026-05-21 14:55 EDT
+**Last updated:** 2026-08-28 17:25 EDT
 
-Batchalign caches **audio-task results** (forced alignment, UTR ASR,
-media conversion). It does **not** cache text-NLP results
+Batchalign caches **audio-task results** (forced alignment, UTR ASR, raw Rev
+transcript evidence, dedicated transcribe speaker evidence, and media
+conversion). It does **not** cache text-NLP results
 (morphosyntax, utterance segmentation, translation). All caching is
 managed by the Rust server, Python workers are cache-unaware.
 
@@ -63,9 +64,9 @@ every real scenario in the second bucket.
 1. **Audio inference is expensive.** Whisper ASR takes 30-120 seconds
    per file. FA takes 10-60 seconds. Caching saves minutes, not
    milliseconds.
-2. **Audio rarely changes.** The same `.mp3` file produces the same
-   transcription every time. The `AudioIdentity` key (path + mtime +
-   size) correctly invalidates on re-encoding.
+2. **Audio rarely changes.** FA and UTR use `AudioIdentity` (path + mtime +
+   size). Paid speaker evidence uses a full BLAKE3 byte digest so copies and
+   renames share results while changed source bytes invalidate them.
 3. **Hit rates are high for repeated alignment.** Re-running `align`
    on a corpus where only a few files changed gives near-100% hit
    rate for unchanged audio.
@@ -157,7 +158,7 @@ arbitrary strings, keys can only be created through the
 task-specific `cache_key()` functions, which hash input payloads
 internally.
 
-### `AudioIdentity`
+### `AudioIdentity` (FA and UTR)
 
 The `AudioIdentity` newtype (`crates/batchalign/src/chat_ops/fa/mod.rs`)
 identifies an audio file for cache keying. It is computed from
@@ -187,6 +188,28 @@ Implications:
 - **No content hashing is performed**: deliberate performance
   tradeoff.
 
+This identity is not used for raw Rev or paid speaker evidence.
+
+### `SpeakerAudioSourceDigest`
+
+`transcribe --diarization enabled` streams the entire inference media source
+through BLAKE3 in 1 MiB chunks. The digest contains no path or mtime. Its key
+also contains the canonical preparation-recipe revision
+(`mono-16khz-f32le-v1`), because the worker receives mono 16 kHz float32 PCM
+rather than the source container bytes directly.
+
+This design makes copies and renames hit without paying the cost of running
+ffmpeg before every cache lookup. Different encodings of acoustically
+identical media intentionally miss. If preparation semantics change, bump the
+recipe revision.
+
+### `RevProviderMediaDigest`
+
+Rev evidence hashes the complete inference-media file that BA3 would upload to
+Rev. The semantic key adds requested language, expected speaker count, Rev
+request-policy revision, provider/model alias, and evidence schema. No path,
+mtime, API credential, temporary upload URL, or Rev job ID participates.
+
 ### `CacheTaskName`
 
 Audio tasks that use the cache:
@@ -195,6 +218,8 @@ Audio tasks that use the cache:
 |---|---|---|
 | `ForcedAlignment` | `forced_alignment` | `fa/` |
 | `UtrAsr` | `utr_asr` | `runner/dispatch/fa_pipeline.rs` (UTR pre-pass) |
+| `SpeakerDiarizationEvidence` | `speaker_diarization_evidence` | `pipeline/transcribe.rs` |
+| `RevAsrEvidence` | `rev_asr_evidence` | `pipeline/transcribe.rs` + `revai/evidence_cache.rs` |
 
 The enum also includes `Morphosyntax`, `UtteranceSegmentation`, and
 `Translation` variants, they are kept as named constants so
@@ -208,20 +233,35 @@ cleanly, but no code writes or reads entries under those task names.
 | Forced alignment | audio identity + time window + words + gap-healing policy + engine |
 | UTR ASR (full-file) | `"utr_asr"` + audio identity + lang |
 | UTR ASR (segment) | `"utr_asr_segment"` + audio identity + start_ms + end_ms + lang |
+| Dedicated speaker evidence | schema + source-byte digest + preparation revision + backend + expected speakers + model revision |
+| Raw Rev ASR evidence | schema + provider-media digest + requested language + expected speakers + request-policy revision + model revision |
 
 ## Invalidation Matrix
 
 Which user actions cause cache misses (force re-inference) per task:
 
-| Action | FA | UTR full | UTR segment |
-|---|---|---|---|
-| Edit transcript words | Miss | Hit | Hit |
-| Change language code | Miss | Miss | Miss |
-| Re-record audio | Miss | Miss | Miss |
-| Change FA engine | Miss | Hit | Hit |
-| Change ASR engine | Hit | Hit\* | Hit\* |
-| Upgrade model version | Miss | Miss | Miss |
-| Use `--override-media-cache` | Skip | Skip | Skip |
+| Action | FA | UTR full | UTR segment | Speaker evidence |
+|---|---|---|---|---|
+| Edit transcript words | Miss | Hit | Hit | Hit |
+| Change language code | Miss | Miss | Miss | Hit |
+| Re-record audio | Miss | Miss | Miss | Miss |
+| Rename/copy identical audio | Miss | Miss | Miss | Hit |
+| Change FA engine | Miss | Hit | Hit | Hit |
+| Change ASR engine | Hit | Hit\* | Hit\* | Hit |
+| Change speaker backend/count | Hit | Hit | Hit | Miss |
+| Upgrade identified model version | Miss | Miss | Miss | Miss |
+| Use `--override-media-cache` | Skip | Skip | Skip | Refresh |
+
+Raw Rev evidence invalidation is independent of those four columns:
+
+| Action | Raw Rev evidence |
+|---|---|
+| Edit transcript words | Hit |
+| Change inference-media bytes | Miss |
+| Rename/copy byte-identical inference media | Hit |
+| Change requested language or expected speakers | Miss |
+| Change Rev request-policy/model revision | Miss |
+| Use `--override-media-cache` | Refresh |
 
 \* UTR cache keys do not include engine name, but engine_version
 scoping at the SQLite/moka layer catches model upgrades (the entry's
@@ -251,9 +291,25 @@ invalidates UTR ASR cache entries too, even though UTR uses the ASR
 worker, design choice to keep the FA pipeline's `PipelineServices`
 consistent across its sub-stages.
 
+Speaker evidence deliberately does not accept that generic ASR/FA engine
+version. `SpeakerEvidenceModelRevision` is a distinct newtype with private
+construction from `SpeakerBackendV2`; this prevents an ASR version from being
+used accidentally. The cloud revision is currently the provider-visible
+`pyannote-ai:precision-2` alias. pyannoteAI does not return an immutable
+backend build hash, so controlled experiments should use a forced refresh if
+the provider may have changed the implementation behind that alias. Local
+identifiers include the configured model family and BA3 package version; their
+external model references currently float too.
+
+Rev evidence likewise uses `RevAsrModelRevision`, not the Python worker ASR
+version. The current provider-visible identity is
+`revai:asynchronous-transcript-v1`; Rev does not expose an immutable acoustic
+model build hash through this API, so controlled comparisons may require an
+explicit refresh.
+
 ## Cache Workflow in Orchestrators
 
-Every audio orchestrator follows this pattern:
+FA and UTR orchestrators follow this batch-oriented pattern:
 
 1. **Collect payloads** (FA groups, UTR segments) from the parsed
    CHAT AST.
@@ -263,12 +319,96 @@ Every audio orchestrator follows this pattern:
 5. **Inject results** into the AST.
 6. **Batch put**: persist new results for future reuse.
 
+## Paid Evidence Typestate
+
+Rev and speaker evidence use a stricter state machine because a miss can
+authorize a paid external call. Both share `InferenceLease`, a keyed
+process-local single-flight guard, while retaining task-specific request,
+miss, authorization, validation, and evidence types.
+
+The speaker path is:
+
+```mermaid
+flowchart LR
+    request[SpeakerEvidenceRequest] --> lease[Acquire per-key inference lease]
+    lease --> lookup{Validated durable lookup}
+    lookup -->|hit| replay[ValidatedSpeakerEvidence]
+    lookup -->|missing| miss[SpeakerEvidenceMiss]
+    lookup -->|corrupt/invalid| fail[Fail closed; no service call]
+    miss --> auth[SpeakerInferenceAuthorization]
+    auth --> service[SpeakerEvidenceInference]
+    service --> validate[Validate returned segments]
+    validate --> commit[Required durable commit]
+    commit --> fresh[ValidatedSpeakerEvidence]
+```
+
+The fields of `SpeakerEvidenceMiss`, `SpeakerInferenceAuthorization`, and
+`SpeakerEvidenceModelRevision` are private. Raw V2 worker inference is private
+behind `SpeakerWorkerInference`. Consequently, the production transcribe
+pipeline cannot construct permission to call the service without consuming a
+real miss (or an explicit forced-refresh miss).
+
+The process-local per-key lease spans lookup, inference, validation, and
+commit. Concurrent identical requests cannot both observe a miss: followers
+wait, then check the durable cache again. The persistent SQLite entry handles
+later jobs and server restarts.
+
+`resolve_speaker_evidence()` is the one production decision path and accepts a
+`SpeakerEvidenceInference` implementation. Tests inject a call-counting fake
+through this same function, so assertions measure crossings of the billable
+boundary rather than merely testing SQLite in isolation.
+
+Stored evidence is a versioned JSON envelope containing the request
+fingerprint and normalized `SpeakerSegmentV2` list. Reads validate the schema,
+fingerprint, nonempty labels, non-inverted intervals, and nondecreasing starts.
+Corruption is an error, never a miss. A successful service response must be
+validated and durably committed before the pipeline continues; a write error
+fails the file instead of silently losing reusable evidence.
+
+The cache currently preserves the exact normalized turns consumed by speaker
+projection, not the provider's full raw JSON response. Retaining immutable raw
+provider evidence and richer provenance is a separate future architecture
+step.
+
+### Raw Rev transcript evidence
+
+`RevAsrEvidenceRequest` keys the provider-visible media and request semantics.
+`RevAsrEvidenceMiss` is the only constructor route to
+`RevAsrInferenceAuthorization`; `RevAsrService` requires that authorization
+before it can perform language identification, submission, or polling.
+`NonRevAsrBackend` is a smaller sum accepted by generic ASR inference, so the
+pipeline cannot route `RustRevAi` around the evidence resolver.
+
+The durable envelope stores `CompletedRevAsrEvidence`: resolved ISO-639-3
+language plus the provider-shaped `Transcript` monologues and elements. It is
+intentionally earlier than `transcript_to_asr_response()`. Changes to BA3 token
+projection or ASR post-processing can therefore replay raw Rev evidence
+without another provider call. Validation rejects negative speaker indices,
+non-finite/negative timings, reversed intervals, and out-of-range confidence.
+Corruption and commit failures are fatal, not misses.
+
+Rev-backed `align` UTR uses the same resolver before projecting timed words.
+Its older normalized `utr_asr` entry remains a faster derived-result cache, but
+it is no longer the only protection against another provider request. A
+malformed normalized entry or storage read error fails closed; if that derived
+entry is absent after an algorithm change, the raw Rev envelope can be replayed
+locally and committed in the new shape.
+
+The old runner-wide Rev pre-submission path is currently disabled for
+transcribe, benchmark, and align. It submitted jobs before cache lookup, so it
+could not guarantee cost avoidance and its untyped optional job IDs bypassed
+the miss authorization. Cold provider calls now fan out through normal
+per-file concurrency. A future cache-aware parallel preflight may recover the
+old wider submission window only if its plan variants carry validated hits or
+typed miss authorizations.
+
 ## Self-Correcting Cache Purges
 
-When post-serialization validation fails, the server deletes the
-cache entries that produced the invalid output. This prevents stale
-or broken results from being served on future runs. Validation
-failures also trigger bug reports to `~/.batchalign3/bug-reports/`.
+FA/UTR post-serialization validation can delete the cache entries that
+produced invalid output. Rev and speaker envelopes instead validate at their
+evidence boundaries; their keys are not yet retained through final CHAT
+serialization for automatic downstream purge. Validation failures also
+trigger bug reports to `~/.batchalign3/bug-reports/`.
 
 ## Override
 
@@ -284,8 +424,10 @@ silently discards puts. Available for testing.
 
 ## UTR ASR Caching
 
-UTR (Utterance Timing Recovery) ASR results are cached, making
-repeat alignment runs on the same audio instant.
+UTR (Utterance Timing Recovery) ASR results are cached, making repeat
+alignment runs on the same audio instant. Rev-backed UTR additionally retains
+the earlier provider evidence so projection experiments do not depend on the
+derived cache shape.
 
 ```mermaid
 flowchart TD
@@ -307,7 +449,13 @@ flowchart TD
     offset --> seg_loop
 
     full_cache -->|Hit| full_use[Use cached ASR]
-    full_cache -->|Miss| full_asr[infer_asr on full audio]
+    full_cache -->|Miss, non-Rev| full_asr[infer_asr on full audio]
+    full_cache -->|Miss, Rev| rev_raw{Validated raw Rev\nevidence?}
+    rev_raw -->|Hit| rev_project[Project retained timed words]
+    rev_raw -->|Typed miss| rev_call[Authorized Rev request]
+    rev_call --> rev_commit[Validate + required durable commit]
+    rev_commit --> rev_project
+    rev_project --> full_store
     full_asr --> full_store[Cache full result]
     full_store --> full_use
 
@@ -326,14 +474,20 @@ flowchart TD
   Avoids processing already-timed regions on the first run. After
   the first run, the full-file cache makes the distinction moot.
 
-Both modes respect `CachePolicy`: `--override-media-cache` skips
-lookups but still stores results for future use.
+Both modes respect `CachePolicy`: `--override-media-cache` skips lookups but
+still stores results for future use. Concurrent identical forced refreshes in
+one process share the first newly committed result instead of issuing
+sequential duplicate service calls.
 
 ## What Is NOT Cached
 
 - **Morphosyntax, utterance segmentation, translation**: text-NLP
   tasks, removed from the cache for the benchmark reasons above.
-- **Speaker diarization**: depends on full audio context.
+- **Standalone `diarize` output**: the first speaker-evidence slice is wired to
+  dedicated diarization inside `transcribe`; standalone output is not yet
+  replayed from this cache.
+- **Non-Rev ordinary `transcribe` ASR**: raw evidence caching currently covers
+  the Rust-owned Rev boundary; other ASR engines still infer normally.
 - **Coreference**: document-level (not per-utterance); results
   depend on full document context.
 - **OpenSMILE features**: fast enough to recompute.

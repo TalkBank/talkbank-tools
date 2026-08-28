@@ -1,11 +1,12 @@
-//! Utterance-level NLP result cache for the batchalign3 server.
+//! Durable audio-evidence cache for the batchalign3 server.
 //!
-//! This crate provides a persistent cache for expensive NLP inference results
-//! (morphosyntax, utterance segmentation, forced alignment, translation) so
-//! that re-processing a corpus skips utterances whose results are already
-//! known.  Each cache entry is keyed by a content-derived SHA-256 hash and
-//! scoped to a task name and engine version, so upgrading a model (e.g.
-//! Stanza 1.8 to 1.9) automatically invalidates stale entries.
+//! Text-NLP caching was removed after production benchmarks showed it cost
+//! more than warm inference. This module persists expensive audio results:
+//! forced alignment, UTR ASR, raw Rev transcripts, and dedicated speaker
+//! evidence. Each entry uses a task-specific BLAKE3 key and exact task/model
+//! scope. Rev and dedicated-speaker paid boundaries additionally carry a typed
+//! miss authorization and a process-local [`InferenceLease`] so concurrent
+//! identical work is single-flight.
 //!
 //! # Python compatibility
 //!
@@ -109,15 +110,29 @@
 //! ```
 
 mod backend;
+mod inference_lease;
 mod noop;
 mod sqlite;
 mod tiered;
 
 pub use backend::{CacheBackend, CacheStats};
+pub(crate) use inference_lease::InferenceLease;
 pub use sqlite::SqliteBackend;
 pub use tiered::TieredCacheBackend;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_CACHE_INSTANCE_ID: AtomicU64 = AtomicU64::new(1);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) struct CacheInstanceId(u64);
+
+impl CacheInstanceId {
+    fn fresh() -> Self {
+        Self(NEXT_CACHE_INSTANCE_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 /// High-level cache wrapper.
 ///
@@ -125,6 +140,7 @@ use std::path::PathBuf;
 /// the supported backends.
 pub struct UtteranceCache {
     backend: Box<dyn CacheBackend>,
+    instance_id: CacheInstanceId,
 }
 
 impl UtteranceCache {
@@ -137,6 +153,7 @@ impl UtteranceCache {
         let backend = SqliteBackend::open(cache_dir).await?;
         Ok(Self {
             backend: Box::new(backend),
+            instance_id: CacheInstanceId::fresh(),
         })
     }
 
@@ -152,6 +169,7 @@ impl UtteranceCache {
         let tiered = TieredCacheBackend::new(Box::new(cold), max_hot_entries);
         Ok(Self {
             backend: Box::new(tiered),
+            instance_id: CacheInstanceId::fresh(),
         })
     }
 
@@ -164,17 +182,25 @@ impl UtteranceCache {
     pub fn noop() -> Self {
         Self {
             backend: Box::new(noop::NoopBackend),
+            instance_id: CacheInstanceId::fresh(),
         }
     }
 
     /// Create a cache from an existing backend (for testing or custom backends).
     pub fn from_backend(backend: Box<dyn CacheBackend>) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            instance_id: CacheInstanceId::fresh(),
+        }
     }
 
     /// Access the underlying backend.
     pub fn backend(&self) -> &dyn CacheBackend {
         &*self.backend
+    }
+
+    pub(super) fn instance_id(&self) -> CacheInstanceId {
+        self.instance_id
     }
 }
 
