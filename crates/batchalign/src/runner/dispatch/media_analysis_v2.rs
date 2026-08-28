@@ -34,7 +34,7 @@ use crate::worker::speaker_request_v2::{
 };
 use crate::worker::speaker_result_v2::parse_speaker_result_v2;
 
-use super::diarize_turns::format_turns_json;
+use super::diarize_turns::{SpeakerTurnsSource, format_turns_json};
 
 use crate::api::{ContentType, NumWorkers};
 
@@ -597,7 +597,11 @@ async fn dispatch_diarize_attempt(
     let result = parse_speaker_result_v2(&response)
         .map_err(|error| DispatchFailure::Terminal(error, FailureCategory::ProviderTerminal))?;
 
-    let turns_json = format_turns_json(&result.segments).map_err(|error| {
+    let turns_json = format_turns_json(
+        SpeakerTurnsSource::from_backend(SpeakerBackendV2::Pyannote),
+        &result.segments,
+    )
+    .map_err(|error| {
         DispatchFailure::Terminal(
             format!("diarize output for {filename} is defective: {error}"),
             FailureCategory::ProviderTerminal,

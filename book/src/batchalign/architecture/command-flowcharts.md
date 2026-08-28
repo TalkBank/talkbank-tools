@@ -1,7 +1,7 @@
 # Command Flowcharts
 
 **Status:** Current
-**Last updated:** 2026-05-03 08:50 EDT
+**Last updated:** 2026-08-28 14:01 EDT
 
 Option-driven flowcharts for every batchalign processing command. Each
 diagram shows how CLI flags route through different code paths at runtime.
@@ -330,13 +330,13 @@ commands chained automatically.
 - **Rev.AI (the default engine):** Rev.AI returns multi-speaker labels
   natively as part of its ASR response. Those labels are **always** applied
   to the transcript, you get multi-speaker output without `--diarize`.
-- **Rev.AI with explicit `--diarize`:** BA3 now matches the audited Jan 9 BA2
-  implementation. If you explicitly request diarization, BA3 still runs the
-  separate Pyannote/NeMo post-ASR speaker stage on top of Rev output.
+- **Rev.AI with explicit `--diarize`:** BA3 runs a dedicated speaker stage on
+  top of Rev output and treats its segments as authoritative before utterance
+  segmentation.
 - **Whisper-based engines** (`whisper`, `whisperx`, `whisper-oai`): these
   engines do not return speaker labels. Passing `--diarize` (or
-  `--diarization enabled`) runs a dedicated Pyannote speaker model as an
-  additional stage.
+  `--diarization enabled`) runs a dedicated speaker model as an additional
+  stage.
 - Default: `--diarization auto` = disabled. Identical to batchalign2's
   `--diarize/--nodiarize default=False`. The old BA2 help text claiming Rev
   ignored `--diarize` was stale; the pipeline wiring did not ignore it.
@@ -377,7 +377,7 @@ flowchart TD
     asr_tokens --> convert["convert_asr_response()\nALWAYS groups tokens by speaker label\nNo use_speaker_labels parameter"]
     convert --> dedicated_check{"--diarization enabled?"}
     dedicated_check -->|No| postprocess
-    dedicated_check -->|Yes| speaker_v2["execute_v2(task=speaker)\nprepared audio → raw diarization segments\nPost-ASR relabeling via Pyannote or NeMo"]
+    dedicated_check -->|Yes| speaker_v2["execute_v2(task=speaker)\nprepared audio → raw diarization segments\npyannoteAI Precision-2 by default"]
     speaker_v2 --> postprocess
 
     subgraph postprocess ["Rust post-processing: process_raw_asr()"]
@@ -392,16 +392,16 @@ flowchart TD
         p5 --> p6[6. Retokenization\npunctuation-based utterance splitting]
     end
 
-    postprocess --> build_chat["build_chat → ChatFile AST\nHeaders, participants, %wor tiers\nSpeaker codes from ASR labels: PAR, INV, CHI, ..."]
-    build_chat --> speaker_apply{Dedicated speaker\nsegments present?}
-    speaker_apply -->|Yes| reassign["reassign_speakers()\nRewrite utterance speakers +\n@Participants + @ID headers\nfrom raw diarization segments"]
+    postprocess --> speaker_apply{Dedicated speaker\nsegments present?}
+    speaker_apply -->|Yes| project["project_speakers_onto_chunks()\nAssign timed words by summed overlap\nSplit at speaker changes"]
     speaker_apply -->|No| utseg_check{"with_utseg?\ndefault: true"}
-    reassign --> utseg_check
+    project --> utseg_check
 
     utseg_check -->|Yes| run_utseg[process_utseg\nBERT-based re-segmentation]
-    utseg_check -->|No| mor_check
+    utseg_check -->|No| build_chat
 
-    run_utseg --> mor_check{"with_morphosyntax?\ndefault: false"}
+    run_utseg --> build_chat["build_chat → ChatFile AST\nHeaders, participants, %wor tiers"]
+    build_chat --> mor_check{"with_morphosyntax?\ndefault: false"}
     mor_check -->|Yes| run_mor[process_morphosyntax\nPOS + lemma + depparse]
     mor_check -->|No| merge_check
 

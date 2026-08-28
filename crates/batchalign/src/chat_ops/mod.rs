@@ -1,5 +1,5 @@
 //! Batchalign-specific CHAT orchestration: forced alignment, speaker
-//! reassignment, morphosyntax/NLP runtime glue, and the cache-key newtypes
+//! projection, morphosyntax/NLP runtime glue, and the cache-key newtypes
 //! that gate Python worker results.
 //!
 //! Pure deterministic CHAT/text logic (parse, serialize, extract, inject,
@@ -19,7 +19,7 @@
 //! | Module          | Responsibility                                                                            |
 //! |-----------------|-------------------------------------------------------------------------------------------|
 //! | [`fa`]          | Forced alignment: utterance grouping, DP alignment, timing injection, UTR, monotonicity   |
-//! | [`speaker`]     | Speaker code mapping and diarization-driven reassignment                                  |
+//! | [`speaker`]     | Diarization projection onto timed ASR words before utterance segmentation                  |
 //! | [`morphosyntax`]| Stanza-coupled `%mor`/`%gra` orchestration (payload collection, dispatch, injection glue) |
 //! | [`nlp`]         | UD types, UD→CHAT mapping helpers, language-specific rules                                |
 //! | [`cache_key`]   | BLAKE3-keyed [`CacheKey`] / [`CacheTaskName`] newtypes for FA + UTR cache                 |

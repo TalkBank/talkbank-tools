@@ -159,6 +159,7 @@ fn fa_backend_label(backend: FaBackendV2) -> &'static str {
 /// Return the stable label for one speaker backend.
 fn speaker_backend_label(backend: SpeakerBackendV2) -> &'static str {
     match backend {
+        SpeakerBackendV2::PyannoteAi => "pyannote_ai",
         SpeakerBackendV2::Pyannote => "pyannote",
         SpeakerBackendV2::Nemo => "nemo",
     }
@@ -393,7 +394,9 @@ fn validate_execute_request_invariants(request: &ExecuteRequestV2) -> Result<(),
             };
             require_attachment_kind(request, audio_ref_id, "prepared_audio")?;
             match speaker_request.backend {
-                SpeakerBackendV2::Pyannote | SpeakerBackendV2::Nemo => Ok(()),
+                SpeakerBackendV2::PyannoteAi
+                | SpeakerBackendV2::Pyannote
+                | SpeakerBackendV2::Nemo => Ok(()),
             }
         }
         TaskRequestV2::Opensmile(opensmile_request) => {

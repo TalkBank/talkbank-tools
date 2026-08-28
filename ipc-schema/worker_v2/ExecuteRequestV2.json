@@ -603,6 +603,11 @@
       "description": "Speaker diarization backend selected by Rust.",
       "oneOf": [
         {
+          "description": "pyannoteAI cloud diarization using the Precision-2 model.",
+          "type": "string",
+          "const": "pyannote_ai"
+        },
+        {
           "description": "Pyannote diarization backend.",
           "type": "string",
           "const": "pyannote"

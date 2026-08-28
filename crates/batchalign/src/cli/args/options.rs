@@ -198,6 +198,9 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             // silently run plain funaudio, which is the failure it exists to fix.
             let mut common = common;
             selection.apply_implied(&mut common.engine_overrides);
+            if let Some(engine) = a.speaker_engine {
+                common.engine_overrides.speaker = Some(engine);
+            }
             // Resolve diarization: BA2 compat bools override the enum
             let diarize = if a.diarize {
                 true

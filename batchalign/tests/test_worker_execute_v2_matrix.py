@@ -266,6 +266,14 @@ def _speaker_host(backend: SpeakerBackendV2) -> SpeakerExecutionHostV2:
             ]
         )
 
+    if backend is SpeakerBackendV2.PYANNOTE_AI:
+        return SpeakerExecutionHostV2(
+            pyannote_ai_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+                _response(
+                    f"pyannote_ai-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}"
+                )
+            )
+        )
     if backend is SpeakerBackendV2.PYANNOTE:
         return SpeakerExecutionHostV2(
             pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
@@ -469,7 +477,11 @@ def test_routes_forced_alignment_backend_matrix(
 
 @pytest.mark.parametrize(
     "backend",
-    [SpeakerBackendV2.PYANNOTE, SpeakerBackendV2.NEMO],
+    [
+        SpeakerBackendV2.PYANNOTE_AI,
+        SpeakerBackendV2.PYANNOTE,
+        SpeakerBackendV2.NEMO,
+    ],
     ids=lambda backend: backend.value,
 )
 def test_routes_speaker_backend_matrix(

@@ -22,9 +22,11 @@ ABI on the new interpreter line.
 
 ### 1. The default install must stay complete
 
-`batchalign3 transcribe --diarize` is a real supported CLI path. After the BA2
-parity audit, that path once again means "run the dedicated post-ASR speaker
-stage" even on top of Rev-labeled output.
+`batchalign3 transcribe --diarize` is a real supported CLI path. It runs a
+dedicated speaker stage even on top of Rev-labeled output, then projects the
+segments onto timed words before utterance segmentation. pyannoteAI is the
+default, but the standard install must still support the explicit local
+Pyannote and NeMo alternatives.
 
 Because of that, `pyannote.audio` and `onnxruntime` belong in the **standard**
 `batchalign3` install. We are not keeping speaker diarization in a special

@@ -33,6 +33,9 @@ class SpeakerExecutionHostV2:
     # The third argument is the speaker count, or None for "not specified",
     # which the CLI defines as auto-detect. It is Optional so that state can
     # reach the diarizer instead of being collapsed into a number.
+    pyannote_ai_prepared_audio_runner: (
+        Callable[[np.ndarray, int, int | None], SpeakerResponse] | None
+    ) = None
     pyannote_prepared_audio_runner: (
         Callable[[np.ndarray, int, int | None], SpeakerResponse] | None
     ) = None
@@ -69,6 +72,14 @@ def build_default_speaker_execution_host_v2(
         )
 
     return SpeakerExecutionHostV2(
+        pyannote_ai_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
+            _run_prepared(
+                audio,
+                sample_rate_hz,
+                num_speakers,
+                "pyannote_ai",
+            )
+        ),
         pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
             _run_prepared(
                 audio,
@@ -99,6 +110,7 @@ def execute_speaker_request_v2(
     return ExecuteResponseV2.model_validate_json(
         batchalign_core.execute_speaker_request_v2(
             request,
+            host.pyannote_ai_prepared_audio_runner,
             host.pyannote_prepared_audio_runner,
             host.nemo_prepared_audio_runner,
         )

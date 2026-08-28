@@ -160,6 +160,8 @@ pub enum FaBackendV2 {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SpeakerBackendV2 {
+    /// pyannoteAI cloud diarization using the Precision-2 model.
+    PyannoteAi,
     /// Pyannote diarization backend.
     Pyannote,
     /// NeMo diarization backend.

@@ -1,7 +1,7 @@
 # Server Model Loading and Caching
 
 **Status:** Current
-**Last updated:** 2026-07-30 18:21 EDT
+**Last updated:** 2026-08-28 14:01 EDT
 
 This document describes every ML model loaded by batchalign3 workers,
 when each model is loaded into memory, and how results are cached.
@@ -96,14 +96,16 @@ transcription rather than a standalone `speaker` command. When the selected ASR
 backend already returns usable speaker labels (for example Rev.AI or the
 Cantonese provider adapters), Rust keeps those labels on the default path. When
 `--diarize` is explicitly requested, Rust also composes the low-level `speaker`
-infer task as a post-ASR relabeling stage, receives raw diarization segments,
-and rewrites speaker codes plus `@Participants` / `@ID` headers through
-`batchalign::speaker` even on top of Rev-labeled output.
+infer task, receives raw diarization segments, and projects them onto timed ASR
+words before utterance segmentation and CHAT assembly. That projection splits
+prepared chunks at speaker changes even on top of Rev-labeled output.
 
-The default dedicated diarization backend remains Pyannote, matching
-batchalign2. Pyannote now loads lazily on the first speaker request in a worker
-process and is then reused within that process instead of being rebuilt for
-every file.
+The default dedicated diarization backend is pyannoteAI Precision-2. Its worker
+adapter performs the typed `PreparedWav` to `UploadedMedia` to
+`SubmittedDiarizationJob` to `CompletedDiarizationJob` lifecycle and requests
+exclusive diarization for ASR reconciliation. Local Pyannote and NeMo remain
+explicit alternatives. Local Pyannote loads lazily on the first request in a
+worker process and is then reused within that process.
 
 **Result caching:** Diarization results are NOT cached.
 
@@ -174,10 +176,18 @@ All torch-based inference modules auto-detect the compute device at load time:
 
 Stanza manages its own device internally (typically CPU).
 
-## HuggingFace Hub Token
+## Speaker engine credentials
 
-Most HF-hosted models used by batchalign3 are public, but the current speaker
-diarization stack may depend on gated pyannote assets underneath
+The default cloud engine reads `BATCHALIGN_PYANNOTE_API_KEY`,
+`BATCHALIGN_PYANNOTE_KEY`, or `PYANNOTE_API_KEY`, in that order. It also accepts
+`engine.pyannote.key` in the `[diarize]` section of `~/.batchalign.ini` for
+compatibility. This is a worker-owned credential path and audio is uploaded to
+pyannoteAI.
+
+### HuggingFace Hub token for the local Pyannote engine
+
+Most HF-hosted models used by batchalign3 are public, but the local speaker
+engine may depend on gated pyannote assets underneath
 `talkbank/dia-fork`. For diarization-capable machines, authenticate Hugging
 Face once before the first run and keep a read token available to the worker
 runtime.
@@ -193,9 +203,8 @@ export HF_TOKEN="hf_..."  # from https://huggingface.co/settings/tokens
 If the model page asks you to accept terms, do that once in the browser before
 retrying diarization.
 
-Unlike Rev.AI, this is **not yet a Rust-owned credential path**. batchalign3
-currently relies on ambient Hugging Face authentication in the CLI/server
-process environment: the local Hugging Face auth cache/keychain created by
+The local engine relies on ambient Hugging Face authentication in the
+CLI/server process environment: the local Hugging Face auth cache/keychain created by
 `hf auth login`, or an explicit `HF_TOKEN` exported where the worker runtime can
 see it.
 

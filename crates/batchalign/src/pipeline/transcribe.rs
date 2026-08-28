@@ -1,7 +1,9 @@
 //! Transcribe pipeline built on the internal stage runner.
 
 use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, TokenizationMode};
-use crate::chat_ops::speaker::{SpeakerSegment as ChatSpeakerSegment, reassign_speakers};
+use crate::chat_ops::speaker::{
+    SpeakerSegment as ChatSpeakerSegment, project_speakers_onto_chunks,
+};
 use batchalign_transform::asr_postprocess::{
     self, AsrPipelineSnapshot, AsrWord, PreparedMonologueChunk, Utterance,
 };
@@ -487,12 +489,33 @@ async fn process_asr_with_prechat_segmentation(
     resolved_lang: &LanguageCode3,
 ) -> Result<Vec<Utterance>, ServerError> {
     let lang_str = resolved_lang.to_string();
+    let project_speakers = |chunks| {
+        let Some(segments) = ctx.speaker_segments.as_deref() else {
+            return chunks;
+        };
+        let segments: Vec<ChatSpeakerSegment> = segments
+            .iter()
+            .map(|segment| ChatSpeakerSegment {
+                start_ms: segment.start_ms.0,
+                end_ms: segment.end_ms.0,
+                speaker: segment.speaker.clone(),
+            })
+            .collect();
+        let projection = project_speakers_onto_chunks(chunks, &segments);
+        info!(
+            contested_timed_words = projection.stats.contested_timed_words,
+            unattested_timed_words = projection.stats.unattested_timed_words,
+            speaker_boundaries = projection.stats.speaker_boundaries,
+            "Projected diarization onto timed ASR words"
+        );
+        projection.chunks
+    };
     if !uses_prechat_utterance_model(resolved_lang) {
-        let chunks = prepare_asr_chunks_with_snapshot(
+        let chunks = project_speakers(prepare_asr_chunks_with_snapshot(
             asr_output,
             &lang_str,
             ctx.asr_pipeline_snapshot.as_mut(),
-        );
+        ));
         let mut utterances = asr_postprocess::utterances_from_prepared_chunks(chunks);
         asr_postprocess::finalize_utterances(&mut utterances, &lang_str);
         if let Some(s) = ctx.asr_pipeline_snapshot.as_mut() {
@@ -501,8 +524,11 @@ async fn process_asr_with_prechat_segmentation(
         return Ok(utterances);
     }
 
-    let prepared_chunks =
-        prepare_asr_chunks_with_snapshot(asr_output, &lang_str, ctx.asr_pipeline_snapshot.as_mut());
+    let prepared_chunks = project_speakers(prepare_asr_chunks_with_snapshot(
+        asr_output,
+        &lang_str,
+        ctx.asr_pipeline_snapshot.as_mut(),
+    ));
     if prepared_chunks.is_empty() {
         return Ok(Vec::new());
     }
@@ -663,6 +689,18 @@ fn stage_speaker_diarization<'a, 'ctx>(
             num_segments = segments.len(),
             "Speaker diarization complete"
         );
+        let filename = ctx
+            .audio_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("unknown");
+        ctx.dumper
+            .dump_speaker_turns(filename, speaker_backend, &segments)
+            .map_err(|error| {
+                ServerError::Persistence(format!(
+                    "could not retain requested same-job diarization evidence for {filename}: {error}"
+                ))
+            })?;
         ctx.speaker_segments = Some(segments);
         Ok(())
     })
@@ -749,34 +787,6 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
 
         let mut chat_file = build_chat::build_chat(&desc)
             .map_err(|e| ServerError::Validation(format!("Failed to build CHAT: {e}")))?;
-        if let Some(segments) = ctx.speaker_segments.as_deref() {
-            let diarization_segments: Vec<ChatSpeakerSegment> = segments
-                .iter()
-                .map(|segment| ChatSpeakerSegment {
-                    start_ms: segment.start_ms.0,
-                    end_ms: segment.end_ms.0,
-                    speaker: segment.speaker.clone(),
-                })
-                .collect();
-            // Parse the resolved language ONCE at this boundary into the
-            // typed `LanguageCode` that speaker reassignment threads into
-            // `@ID` headers. Fallible in chatter 0.3.0; stringified error
-            // (`LanguageCodeError` not re-exported upstream).
-            let id_header_lang = crate::chat_ops::LanguageCode::new(resolved_lang.as_ref())
-                .map_err(|e| {
-                    ServerError::Validation(format!(
-                        "transcribe: invalid resolved language code {:?} \
-                         for speaker reassignment: {e}",
-                        resolved_lang.as_ref()
-                    ))
-                })?;
-            reassign_speakers(
-                &mut chat_file,
-                &diarization_segments,
-                &id_header_lang,
-                &participant_ids,
-            );
-        }
         // Inject processing provenance comment.
         let asr_engine = match ctx.opts.backend {
             crate::transcribe::types::AsrBackend::RustRevAi => "rev",
@@ -1026,6 +1036,74 @@ mod tests {
             ctx.speaker_segments.is_none(),
             "dedicated speaker inference should be skipped when no speaker backend is configured"
         );
+    }
+
+    /// Dedicated diarization is available while ASR words still carry their
+    /// observed timings. A speaker boundary between two words must therefore
+    /// constrain utterance segmentation before CHAT is built, rather than
+    /// relabeling the already-mixed utterance afterward.
+    #[tokio::test]
+    async fn diarization_boundary_splits_timed_asr_words_before_chat_build() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let pool = WorkerPool::new(PoolConfig::default());
+        let engine_version = EngineVersion::from("test-asr");
+        let services = PipelineServices::new(&pool, &cache, &engine_version);
+        let audio_path = tempdir.path().join("sample.wav");
+        let mut opts = test_transcribe_options(Some(SpeakerBackendV2::Pyannote));
+        opts.lang = LanguageCode3::fra().into();
+
+        let mut ctx =
+            TranscribePipelineContext::new(&audio_path, services, &opts, DebugDumper::disabled());
+        ctx.asr_response = Some(AsrResponse {
+            tokens: vec![
+                AsrToken {
+                    text: "bonjour".into(),
+                    start_s: Some(DurationSeconds(0.0)),
+                    end_s: Some(DurationSeconds(0.5)),
+                    speaker: Some("ASR_0".into()),
+                    confidence: None,
+                },
+                AsrToken {
+                    text: "oui".into(),
+                    start_s: Some(DurationSeconds(0.5)),
+                    end_s: Some(DurationSeconds(1.0)),
+                    speaker: Some("ASR_0".into()),
+                    confidence: None,
+                },
+                AsrToken {
+                    text: ".".into(),
+                    start_s: None,
+                    end_s: None,
+                    speaker: Some("ASR_0".into()),
+                    confidence: None,
+                },
+            ],
+            lang: LanguageCode3::fra(),
+            source_monologues: None,
+        });
+        ctx.speaker_segments = Some(vec![
+            SpeakerSegmentV2 {
+                start_ms: crate::api::DurationMs(0),
+                end_ms: crate::api::DurationMs(500),
+                speaker: "HUMAN_A".into(),
+            },
+            SpeakerSegmentV2 {
+                start_ms: crate::api::DurationMs(500),
+                end_ms: crate::api::DurationMs(1_000),
+                speaker: "HUMAN_B".into(),
+            },
+        ]);
+
+        stage_asr_postprocess(&mut ctx).await.expect("postprocess");
+        stage_build_chat(&mut ctx).await.expect("build chat");
+
+        let chat = ctx.chat_text.expect("CHAT output");
+        assert!(chat.contains("*PAR0:\tbonjour ."), "{chat}");
+        assert!(chat.contains("*PAR1:\toui ."), "{chat}");
+        assert_eq!(chat.lines().filter(|line| line.starts_with('*')).count(), 2);
     }
 
     /// When opts.lang is "auto", stage_build_chat must resolve to the

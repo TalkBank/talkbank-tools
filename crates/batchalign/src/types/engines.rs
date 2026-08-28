@@ -948,6 +948,70 @@ impl<'de> Deserialize<'de> for TranslateEngineName {
     }
 }
 
+/// Typed speaker-diarization engine selector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SpeakerEngineName {
+    /// pyannoteAI Precision-2 cloud diarization.
+    PyannoteAi,
+    /// Local TalkBank-pinned Pyannote diarization.
+    Pyannote,
+    /// Local NeMo diarization.
+    Nemo,
+}
+
+impl EngineBackend for SpeakerEngineName {
+    fn wire_name(&self) -> &'static str {
+        match self {
+            Self::PyannoteAi => "pyannote_ai",
+            Self::Pyannote => "pyannote",
+            Self::Nemo => "nemo",
+        }
+    }
+
+    fn is_rust_owned(&self) -> bool {
+        false
+    }
+
+    fn try_from_wire_name(name: &str) -> Option<Self> {
+        Self::resolve_variant(name)
+    }
+}
+
+impl SelectableEngine for SpeakerEngineName {
+    type Selected = Self;
+    const ALL: &'static [Self] = &[Self::PyannoteAi, Self::Pyannote, Self::Nemo];
+    const DEFAULT: Self = Self::PyannoteAi;
+    const CATEGORY: &'static str = "speaker diarization";
+
+    fn selection_name(&self) -> &'static str {
+        match self {
+            Self::PyannoteAi => "pyannote-ai",
+            Self::Pyannote => "pyannote",
+            Self::Nemo => "nemo",
+        }
+    }
+
+    fn accepted_names() -> &'static [(&'static str, Self)] {
+        &[
+            ("pyannote-ai", Self::PyannoteAi),
+            ("pyannote_ai", Self::PyannoteAi),
+            ("pyannote", Self::Pyannote),
+            ("nemo", Self::Nemo),
+        ]
+    }
+
+    fn resolve(name: &str) -> Option<Self> {
+        Self::resolve_variant(name)
+    }
+}
+
+impl SpeakerEngineName {
+    /// Parse one persisted wire token.
+    pub fn from_wire_name(name: &str) -> Result<Self, UnknownEngineName> {
+        <Self as SelectableEngine>::parse_wire_name(name)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // EngineOverrides: typed engine override selection
 // ---------------------------------------------------------------------------
@@ -957,8 +1021,8 @@ impl<'de> Deserialize<'de> for TranslateEngineName {
 /// Replaces `BTreeMap<String, String>` in `CommonOptions.engine_overrides`.
 /// Only populated fields are serialized; empty overrides produce `{}`.
 ///
-/// Three top-level fields are typed (``asr`` / ``fa`` / ``translate``)
-/// because they pick *which* engine runs. Any other key is preserved
+/// Engine-selection fields are typed because they pick which engine runs.
+/// Any other key is preserved
 /// as an opaque per-engine configuration extra in [`Self::extras`].
 /// This is how the Python worker receives per-engine knobs such as
 /// ``qwen_model``, ``qwen_device``, ``funaudio_*``, etc., adding a
@@ -983,6 +1047,8 @@ pub struct EngineOverrides {
     pub utr: Option<UtrEngine>,
     /// Translate engine override (e.g., `TranslateEngineName::Seamless`).
     pub translate: Option<TranslateEngineName>,
+    /// Dedicated speaker diarization engine.
+    pub speaker: Option<SpeakerEngineName>,
     /// Opaque per-engine configuration knobs (e.g., ``qwen_model``,
     /// ``qwen_device``). Round-trips verbatim through the JSON
     /// boundary so the Python worker bootstrap can read them by name.
@@ -996,6 +1062,7 @@ impl EngineOverrides {
             && self.asr.is_none()
             && self.fa.is_none()
             && self.translate.is_none()
+            && self.speaker.is_none()
             && self.extras.is_empty()
     }
 
@@ -1045,6 +1112,9 @@ impl EngineOverrides {
                 translate.dispatch_override_name().to_owned(),
             );
         }
+        if let Some(ref speaker) = self.speaker {
+            map.insert("speaker".to_owned(), speaker.wire_name().to_owned());
+        }
         for (key, value) in &self.extras {
             map.insert(key.clone(), value.clone());
         }
@@ -1074,6 +1144,7 @@ impl Serialize for EngineOverrides {
             + self.fa.is_some() as usize
             + self.utr.is_some() as usize
             + self.translate.is_some() as usize
+            + self.speaker.is_some() as usize
             + self.extras.len();
         let mut map = serializer.serialize_map(Some(count))?;
         if let Some(ref asr) = self.asr {
@@ -1087,6 +1158,9 @@ impl Serialize for EngineOverrides {
         }
         if let Some(ref translate) = self.translate {
             map.serialize_entry("translate", translate.as_wire_name())?;
+        }
+        if let Some(ref speaker) = self.speaker {
+            map.serialize_entry("speaker", speaker.wire_name())?;
         }
         for (key, value) in &self.extras {
             map.serialize_entry(key, value)?;
@@ -1122,6 +1196,12 @@ impl<'de> Deserialize<'de> for EngineOverrides {
                 "translate" => {
                     overrides.translate = Some(
                         TranslateEngineName::from_wire_name(&value)
+                            .map_err(serde::de::Error::custom)?,
+                    );
+                }
+                "speaker" => {
+                    overrides.speaker = Some(
+                        SpeakerEngineName::from_wire_name(&value)
                             .map_err(serde::de::Error::custom)?,
                     );
                 }

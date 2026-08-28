@@ -188,6 +188,31 @@ def test_execute_speaker_request_v2_routes_nemo_backend(tmp_path: Path) -> None:
     assert captured == {"shape": (4,), "sample_rate_hz": 16000, "num_speakers": 3}
 
 
+def test_execute_speaker_request_v2_routes_pyannote_ai_backend(tmp_path: Path) -> None:
+    """Cloud requests must reach only the typed pyannoteAI host."""
+
+    called: list[str] = []
+
+    def cloud_runner(audio, sample_rate_hz, num_speakers):
+        called.append(f"cloud:{audio.shape[0]}:{sample_rate_hz}:{num_speakers}")
+        return SpeakerResponse(
+            segments=[SpeakerSegment(start_ms=0, end_ms=10, speaker="SPEAKER_00")]
+        )
+
+    response = execute_speaker_request_v2(
+        _make_request(tmp_path, backend=SpeakerBackendV2.PYANNOTE_AI),
+        SpeakerExecutionHostV2(
+            pyannote_ai_prepared_audio_runner=cloud_runner,
+            pyannote_prepared_audio_runner=lambda *_args: (_ for _ in ()).throw(
+                AssertionError("local pyannote runner must not be called")
+            ),
+        ),
+    )
+
+    assert isinstance(response.outcome, ExecuteSuccessV2)
+    assert called == ["cloud:4:16000:2"]
+
+
 def test_execute_speaker_request_v2_rejects_wrong_task() -> None:
     """A task/payload mismatch fails with a typed protocol error.
 

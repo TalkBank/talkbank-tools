@@ -1,7 +1,7 @@
 # Rev.AI Integration
 
 **Status:** Current
-**Last updated:** 2026-04-07 06:13 EDT
+**Last updated:** 2026-08-28 14:01 EDT
 
 Rev.AI is the default ASR engine for `batchalign3 transcribe`, and the default
 UTR engine for `batchalign3 align`.
@@ -40,8 +40,10 @@ batchalign3 align corpus/ -o aligned/ --utr-engine rev
 - BA3 still performs its own utterance segmentation after ASR; speaker
   attribution and utterance boundary detection are separate steps.
 - If you pass `--diarize` (or `--diarization enabled`), BA3 runs the separate
-  Pyannote/NeMo speaker stage as a post-ASR relabeling pass even on top of Rev
-  output, matching Jan 9 BA2's `transcribe_s` behavior.
+  speaker stage even on top of Rev output. Dedicated labels replace Rev's
+  speaker projection, are applied to timed ASR words, and split chunks before
+  utterance segmentation. pyannoteAI Precision-2 is the default;
+  `--speaker-engine pyannote` and `nemo` select local alternatives.
 
 ## Use a local model instead
 
@@ -59,6 +61,7 @@ batchalign3 transcribe recordings/ -o transcripts/ --asr-engine whisper-oai --la
 
 ## Privacy note
 
-Using Rev.AI sends audio to an external service. If your workflow has data-use
-or IRB constraints, review your Rev.AI account settings and your local policy
-before sending production data.
+Using Rev.AI sends audio to an external service. Enabling the default
+pyannoteAI speaker engine sends it to a second external service. If your
+workflow has data-use or IRB constraints, review both accounts and your local
+policy before sending production data.

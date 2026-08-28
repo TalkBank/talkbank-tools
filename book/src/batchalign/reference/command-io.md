@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-08-06 16:10 EDT
+**Last updated:** 2026-08-28 14:01 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -111,7 +111,7 @@ paths-mode preparation.
 | **Extensions filter** | `["mp3", "mp4", "wav"]` | Same |
 | **Output** | New `.cha` files (audio extension replaced: `foo.wav` → `foo.cha`) | Same `.cha` files returned to the client, which writes them locally |
 | **Mutation** | **Never mutates input.** Creates new `.cha` files in `OUT_DIR`. Original audio untouched. If `OUT_DIR = IN_DIR`, the new `.cha` appears alongside the audio. | Same |
-| **Key options** | `--asr-engine`, `--diarization`, `--wor/--nowor`, `--lang`, `--num-speakers`, `--batch-size` | Same |
+| **Key options** | `--asr-engine`, `--diarization`, `--speaker-engine`, `--wor/--nowor`, `--lang`, `--num-speakers`, `--batch-size` | Same |
 
 **Current routing note (Rust CLI):** when `auto_daemon` is enabled (the
 default), `transcribe`-family commands try the local daemon first. Explicit
@@ -121,6 +121,13 @@ unavailable.
 **What gets created:** A new `.cha` file per audio file. Contains `@Comment`
 line with Batchalign version and ASR engine name, `@Languages`, `@Participants`,
 `@ID`, and utterance lines with timing. No `%mor`/`%gra` tiers.
+
+When both `--diarization enabled` and `--debug-dir PATH` are supplied, BA3
+also writes `<audio-stem>.turns.json` under that server-side debug
+directory. It contains the exact dedicated turns used for word projection,
+uses the same `PAR` coordinate system as CHAT, and records the selected speaker
+backend. An enabled write failure fails the file rather than silently losing
+the requested evidence.
 
 **Segmentation note:** speaker attribution and utterance segmentation are
 separate. With Rev.AI, BA3 uses the provider's speaker labels even without
@@ -150,7 +157,9 @@ should prefer `--diarization` and `--asr-engine`.
 ### 3. transcribe_s (transcribe --diarize)
 
 Identical to `transcribe` above, except the pipeline may run a dedicated
-Pyannote speaker diarization stage when separate diarization is needed. Output
+speaker diarization stage when separate diarization is needed. The default is
+pyannoteAI Precision-2; `--speaker-engine pyannote` and `nemo` select local
+alternatives. Output
 `.cha` files have multiple `@Participants` and speaker-attributed utterances.
 Not a separate CLI command, triggered by `batchalign3 transcribe --diarize`.
 
@@ -159,16 +168,17 @@ Not a separate CLI command, triggered by `batchalign3 transcribe --diarize`.
 not return speaker labels. For Rev.AI (the default engine), speaker labels are
 already present in the ASR response and are always applied without
 `--diarize`, so the normal Rev.AI path already produces speaker-attributed
-output. When `--diarize` is explicitly requested, BA3 runs the dedicated
-Pyannote stage as a post-processing speaker relabeling step even on top of
-Rev-labeled output, matching `batchalign2-jan9`. Utterance segmentation remains
-a separate step from diarization in both paths, and still runs on the default
-Rev.AI path.
+output. When `--diarize` is explicitly requested, BA3 ignores Rev's speaker
+projection, projects the dedicated segments onto timed ASR words, splits chunks
+at speaker changes, and only then runs utterance segmentation and CHAT
+assembly. Utterance segmentation remains a distinct model stage, but it now
+receives speaker-safe chunks.
 
-**BA2 parity note:** BA2's CLI/pipeline wiring for `transcribe_s` is
+**BA2 comparison note:** BA2's CLI/pipeline wiring for `transcribe_s` is
 `asr,speaker`, and its speaker processor relabels already built utterances from
-Pyannote segments. BA3 now follows that audited BA2 behavior for explicit
-`--diarize`.
+Pyannote segments. BA3 deliberately improves this integration by applying
+speaker evidence before utterance segmentation, where it can preserve a real
+speaker boundary instead of assigning one label to a mixed-speaker utterance.
 
 ---
 

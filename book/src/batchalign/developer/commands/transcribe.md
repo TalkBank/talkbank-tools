@@ -1,7 +1,7 @@
 # transcribe: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-08-28 15:08 EDT
 
 Implementation guide for the `transcribe` command. For user-facing
 documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe.md).
@@ -12,18 +12,21 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `TranscribeArgs` | ASR engine, diarization, lang, num-speakers |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `TranscribeArgs` | Typed ASR and speaker engines, diarization, lang, num-speakers |
 | Options builder | `crates/batchalign/src/cli/args/options.rs:195-243` (inline dispatch) | Maps `TranscribeArgs` → `CommandOptions::Transcribe(TranscribeOptions)` |
 | Catalog entry | `crates/batchalign/src/recipe_runner/catalog.rs` | the `CatalogEntry` for `transcribe` |
 | Stage recipe | `crates/batchalign/src/recipe_runner/recipes.rs` | `TRANSCRIBE_RECIPE` |
-| Pipeline orchestration | `crates/batchalign/src/pipeline/transcribe.rs`: `run_transcribe_pipeline()` | 7-stage sequencer: ASR → post-process → (opt) diarization → build CHAT → (opt) utseg → (opt) morphotag → serialize |
+| Pipeline orchestration | `crates/batchalign/src/pipeline/transcribe.rs`: `run_transcribe_pipeline()` | ASR, optional dedicated diarization, post-process, speaker projection, pre-CHAT utseg, CHAT assembly, optional morphotag, serialize |
 | Per-file dispatch | `crates/batchalign/src/runner/dispatch/transcribe_pipeline.rs` | Concurrent file orchestration bounded by semaphore |
 | ASR post-processing | `crates/batchalign-transform/src/asr_postprocess/mod.rs` | 8 stages: compound merge, MWT split, number expand, Cantonese norm, long-turn split, retokenization, disfluency, retrace detection |
 | Pre-CHAT utterance segmentation | `crates/batchalign/src/pipeline/transcribe.rs:421-457`: `process_asr_with_prechat_segmentation()` | Runs for eng/cmn/zho/yue: BERT utseg applied to prepared chunks BEFORE build_chat |
 | CHAT assembly | `crates/batchalign-transform/src/build_chat/mod.rs:41`: `build_chat()` | Assembles `ChatFile` AST from `TranscriptDescription` (typed bridge) |
-| Speaker reassignment | `crates/batchalign/src/chat_ops/speaker.rs:32`: `reassign_speakers()` | Rewrites speaker codes + headers from diarization segments (runs post-build_chat) |
+| Speaker projection | `crates/batchalign/src/chat_ops/speaker.rs`: `project_speakers_onto_chunks()` | Projects raw segments onto timed ASR words and splits prepared chunks before utseg and CHAT assembly |
+| Same-job turn retention | `crates/batchalign/src/runner/debug_dumper.rs`: `dump_speaker_turns()` | When `--debug-dir` is set, writes the exact dedicated turns used by transcribe or returns a typed failure |
+| Canonical turns schema | `crates/batchalign/src/runner/dispatch/diarize_turns.rs` | Serializes chatter-compatible turns with backend-derived provenance |
 | ASR worker IPC | `batchalign/inference/asr.py` | Whisper/Rev.AI ASR, returns raw tokens |
-| Speaker worker IPC | `batchalign/inference/speaker.py`: `batch_infer_speaker()` | Pyannote/NeMo diarization, returns speaker segments |
+| Speaker worker IPC | `batchalign/inference/speaker.py`: `batch_infer_speaker()` | Exhaustive dispatch over pyannoteAI, local Pyannote, and NeMo, returning raw millisecond segments |
+| pyannoteAI adapter | `batchalign/inference/pyannote_ai.py` | Typed prepare, upload, submit, complete lifecycle for Precision-2 exclusive diarization |
 
 ---
 
@@ -72,15 +75,19 @@ All ASR post-processing runs in Rust (`crates/batchalign-transform/src/asr_postp
 
 ## Pre-CHAT utterance segmentation (lang-specific)
 
-For **eng, cmn, zho, yue**, a BERT-based utterance segmentation model runs **after ASR post-processing** but **before CHAT assembly**:
+For **eng, cmn, zho, yue**, a BERT-based utterance segmentation model runs
+**after ASR post-processing and dedicated speaker projection** but **before
+CHAT assembly**:
 
 - Implemented in `crates/batchalign/src/pipeline/transcribe.rs:421-457`: `process_asr_with_prechat_segmentation()`
 - Called only when `uses_prechat_utterance_model(resolved_lang)` is true (lines 387-389)
 - Workflow:
   1. Prepare ASR chunks (stages 1-8 above)
-  2. Call `infer_utseg_assignments()` to get per-chunk segment boundaries from worker
-  3. Apply `split_prepared_chunk_by_assignments()` to split chunks at boundaries
-  4. Convert to final utterances + finalize
+  2. If dedicated diarization ran, project its segments onto timed words with
+     `project_speakers_onto_chunks()` and split chunks at speaker changes
+  3. Call `infer_utseg_assignments()` to get per-chunk segment boundaries from worker
+  4. Apply `split_prepared_chunk_by_assignments()` to split chunks at boundaries
+  5. Convert to final utterances and finalize
 - **Purpose:** Improve sentence boundary detection for languages with ambiguous punctuation
 - For all other languages: skip pre-CHAT segmentation; use punctuation-based retokenization only
 
@@ -119,6 +126,7 @@ execute_v2 request:
 {
   "task": "speaker",
   "prepared_audio": { path, ... },
+  "backend": "pyannote_ai" | "pyannote" | "nemo",
   "num_speakers": 2
 }
 
@@ -131,8 +139,36 @@ execute_v2 response:
 }
 ```
 
-`reassign_speakers()` in `crates/batchalign/src/chat_ops/speaker.rs` then relabels utterances using
-these segments as the authoritative source.
+The typed CLI selector `SpeakerEngineName` maps exhaustively to
+`SpeakerBackendV2`. When no explicit speaker engine is supplied, enabled
+diarization selects `PyannoteAi`. The cloud adapter uses explicit lifecycle
+states: `PreparedWav`, `UploadedMedia`, `SubmittedDiarizationJob`, and
+`CompletedDiarizationJob`. Only a completed job can be converted to speaker
+segments. It requests `exclusive: true` and prefers `exclusiveDiarization`,
+which is the provider output designed for ASR reconciliation.
+
+`project_speakers_onto_chunks()` treats those segments as authoritative before
+utterance segmentation. Each timed ASR word receives the label with the
+greatest summed overlap. The operation then splits prepared chunks at label
+changes. It reports contested words, unattested words, and inserted boundaries;
+untimed tokens inherit adjacent evidence, and timed gaps take the nearest
+dedicated segment. Once the dedicated segment set is nonempty, the projection
+type cannot emit an ASR-origin label.
+
+`DiarizationLabelCoordinates` is the sole coordinate map from model-native
+labels to anonymous speaker indices. Both CHAT projection and canonical turns
+serialization consume this type. This prevents a valid but false state where
+`PAR0` in CHAT identifies a different voice from `PAR0` in the retained turns
+artifact.
+
+When `--debug-dir` is enabled, `stage_speaker_diarization()` calls
+`DebugDumper::dump_speaker_turns()` before moving the segments into pipeline
+state. Its result is `SpeakerTurnsDumpOutcome::Disabled` or
+`SpeakerTurnsDumpOutcome::Written(PathBuf)`. Enabled failures are typed as
+`SpeakerTurnsDumpError` and fail the file. Provenance is derived exhaustively
+from `SpeakerBackendV2` through `SpeakerTurnsSource`; callers cannot attach an
+arbitrary source string. The current file is an interim research artifact, not
+the final versioned evidence-sidecar architecture.
 
 ---
 

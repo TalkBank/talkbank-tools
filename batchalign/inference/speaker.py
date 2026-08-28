@@ -59,7 +59,11 @@ def infer_speaker_prepared_audio(
     to tell that from having asked for two.
     """
 
-    if engine == "nemo":
+    if engine == "pyannote_ai":
+        from batchalign.inference.pyannote_ai import infer_pyannote_ai
+
+        segments = infer_pyannote_ai(audio, sample_rate_hz, num_speakers)
+    elif engine == "nemo":
         segments = infer_nemo_speaker_prepared_audio(
             audio,
             sample_rate_hz,

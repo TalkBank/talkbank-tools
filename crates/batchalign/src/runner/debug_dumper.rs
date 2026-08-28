@@ -12,7 +12,11 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use crate::api::DurationMs;
+use crate::runner::dispatch::diarize_turns::{
+    SpeakerTurnsSource, TurnsBuildError, format_turns_json,
+};
 use crate::types::traces::FaGroupTrace;
+use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 
 /// Pipeline debug artifact writer.
 ///
@@ -22,6 +26,41 @@ use crate::types::traces::FaGroupTrace;
 /// no-ops.
 pub(crate) struct DebugDumper {
     dir: Option<PathBuf>,
+}
+
+/// Observable result of requesting a same-job speaker-turn dump.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SpeakerTurnsDumpOutcome {
+    /// Debug artifact collection was not requested for this run.
+    Disabled,
+    /// The canonical turns artifact was durably written at this path.
+    Written(PathBuf),
+}
+
+/// Failures while retaining the exact diarization turns used by transcribe.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum SpeakerTurnsDumpError {
+    /// The configured debug directory could not be created.
+    #[error("failed to create speaker-turn artifact directory {}: {source}", path.display())]
+    CreateDirectory {
+        /// Directory requested by the job.
+        path: PathBuf,
+        /// Underlying filesystem failure.
+        #[source]
+        source: std::io::Error,
+    },
+    /// Worker segments could not be represented by the canonical schema.
+    #[error("failed to build canonical speaker-turn artifact: {0}")]
+    Build(#[from] TurnsBuildError),
+    /// The completed artifact could not be written.
+    #[error("failed to write speaker-turn artifact {}: {source}", path.display())]
+    Write {
+        /// Intended artifact path.
+        path: PathBuf,
+        /// Underlying filesystem failure.
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 /// Per-group FA dump data for offline replay.
@@ -236,6 +275,42 @@ impl DebugDumper {
         info!(%filename, response = %path.display(), "ASR response debug data dumped");
     }
 
+    /// Retain the exact same-job diarization turns used by transcribe.
+    ///
+    /// Unlike older debug dumps, this method does not swallow an enabled
+    /// write failure. A job that explicitly requests this evidence either
+    /// receives a typed `Written` outcome or fails before the turns can be
+    /// discarded.
+    pub(crate) fn dump_speaker_turns(
+        &self,
+        filename: &str,
+        backend: SpeakerBackendV2,
+        segments: &[SpeakerSegmentV2],
+    ) -> Result<SpeakerTurnsDumpOutcome, SpeakerTurnsDumpError> {
+        let Some(dir) = self.dir.as_deref() else {
+            return Ok(SpeakerTurnsDumpOutcome::Disabled);
+        };
+        std::fs::create_dir_all(dir).map_err(|source| SpeakerTurnsDumpError::CreateDirectory {
+            path: dir.to_path_buf(),
+            source,
+        })?;
+
+        let text = format_turns_json(SpeakerTurnsSource::from_backend(backend), segments)?;
+        let path = dir.join(format!("{}.turns.json", Self::stem(filename)));
+        std::fs::write(&path, text).map_err(|source| SpeakerTurnsDumpError::Write {
+            path: path.clone(),
+            source,
+        })?;
+        info!(
+            %filename,
+            backend = ?backend,
+            turns = segments.len(),
+            artifact = %path.display(),
+            "Same-job speaker turns dumped"
+        );
+        Ok(SpeakerTurnsDumpOutcome::Written(path))
+    }
+
     /// Dump CHAT text after CHAT assembly (post-ASR, pre-utseg).
     pub(crate) fn dump_post_asr_chat(&self, filename: &str, chat_text: &str) {
         let Some(dir) = self.ensure_dir() else {
@@ -288,6 +363,58 @@ impl DebugDumper {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
+
+    fn speaker_segment(speaker: &str, start_ms: u64, end_ms: u64) -> SpeakerSegmentV2 {
+        SpeakerSegmentV2 {
+            start_ms: DurationMs(start_ms),
+            end_ms: DurationMs(end_ms),
+            speaker: speaker.to_owned(),
+        }
+    }
+
+    #[test]
+    fn disabled_speaker_turns_dump_reports_disabled_without_writing() {
+        let dumper = DebugDumper::disabled();
+        let outcome = dumper
+            .dump_speaker_turns(
+                "sample.wav",
+                SpeakerBackendV2::PyannoteAi,
+                &[speaker_segment("SPEAKER_00", 10, 20)],
+            )
+            .expect("disabled dumping is not an error");
+
+        assert_eq!(outcome, SpeakerTurnsDumpOutcome::Disabled);
+    }
+
+    #[test]
+    fn speaker_turns_dump_writes_backend_provenance_and_canonical_tracks() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let dumper = DebugDumper::new(Some(dir.path()));
+        let outcome = dumper
+            .dump_speaker_turns(
+                "sample.wav",
+                SpeakerBackendV2::PyannoteAi,
+                &[
+                    speaker_segment("SPEAKER_01", 500, 900),
+                    speaker_segment("SPEAKER_00", 0, 500),
+                ],
+            )
+            .expect("valid speaker turns should be written");
+
+        let expected_path = dir.path().join("sample.turns.json");
+        assert_eq!(
+            outcome,
+            SpeakerTurnsDumpOutcome::Written(expected_path.clone())
+        );
+        let value: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(expected_path).expect("read speaker turns"),
+        )
+        .expect("parse speaker turns");
+        assert_eq!(value["source"], "batchalign3:pyannote_ai:precision-2");
+        assert_eq!(value["turns"][0]["track"], "PAR0");
+        assert_eq!(value["turns"][1]["track"], "PAR1");
+    }
 
     #[test]
     fn disabled_dumper_is_noop() {

@@ -111,6 +111,7 @@ pub(crate) fn extract_fa_dispatch_params(
 #[derive(Debug, PartialEq)]
 pub(crate) struct TranscribeDispatchParams {
     pub asr_engine: AsrEngineName,
+    pub speaker_engine: Option<crate::options::SpeakerEngineName>,
     pub diarize: bool,
     pub wor_tier: WorTierPolicy,
     pub batch_size: i32,
@@ -143,6 +144,7 @@ pub(crate) fn extract_transcribe_dispatch_params(
         CommandOptions::Transcribe(t) | CommandOptions::TranscribeS(t) => {
             Some(TranscribeDispatchParams {
                 asr_engine: t.effective_asr_engine(),
+                speaker_engine: t.common.engine_overrides.speaker,
                 diarize: t.diarize,
                 wor_tier: t.wor,
                 batch_size: t.batch_size,

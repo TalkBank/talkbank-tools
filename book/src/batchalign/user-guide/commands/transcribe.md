@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-08-05 20:38 EDT
+**Last updated:** 2026-08-28 15:08 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -21,15 +21,35 @@ batchalign3 transcribe recordings/ -o transcripts/ --lang eng
 # Auto-detect language (useful for bilingual/code-switched audio)
 batchalign3 transcribe bilingual.wav -o out/ --lang auto
 
-# Transcribe with dedicated speaker diarization (Whisper, multiple speakers)
+# Transcribe with paid pyannoteAI Precision-2 diarization, the default
 batchalign3 transcribe interview.wav -o out/ --asr-engine whisper --diarization enabled
+
+# Keep all audio local and use the TalkBank-pinned Pyannote model
+batchalign3 transcribe interview.wav -o out/ --diarization enabled --speaker-engine pyannote
 
 # Use the remote server
 batchalign3 --server http://your-server:8001 transcribe corpus/ -o out/ --lang eng
 ```
 
-If you enable dedicated speaker diarization for the first time on a machine,
-authenticate Hugging Face first:
+Dedicated diarization defaults to the pyannoteAI Precision-2 cloud model. Set
+its API key in the environment:
+
+```bash
+export BATCHALIGN_PYANNOTE_API_KEY="your-key"
+```
+
+`PYANNOTE_API_KEY` and `BATCHALIGN_PYANNOTE_KEY` are also accepted. For
+compatibility with existing installations, BA3 also reads
+`engine.pyannote.key` from the `[diarize]` section of `~/.batchalign.ini`.
+The environment variables take precedence.
+
+pyannoteAI receives the recording through its temporary-media API. Its use can
+incur account charges, so confirm the account plan and the recording's data-use
+or IRB rules before running it. Job output is not written into the API key
+configuration.
+
+For the local `--speaker-engine pyannote` alternative, authenticate Hugging
+Face first:
 
 ```bash
 hf auth login
@@ -38,10 +58,10 @@ hf auth login
 You may also need to accept the diarization model's terms in the browser once
 before retrying the command.
 
-At the moment this uses **ambient Hugging Face auth**, not the Rust-owned
-provider-credential path used for Rev.AI. In practice that means the machine
-running `batchalign3` must already have a valid `hf auth login` cache/keychain
-entry, or an `HF_TOKEN` exported in that process environment.
+The local engine uses ambient Hugging Face auth. The machine running
+`batchalign3` must have a valid `hf auth login` cache/keychain entry, or an
+`HF_TOKEN` exported in that process environment. `--speaker-engine nemo` is a
+second local alternative.
 
 ---
 
@@ -78,8 +98,11 @@ flowchart TD
     asr_tokens --> convert["convert_asr_response()\nGroups tokens by speaker label"]
     convert --> dedicated_check{"--diarization enabled?"}
     dedicated_check -->|No| postprocess
-    dedicated_check -->|Yes| speaker_v2["execute_v2(task=speaker)\nprepared audio → diarization segments\nPost-ASR relabeling via Pyannote or NeMo"]
-    speaker_v2 --> postprocess
+    dedicated_check -->|Yes| speaker_v2["execute_v2(task=speaker)\nprepared audio → diarization segments\npyannoteAI Precision-2 by default"]
+    speaker_v2 --> retain_check{"--debug-dir?"}
+    retain_check -->|Yes| retain_turns["Write same-job canonical speaker turns\nwith typed backend provenance"]
+    retain_check -->|No| postprocess
+    retain_turns --> postprocess
 
     subgraph postprocess ["Rust post-processing: process_raw_asr()"]
         direction TB
@@ -94,16 +117,17 @@ flowchart TD
         p7 --> p8[8. N-gram retrace detection\nwrap repeated n-grams in `&lt;...&gt; [/]`]
     end
 
-    postprocess --> build_chat["build_chat → ChatFile AST\nHeaders, participants, %wor tiers"]
-    build_chat --> speaker_apply{Dedicated speaker\nsegments present?}
-    speaker_apply -->|Yes| reassign["reassign_speakers()\nRewrite utterance speakers +\n@Participants + @ID headers"]
+    postprocess --> speaker_apply{Dedicated speaker\nsegments present?}
+    speaker_apply -->|Yes| project["Project segments onto timed ASR words\nby greatest summed overlap\nSplit chunks at speaker changes"]
     speaker_apply -->|No| utseg_check{"with_utseg?\ndefault: true"}
-    reassign --> utseg_check
+    project --> utseg_check
 
     utseg_check -->|Yes| run_utseg[process_utseg\nBERT-based re-segmentation]
     utseg_check -->|No| mor_check{"with_morphosyntax?\ndefault: false"}
 
-    run_utseg --> mor_check
+    run_utseg --> build_chat["build_chat → ChatFile AST\nHeaders, participants, %wor tiers"]
+    utseg_check -->|No| build_chat
+    build_chat --> mor_check
     mor_check -->|Yes| run_mor[process_morphosyntax\nPOS + lemma + depparse]
     mor_check -->|No| merge_check
 
@@ -149,7 +173,8 @@ CHAT transcripts.
 | `--asr-engine NAME` | `rev` | ASR engine; see the table below. `--help` prints the same list, generated from the engines that exist, so neither can go stale. |
 | `--asr-engine-custom NAME` |: | **Deprecated alias for `--asr-engine`**, still honoured so existing scripts keep working. Hidden from `--help`. |
 | `--num-speakers N` | `2` | Expected number of speakers. NOT a worker count; see `--workers`. No short flag, deliberately: see below. |
-| `--diarization {auto,enabled,disabled}` | `auto` | Dedicated Pyannote speaker diarization stage (`auto` = disabled) |
+| `--diarization {auto,enabled,disabled}` | `auto` | Dedicated speaker diarization stage (`auto` = disabled) |
+| `--speaker-engine {pyannote-ai,pyannote,nemo}` | `pyannote-ai` when enabled | Paid pyannoteAI Precision-2 cloud diarization, or an explicit local engine |
 | `--wor` / `--nowor` | `--nowor` | Include or suppress the `%wor` word-timing tier |
 | `--merge-abbrev` | off | Merge abbreviations in the output |
 | `--utseg-fallback-stanza` | off | Opt in to the legacy Stanza constituency-parser fallback for utterance segmentation when no TalkBank BERT model is configured for `--lang`. Default refuses substitution. See [utseg → Language support](utseg.md#language-support). |
@@ -217,26 +242,54 @@ batchalign3 transcribe Mandarin_mp3 -o out --lang zho --asr-engine paraformer
 
 ---
 
-## Speaker labeling: Rev.AI vs Whisper
+## Speaker labeling and segmentation
 
 This is the most common source of confusion with `transcribe`.
 
 **Rev.AI (default engine):** Rev.AI returns speaker labels as part of its ASR
 response. These labels are **always** applied, you get multi-speaker output
 without passing `--diarization enabled`. Passing `--diarization enabled`
-explicitly runs an additional Pyannote post-ASR relabeling stage on top of the
-Rev labels, matching BA2's audited `transcribe_s` pipeline behavior.
+explicitly makes dedicated diarization authoritative and ignores Rev's speaker
+projection. The default dedicated engine is pyannoteAI Precision-2.
 
 **Whisper-based engines** (`--asr-engine whisper`, `whisperx`, `whisper-oai`):
 these engines produce no speaker labels. Without `--diarization enabled`, all
 utterances are attributed to a single default speaker. Pass
-`--diarization enabled` to run a dedicated Pyannote stage that assigns speaker
+`--diarization enabled` to run a dedicated speaker stage that assigns speaker
 identities.
 
 **`--diarization auto`** (the default) = disabled dedicated stage. Equivalent
 to BA2's `--nodiarize`. The BA2 help text claiming Rev.AI ignored `--diarize`
 was stale, the actual BA2 `transcribe_s` pipeline wiring ran the dedicated
 stage.
+
+Dedicated diarization is integrated before utterance segmentation. BA3 first
+post-processes the timed ASR words, then assigns each timed word to the speaker
+with the greatest summed diarization overlap and splits prepared chunks where
+that label changes. The language-specific utterance model therefore sees the
+speaker boundaries and cannot merge across them. Untimed punctuation inherits
+the nearby timed label. Timed words in gaps take the nearest dedicated segment
+label. Once dedicated evidence exists, no word can re-enter the unrelated ASR
+label space and create a phantom participant. Diagnostics report contested
+words, unattested words, and inserted speaker boundaries.
+
+### Retaining the exact diarization turns used by transcription
+
+For research, replay, or merge-pipeline evaluation, pass `--debug-dir PATH`
+with `--diarization enabled`. In addition to the other debug artifacts, BA3
+writes one `<audio-stem>.turns.json` file containing the exact
+dedicated segments used to build that transcript. The artifact uses the same
+deterministic `PAR` coordinate system as the generated CHAT and records typed
+backend provenance, including `batchalign3:pyannote_ai:precision-2` for the
+cloud default.
+
+When this artifact is requested, failure to create or write it fails the file
+instead of silently discarding the evidence. With a remote server, `PATH` is
+on the server host; the CLI sends an absolute path.
+
+This debug artifact supports current experiments but is not yet the planned
+durable, versioned alignment and diarization evidence format. Keep the run
+manifest and generated CHAT with it.
 
 ---
 

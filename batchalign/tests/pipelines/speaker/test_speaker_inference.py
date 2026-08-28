@@ -74,6 +74,33 @@ def test_infer_speaker_prepared_audio_routes_pyannote(monkeypatch) -> None:
     )
 
 
+def test_infer_speaker_prepared_audio_routes_pyannote_ai(monkeypatch) -> None:
+    """The high-level entrypoint should route cloud diarization explicitly."""
+
+    captured: dict[str, object] = {}
+
+    def fake_pyannote_ai(audio, sample_rate_hz, num_speakers):
+        captured["audio"] = audio.copy()
+        captured["sample_rate_hz"] = sample_rate_hz
+        captured["num_speakers"] = num_speakers
+        return [SpeakerSegment(start_ms=0, end_ms=100, speaker="SPEAKER_00")]
+
+    monkeypatch.setattr(
+        "batchalign.inference.pyannote_ai.infer_pyannote_ai", fake_pyannote_ai
+    )
+
+    response = infer_speaker_prepared_audio(
+        np.asarray([0.1, 0.2], dtype=np.float32),
+        16000,
+        num_speakers=2,
+        engine="pyannote_ai",
+    )
+
+    assert response.segments[0].speaker == "SPEAKER_00"
+    assert captured["sample_rate_hz"] == 16000
+    assert captured["num_speakers"] == 2
+
+
 def test_infer_speaker_prepared_audio_routes_nemo(monkeypatch) -> None:
     """The high-level speaker entrypoint should forward NeMo requests and device policy."""
 

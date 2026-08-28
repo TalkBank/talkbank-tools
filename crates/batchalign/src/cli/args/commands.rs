@@ -8,8 +8,8 @@
 use clap::{Args, Subcommand, ValueEnum};
 
 use crate::types::engines::{
-    AsrEngineName, AsrSelection, FaEngineName, SelectableEngine, TranslateEngineName,
-    UtrEngine as AppUtrEngine,
+    AsrEngineName, AsrSelection, FaEngineName, SelectableEngine, SpeakerEngineName,
+    TranslateEngineName, UtrEngine as AppUtrEngine,
 };
 
 use super::{CommonOpts, IncrementalOpts};
@@ -415,6 +415,10 @@ pub struct TranscribeArgs {
     /// Speaker diarization mode: auto (default), enabled, or disabled.
     #[arg(long, value_enum, default_value_t)]
     pub diarization: DiarizationMode,
+
+    /// Dedicated diarization engine. Defaults to pyannoteAI when diarization is enabled.
+    #[arg(long, value_parser = engine_selection_parser::<SpeakerEngineName>())]
+    pub speaker_engine: Option<SpeakerEngineName>,
 
     /// Write word-level alignment (%wor) tier.
     #[arg(long, conflicts_with = "nowor")]

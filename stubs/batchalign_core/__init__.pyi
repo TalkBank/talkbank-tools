@@ -53,6 +53,7 @@ def execute_avqi_request_v2(
 ) -> str: ...
 def execute_speaker_request_v2(
     request: object,
+    pyannote_ai_prepared_audio_runner: Callable[..., object] | None = None,
     pyannote_prepared_audio_runner: Callable[..., object] | None = None,
     nemo_prepared_audio_runner: Callable[..., object] | None = None,
 ) -> str: ...

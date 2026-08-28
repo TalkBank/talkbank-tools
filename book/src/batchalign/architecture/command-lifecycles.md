@@ -1,7 +1,7 @@
 # Command Lifecycles
 
 **Status:** Current
-**Last updated:** 2026-05-03 08:50 EDT
+**Last updated:** 2026-08-28 14:01 EDT
 
 End-to-end sequence diagrams showing how jobs flow through the system,
 from CLI invocation to output files. Every batchalign command now fits one
@@ -368,8 +368,8 @@ only controls whether a dedicated Pyannote/NeMo stage runs, it does not
 suppress ASR-provided labels. This means `batchalign3 transcribe` (without
 `--diarization`) still produces multi-speaker output when Rev.AI returns
 speaker-labeled monologues. When `--diarization enabled` is explicitly
-requested, BA3 now follows BA2 and still runs the dedicated speaker stage as a
-post-ASR relabeling pass, even on top of Rev-labeled output.
+requested, BA3 runs the dedicated speaker stage even on top of Rev-labeled
+output and applies its evidence before utterance segmentation.
 
 **Rev.AI `skip_postprocessing`:** For English only,
 `skip_postprocessing=true` is sent to Rev.AI (matching BA2), so BA3's own
@@ -425,9 +425,12 @@ sequenceDiagram
         Server->>Pool: checkout worker
         Pool-->>Server: CheckedOutWorker
         Server->>W: execute_v2(task="speaker", prepared_audio)
-        Note over W: Run diarization model<br/>(Pyannote default, NeMo optional)
+        Note over W: Run diarization model<br/>(pyannoteAI default, local alternatives explicit)
         W-->>Server: typed raw speaker result (speaker_result)
         Note over Server: Worker returned to pool
+        opt --debug-dir configured
+            Server->>Server: Write exact same-job canonical turns<br/>with typed backend provenance
+        end
     end
 
     Note over Server: Rust ASR normalization over typed monologues
@@ -439,6 +442,9 @@ sequenceDiagram
     Server->>Server: 4b. Cantonese normalization (lang=yue only)
     Server->>Server: 5. Long-turn splitting (chunk at >300 words)
     Server->>Server: 5b. Long-pause fallback splitting
+    opt dedicated speaker segments present
+        Server->>Server: project_speakers_onto_chunks():<br/>assign timed words by summed overlap,<br/>split at speaker changes
+    end
     opt language has BA2 utterance model (eng/zho/yue)
         Server->>W: execute_v2(task="utseg", prepared word batch)
         Note over W: BA2-style model returns typed boundary assignments
@@ -450,10 +456,6 @@ sequenceDiagram
 
     Server->>Server: build_chat(): ChatFile AST
     Note over Server: Generate headers: @Languages, @Participants,<br/>@ID (PAR/INV/CHI/MOT...), @Media<br/>Build utterances with %wor tiers<br/>Speaker codes from ASR labels used directly
-    opt dedicated speaker segments present
-        Server->>Server: reassign_speakers(): rewrite utterance speakers,<br/>@Participants, and @ID from raw diarization segments
-    end
-
     opt with_utseg=true (default)
         Server->>Server: process_utseg(): re-segment utterance boundaries
     end
@@ -490,14 +492,19 @@ sequenceDiagram
 2b. **Speaker label handling:** `convert_asr_response()` **always** groups tokens
    by their speaker labels when present. There is no `use_speaker_labels`
    parameter, this matches BA2's unconditional speaker reading. The
-   `--diarization` flag only gates the dedicated Pyannote/NeMo stage (step 2c),
+   `--diarization` flag only gates the dedicated speaker stage (step 2c),
    not the use of ASR-provided labels.
 2c. **Dedicated diarization** (optional): If `--diarization enabled` is set, the
-   server dispatches `execute_v2(task="speaker")` to run Pyannote (default) or
-   NeMo as a post-ASR speaker relabeling stage. This now matches Jan 9 BA2's
-   `transcribe_s = asr,speaker` behavior: ASR-provided labels are still
-   read first, but an explicit diarization request can overwrite them with the
-   dedicated speaker result.
+   server dispatches `execute_v2(task="speaker")`. The typed backend is
+   pyannoteAI Precision-2 by default, with local Pyannote and NeMo alternatives.
+   ASR-provided labels are read first, but the explicit dedicated result is
+   authoritative.
+2d. **Same-job turn retention** (optional): If `--debug-dir` is configured,
+   BA3 writes the exact dedicated segments before they can be discarded. The
+   typed label-coordinate map is shared with CHAT projection, provenance is
+   derived from `SpeakerBackendV2`, and an enabled write failure fails the file.
+   This is an interim debug/research artifact, not the final durable evidence
+   sidecar.
 3. **All post-processing happens in Rust** (`batchalign`), not Python.
    The normalization stages in `prepare_asr_chunks()` are:
    1. *Compound merging*, joins adjacent subword tokens
@@ -509,7 +516,9 @@ sequenceDiagram
    5. *Long-turn splitting*, chunk monologues at >300 words
    5b. *Long-pause fallback splitting*, split strongly separated runs when
        provider punctuation is missing
-4. **Pre-CHAT utterance segmentation:** For supported languages (`eng`, `zho`,
+4. **Speaker projection and pre-CHAT utterance segmentation:** Dedicated
+   segments are first projected onto timed ASR words by greatest summed overlap,
+   and prepared chunks are split at label changes. For supported languages (`eng`, `zho`,
    `yue`), BA3 now calls the BA2 utterance model at this seam through the V2
    `utseg` worker task. Python returns typed word-group assignments, Rust
    applies them to the prepared ASR chunks, and only then does punctuation
@@ -520,9 +529,8 @@ sequenceDiagram
    equivalent to explicit `--lang eng`.
 5. **CHAT assembly** (`build_chat`) creates a complete `ChatFile` AST with
    proper headers (participant codes derived from speaker indices: PAR, INV,
-   CHI, MOT, etc.) and utterances with `%wor` timing tiers. If dedicated
-   speaker diarization produced segments, Rust then rewrites utterance speaker
-   codes plus `@Participants` / `@ID` headers via `reassign_speakers()`.
+   CHI, MOT, etc.) and utterances with `%wor` timing tiers. Speaker-safe chunks
+   already carry the labels from the dedicated projection when it ran.
 6. Optional **follow-up commands** (utseg defaults on, morphotag defaults off)
    are chained automatically, reusing the same worker pool.
 

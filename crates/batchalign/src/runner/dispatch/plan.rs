@@ -145,6 +145,7 @@ impl TranscribeDispatchPlan {
     pub(crate) fn from_job(job: &RunnerJobSnapshot, config: &ServerConfig) -> Option<Self> {
         let TranscribeDispatchParams {
             asr_engine,
+            speaker_engine,
             diarize,
             merge_abbrev,
             override_media_cache,
@@ -155,9 +156,7 @@ impl TranscribeDispatchPlan {
         } = extract_transcribe_dispatch_params(&job.dispatch.options)?;
         let with_utseg = runtime_flag(job, "utseg", true);
         let with_morphosyntax = runtime_flag(job, "morphosyntax", false);
-        // TODO: Add speaker field to EngineOverrides when SpeakerEngineName enum is created.
-        // For now, always use default (Pyannote). The "speaker" override key was rarely used.
-        let speaker_backend = diarize.then(|| resolve_speaker_backend(None));
+        let speaker_backend = diarize.then(|| resolve_speaker_backend(speaker_engine));
 
         Some(Self {
             kernel_plan: kernel_plan_for_job(job, config),
@@ -345,10 +344,11 @@ fn runtime_flag(job: &RunnerJobSnapshot, key: &str, default: bool) -> bool {
 }
 
 /// Resolve the dedicated speaker backend from `engine_overrides`.
-fn resolve_speaker_backend(engine_override: Option<&String>) -> SpeakerBackendV2 {
-    match engine_override.map(|value| value.as_str()) {
-        Some("nemo") => SpeakerBackendV2::Nemo,
-        _ => SpeakerBackendV2::Pyannote,
+fn resolve_speaker_backend(engine: Option<crate::options::SpeakerEngineName>) -> SpeakerBackendV2 {
+    match engine.unwrap_or(crate::options::SpeakerEngineName::PyannoteAi) {
+        crate::options::SpeakerEngineName::PyannoteAi => SpeakerBackendV2::PyannoteAi,
+        crate::options::SpeakerEngineName::Pyannote => SpeakerBackendV2::Pyannote,
+        crate::options::SpeakerEngineName::Nemo => SpeakerBackendV2::Nemo,
     }
 }
 
@@ -444,7 +444,6 @@ mod tests {
             override_media_cache: true,
             ..Default::default()
         };
-        // TODO: speaker engine override needs SpeakerEngineName in EngineOverrides
         let mut runtime_state = BTreeMap::new();
         runtime_state.insert("utseg".into(), json!(false));
         runtime_state.insert("morphosyntax".into(), json!(true));
@@ -470,10 +469,9 @@ mod tests {
             AsrBackend::Worker(AsrWorkerMode::HkAliyunV2)
         ));
         assert!(plan.base_options.diarize);
-        // Speaker override not yet supported in EngineOverrides, defaults to Pyannote
         assert_eq!(
             plan.base_options.speaker_backend,
-            Some(SpeakerBackendV2::Pyannote)
+            Some(SpeakerBackendV2::PyannoteAi)
         );
         assert_eq!(
             plan.base_options.lang,
@@ -487,7 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn transcribe_s_plan_defaults_to_pyannote_like_batchalign2() {
+    fn transcribe_s_plan_defaults_to_pyannote_ai_precision_2() {
         let snapshot = make_snapshot(
             ReleasedCommand::TranscribeS,
             CommandOptions::TranscribeS(TranscribeCommand {
@@ -509,7 +507,7 @@ mod tests {
         assert!(plan.base_options.diarize);
         assert_eq!(
             plan.base_options.speaker_backend,
-            Some(SpeakerBackendV2::Pyannote)
+            Some(SpeakerBackendV2::PyannoteAi)
         );
         assert_eq!(
             plan.base_options.lang,
@@ -520,6 +518,33 @@ mod tests {
         assert!(!plan.base_options.with_morphosyntax);
         assert!(!plan.base_options.override_media_cache);
         assert!(!plan.should_merge_abbrev);
+    }
+
+    #[test]
+    fn transcribe_s_plan_honors_explicit_local_pyannote_override() {
+        let mut common = CommonOptions::default();
+        common.engine_overrides.speaker = Some(crate::options::SpeakerEngineName::Pyannote);
+        let snapshot = make_snapshot(
+            ReleasedCommand::TranscribeS,
+            CommandOptions::TranscribeS(TranscribeCommand {
+                common,
+                asr_engine: AsrEngineName::RevAi,
+                diarize: true,
+                wor: false.into(),
+                merge_abbrev: false.into(),
+                batch_size: 8,
+                utseg_fallback: false.into(),
+            }),
+            BTreeMap::new(),
+        );
+
+        let plan = TranscribeDispatchPlan::from_job(&snapshot, &ServerConfig::default())
+            .expect("transcribe_s plan");
+
+        assert_eq!(
+            plan.base_options.speaker_backend,
+            Some(SpeakerBackendV2::Pyannote)
+        );
     }
 
     #[test]

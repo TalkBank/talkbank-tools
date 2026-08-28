@@ -1,7 +1,7 @@
 # User Workflow Migration (batchalign2 -> batchalign3)
 
 **Status:** Current
-**Last updated:** 2026-05-28 14:18 EDT
+**Last updated:** 2026-08-28 14:01 EDT
 
 This page describes durable differences between:
 
@@ -150,14 +150,18 @@ current typed options:
   `--diarize`, `--nodiarize`
 - `benchmark`: `--whisper`, `--whisper-oai`, `--rev`
 
-**`transcribe` diarization semantics are now identical in BA2 and BA3.** Both
-systems keep `--diarize` as an opt-in path with a `False` / `auto` default.
+**`transcribe` keeps BA2's opt-in surface but intentionally improves its
+diarization semantics.** Both systems keep `--diarize` as an opt-in path with a
+`False` / `auto` default.
 If you use Rev.AI (the default engine), speaker labels are already part of the
 ASR response and are always applied, you get multi-speaker output in both BA2
 and BA3 without `--diarize`, and BA-side utterance segmentation still runs
 separately. When `--diarize` is explicitly requested, both Jan 9 BA2 and
-current BA3 run the separate Pyannote speaker stage as post-processing on top
-of the ASR output, including Rev-labeled transcripts. The flag remains most
+current BA3 run a separate speaker stage on top of the ASR output, including
+Rev-labeled transcripts. BA3 now defaults that stage to pyannoteAI Precision-2
+and projects its segments onto timed ASR words before utterance segmentation;
+BA2 relabels already-built utterances. Use `--speaker-engine pyannote` or
+`--speaker-engine nemo` for BA3's local alternatives. The flag remains most
 important for Whisper-based workflows where the ASR engine does not produce
 speaker labels at all. BA2's old help text claiming Rev ignored `--diarize`
 was stale; the implementation did not.

@@ -129,6 +129,7 @@ fn run_avqi(
 fn run_speaker(
     py: Python<'_>,
     request: ValidatedRequestV2<'_>,
+    pyannote_ai_prepared_audio_runner: Option<Py<PyAny>>,
     pyannote_prepared_audio_runner: Option<Py<PyAny>>,
     nemo_prepared_audio_runner: Option<Py<PyAny>>,
 ) -> Result<TaskResultV2, ExecuteFailure> {
@@ -163,6 +164,10 @@ fn run_speaker(
     // estimating, and no reader of the result could tell.
     let expected_speakers = speaker_request.expected_speakers.map(|value| value.0);
     let runner = match speaker_request.backend {
+        SpeakerBackendV2::PyannoteAi => require_runner(
+            pyannote_ai_prepared_audio_runner,
+            "no pyannoteAI speaker host loaded for prepared-audio V2",
+        )?,
         SpeakerBackendV2::Pyannote => require_runner(
             pyannote_prepared_audio_runner,
             "no pyannote speaker host loaded for prepared-audio V2",
@@ -211,10 +216,11 @@ pub(crate) fn execute_avqi_request_v2(
 }
 
 #[pyfunction]
-#[pyo3(signature = (request, pyannote_prepared_audio_runner=None, nemo_prepared_audio_runner=None))]
+#[pyo3(signature = (request, pyannote_ai_prepared_audio_runner=None, pyannote_prepared_audio_runner=None, nemo_prepared_audio_runner=None))]
 pub(crate) fn execute_speaker_request_v2(
     py: Python<'_>,
     request: &Bound<'_, PyAny>,
+    pyannote_ai_prepared_audio_runner: Option<Py<PyAny>>,
     pyannote_prepared_audio_runner: Option<Py<PyAny>>,
     nemo_prepared_audio_runner: Option<Py<PyAny>>,
 ) -> PyResult<String> {
@@ -222,6 +228,7 @@ pub(crate) fn execute_speaker_request_v2(
         run_speaker(
             py,
             request,
+            pyannote_ai_prepared_audio_runner,
             pyannote_prepared_audio_runner,
             nemo_prepared_audio_runner,
         )

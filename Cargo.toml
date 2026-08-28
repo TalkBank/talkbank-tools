@@ -81,7 +81,7 @@ indicatif = "0.18"
 
 # Testing
 insta = { version = "1.48", features = ["json", "yaml"] }
-jsonschema = { version = "0.50", default-features = false, features = ["resolve-file"] }
+jsonschema = { version = "0.52", default-features = false, features = ["resolve-file"] }
 miette = { version = "7.6.0", features = ["derive"] }
 notify = "8.2"
 num_cpus = "1.17"
@@ -94,7 +94,7 @@ proptest = "1.11.0"
 # pyo3 moves in lockstep with the numpy crate (pyo3-ffi's `links = "python"`
 # forbids two pyo3 versions in one graph); see crates/batchalign-pyo3/Cargo.toml.
 pyo3 = "0.29"
-quick-xml = "0.41"
+quick-xml = "0.42"
 quote = "1.0"
 rand = "0.10"
 ratatui = { version = "0.30", features = ["serde"] }
@@ -208,7 +208,7 @@ rubato = { version = "5.0", features = ["fft_resampler"] }
 # this graph that can consume it. Bump this only together with rubato, after
 # checking rubato's own requirement. A currency sweep raised it to 5.0 on
 # 2026-08-04 and broke the build; that is what this comment exists to prevent.
-audioadapter-buffers = "5.1"
+audioadapter-buffers = "5.2"
 byteorder = "1.5"
 anyhow = "1"
 log = "0.4"

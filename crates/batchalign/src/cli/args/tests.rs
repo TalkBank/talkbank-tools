@@ -1020,6 +1020,26 @@ fn build_options_transcribe_diarize() {
 }
 
 #[test]
+fn build_options_transcribe_accepts_explicit_speaker_engine() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "transcribe",
+        "--diarize",
+        "--speaker-engine",
+        "pyannote",
+        "audio/",
+    ]);
+    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    match opts {
+        CommandOptions::TranscribeS(t) => assert_eq!(
+            t.common.engine_overrides.speaker,
+            Some(crate::options::SpeakerEngineName::Pyannote)
+        ),
+        _ => panic!("expected TranscribeS"),
+    }
+}
+
+#[test]
 fn build_options_transcribe_diarize_matches_batchalign2_baseline_defaults() {
     let cli = Cli::parse_from(["batchalign3", "transcribe", "--diarize", "audio/"]);
     let opts = build_typed_options(&cli.command, &cli.global).unwrap();

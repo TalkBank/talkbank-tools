@@ -12,15 +12,44 @@
 //! parse rather than being dropped), so the field names here are
 //! load-bearing wire format, not internal naming.
 
-use std::collections::BTreeMap;
-
 use serde::Serialize;
 
-use crate::types::worker_v2::SpeakerSegmentV2;
+use crate::chat_ops::speaker::DiarizationLabelCoordinates;
+use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 
-/// Provenance recorded in the artifact's `source` field: which tool and
-/// engine produced these turns.
-const PYANNOTE_TURNS_SOURCE: &str = "batchalign3:pyannote";
+/// Provenance recorded in a speaker-turn artifact.
+///
+/// The worker backend is a closed enum, and the artifact source is derived
+/// from that enum rather than supplied as a free-form string. This prevents a
+/// cloud Precision-2 result from being mislabeled as local pyannote output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SpeakerTurnsSource {
+    /// pyannoteAI cloud diarization using the Precision-2 model.
+    PyannoteAiPrecision2,
+    /// Local pyannote diarization.
+    Pyannote,
+    /// Local NVIDIA NeMo diarization.
+    Nemo,
+}
+
+impl SpeakerTurnsSource {
+    /// Derive artifact provenance from the backend that produced the turns.
+    pub(crate) fn from_backend(backend: SpeakerBackendV2) -> Self {
+        match backend {
+            SpeakerBackendV2::PyannoteAi => Self::PyannoteAiPrecision2,
+            SpeakerBackendV2::Pyannote => Self::Pyannote,
+            SpeakerBackendV2::Nemo => Self::Nemo,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::PyannoteAiPrecision2 => "batchalign3:pyannote_ai:precision-2",
+            Self::Pyannote => "batchalign3:pyannote",
+            Self::Nemo => "batchalign3:nemo",
+        }
+    }
+}
 
 /// Anonymous CHAT-style speaker track (`PAR0`..`PARn`).
 ///
@@ -28,7 +57,7 @@ const PYANNOTE_TURNS_SOURCE: &str = "batchalign3:pyannote";
 /// role; role assignment is downstream work (`chatter rediarize` /
 /// speaker-id). The inner index is the track number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct AnonymousTrack(pub(crate) u32);
+pub(crate) struct AnonymousTrack(pub(crate) usize);
 
 impl Serialize for AnonymousTrack {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -81,16 +110,13 @@ pub(crate) enum TurnsBuildError {
 /// Diarizer-native labels (pyannote's `SPEAKER_00`, ...) map to anonymous
 /// track codes deterministically: distinct labels sorted lexically become
 /// `PAR0..PARn`. Turns are emitted in chronological order.
-pub(crate) fn format_turns_json(segments: &[SpeakerSegmentV2]) -> Result<String, TurnsBuildError> {
-    // Deterministic label -> track assignment via the sorted-set order.
-    let track_by_label: BTreeMap<&str, AnonymousTrack> = segments
-        .iter()
-        .map(|segment| segment.speaker.as_str())
-        .collect::<std::collections::BTreeSet<&str>>()
-        .into_iter()
-        .enumerate()
-        .map(|(index, label)| (label, AnonymousTrack(index as u32)))
-        .collect();
+pub(crate) fn format_turns_json(
+    source: SpeakerTurnsSource,
+    segments: &[SpeakerSegmentV2],
+) -> Result<String, TurnsBuildError> {
+    let label_coordinates = DiarizationLabelCoordinates::from_labels(
+        segments.iter().map(|segment| segment.speaker.as_str()),
+    );
 
     let mut turns = Vec::with_capacity(segments.len());
     for segment in segments {
@@ -101,19 +127,19 @@ pub(crate) fn format_turns_json(segments: &[SpeakerSegmentV2]) -> Result<String,
         // Map-lookup invariant: every segment label was inserted into
         // `track_by_label` by the collection pass above.
         #[allow(clippy::expect_used)]
-        let track = *track_by_label
-            .get(segment.speaker.as_str())
+        let track = label_coordinates
+            .index_for(segment.speaker.as_str())
             .expect("segment label must be present in the label->track map");
         turns.push(DiarizedTurn {
             start_ms,
             end_ms,
-            track,
+            track: AnonymousTrack(track.as_usize()),
         });
     }
     turns.sort();
 
     let file = DiarizedTurnsFile {
-        source: PYANNOTE_TURNS_SOURCE,
+        source: source.as_str(),
         turns,
     };
     let mut text = serde_json::to_string_pretty(&file)?;
@@ -141,7 +167,8 @@ mod tests {
             segment("SPEAKER_00", 0, 1200),
             segment("SPEAKER_01", 1200, 2000),
         ];
-        let json = format_turns_json(&segments).expect("valid segments");
+        let json =
+            format_turns_json(SpeakerTurnsSource::Pyannote, &segments).expect("valid segments");
         let value: serde_json::Value = serde_json::from_str(&json).expect("well-formed JSON");
         assert_eq!(value["source"], "batchalign3:pyannote");
         let turns = value["turns"].as_array().expect("turns array");
@@ -155,14 +182,18 @@ mod tests {
 
     #[test]
     fn empty_segments_produce_an_empty_turns_document() {
-        let json = format_turns_json(&[]).expect("empty input is valid");
+        let json =
+            format_turns_json(SpeakerTurnsSource::Pyannote, &[]).expect("empty input is valid");
         let value: serde_json::Value = serde_json::from_str(&json).expect("well-formed JSON");
         assert_eq!(value["turns"].as_array().map(Vec::len), Some(0));
     }
 
     #[test]
     fn inverted_segment_is_a_typed_error() {
-        let result = format_turns_json(&[segment("SPEAKER_00", 2000, 1000)]);
+        let result = format_turns_json(
+            SpeakerTurnsSource::Pyannote,
+            &[segment("SPEAKER_00", 2000, 1000)],
+        );
         assert!(matches!(
             result,
             Err(TurnsBuildError::InvertedSegment { .. })
@@ -172,7 +203,11 @@ mod tests {
     #[test]
     fn wire_shape_matches_the_chatter_rediarize_contract_exactly() {
         // chatter's TurnsFile parser is strict; pin the exact field set.
-        let json = format_turns_json(&[segment("SPEAKER_00", 10, 20)]).expect("valid");
+        let json = format_turns_json(
+            SpeakerTurnsSource::Pyannote,
+            &[segment("SPEAKER_00", 10, 20)],
+        )
+        .expect("valid");
         let value: serde_json::Value = serde_json::from_str(&json).expect("well-formed JSON");
         let object = value.as_object().expect("top-level object");
         assert_eq!(
@@ -188,5 +223,27 @@ mod tests {
             ["end_ms", "start_ms", "track"],
             "turn field set drifted from the chatter contract"
         );
+    }
+
+    #[test]
+    fn derives_truthful_source_from_every_typed_speaker_backend() {
+        let cases = [
+            (
+                SpeakerBackendV2::PyannoteAi,
+                "batchalign3:pyannote_ai:precision-2",
+            ),
+            (SpeakerBackendV2::Pyannote, "batchalign3:pyannote"),
+            (SpeakerBackendV2::Nemo, "batchalign3:nemo"),
+        ];
+
+        for (backend, expected) in cases {
+            let json = format_turns_json(
+                SpeakerTurnsSource::from_backend(backend),
+                &[segment("SPEAKER_00", 10, 20)],
+            )
+            .expect("valid");
+            let value: serde_json::Value = serde_json::from_str(&json).expect("well-formed JSON");
+            assert_eq!(value["source"], expected);
+        }
     }
 }

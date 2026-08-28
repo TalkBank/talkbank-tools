@@ -90,6 +90,7 @@ class FaBackendV2(str, Enum):
 class SpeakerBackendV2(str, Enum):
     """Speaker backend selected by Rust."""
 
+    PYANNOTE_AI = "pyannote_ai"
     PYANNOTE = "pyannote"
     NEMO = "nemo"
 
