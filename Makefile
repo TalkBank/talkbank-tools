@@ -158,7 +158,11 @@ batchalign-build-wheel:
 	fi
 	rm -rf dist
 	mkdir -p dist
-	uv build --wheel --out-dir dist/
+	@# `pyproject.toml` deliberately keeps Maturin's dev profile for the fast
+	@# `maturin develop` loop. Deployment wheels must override it explicitly;
+	@# PEP 517's `uv build` used that dev profile and shipped an unoptimized
+	@# batchalign_core extension even though the bundled CLI above was release.
+	uv run --no-sync maturin build --release --out dist/
 
 batchalign-python-prepare: batchalign-build-wheel
 	@echo "==> Syncing imported Batchalign dev dependencies..."

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
@@ -36,6 +37,25 @@ REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / "scripts" / "pre-push.sh"
 MAKEFILE = REPO / "Makefile"
 WORKFLOWS = REPO / ".github" / "workflows"
+
+
+@dataclass(frozen=True)
+class HookExemption:
+    """A CI target the local hook may skip for the stated reason."""
+
+    reason: str
+
+
+@dataclass(frozen=True)
+class RecipeInvariantExemption:
+    """A skipped target whose recipe must retain a promised property."""
+
+    reason: str
+    required_recipe_prefix: str
+
+
+Exemption = HookExemption | RecipeInvariantExemption
+
 
 #: Targets a workflow may run that the hook is not expected to.
 #:
@@ -46,25 +66,34 @@ WORKFLOWS = REPO / ".github" / "workflows"
 #: This list is also the honest statement of what a green hook does NOT prove.
 #: Everything here is covered only once CI runs, which is why anything touching
 #: these areas goes to a branch first (docs/contributing/pushing.md).
-EXEMPT: dict[str, str] = {
+EXEMPT: dict[str, Exemption] = {
     # Builds the dashboard's JS bundle. Needs `npm ci` against the network and
     # is not a correctness gate on committed Rust.
-    "batchalign-dashboard-build": "network npm install, not a correctness gate",
+    "batchalign-dashboard-build": HookExemption(
+        "network npm install, not a correctness gate"
+    ),
     # Runs in its own workflow job with its own Linux toolchain setup; the hook
     # covers the Rust side that can fail from committed content.
-    "batchalign-build-pyo3": "separate job with its own toolchain setup",
+    "batchalign-build-pyo3": HookExemption("separate job with its own toolchain setup"),
     # Everything below needs `batchalign-python-prepare`, i.e. a maturin release
     # wheel built and installed into the dev environment. That is minutes, so
     # putting it in the hook would recreate the pressure that produced the
     # hand-written subset the hook used to be. The SOURCE-only half of the
     # Python gate (`batchalign-lint-python-source`) is deliberately split out
     # and IS in the hook.
-    "batchalign-ci-python": "needs a built wheel; minutes, not seconds",
-    "batchalign-lint-python": "needs a built wheel; use -source in the hook",
-    "batchalign-typecheck-python": "needs a built wheel; mypy against the install",
-    "batchalign-test-python": "needs a built wheel",
-    "batchalign-python-prepare": "builds the wheel these depend on",
-    "batchalign-build-wheel": "maturin release build",
+    "batchalign-ci-python": HookExemption("needs a built wheel; minutes, not seconds"),
+    "batchalign-lint-python": HookExemption(
+        "needs a built wheel; use -source in the hook"
+    ),
+    "batchalign-typecheck-python": HookExemption(
+        "needs a built wheel; mypy against the install"
+    ),
+    "batchalign-test-python": HookExemption("needs a built wheel"),
+    "batchalign-python-prepare": HookExemption("builds the wheel these depend on"),
+    "batchalign-build-wheel": RecipeInvariantExemption(
+        "maturin release build",
+        required_recipe_prefix="uv run --no-sync maturin build --release",
+    ),
     # NOT here any more: `batchalign-ipc-schema-check`. It was exempt for
     # "needs the built binary", which is true in isolation and irrelevant in
     # the hook, where `batchalign-ci-rust` has already built it and the check
@@ -78,8 +107,10 @@ EXEMPT: dict[str, str] = {
     # `batchalign-dashboard-schema-check`; a stale openapi.json reached main
     # through this exemption, the same way `batchalign-ipc-schema-check` did
     # before it was un-exempted above.
-    "batchalign-dashboard-api-check": "TypeScript half needs the npm-installed frontend",
-    "batchalign-runtime-check": "runs in the wheel-installed job",
+    "batchalign-dashboard-api-check": HookExemption(
+        "TypeScript half needs the npm-installed frontend"
+    ),
+    "batchalign-runtime-check": HookExemption("runs in the wheel-installed job"),
 }
 
 
@@ -176,6 +207,30 @@ def reachable(roots: set[str], recipes: dict[str, str]) -> set[str]:
     return seen
 
 
+def invalid_exemption_invariants(recipes: dict[str, str]) -> list[str]:
+    """Return exemptions whose executable recipe no longer earns its reason.
+
+    Whole-line comments are deliberately excluded and a real recipe line must
+    start with the promised command. Otherwise a comment or `echo` can keep
+    this gate green after the actual build regresses to a debug PEP 517 profile.
+    """
+    invalid: list[str] = []
+    for target, exemption in EXEMPT.items():
+        if not isinstance(exemption, RecipeInvariantExemption):
+            continue
+        required = exemption.required_recipe_prefix
+        recipe = recipes.get(target, "")
+        executable_lines = [
+            line.strip() for line in recipe.splitlines() if not _is_comment(line)
+        ]
+        if not any(line.startswith(required) for line in executable_lines):
+            invalid.append(
+                f"make {target}: exemption requires executable recipe prefix "
+                f"{required!r}"
+            )
+    return invalid
+
+
 def is_push_triggered(text: str) -> bool:
     """Does this workflow run on a push to main, or on a PR against it?
 
@@ -195,6 +250,13 @@ def main() -> int:
         return 2
 
     recipes = makefile_recipes()
+    invalid_invariants = invalid_exemption_invariants(recipes)
+    if invalid_invariants:
+        print("CI exemption invariants are false:", file=sys.stderr)
+        for invalid in invalid_invariants:
+            print(f"  {invalid}", file=sys.stderr)
+        return 1
+
     hook_roots = make_targets(HOOK.read_text(encoding="utf-8")) & recipes.keys()
     if not hook_roots:
         print(
