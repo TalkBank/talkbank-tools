@@ -59,6 +59,15 @@ echo "==> pre-push: IPC schema drift"
 # wire format.
 make batchalign-ipc-schema-check
 
+# `openapi.json` is GENERATED from the Rust types, so a doc-comment or a
+# `required` change makes the committed copy stale. The FULL dashboard check
+# also runs `npx openapi-typescript` and stays exempt for needing the
+# npm-installed frontend; this half is one `cargo run` against a binary
+# `batchalign-ci-rust` has already built. A stale openapi.json reached main on
+# 2026-08-27 through exactly that exemption.
+echo "==> pre-push: generated openapi.json drift"
+make batchalign-dashboard-schema-check
+
 echo "==> pre-push: mdBook build + linkcheck"
 # Not part of batchalign-ci-rust: it is a separate workflow. linkcheck2 verifies
 # every relative link against SUMMARY.md, which is how a SUMMARY-unreachable

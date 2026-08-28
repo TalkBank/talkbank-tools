@@ -680,8 +680,19 @@ export interface components {
              * @description Server health status.  Always `Ok` in the current implementation
              *     (the endpoint itself being reachable implies health), but future
              *     versions may report degraded states.
+             *
+             *     REQUIRED, and that is what makes this type an identification rather
+             *     than a shape any JSON happens to fit. With `#[serde(default)]` here and
+             *     on every other field, `{"error":{"message":"unknown endpoint"}}`
+             *     deserialized into a perfectly healthy response, because `HealthStatus`
+             *     has a single `#[default] Ok` variant. On 2026-08-27 an unrelated local
+             *     service holding port 8000 was therefore accepted as a Batchalign
+             *     server and dispatched real jobs. Parse at the boundary into a type
+             *     whose existence proves what it claims: a body without these fields is
+             *     not a Batchalign health response and must fail to parse, not arrive
+             *     pre-filled with agreeable values.
              */
-            status?: components["schemas"]["HealthStatus"];
+            status: components["schemas"]["HealthStatus"];
             /**
              * @description Available memory in MB (free + reclaimable).  On macOS this is
              *     `free + purgeable` which can undercount; see `sysinfo` docs.
@@ -694,8 +705,11 @@ export interface components {
             /**
              * @description Server software version (e.g. `"0.6.0"`).  Used by the CLI to
              *     detect stale daemons and auto-restart them.
+             *
+             *     REQUIRED for the same reason as `status`. A server that could omit it
+             *     would already have broken the stale-daemon check this field exists for.
              */
-            version?: string;
+            version: string;
             /**
              * Format: int64
              * @description Cumulative count of worker process crashes since server start.
@@ -711,6 +725,20 @@ export interface components {
         };
         /**
          * @description Server health status.
+         *
+         *     Deliberately has NO `Default`, and that is the whole point rather than an
+         *     oversight. While it derived one, `#[serde(default)]` on
+         *     `HealthResponse::status` was writable, and it was written: every field of
+         *     that struct defaulted, so any JSON object deserialized into a healthy
+         *     response and the probe's `status != Ok` guard could never be false. On
+         *     2026-08-27 an unrelated local service holding port 8000 was accepted as a
+         *     Batchalign server and had jobs dispatched to it.
+         *
+         *     Removing the `#[serde(default)]` fixed that VALUE; removing this `Default`
+         *     is what stops it being re-expressible, because re-adding the attribute now
+         *     fails to compile instead of silently restoring the behaviour. A `Default`
+         *     on a domain type is an affordance for fabrication: audit the `Default`, not
+         *     only the call site.
          * @enum {string}
          */
         HealthStatus: "ok";

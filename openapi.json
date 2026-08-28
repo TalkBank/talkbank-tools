@@ -569,7 +569,7 @@
           },
           "status": {
             "$ref": "#/components/schemas/HealthStatus",
-            "description": "Server health status.  Always `Ok` in the current implementation\n(the endpoint itself being reachable implies health), but future\nversions may report degraded states."
+            "description": "Server health status.  Always `Ok` in the current implementation\n(the endpoint itself being reachable implies health), but future\nversions may report degraded states.\n\nREQUIRED, and that is what makes this type an identification rather\nthan a shape any JSON happens to fit. With `#[serde(default)]` here and\non every other field, `{\"error\":{\"message\":\"unknown endpoint\"}}`\ndeserialized into a perfectly healthy response, because `HealthStatus`\nhas a single `#[default] Ok` variant. On 2026-08-27 an unrelated local\nservice holding port 8000 was therefore accepted as a Batchalign\nserver and dispatched real jobs. Parse at the boundary into a type\nwhose existence proves what it claims: a body without these fields is\nnot a Batchalign health response and must fail to parse, not arrive\npre-filled with agreeable values."
           },
           "system_memory_available_mb": {
             "$ref": "#/components/schemas/MemoryMb",
@@ -584,7 +584,7 @@
             "description": "Used memory in MB (`total - available`)."
           },
           "version": {
-            "description": "Server software version (e.g. `\"0.6.0\"`).  Used by the CLI to\ndetect stale daemons and auto-restart them.",
+            "description": "Server software version (e.g. `\"0.6.0\"`).  Used by the CLI to\ndetect stale daemons and auto-restart them.\n\nREQUIRED for the same reason as `status`. A server that could omit it\nwould already have broken the stale-daemon check this field exists for.",
             "type": "string"
           },
           "worker_crashes": {
@@ -598,10 +598,14 @@
             "type": "integer"
           }
         },
+        "required": [
+          "status",
+          "version"
+        ],
         "type": "object"
       },
       "HealthStatus": {
-        "description": "Server health status.",
+        "description": "Server health status.\n\nDeliberately has NO `Default`, and that is the whole point rather than an\noversight. While it derived one, `#[serde(default)]` on\n`HealthResponse::status` was writable, and it was written: every field of\nthat struct defaulted, so any JSON object deserialized into a healthy\nresponse and the probe's `status != Ok` guard could never be false. On\n2026-08-27 an unrelated local service holding port 8000 was accepted as a\nBatchalign server and had jobs dispatched to it.\n\nRemoving the `#[serde(default)]` fixed that VALUE; removing this `Default`\nis what stops it being re-expressible, because re-adding the attribute now\nfails to compile instead of silently restoring the behaviour. A `Default`\non a domain type is an affordance for fabrication: audit the `Default`, not\nonly the call site.",
         "enum": [
           "ok"
         ],
