@@ -73,7 +73,9 @@ mod tests {
         let ok = ExecuteResponseV2::success(
             WorkerRequestIdV2::from("req-1".to_owned()),
             TaskResultV2::SpeakerResult(SpeakerResultV2 {
-                segments: Vec::new(),
+                evidence: crate::types::worker_v2::SpeakerInferenceEvidenceV2::Pyannote {
+                    segments: Vec::new(),
+                },
             }),
             DurationSeconds(0.0),
         );

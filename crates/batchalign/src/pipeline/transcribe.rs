@@ -775,6 +775,14 @@ fn stage_speaker_diarization<'a, 'ctx>(
                 );
                 evidence.into_segments()
             }
+            SpeakerEvidenceResolution::DerivedFromRaw(evidence) => {
+                info!(
+                    cache_key = %evidence_request.cache_key(),
+                    num_segments = evidence.segments().len(),
+                    "Derived speaker segments from retained raw evidence"
+                );
+                evidence.into_segments()
+            }
             SpeakerEvidenceResolution::Inferred { evidence, reason } => {
                 info!(
                     cache_key = %evidence_request.cache_key(),

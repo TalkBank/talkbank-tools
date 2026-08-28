@@ -18,10 +18,10 @@ from __future__ import annotations
 import logging
 import wave
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias
 
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from batchalign.inference._domain_types import (
     NumSpeakers,
@@ -42,7 +42,7 @@ def infer_speaker_prepared_audio(
     sample_rate_hz: int,
     *,
     num_speakers: NumSpeakers | None = None,
-    engine: str = "pyannote",
+    engine: SpeakerEngine = "pyannote",
     device_policy=None,
 ) -> SpeakerResponse:
     """Run one prepared-audio diarization item through the requested backend.
@@ -62,7 +62,14 @@ def infer_speaker_prepared_audio(
     if engine == "pyannote_ai":
         from batchalign.inference.pyannote_ai import infer_pyannote_ai
 
-        segments = infer_pyannote_ai(audio, sample_rate_hz, num_speakers)
+        completed = infer_pyannote_ai(audio, sample_rate_hz, num_speakers)
+        if completed.warning:
+            L.warning("pyannoteAI warning: %s", completed.warning)
+        evidence: SpeakerEvidence = PyannoteAISpeakerEvidence(
+            job_id=completed.job_id,
+            output=completed.output,
+            warning=completed.warning,
+        )
     elif engine == "nemo":
         segments = infer_nemo_speaker_prepared_audio(
             audio,
@@ -70,11 +77,15 @@ def infer_speaker_prepared_audio(
             num_speakers,
             device_policy=device_policy,
         )
-    else:
+        evidence = NemoSpeakerEvidence(segments=segments)
+    elif engine == "pyannote":
         segments = infer_pyannote_speaker_prepared_audio(
             audio, sample_rate_hz, num_speakers
         )
-    return SpeakerResponse(segments=segments)
+        evidence = LocalPyannoteSpeakerEvidence(segments=segments)
+    else:
+        raise ValueError(f"unsupported speaker engine: {engine}")
+    return SpeakerResponse(evidence=evidence)
 
 
 # ---------------------------------------------------------------------------
@@ -90,10 +101,40 @@ class SpeakerSegment(BaseModel):
     speaker: SpeakerId
 
 
-class SpeakerResponse(BaseModel):
-    """Speaker diarization output."""
+class PyannoteAISpeakerEvidence(BaseModel):
+    """Completed paid cloud job retained before local normalization."""
 
+    kind: Literal["pyannote_ai"] = "pyannote_ai"
+    job_id: str = Field(min_length=1)
+    output: dict[str, Any]
+    warning: str | None = None
+
+
+class LocalPyannoteSpeakerEvidence(BaseModel):
+    """Segments emitted by the local pyannote runtime."""
+
+    kind: Literal["pyannote"] = "pyannote"
     segments: list[SpeakerSegment]
+
+
+class NemoSpeakerEvidence(BaseModel):
+    """Segments emitted by the local NeMo runtime."""
+
+    kind: Literal["nemo"] = "nemo"
+    segments: list[SpeakerSegment]
+
+
+SpeakerEvidence: TypeAlias = Annotated[
+    PyannoteAISpeakerEvidence | LocalPyannoteSpeakerEvidence | NemoSpeakerEvidence,
+    Field(discriminator="kind"),
+]
+SpeakerEngine: TypeAlias = Literal["pyannote_ai", "pyannote", "nemo"]
+
+
+class SpeakerResponse(BaseModel):
+    """Backend-specific speaker inference evidence."""
+
+    evidence: SpeakerEvidence
 
 
 # ---------------------------------------------------------------------------

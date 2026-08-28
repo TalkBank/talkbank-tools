@@ -18,7 +18,7 @@ not CLI commands or document-processing workflows.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, Field, FiniteFloat, StringConstraints, model_validator
 
@@ -580,11 +580,42 @@ class SpeakerSegmentV2(BaseModel):
         return self
 
 
+class PyannoteAISpeakerEvidenceV2(BaseModel):
+    """Completed paid pyannoteAI job before local normalization."""
+
+    kind: Literal["pyannote_ai"] = "pyannote_ai"
+    job_id: str = Field(min_length=1)
+    output: dict[str, Any]
+    warning: str | None = None
+
+
+class LocalPyannoteSpeakerEvidenceV2(BaseModel):
+    """Segments returned by the local pyannote runtime."""
+
+    kind: Literal["pyannote"] = "pyannote"
+    segments: list[SpeakerSegmentV2]
+
+
+class NemoSpeakerEvidenceV2(BaseModel):
+    """Segments returned by the local NeMo runtime."""
+
+    kind: Literal["nemo"] = "nemo"
+    segments: list[SpeakerSegmentV2]
+
+
+SpeakerInferenceEvidenceV2: TypeAlias = Annotated[
+    PyannoteAISpeakerEvidenceV2
+    | LocalPyannoteSpeakerEvidenceV2
+    | NemoSpeakerEvidenceV2,
+    Field(discriminator="kind"),
+]
+
+
 class SpeakerResultPayloadV2(BaseModel):
-    """Raw speaker diarization output returned by the model host (internally tagged)."""
+    """Backend-specific speaker evidence returned by the model host."""
 
     kind: Literal["speaker_result"] = "speaker_result"
-    segments: list[SpeakerSegmentV2]
+    evidence: SpeakerInferenceEvidenceV2
 
 
 class OpenSmileResultPayloadV2(BaseModel):

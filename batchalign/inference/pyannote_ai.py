@@ -26,8 +26,6 @@ from typing import Any
 
 import numpy as np
 
-from batchalign.inference.speaker import SpeakerSegment
-
 L = logging.getLogger("batchalign.worker")
 
 _BASE_URL = "https://api.pyannote.ai"
@@ -294,8 +292,8 @@ def infer_pyannote_ai(
     audio: np.ndarray,
     sample_rate_hz: int,
     num_speakers: int | None,
-) -> list[SpeakerSegment]:
-    """Production adapter from prepared PCM to pyannoteAI segments."""
+) -> CompletedDiarizationJob:
+    """Return completed provider evidence without discarding its raw output."""
 
     api_key = resolve_pyannote_ai_api_key()
     if api_key is None:
@@ -304,39 +302,9 @@ def infer_pyannote_ai(
             "BATCHALIGN_PYANNOTE_API_KEY, or add engine.pyannote.key to the "
             "[diarize] section of ~/.batchalign.ini"
         )
-    completed = PyannoteAIClient(api_key).diarize_wav(
+    return PyannoteAIClient(api_key).diarize_wav(
         render_prepared_wav(audio, sample_rate_hz), num_speakers
     )
-    return segments_from_completed_job(completed)
-
-
-def segments_from_completed_job(
-    completed: CompletedDiarizationJob,
-) -> list[SpeakerSegment]:
-    """Project completed remote output into the worker's segment type."""
-
-    if completed.warning:
-        L.warning("pyannoteAI warning: %s", completed.warning)
-    raw_segments = completed.output.get("exclusiveDiarization")
-    if not isinstance(raw_segments, list):
-        raw_segments = completed.output.get("diarization")
-    if not isinstance(raw_segments, list):
-        raise RuntimeError("pyannoteAI succeeded job has no diarization segments")
-
-    segments: list[SpeakerSegment] = []
-    for raw in raw_segments:
-        if not isinstance(raw, dict):
-            continue
-        try:
-            start_ms = max(0, round(float(raw["start"]) * 1000))
-            end_ms = max(start_ms, round(float(raw["end"]) * 1000))
-            speaker = str(raw["speaker"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        segments.append(
-            SpeakerSegment(start_ms=start_ms, end_ms=end_ms, speaker=speaker)
-        )
-    return sorted(segments, key=lambda item: (item.start_ms, item.end_ms, item.speaker))
 
 
 def _http_error_detail(error: urllib.error.HTTPError) -> str:

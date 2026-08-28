@@ -6,7 +6,7 @@ use super::types::{AsrResponse, AsrWorkerMode, NonRevAsrBackend};
 use super::{SpeakerEvidenceInference, SpeakerInferenceAuthorization};
 use crate::api::{LanguageCode3, LanguageSpec, NumSpeakers, WorkerLanguage};
 use crate::error::ServerError;
-use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
+use crate::types::worker_v2::{SpeakerBackendV2, SpeakerInferenceEvidenceV2};
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::asr_request_v2::{
     AsrBuildInputV2, AsrInputSourceV2, PreparedAsrRequestIdsV2, build_asr_request_v2,
@@ -245,7 +245,7 @@ async fn infer_speaker(
     pool: &WorkerPool,
     params: &SpeakerInferParams<'_>,
     _authorization: &SpeakerInferenceAuthorization,
-) -> Result<Vec<SpeakerSegmentV2>, ServerError> {
+) -> Result<SpeakerInferenceEvidenceV2, ServerError> {
     let artifacts = PreparedArtifactRuntimeV2::new("speaker_v2").map_err(|error| {
         ServerError::Validation(format!(
             "failed to create speaker V2 artifact runtime: {error}"
@@ -285,7 +285,7 @@ async fn infer_speaker(
         .map_err(ServerError::Worker)?;
 
     parse_speaker_result_v2(&response)
-        .map(|result| result.segments.clone())
+        .map(|result| result.evidence.clone())
         .map_err(|error| {
             ServerError::Validation(format!("speaker V2 response parse failed: {error}"))
         })
@@ -308,7 +308,7 @@ impl SpeakerEvidenceInference for SpeakerWorkerInference<'_> {
     async fn infer(
         &self,
         authorization: &SpeakerInferenceAuthorization,
-    ) -> Result<Vec<SpeakerSegmentV2>, ServerError> {
+    ) -> Result<SpeakerInferenceEvidenceV2, ServerError> {
         infer_speaker(self.pool, &self.params, authorization).await
     }
 }

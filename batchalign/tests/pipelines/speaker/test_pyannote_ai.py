@@ -18,7 +18,6 @@ from batchalign.inference.pyannote_ai import (
     UploadedMedia,
     render_prepared_wav,
     resolve_pyannote_ai_api_key,
-    segments_from_completed_job,
 )
 
 
@@ -102,10 +101,9 @@ def test_client_transitions_through_upload_submit_and_completion_typestates() ->
     completed = client.wait_for_completion(submitted)
     assert isinstance(completed, CompletedDiarizationJob)
 
-    segments = segments_from_completed_job(completed)
-    assert [(s.start_ms, s.end_ms, s.speaker) for s in segments] == [
-        (0, 1000, "SPEAKER_00"),
-        (1000, 2000, "SPEAKER_01"),
+    assert completed.output["exclusiveDiarization"] == [
+        {"speaker": "SPEAKER_01", "start": 1.0, "end": 2.0},
+        {"speaker": "SPEAKER_00", "start": 0.0, "end": 1.0},
     ]
     assert sleeps == [0.25]
     assert progress == [

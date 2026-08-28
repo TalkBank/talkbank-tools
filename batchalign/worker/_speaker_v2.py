@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from batchalign.device import DevicePolicy
 from batchalign.inference.speaker import (
+    SpeakerEngine,
     SpeakerResponse,
     infer_speaker_prepared_audio,
 )
@@ -53,7 +54,7 @@ def build_default_speaker_execution_host_v2(
         audio: np.ndarray,
         sample_rate_hz: int,
         num_speakers: int | None,
-        engine: str,
+        engine: SpeakerEngine,
     ) -> SpeakerResponse:
         """Run one prepared-audio item.
 

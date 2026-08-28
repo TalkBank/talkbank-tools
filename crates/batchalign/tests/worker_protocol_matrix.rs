@@ -30,8 +30,8 @@ use batchalign::api::{DurationSeconds, NumSpeakers};
 use batchalign::types::worker_v2::{
     ArtifactRefV2, AsrBackendV2, AsrInputV2, AsrRequestV2, ExecuteOutcomeRef, ExecuteRequestV2,
     ExecuteResponseV2, FaBackendV2, FaTextModeV2, ForcedAlignmentRequestV2, InferenceTaskV2,
-    ProtocolErrorCodeV2, ProviderMediaInputV2, SpeakerBackendV2, TaskRequestV2, TaskResultV2,
-    WorkerArtifactIdV2,
+    ProtocolErrorCodeV2, ProviderMediaInputV2, SpeakerBackendV2, SpeakerInferenceEvidenceV2,
+    TaskRequestV2, TaskResultV2, WorkerArtifactIdV2,
 };
 use batchalign::worker::WorkerProfile;
 use batchalign::worker::handle::WorkerConfig;
@@ -645,11 +645,33 @@ fn validate_task_result_shape(result: &TaskResultV2) -> Result<(), String> {
             Ok(())
         }
         TaskResultV2::SpeakerResult(value) => {
-            if value.segments.is_empty() {
+            let segments = match &value.evidence {
+                SpeakerInferenceEvidenceV2::PyannoteAi { output, .. } => output
+                    .get("exclusiveDiarization")
+                    .or_else(|| output.get("diarization"))
+                    .and_then(Value::as_array)
+                    .ok_or_else(|| {
+                        "pyannoteAI speaker result must retain provider segments".to_owned()
+                    })?
+                    .iter()
+                    .map(|raw| {
+                        let start_ms = raw.get("start")?.as_f64()? * 1000.0;
+                        let end_ms = raw.get("end")?.as_f64()? * 1000.0;
+                        Some((start_ms, end_ms))
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .ok_or_else(|| "pyannoteAI speaker segments must have timings".to_owned())?,
+                SpeakerInferenceEvidenceV2::Pyannote { segments }
+                | SpeakerInferenceEvidenceV2::Nemo { segments } => segments
+                    .iter()
+                    .map(|segment| (segment.start_ms.0 as f64, segment.end_ms.0 as f64))
+                    .collect(),
+            };
+            if segments.is_empty() {
                 return Err("speaker result must contain at least one segment".into());
             }
-            for (index, segment) in value.segments.iter().enumerate() {
-                if segment.end_ms < segment.start_ms {
+            for (index, (start_ms, end_ms)) in segments.iter().enumerate() {
+                if end_ms < start_ms {
                     return Err(format!("speaker segment {index} ended before it started"));
                 }
             }

@@ -12,7 +12,11 @@ import numpy as np
 from batchalign.inference.asr import AsrElement, AsrMonologue, MonologueAsrResponse
 from batchalign.inference.avqi import AvqiResponse
 from batchalign.inference.opensmile import OpenSmileResponse
-from batchalign.inference.speaker import SpeakerResponse, SpeakerSegment
+from batchalign.inference.speaker import (
+    LocalPyannoteSpeakerEvidence,
+    SpeakerResponse,
+    SpeakerSegment,
+)
 from batchalign.worker._asr_v2 import AsrExecutionHostV2
 from batchalign.worker._avqi_v2 import AvqiExecutionHostV2
 from batchalign.worker._execute_v2 import WorkerExecutionHostV2, execute_request_v2
@@ -135,6 +139,36 @@ def test_test_echo_rejects_mismatched_task_payload_boundary() -> None:
     assert response.outcome.code is ProtocolErrorCodeV2.INVALID_PAYLOAD
     assert "does not match task morphosyntax" in response.outcome.message
     assert response.result is None
+
+
+def test_test_echo_derives_speaker_evidence_from_backend_payload() -> None:
+    """Echo placeholders preserve speaker backend provenance structurally."""
+
+    previous_test_echo = _state.test_echo
+    previous_test_delay_ms = _state.test_delay_ms
+    _state.test_echo = True
+    _state.test_delay_ms = 0
+    try:
+        for backend in SpeakerBackendV2:
+            response = execute_request_v2(
+                request=ExecuteRequestV2(
+                    request_id=f"req-execute-v2-echo-{backend.value}",
+                    task=InferenceTaskV2.SPEAKER,
+                    payload=SpeakerRequestV2(
+                        backend=backend,
+                        input=SpeakerPreparedAudioInputV2(
+                            audio_ref_id="unused-in-echo"
+                        ),
+                    ),
+                    attachments=[],
+                )
+            )
+            assert isinstance(response.outcome, ExecuteSuccessV2)
+            assert isinstance(response.result, SpeakerResultV2)
+            assert response.result.evidence.kind == backend.value
+    finally:
+        _state.test_echo = previous_test_echo
+        _state.test_delay_ms = previous_test_delay_ms
 
 
 def _make_fa_request(
@@ -327,13 +361,15 @@ def test_routes_speaker_execute_v2_request(tmp_path: Path) -> None:
             speaker=SpeakerExecutionHostV2(
                 pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
                     SpeakerResponse(
-                        segments=[
-                            SpeakerSegment(
-                                start_ms=0,
-                                end_ms=1200,
-                                speaker=f"SPEAKER_{num_speakers}_{sample_rate_hz}_{audio.shape[0]}",
-                            )
-                        ]
+                        evidence=LocalPyannoteSpeakerEvidence(
+                            segments=[
+                                SpeakerSegment(
+                                    start_ms=0,
+                                    end_ms=1200,
+                                    speaker=f"SPEAKER_{num_speakers}_{sample_rate_hz}_{audio.shape[0]}",
+                                )
+                            ]
+                        )
                     )
                 )
             ),
@@ -342,8 +378,9 @@ def test_routes_speaker_execute_v2_request(tmp_path: Path) -> None:
 
     assert isinstance(response.outcome, ExecuteSuccessV2)
     assert isinstance(response.result, SpeakerResultV2)
-    assert response.result.segments[0].speaker == "SPEAKER_3_16000_4"
-    assert response.result.segments[0].end_ms == 1200
+    assert response.result.evidence.kind == "pyannote"
+    assert response.result.evidence.segments[0].speaker == "SPEAKER_3_16000_4"
+    assert response.result.evidence.segments[0].end_ms == 1200
 
 
 def test_routes_opensmile_execute_v2_request(tmp_path: Path) -> None:

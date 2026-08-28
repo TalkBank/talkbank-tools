@@ -15,7 +15,13 @@ import numpy as np
 import pytest
 
 from batchalign.inference.asr import AsrElement, AsrMonologue, MonologueAsrResponse
-from batchalign.inference.speaker import SpeakerResponse, SpeakerSegment
+from batchalign.inference.speaker import (
+    LocalPyannoteSpeakerEvidence,
+    NemoSpeakerEvidence,
+    PyannoteAISpeakerEvidence,
+    SpeakerResponse,
+    SpeakerSegment,
+)
 from batchalign.worker._asr_v2 import AsrExecutionHostV2
 from batchalign.worker._execute_v2 import WorkerExecutionHostV2, execute_request_v2
 from batchalign.worker._fa_v2 import ForcedAlignmentExecutionHostV2
@@ -255,35 +261,57 @@ def _make_speaker_request(
 def _speaker_host(backend: SpeakerBackendV2) -> SpeakerExecutionHostV2:
     """Build one speaker host that marks which backend was selected."""
 
-    def _response(label: str) -> SpeakerResponse:
-        return SpeakerResponse(
-            segments=[
-                SpeakerSegment(
-                    start_ms=0,
-                    end_ms=1000,
-                    speaker=label,
-                )
-            ]
-        )
+    segment = SpeakerSegment(start_ms=0, end_ms=1000, speaker=backend.value)
 
     if backend is SpeakerBackendV2.PYANNOTE_AI:
         return SpeakerExecutionHostV2(
             pyannote_ai_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
-                _response(
-                    f"pyannote_ai-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}"
+                SpeakerResponse(
+                    evidence=PyannoteAISpeakerEvidence(
+                        job_id="job-matrix",
+                        output={
+                            "exclusiveDiarization": [
+                                {
+                                    "start": 0.0,
+                                    "end": 1.0,
+                                    "speaker": f"pyannote_ai-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}",
+                                }
+                            ]
+                        },
+                    )
                 )
             )
         )
     if backend is SpeakerBackendV2.PYANNOTE:
         return SpeakerExecutionHostV2(
             pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
-                _response(f"pyannote-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}")
+                SpeakerResponse(
+                    evidence=LocalPyannoteSpeakerEvidence(
+                        segments=[
+                            segment.model_copy(
+                                update={
+                                    "speaker": f"pyannote-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}"
+                                }
+                            )
+                        ]
+                    )
+                )
             )
         )
     if backend is SpeakerBackendV2.NEMO:
         return SpeakerExecutionHostV2(
             nemo_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
-                _response(f"nemo-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}")
+                SpeakerResponse(
+                    evidence=NemoSpeakerEvidence(
+                        segments=[
+                            segment.model_copy(
+                                update={
+                                    "speaker": f"nemo-{sample_rate_hz}-{num_speakers}-{audio.shape[0]}"
+                                }
+                            )
+                        ]
+                    )
+                )
             )
         )
     raise AssertionError(f"unexpected speaker backend {backend!s}")
@@ -497,7 +525,12 @@ def test_routes_speaker_backend_matrix(
 
     assert isinstance(response.outcome, ExecuteSuccessV2)
     assert isinstance(response.result, SpeakerResultV2)
-    assert response.result.segments[0].speaker.startswith(backend.value)
+    if response.result.evidence.kind == "pyannote_ai":
+        first = response.result.evidence.output["exclusiveDiarization"][0]
+        assert isinstance(first, dict)
+        assert str(first["speaker"]).startswith(backend.value)
+    else:
+        assert response.result.evidence.segments[0].speaker.startswith(backend.value)
 
 
 @pytest.mark.parametrize(

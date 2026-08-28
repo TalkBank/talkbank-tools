@@ -1,7 +1,7 @@
 # Python/Rust Interface Map
 
 **Status:** Current
-**Last updated:** 2026-04-29 08:30 EDT
+**Last updated:** 2026-08-28 19:15 EDT
 
 This document is the unified reference for all Python/Rust interface boundaries in batchalign3.
 
@@ -127,8 +127,10 @@ This document is the unified reference for all Python/Rust interface boundaries 
 
 **Rust/Python contract:**
 - Input: `SpeakerRequestV2` with prepared audio
-- Output: Speaker segments with confidence scores
-- Side-effects: None
+- Output: backend-tagged evidence: completed pyannoteAI job output or local
+  Pyannote/NeMo segments
+- Side-effects: pyannoteAI requests upload temporary media and submit a paid
+  provider job; local backends have no external service side effect
 
 ---
 
@@ -287,4 +289,3 @@ For each boundary, verify:
 - [ ] This Interface Map lists the boundary with both source locations
 - [ ] mdbook builds without warnings about missing links
 - [ ] Running `mdbook build batchalign-book` passes
-

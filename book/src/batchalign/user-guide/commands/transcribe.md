@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-08-28 15:08 EDT
+**Last updated:** 2026-08-28 19:15 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -72,12 +72,19 @@ call. Keeping raw monologues, elements, punctuation, timings, confidence, and
 resolved language also lets BA3 post-processing experiments replay the same
 service output locally.
 
-With `--diarization enabled`, BA3 durably caches the normalized dedicated
-speaker turns used by the transcribe pipeline. Repeating the same recording
-with the same speaker backend, expected speaker count, preparation recipe, and
-model revision replays those validated turns without calling the diarization
-backend again. Copies and renames of byte-identical recordings share the
-entry.
+With `--diarization enabled`, BA3 durably caches both the backend-shaped
+speaker evidence and the normalized turns used by the transcribe pipeline.
+For pyannoteAI, retained raw evidence includes the completed job ID, full
+output object, and warning. Repeating the same recording with the same speaker
+backend, expected speaker count, preparation recipe, and model revision
+replays validated turns without calling the diarization backend again. Copies
+and renames of byte-identical recordings share the entry.
+
+Raw evidence and derived turns have separate revision identities. A later BA3
+release can change how provider output is converted to speaker intervals and
+recompute those intervals locally from the retained response. That kind of
+algorithm experiment does not upload the audio or incur another pyannoteAI
+inference charge.
 
 This is particularly important for the paid `pyannote-ai` default. A corrupt
 entry fails visibly and does not fall through to another paid call. Concurrent
@@ -136,10 +143,14 @@ flowchart TD
     convert --> dedicated_check{"--diarization enabled?"}
     dedicated_check -->|No| postprocess
     dedicated_check -->|Yes| speaker_key["Hash source bytes + semantic request"]
-    speaker_key --> speaker_cache{"Validated speaker-evidence cache"}
+    speaker_key --> speaker_cache{"Validated derived-segment cache"}
     speaker_cache -->|hit| retain_check
-    speaker_cache -->|miss/forced refresh| speaker_v2["execute_v2(task=speaker)\nprepared audio → diarization segments\npyannoteAI Precision-2 by default"]
-    speaker_v2 --> speaker_store["Validate + required durable commit"]
+    speaker_cache -->|derived miss| speaker_raw{"Validated raw-evidence cache"}
+    speaker_raw -->|hit| speaker_normalize["Versioned local normalization"]
+    speaker_normalize --> speaker_store_derived["Commit derived segments"]
+    speaker_store_derived --> retain_check
+    speaker_raw -->|raw miss/forced refresh| speaker_v2["execute_v2(task=speaker)\nprepared audio → backend evidence\npyannoteAI Precision-2 by default"]
+    speaker_v2 --> speaker_store["Validate + commit raw evidence\nthen derived segments"]
     speaker_store --> retain_check{"--debug-dir?"}
     retain_check -->|Yes| retain_turns["Write same-job canonical speaker turns\nwith typed backend provenance"]
     retain_check -->|No| postprocess

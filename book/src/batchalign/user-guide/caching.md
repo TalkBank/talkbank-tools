@@ -1,7 +1,7 @@
 # Caching
 
 **Status:** Current
-**Last updated:** 2026-08-28 17:15 EDT
+**Last updated:** 2026-08-28 19:15 EDT
 
 ## What gets cached
 
@@ -34,7 +34,9 @@ same time as the first run. A re-run of `align` on the same audio is
 much faster. A repeat `transcribe --diarization enabled` run with the
 same speaker settings reuses the exact normalized speaker turns that
 the first run consumed, instead of calling the diarization backend
-again.
+again. BA3 also retains backend-shaped evidence separately, so a changed
+local normalization algorithm can derive new turns without repeating
+inference.
 
 For Rev.AI transcription, BA3 stores the provider-shaped monologues and
 elements before converting them to BA3 tokens. A warm run therefore avoids
@@ -60,18 +62,29 @@ Paths and modification times are deliberately excluded. Renaming or copying
 an unchanged recording therefore reuses its speaker evidence. Re-encoding the
 recording changes its bytes and causes a miss even if it sounds identical.
 
-BA3 stores the normalized speaker intervals and labels that its projection
-stage actually consumes. It validates the schema, request fingerprint,
-speaker labels, interval direction, and ordering on every durable hit. A
-missing entry permits inference; a corrupt or invalid entry fails the file
-instead of being treated as a miss and silently causing another billable call.
+BA3 stores two different artifacts:
+
+1. **Raw inference evidence.** For pyannoteAI this is the completed provider
+   job ID, complete output object, and optional warning. Local Pyannote and
+   NeMo retain their backend-specific segment evidence.
+2. **Derived speaker segments.** These are the sorted millisecond intervals
+   consumed by transcript speaker projection. Their identity includes both
+   the raw-evidence fingerprint and a separate normalization-algorithm
+   revision.
+
+Changing only BA3's normalization algorithm invalidates the second artifact,
+not the first. BA3 re-normalizes the retained provider response locally and
+does not upload audio or submit another paid pyannoteAI job. Changing the
+model, speaker count, backend, audio bytes, or preparation recipe changes the
+raw identity and therefore requires inference.
+
+BA3 validates schema versions, fingerprints, backend provenance, provider
+job identity, speaker labels, interval direction, and ordering. A missing raw
+entry permits inference; a corrupt raw or derived entry fails the file instead
+of being treated as a miss and silently causing another billable call.
 Concurrent identical requests in one BA3 server are serialized: the first
 miss performs and commits inference, while followers wait and then replay the
 result.
-
-The cache does not currently retain the provider's complete raw JSON response.
-That is a separate future evidence/provenance feature; the cached value is the
-canonical segment list used by today's pipeline.
 
 ### Raw Rev.AI transcript evidence
 
@@ -109,6 +122,7 @@ falling through to inference. The legacy Rev pre-submission path is disabled.
 | Changed the language code | UTR ASR and Rev evidence | (other corpora's entries) |
 | Changed expected speaker count | Rev evidence and speaker evidence | FA and UTR ASR |
 | Changed speaker backend | Speaker evidence | FA, UTR ASR, and Rev evidence |
+| Changed only the speaker normalization algorithm | Derived speaker segments | Raw speaker inference evidence |
 | Upgraded batchalign or an identified model revision | Affected audio evidence | Entries from unchanged engines/models |
 
 Cache keys hash the inputs relevant to each task. FA and UTR use the legacy

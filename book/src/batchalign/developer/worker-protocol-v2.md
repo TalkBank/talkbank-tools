@@ -1,8 +1,8 @@
 # Worker Protocol V2
 
 **Status:** Current
-**Last verified:** 2026-04-02 20:47 EDT
-**Last updated:** 2026-05-20 01:09 EDT
+**Last verified:** 2026-08-28 19:15 EDT
+**Last updated:** 2026-08-28 19:15 EDT
 
 This document is the implementation spec for the live typed worker boundary
 currently named `worker_v2`.
@@ -22,6 +22,19 @@ The Python cutover is complete. Audio tasks and text-only NLP tasks
 (`morphotag`, `utseg`, `translate`, `coref`) now use typed V2 requests. Text
 commands preserve cross-file batching by freezing one prepared-text artifact per
 miss batch and sending one batched `execute_v2` request per task.
+
+Speaker results use a discriminated `SpeakerInferenceEvidenceV2` union:
+
+- `pyannote_ai` carries the completed provider job ID, output object, and
+  optional warning before normalization;
+- `pyannote` carries local Pyannote segments; and
+- `nemo` carries local NeMo segments.
+
+The Rust FFI checks that the response variant matches the backend selected by
+the request. Rust then owns versioned normalization and the separate raw and
+derived cache envelopes. This boundary is intentional: Python retains only
+irreducible runtime/provider behavior, while a future normalizer revision can
+replay paid provider evidence without another remote call.
 
 The goal is simple:
 

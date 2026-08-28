@@ -9,7 +9,13 @@ import pytest
 from pydantic import ValidationError
 
 from batchalign.device import DevicePolicy
-from batchalign.inference.speaker import SpeakerResponse, SpeakerSegment
+from batchalign.inference.speaker import (
+    LocalPyannoteSpeakerEvidence,
+    NemoSpeakerEvidence,
+    PyannoteAISpeakerEvidence,
+    SpeakerResponse,
+    SpeakerSegment,
+)
 from batchalign.worker._speaker_v2 import (
     SpeakerExecutionHostV2,
     build_default_speaker_execution_host_v2,
@@ -20,6 +26,8 @@ from batchalign.worker._types_v2 import (
     ExecuteRequestV2,
     ExecuteSuccessV2,
     InferenceTaskV2,
+    LocalPyannoteSpeakerEvidenceV2,
+    NemoSpeakerEvidenceV2,
     PreparedAudioEncodingV2,
     PreparedAudioRefV2,
     ProtocolErrorCodeV2,
@@ -34,6 +42,20 @@ def _write_pcm_f32le(path: Path, samples: np.ndarray) -> None:
     """Write little-endian float32 PCM speaker fixture data to disk."""
 
     path.write_bytes(samples.astype("<f4").tobytes())
+
+
+def _pyannote_response(segments: list[SpeakerSegment] | None = None) -> SpeakerResponse:
+    """Build evidence which can only satisfy a local pyannote request."""
+
+    return SpeakerResponse(
+        evidence=LocalPyannoteSpeakerEvidence(segments=segments or [])
+    )
+
+
+def _nemo_response(segments: list[SpeakerSegment] | None = None) -> SpeakerResponse:
+    """Build evidence which can only satisfy a NeMo request."""
+
+    return SpeakerResponse(evidence=NemoSpeakerEvidence(segments=segments or []))
 
 
 def _make_request(
@@ -102,8 +124,8 @@ def test_execute_speaker_request_v2_returns_typed_segments(tmp_path: Path) -> No
         _make_request(tmp_path),
         SpeakerExecutionHostV2(
             pyannote_prepared_audio_runner=lambda audio, sample_rate_hz, num_speakers: (
-                SpeakerResponse(
-                    segments=[
+                _pyannote_response(
+                    [
                         SpeakerSegment(
                             start_ms=10,
                             end_ms=25,
@@ -117,8 +139,9 @@ def test_execute_speaker_request_v2_returns_typed_segments(tmp_path: Path) -> No
 
     assert isinstance(response.outcome, ExecuteSuccessV2)
     assert isinstance(response.result, SpeakerResultV2)
-    assert response.result.segments[0].speaker == "SPEAKER_2_16000_4"
-    assert response.result.segments[0].start_ms == 10
+    assert isinstance(response.result.evidence, LocalPyannoteSpeakerEvidenceV2)
+    assert response.result.evidence.segments[0].speaker == "SPEAKER_2_16000_4"
+    assert response.result.evidence.segments[0].start_ms == 10
 
 
 def test_execute_speaker_request_v2_preserves_an_unspecified_speaker_count(
@@ -151,7 +174,7 @@ def test_execute_speaker_request_v2_preserves_an_unspecified_speaker_count(
         captured["shape"] = audio.shape
         captured["sample_rate_hz"] = sample_rate_hz
         captured["num_speakers"] = num_speakers
-        return SpeakerResponse(segments=[])
+        return _pyannote_response()
 
     response = execute_speaker_request_v2(
         _make_request(tmp_path, expected_speakers=None),
@@ -171,10 +194,8 @@ def test_execute_speaker_request_v2_routes_nemo_backend(tmp_path: Path) -> None:
         captured["shape"] = audio.shape
         captured["sample_rate_hz"] = sample_rate_hz
         captured["num_speakers"] = num_speakers
-        return SpeakerResponse(
-            segments=[
-                SpeakerSegment(start_ms=5, end_ms=15, speaker=f"SPEAKER_{num_speakers}")
-            ]
+        return _nemo_response(
+            [SpeakerSegment(start_ms=5, end_ms=15, speaker=f"SPEAKER_{num_speakers}")]
         )
 
     response = execute_speaker_request_v2(
@@ -184,7 +205,8 @@ def test_execute_speaker_request_v2_routes_nemo_backend(tmp_path: Path) -> None:
 
     assert isinstance(response.outcome, ExecuteSuccessV2)
     assert isinstance(response.result, SpeakerResultV2)
-    assert response.result.segments[0].speaker == "SPEAKER_3"
+    assert isinstance(response.result.evidence, NemoSpeakerEvidenceV2)
+    assert response.result.evidence.segments[0].speaker == "SPEAKER_3"
     assert captured == {"shape": (4,), "sample_rate_hz": 16000, "num_speakers": 3}
 
 
@@ -196,7 +218,14 @@ def test_execute_speaker_request_v2_routes_pyannote_ai_backend(tmp_path: Path) -
     def cloud_runner(audio, sample_rate_hz, num_speakers):
         called.append(f"cloud:{audio.shape[0]}:{sample_rate_hz}:{num_speakers}")
         return SpeakerResponse(
-            segments=[SpeakerSegment(start_ms=0, end_ms=10, speaker="SPEAKER_00")]
+            evidence=PyannoteAISpeakerEvidence(
+                job_id="job-paid-1",
+                output={
+                    "exclusiveDiarization": [
+                        {"start": 0.0, "end": 0.01, "speaker": "SPEAKER_00"}
+                    ]
+                },
+            )
         )
 
     response = execute_speaker_request_v2(
@@ -211,6 +240,28 @@ def test_execute_speaker_request_v2_routes_pyannote_ai_backend(tmp_path: Path) -
 
     assert isinstance(response.outcome, ExecuteSuccessV2)
     assert called == ["cloud:4:16000:2"]
+    assert response.result is not None
+    assert response.result.evidence.kind == "pyannote_ai"
+    assert response.result.evidence.job_id == "job-paid-1"
+
+
+def test_execute_speaker_request_v2_rejects_backend_evidence_mismatch(
+    tmp_path: Path,
+) -> None:
+    """A local pyannote request cannot be satisfied by NeMo provenance."""
+
+    response = execute_speaker_request_v2(
+        _make_request(tmp_path, backend=SpeakerBackendV2.PYANNOTE),
+        SpeakerExecutionHostV2(
+            pyannote_prepared_audio_runner=lambda *_args: _nemo_response()
+        ),
+    )
+
+    _assert_error_response(
+        response,
+        ProtocolErrorCodeV2.RUNTIME_FAILURE,
+        "evidence does not match requested backend",
+    )
 
 
 def test_execute_speaker_request_v2_rejects_wrong_task() -> None:
@@ -273,7 +324,9 @@ def test_default_speaker_host_forwards_device_policy(monkeypatch) -> None:
         captured["num_speakers"] = num_speakers
         captured["engine"] = engine
         captured["device_policy"] = device_policy
-        return SpeakerResponse(segments=[])
+        if engine == "nemo":
+            return _nemo_response()
+        return _pyannote_response()
 
     monkeypatch.setattr(
         "batchalign.worker._speaker_v2.infer_speaker_prepared_audio",
@@ -300,7 +353,7 @@ def test_missing_speaker_attachment_returns_typed_error(tmp_path: Path) -> None:
     response = execute_speaker_request_v2(
         request,
         SpeakerExecutionHostV2(
-            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+            pyannote_prepared_audio_runner=lambda *_args: _pyannote_response()
         ),
     )
 
@@ -317,7 +370,7 @@ def test_multichannel_speaker_audio_is_rejected(tmp_path: Path) -> None:
     response = execute_speaker_request_v2(
         _make_request(tmp_path, channels=2, byte_len=32),
         SpeakerExecutionHostV2(
-            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+            pyannote_prepared_audio_runner=lambda *_args: _pyannote_response()
         ),
     )
 
@@ -332,7 +385,7 @@ def test_malformed_speaker_audio_returns_attachment_unreadable(tmp_path: Path) -
     response = execute_speaker_request_v2(
         _make_request(tmp_path, byte_len=15),
         SpeakerExecutionHostV2(
-            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+            pyannote_prepared_audio_runner=lambda *_args: _pyannote_response()
         ),
     )
 
@@ -391,7 +444,7 @@ def test_invalid_numeric_attachment_becomes_invalid_payload_even_if_validation_i
     response = execute_speaker_request_v2(
         bad_request,
         SpeakerExecutionHostV2(
-            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(segments=[])
+            pyannote_prepared_audio_runner=lambda *_args: _pyannote_response()
         ),
     )
 
@@ -408,8 +461,8 @@ def test_invalid_speaker_host_output_becomes_runtime_failure(tmp_path: Path) -> 
     response = execute_speaker_request_v2(
         _make_request(tmp_path),
         SpeakerExecutionHostV2(
-            pyannote_prepared_audio_runner=lambda *_args: SpeakerResponse(
-                segments=[
+            pyannote_prepared_audio_runner=lambda *_args: _pyannote_response(
+                [
                     SpeakerSegment(
                         start_ms=1200,
                         end_ms=200,

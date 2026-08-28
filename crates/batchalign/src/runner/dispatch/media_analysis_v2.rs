@@ -32,7 +32,7 @@ use crate::worker::pool::WorkerPool;
 use crate::worker::speaker_request_v2::{
     PreparedSpeakerRequestIdsV2, SpeakerBuildInputV2, build_speaker_request_v2,
 };
-use crate::worker::speaker_result_v2::parse_speaker_result_v2;
+use crate::worker::speaker_result_v2::{normalize_speaker_evidence_v2, parse_speaker_result_v2};
 
 use super::diarize_turns::{SpeakerTurnsSource, format_turns_json};
 
@@ -596,10 +596,12 @@ async fn dispatch_diarize_attempt(
 
     let result = parse_speaker_result_v2(&response)
         .map_err(|error| DispatchFailure::Terminal(error, FailureCategory::ProviderTerminal))?;
+    let segments = normalize_speaker_evidence_v2(&result.evidence)
+        .map_err(|error| DispatchFailure::Terminal(error, FailureCategory::ProviderTerminal))?;
 
     let turns_json = format_turns_json(
         SpeakerTurnsSource::from_backend(SpeakerBackendV2::Pyannote),
-        &result.segments,
+        &segments,
     )
     .map_err(|error| {
         DispatchFailure::Terminal(

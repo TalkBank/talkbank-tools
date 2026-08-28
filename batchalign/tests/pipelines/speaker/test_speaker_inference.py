@@ -12,7 +12,11 @@ import pytest
 import torch
 
 from batchalign.device import DevicePolicy
+from batchalign.inference.pyannote_ai import CompletedDiarizationJob
 from batchalign.inference.speaker import (
+    LocalPyannoteSpeakerEvidence,
+    NemoSpeakerEvidence,
+    PyannoteAISpeakerEvidence,
     SpeakerSegment,
     _conv_scale_weights,
     _device_for_speaker_runtime,
@@ -66,7 +70,8 @@ def test_infer_speaker_prepared_audio_routes_pyannote(monkeypatch) -> None:
         engine="pyannote",
     )
 
-    assert response.segments[0].speaker == "SPEAKER_0"
+    assert isinstance(response.evidence, LocalPyannoteSpeakerEvidence)
+    assert response.evidence.segments[0].speaker == "SPEAKER_0"
     assert captured["sample_rate_hz"] == 22050
     assert captured["num_speakers"] == 3
     assert np.array_equal(
@@ -83,7 +88,14 @@ def test_infer_speaker_prepared_audio_routes_pyannote_ai(monkeypatch) -> None:
         captured["audio"] = audio.copy()
         captured["sample_rate_hz"] = sample_rate_hz
         captured["num_speakers"] = num_speakers
-        return [SpeakerSegment(start_ms=0, end_ms=100, speaker="SPEAKER_00")]
+        return CompletedDiarizationJob(
+            job_id="job-route-test",
+            output={
+                "exclusiveDiarization": [
+                    {"start": 0.0, "end": 0.1, "speaker": "SPEAKER_00"}
+                ]
+            },
+        )
 
     monkeypatch.setattr(
         "batchalign.inference.pyannote_ai.infer_pyannote_ai", fake_pyannote_ai
@@ -96,7 +108,11 @@ def test_infer_speaker_prepared_audio_routes_pyannote_ai(monkeypatch) -> None:
         engine="pyannote_ai",
     )
 
-    assert response.segments[0].speaker == "SPEAKER_00"
+    assert isinstance(response.evidence, PyannoteAISpeakerEvidence)
+    assert response.evidence.job_id == "job-route-test"
+    assert (
+        response.evidence.output["exclusiveDiarization"][0]["speaker"] == "SPEAKER_00"
+    )
     assert captured["sample_rate_hz"] == 16000
     assert captured["num_speakers"] == 2
 
@@ -126,7 +142,8 @@ def test_infer_speaker_prepared_audio_routes_nemo(monkeypatch) -> None:
         device_policy="force-cpu",
     )
 
-    assert response.segments[0].speaker == "SPEAKER_1"
+    assert isinstance(response.evidence, NemoSpeakerEvidence)
+    assert response.evidence.segments[0].speaker == "SPEAKER_1"
     assert captured["sample_rate_hz"] == 16000
     assert captured["num_speakers"] == 4
     assert captured["device_policy"] == "force-cpu"

@@ -6,8 +6,8 @@
 //! - Section "6. Media Analysis V2: Speaker Diarization" → `batchalign/worker/_speaker_v2.py`
 
 use batchalign_types::worker_v2::{
-    AvqiResultV2, OpenSmileResultV2, SpeakerBackendV2, SpeakerInputV2, SpeakerResultV2,
-    TaskRequestV2, TaskResultV2,
+    AvqiResultV2, OpenSmileResultV2, SpeakerBackendV2, SpeakerInferenceEvidenceV2, SpeakerInputV2,
+    SpeakerResultV2, TaskRequestV2, TaskResultV2,
 };
 use numpy::IntoPyArray;
 use pyo3::prelude::*;
@@ -28,13 +28,28 @@ fn parse_avqi_result(response: &Bound<'_, PyAny>) -> Result<AvqiResultV2, Execut
     parse_host_output(response, "AVQI")
 }
 
-fn parse_speaker_result(response: &Bound<'_, PyAny>) -> Result<SpeakerResultV2, ExecuteFailure> {
+fn parse_speaker_result(
+    response: &Bound<'_, PyAny>,
+    expected_backend: SpeakerBackendV2,
+) -> Result<SpeakerResultV2, ExecuteFailure> {
     let parsed: SpeakerResultV2 = parse_host_output(response, "speaker")?;
-    if parsed
-        .segments
-        .iter()
-        .any(|segment| segment.end_ms < segment.start_ms)
-    {
+    let segments = match (&parsed.evidence, expected_backend) {
+        (SpeakerInferenceEvidenceV2::PyannoteAi { .. }, SpeakerBackendV2::PyannoteAi) => None,
+        (SpeakerInferenceEvidenceV2::Pyannote { segments }, SpeakerBackendV2::Pyannote) => {
+            Some(segments)
+        }
+        (SpeakerInferenceEvidenceV2::Nemo { segments }, SpeakerBackendV2::Nemo) => Some(segments),
+        _ => {
+            return Err(ExecuteFailure::Runtime(format!(
+                "speaker host evidence does not match requested backend {expected_backend:?}"
+            )));
+        }
+    };
+    if segments.is_some_and(|segments| {
+        segments
+            .iter()
+            .any(|segment| segment.end_ms < segment.start_ms)
+    }) {
         return Err(ExecuteFailure::Runtime(
             "invalid speaker host output: Speaker segment end_ms must be >= start_ms".to_owned(),
         ));
@@ -188,6 +203,7 @@ fn run_speaker(
         .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
     Ok(TaskResultV2::SpeakerResult(parse_speaker_result(
         &response,
+        speaker_request.backend,
     )?))
 }
 

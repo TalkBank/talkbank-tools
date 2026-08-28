@@ -213,11 +213,62 @@ pub struct SpeakerSegmentV2 {
     pub speaker: String,
 }
 
-/// Raw speaker diarization output returned by the model host.
+/// Provider job identifier attached to durable raw speaker evidence.
+#[derive(
+    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, schemars::JsonSchema,
+)]
+#[serde(transparent)]
+pub struct SpeakerProviderJobIdV2(String);
+
+impl From<&str> for SpeakerProviderJobIdV2 {
+    fn from(value: &str) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+impl SpeakerProviderJobIdV2 {
+    /// Borrow the provider's identifier.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Raw evidence returned by one speaker-inference backend.
+///
+/// The three variants make backend provenance structural. In particular, a
+/// local backend cannot construct a pyannoteAI result without also supplying
+/// the completed provider job evidence, and cloud evidence cannot masquerade
+/// as a normalized-only local segment list.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SpeakerInferenceEvidenceV2 {
+    /// Complete successful pyannoteAI job output, before normalization.
+    PyannoteAi {
+        /// Provider job which produced the output.
+        job_id: SpeakerProviderJobIdV2,
+        /// Provider-shaped completed-job output.
+        output: serde_json::Map<String, serde_json::Value>,
+        /// Optional provider warning returned with the successful job.
+        warning: Option<String>,
+    },
+    /// Normalized segments from the local pyannote runtime.
+    Pyannote {
+        /// Ordered speaker segments.
+        segments: Vec<SpeakerSegmentV2>,
+    },
+    /// Normalized segments from the local NeMo runtime.
+    Nemo {
+        /// Ordered speaker segments.
+        segments: Vec<SpeakerSegmentV2>,
+    },
+}
+
+/// Raw speaker diarization evidence returned by the model host.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 pub struct SpeakerResultV2 {
-    /// Ordered diarization segments.
-    pub segments: Vec<SpeakerSegmentV2>,
+    /// Backend-specific evidence before shared normalization.
+    pub evidence: SpeakerInferenceEvidenceV2,
 }
 
 /// Raw openSMILE output returned by the model host.
@@ -567,6 +618,30 @@ pub struct ShutdownRequestV2 {
 mod tests {
     use super::*;
 
+    /// WIRE FORMAT: paid pyannoteAI output crosses the worker boundary before
+    /// normalization, so a later normalization revision can replay it without
+    /// another service call.
+    #[test]
+    fn speaker_result_retains_provider_shaped_evidence() {
+        let result = SpeakerResultV2 {
+            evidence: SpeakerInferenceEvidenceV2::PyannoteAi {
+                job_id: SpeakerProviderJobIdV2::from("job-1"),
+                output: serde_json::from_value(serde_json::json!({
+                    "exclusiveDiarization": [
+                        {"start": 0.0, "end": 0.75, "speaker": "SPEAKER_00"}
+                    ]
+                }))
+                .expect("provider output object"),
+                warning: None,
+            },
+        };
+
+        let value = serde_json::to_value(result).expect("provider evidence serializes");
+        assert_eq!(value["evidence"]["kind"], "pyannote_ai");
+        assert_eq!(value["evidence"]["job_id"], "job-1");
+        assert!(value["evidence"]["output"]["exclusiveDiarization"].is_array());
+    }
+
     /// WIRE FORMAT: both legal response shapes roundtrip byte-stably through
     /// the manual `Serialize`/`Deserialize` pair, which is exactly the kind of
     /// property no type can pin (two separate functions must agree).
@@ -575,7 +650,10 @@ mod tests {
         let success = serde_json::json!({
             "request_id": "req-1",
             "outcome": {"kind": "success"},
-            "result": {"kind": "speaker_result", "segments": []},
+            "result": {
+                "kind": "speaker_result",
+                "evidence": {"kind": "pyannote", "segments": []}
+            },
             "elapsed_s": 0.5
         });
         let failure = serde_json::json!({
@@ -605,7 +683,10 @@ mod tests {
         let error_with_result = serde_json::json!({
             "request_id": "req-4",
             "outcome": {"kind": "error", "code": "runtime_failure", "message": "boom"},
-            "result": {"kind": "speaker_result", "segments": []},
+            "result": {
+                "kind": "speaker_result",
+                "evidence": {"kind": "pyannote", "segments": []}
+            },
             "elapsed_s": 0.5
         });
 

@@ -1,7 +1,7 @@
 # transcribe: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-08-28 15:08 EDT
+**Last updated:** 2026-08-28 19:15 EDT
 
 Implementation guide for the `transcribe` command. For user-facing
 documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe.md).
@@ -22,12 +22,12 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 | Pre-CHAT utterance segmentation | `crates/batchalign/src/pipeline/transcribe.rs:421-457`: `process_asr_with_prechat_segmentation()` | Runs for eng/cmn/zho/yue: BERT utseg applied to prepared chunks BEFORE build_chat |
 | CHAT assembly | `crates/batchalign-transform/src/build_chat/mod.rs:41`: `build_chat()` | Assembles `ChatFile` AST from `TranscriptDescription` (typed bridge) |
 | Speaker projection | `crates/batchalign/src/chat_ops/speaker.rs`: `project_speakers_onto_chunks()` | Projects raw segments onto timed ASR words and splits prepared chunks before utseg and CHAT assembly |
-| Speaker evidence cache | `crates/batchalign/src/transcribe/evidence_cache.rs` | Content-derived request identity, validated envelope, per-key lease, miss authorization, durable commit, fakeable inference boundary |
+| Speaker evidence cache | `crates/batchalign/src/transcribe/evidence_cache.rs` | Separate raw/derived identities and envelopes, per-key lease, typed miss authorization, durable commits, fakeable inference boundary |
 | Same-job turn retention | `crates/batchalign/src/runner/debug_dumper.rs`: `dump_speaker_turns()` | When `--debug-dir` is set, writes the exact dedicated turns used by transcribe or returns a typed failure |
 | Canonical turns schema | `crates/batchalign/src/runner/dispatch/diarize_turns.rs` | Serializes chatter-compatible turns with backend-derived provenance |
 | ASR worker IPC | `batchalign/inference/asr.py` | Python-hosted ASR engines; Rev is Rust-owned |
 | Raw Rev evidence cache | `crates/batchalign/src/revai/evidence_cache.rs` | Provider-media identity, raw transcript envelope, miss authorization, durable commit, fakeable Rev boundary |
-| Speaker worker IPC | `batchalign/inference/speaker.py`: `batch_infer_speaker()` | Exhaustive dispatch over pyannoteAI, local Pyannote, and NeMo, returning raw millisecond segments |
+| Speaker worker IPC | `batchalign/inference/speaker.py`: `infer_speaker_prepared_audio()` | Exhaustive dispatch over pyannoteAI, local Pyannote, and NeMo, returning a backend-specific evidence variant |
 | pyannoteAI adapter | `batchalign/inference/pyannote_ai.py` | Typed prepare, upload, submit, complete lifecycle for Precision-2 exclusive diarization |
 
 ---
@@ -134,20 +134,28 @@ execute_v2 request:
 
 execute_v2 response:
 {
-  "segments": [
-    { "start_s": 0.0, "end_s": 2.3, "speaker": "SPEAKER_00" },
-    ...
-  ]
+  "evidence": {
+    "kind": "pyannote_ai",
+    "job_id": "provider-job-id",
+    "output": { "exclusiveDiarization": [ ... ] },
+    "warning": null
+  }
 }
 ```
+
+Local Pyannote and NeMo responses use the `pyannote` and `nemo` evidence
+variants, respectively, each with its model-native millisecond segment list.
+The FFI rejects a response whose evidence variant does not match the backend
+in the request.
 
 The typed CLI selector `SpeakerEngineName` maps exhaustively to
 `SpeakerBackendV2`. When no explicit speaker engine is supplied, enabled
 diarization selects `PyannoteAi`. The cloud adapter uses explicit lifecycle
 states: `PreparedWav`, `UploadedMedia`, `SubmittedDiarizationJob`, and
-`CompletedDiarizationJob`. Only a completed job can be converted to speaker
-segments. It requests `exclusive: true` and prefers `exclusiveDiarization`,
-which is the provider output designed for ASR reconciliation.
+`CompletedDiarizationJob`. Only a completed job can cross the worker boundary.
+It requests `exclusive: true`; the versioned Rust normalizer prefers
+`exclusiveDiarization`, which is the provider output designed for ASR
+reconciliation.
 
 Before that worker call, `SpeakerEvidenceRequest::from_audio()` hashes the full
 inference media source and combines the digest with the preparation revision,
@@ -158,12 +166,14 @@ pipeline cannot substitute its ASR `EngineVersion`.
 `resolve_speaker_evidence()` owns the production decision:
 
 1. Acquire the process-local lease for the semantic cache key.
-2. Validate and replay a durable hit, or produce a typed
-   `SpeakerEvidenceMiss`.
-3. Consume the miss into `SpeakerInferenceAuthorization`.
-4. Cross the `SpeakerEvidenceInference` boundary exactly once.
-5. Validate and durably commit the normalized segments before releasing the
-   lease.
+2. Validate and replay derived segments when present.
+3. On a derived miss, validate retained raw evidence, normalize it under the
+   current `SpeakerNormalizationRevision`, and commit a new derived envelope.
+4. Only when raw evidence is also absent, produce a typed
+   `SpeakerEvidenceMiss` and consume it into `SpeakerInferenceAuthorization`.
+5. Cross the `SpeakerEvidenceInference` boundary exactly once.
+6. Validate provenance and durably commit raw evidence, then derived segments,
+   before releasing the lease.
 
 `SpeakerWorkerInference` is the production implementation. Tests use the same
 resolver with a call-counting fake, which proves how many times the billable
@@ -176,10 +186,14 @@ miss, because that would make broken local state authorize a surprise paid
 call. `--override-media-cache` deliberately constructs a forced-refresh miss,
 then replaces the entry after successful inference.
 
-The envelope stores normalized `SpeakerSegmentV2` evidence, not the complete
-raw provider JSON. The pyannoteAI key uses its visible `precision-2` alias;
-the provider does not expose an immutable backend build hash. These limits are
-documented rather than hidden behind an overclaim of perfect invalidation.
+The raw envelope stores `SpeakerInferenceEvidenceV2`; for pyannoteAI this
+includes the completed job ID, complete provider output object, and optional
+warning. A separate envelope stores normalized `SpeakerSegmentV2` values and
+is keyed by the raw fingerprint plus `SpeakerNormalizationRevision`. Changing
+only the local projection therefore cannot authorize a new paid call. The
+pyannoteAI raw key uses its visible `precision-2` alias; the provider does not
+expose an immutable backend build hash. That limit is documented rather than
+hidden behind an overclaim of perfect invalidation.
 
 Rev.AI transcription follows the same stronger pattern through
 `resolve_rev_asr_evidence()`. Its durable `CompletedRevAsrEvidence` retains the

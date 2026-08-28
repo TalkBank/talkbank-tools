@@ -5,18 +5,21 @@
   },
   "result": {
     "kind": "speaker_result",
-    "segments": [
-      {
-        "start_ms": 0,
-        "end_ms": 850,
-        "speaker": "SPEAKER_0"
-      },
-      {
-        "start_ms": 850,
-        "end_ms": 1600,
-        "speaker": "SPEAKER_1"
-      }
-    ]
+    "evidence": {
+      "kind": "pyannote",
+      "segments": [
+        {
+          "start_ms": 0,
+          "end_ms": 850,
+          "speaker": "SPEAKER_0"
+        },
+        {
+          "start_ms": 850,
+          "end_ms": 1600,
+          "speaker": "SPEAKER_1"
+        }
+      ]
+    }
   },
   "elapsed_s": 0.42
 }

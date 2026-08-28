@@ -1,7 +1,7 @@
 # Audio-Task Cache
 
 **Status:** Current
-**Last updated:** 2026-08-28 17:25 EDT
+**Last updated:** 2026-08-28 19:15 EDT
 
 Batchalign caches **audio-task results** (forced alignment, UTR ASR, raw Rev
 transcript evidence, dedicated transcribe speaker evidence, and media
@@ -65,7 +65,7 @@ every real scenario in the second bucket.
    per file. FA takes 10-60 seconds. Caching saves minutes, not
    milliseconds.
 2. **Audio rarely changes.** FA and UTR use `AudioIdentity` (path + mtime +
-   size). Paid speaker evidence uses a full BLAKE3 byte digest so copies and
+   size). Speaker raw evidence uses a full BLAKE3 byte digest so copies and
    renames share results while changed source bytes invalidate them.
 3. **Hit rates are high for repeated alignment.** Re-running `align`
    on a corpus where only a few files changed gives near-100% hit
@@ -218,7 +218,8 @@ Audio tasks that use the cache:
 |---|---|---|
 | `ForcedAlignment` | `forced_alignment` | `fa/` |
 | `UtrAsr` | `utr_asr` | `runner/dispatch/fa_pipeline.rs` (UTR pre-pass) |
-| `SpeakerDiarizationEvidence` | `speaker_diarization_evidence` | `pipeline/transcribe.rs` |
+| `SpeakerDiarizationRawEvidence` | `speaker_diarization_raw_evidence` | `pipeline/transcribe.rs` |
+| `SpeakerDiarizationSegments` | `speaker_diarization_segments` | `pipeline/transcribe.rs` |
 | `RevAsrEvidence` | `rev_asr_evidence` | `pipeline/transcribe.rs` + `revai/evidence_cache.rs` |
 
 The enum also includes `Morphosyntax`, `UtteranceSegmentation`, and
@@ -233,8 +234,31 @@ cleanly, but no code writes or reads entries under those task names.
 | Forced alignment | audio identity + time window + words + gap-healing policy + engine |
 | UTR ASR (full-file) | `"utr_asr"` + audio identity + lang |
 | UTR ASR (segment) | `"utr_asr_segment"` + audio identity + start_ms + end_ms + lang |
-| Dedicated speaker evidence | schema + source-byte digest + preparation revision + backend + expected speakers + model revision |
+| Raw dedicated-speaker evidence | schema + source-byte digest + preparation revision + backend + expected speakers + model revision |
+| Derived speaker segments | raw-evidence fingerprint + normalization revision |
 | Raw Rev ASR evidence | schema + provider-media digest + requested language + expected speakers + request-policy revision + model revision |
+
+### Two-stage dedicated-speaker cache
+
+Dedicated diarization deliberately separates paid/model inference from local
+normalization:
+
+```text
+semantic request -> raw evidence key -> backend inference (only on raw miss)
+raw evidence fingerprint + normalizer revision -> derived segment key
+```
+
+`SpeakerInferenceAuthorization` can only be constructed by consuming a proven
+raw cache miss. A derived miss cannot authorize inference. It must first look
+for raw evidence and, when present, run the Rust normalizer and commit a new
+derived envelope. The worker result is a tagged evidence union, so a request
+for one backend cannot commit evidence claiming another backend's provenance.
+
+For pyannoteAI, the raw envelope contains the completed provider job ID, full
+provider output object, and optional warning. The derived envelope contains
+ordered millisecond speaker segments plus the raw fingerprint and
+normalization revision. Both envelopes fail closed on corruption; neither
+corruption path silently becomes a paid miss.
 
 ## Invalidation Matrix
 

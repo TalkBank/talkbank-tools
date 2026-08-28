@@ -18,11 +18,11 @@ and full Python caller locations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 if TYPE_CHECKING:
     from batchalign.inference.languages.cantonese._cantonese_fa import CantoneseFaHost
-    from batchalign.worker._types_v2 import TaskResultV2
+    from batchalign.worker._types_v2 import TaskRequestV2, TaskResultV2
 
 from dataclasses import dataclass, field
 
@@ -146,7 +146,7 @@ def execute_request_v2(
         return ExecuteResponseV2(
             request_id=request.request_id,
             outcome=ExecuteSuccessV2(),
-            result=_echo_placeholder_result(request.task),
+            result=_echo_placeholder_result(request.payload),
             elapsed_s=0.001,
         )
 
@@ -178,37 +178,67 @@ def execute_request_v2(
             return _unsupported_task_response(request)
 
 
-def _echo_placeholder_result(task: InferenceTaskV2) -> TaskResultV2:
-    """Empty result payload of the task's own kind, for test-echo mode only."""
+def _echo_placeholder_result(payload: TaskRequestV2) -> TaskResultV2:
+    """Derive an empty result from the typed request payload itself."""
 
     from batchalign.worker._types_v2 import (
+        AsrRequestV2,
+        AvqiRequestV2,
         AvqiResultPayloadV2,
+        CorefRequestV2,
         CorefResultPayloadV2,
+        ForcedAlignmentRequestV2,
         IndexedWordTimingResultPayloadV2,
+        LocalPyannoteSpeakerEvidenceV2,
         MonologueAsrResultPayloadV2,
+        MorphosyntaxRequestV2,
         MorphosyntaxResultPayloadV2,
+        NemoSpeakerEvidenceV2,
+        OpenSmileRequestV2,
         OpenSmileResultPayloadV2,
+        PyannoteAISpeakerEvidenceV2,
+        SpeakerBackendV2,
+        SpeakerRequestV2,
         SpeakerResultPayloadV2,
+        TranslateRequestV2,
         TranslationResultPayloadV2,
+        UtsegRequestV2,
         UtsegResultPayloadV2,
     )
 
-    match task:
-        case InferenceTaskV2.MORPHOSYNTAX:
+    match payload:
+        case MorphosyntaxRequestV2():
             return MorphosyntaxResultPayloadV2(items=[])
-        case InferenceTaskV2.UTSEG:
+        case UtsegRequestV2():
             return UtsegResultPayloadV2(items=[])
-        case InferenceTaskV2.TRANSLATE:
+        case TranslateRequestV2():
             return TranslationResultPayloadV2(items=[])
-        case InferenceTaskV2.COREF:
+        case CorefRequestV2():
             return CorefResultPayloadV2(items=[])
-        case InferenceTaskV2.ASR:
+        case AsrRequestV2():
             return MonologueAsrResultPayloadV2(lang="eng", monologues=[])
-        case InferenceTaskV2.FORCED_ALIGNMENT:
+        case ForcedAlignmentRequestV2():
             return IndexedWordTimingResultPayloadV2(indexed_timings=[])
-        case InferenceTaskV2.SPEAKER:
-            return SpeakerResultPayloadV2(segments=[])
-        case InferenceTaskV2.OPENSMILE:
+        case SpeakerRequestV2(backend=backend):
+            match backend:
+                case SpeakerBackendV2.PYANNOTE_AI:
+                    return SpeakerResultPayloadV2(
+                        evidence=PyannoteAISpeakerEvidenceV2(
+                            job_id="echo-job",
+                            output={"exclusiveDiarization": []},
+                        )
+                    )
+                case SpeakerBackendV2.PYANNOTE:
+                    return SpeakerResultPayloadV2(
+                        evidence=LocalPyannoteSpeakerEvidenceV2(segments=[])
+                    )
+                case SpeakerBackendV2.NEMO:
+                    return SpeakerResultPayloadV2(
+                        evidence=NemoSpeakerEvidenceV2(segments=[])
+                    )
+                case _:
+                    assert_never(backend)
+        case OpenSmileRequestV2():
             return OpenSmileResultPayloadV2(
                 feature_set="echo",
                 feature_level="echo",
@@ -218,7 +248,7 @@ def _echo_placeholder_result(task: InferenceTaskV2) -> TaskResultV2:
                 rows=[],
                 success=True,
             )
-        case InferenceTaskV2.AVQI:
+        case AvqiRequestV2():
             return AvqiResultPayloadV2(
                 avqi=0.0,
                 cpps=0.0,
@@ -231,6 +261,8 @@ def _echo_placeholder_result(task: InferenceTaskV2) -> TaskResultV2:
                 sv_file="echo",
                 success=True,
             )
+        case _:
+            assert_never(payload)
 
 
 def _unsupported_task_response(request: ExecuteRequestV2) -> ExecuteResponseV2:
