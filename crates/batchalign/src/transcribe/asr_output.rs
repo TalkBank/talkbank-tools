@@ -154,36 +154,3 @@ pub(crate) fn build_empty_chat_text(opts: &TranscribeOptions) -> Result<String, 
         .map_err(|e| ServerError::Validation(format!("Failed to build empty CHAT: {e}")))?;
     Ok(to_chat_string(&chat_file))
 }
-
-#[cfg(test)]
-pub(crate) fn insert_transcribe_comment(chat_text: &str, opts: &TranscribeOptions) -> String {
-    let comment = format!(
-        "@Comment:\tBatchalign, ASR Engine {}. Unchecked output of ASR model, DO NOT USE.\n",
-        opts.backend.comment_engine_name()
-    );
-
-    if let Some(pos) = chat_text.find("\n*") {
-        let insert_at = pos + 1;
-        let mut out = String::with_capacity(chat_text.len() + comment.len());
-        out.push_str(&chat_text[..insert_at]);
-        out.push_str(&comment);
-        out.push_str(&chat_text[insert_at..]);
-        return out;
-    }
-
-    if let Some(pos) = chat_text.find("\n@End") {
-        let insert_at = pos + 1;
-        let mut out = String::with_capacity(chat_text.len() + comment.len());
-        out.push_str(&chat_text[..insert_at]);
-        out.push_str(&comment);
-        out.push_str(&chat_text[insert_at..]);
-        return out;
-    }
-
-    let mut out = chat_text.to_owned();
-    if !out.ends_with('\n') {
-        out.push('\n');
-    }
-    out.push_str(&comment);
-    out
-}

@@ -1,7 +1,7 @@
 # Adding Inference Providers
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:27 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 Batchalign3 no longer has a public entry-point plugin system. New engines are
 added in-tree as built-in worker capabilities.
@@ -150,7 +150,7 @@ must update when adding a new variant. Use the `whisper_hub` addition
 | `AsrEngineName::dispatch_override_name()` | `types/engines.rs` | Pool key (must equal wire_name or `None`). |
 | `AsrWorkerMode::from_engine_name()` | `transcribe/types.rs` | Wire-string → worker-mode variant. |
 | `AsrWorkerMode::as_v2_backend()` | `transcribe/types.rs` | Worker-mode → IPC backend. |
-| `AsrBackend::comment_engine_name()` | `transcribe/types.rs` (test-only) | Canonical wire string for tests. |
+| `AsrBackend::provenance_name()` | `transcribe/types.rs` | Canonical engine identity for production transcript provenance and warnings. |
 | `asr_backend_engine()` | `crates/batchalign/src/worker/pool/execute_v2.rs` | Maps the wire backend to an `AsrEngineName`; the pool-key string then comes from `dispatch_override_name()`, so there is no second table to keep in step. |
 | *(input-source routing)* | `crates/batchalign/src/transcribe/infer.rs` | Match on `AsrWorkerMode` picks `PreparedAudio` (local model) vs `ProviderMedia` (external service). |
 

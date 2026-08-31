@@ -1,7 +1,7 @@
 # Introduction
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:24 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 **Batchalign** is a toolkit for language sample analysis (LSA) from
 the [TalkBank](https://talkbank.org/) project.  It processes conversation
@@ -19,7 +19,7 @@ the server.
 separate **Batchalign Desktop** shell in `apps/dashboard-desktop/` is still
 experimental and should not be described as the supported first-time-user entry
 point. For current platform details, see [Platform Support](reference/platform-support.md)
-and the repo-root `docs/RELEASE-CONTRACT.md`.
+and the [Release Contract](developer/release-contract.md).
 
 batchalign3 is installed from GitHub releases (there is no PyPI package): run
 the installer one-liner from the

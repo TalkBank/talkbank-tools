@@ -423,7 +423,9 @@ different punctuation, diarization, and turn boundaries from the provider.
 A new `.cha` file per audio input (audio extension replaced: `foo.wav` →
 `foo.cha`). Contains:
 
-- `@Comment` with Batchalign version and ASR engine name
+- a structured provenance `@Comment` plus a human-readable warning carrying
+  the Batchalign version, actual ASR engine name, and `DO NOT USE` for unchecked
+  model output
 - `@Languages`, `@Participants`, `@ID` headers
 - Utterance lines with timing bullets
 - `%wor` tier (if `--wor` is set)

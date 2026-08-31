@@ -1,7 +1,7 @@
 # Processing Provenance System
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 ## Overview
 
@@ -53,7 +53,8 @@ Provenance is injected into the CHAT AST, not the serialized text:
 1. Existing `@Comment` with matching `[ba3 <command> |` prefix is removed
    from `ChatFile.lines`
 2. A new `Line::Header { Header::Comment { BulletContent } }` is inserted
-   after the last `@ID` header
+   after the last constant participant header (`@ID`, `@Birth of`,
+   `@Birthplace of`, or `@L1 of`)
 3. The file is then serialized normally via `to_chat_string()`
 
 This ensures provenance comments participate in proper CHAT serialization
@@ -83,7 +84,7 @@ Each pipeline injects provenance right before serialization:
 | translate | `pipeline/text_infer.rs` | Same as utseg (shared generic pipeline) |
 | coref | `coref.rs` | `run_coref_impl()`: after injection, before serialize |
 | align | `runner/dispatch/fa_pipeline.rs` | `process_one_fa_file()`: after FA result, uses `inject_provenance_into_text()` |
-| transcribe | `pipeline/transcribe.rs` | `run_transcribe_pipeline()`: replaces legacy `insert_transcribe_comment()` |
+| transcribe | `pipeline/transcribe.rs` | serialization stage: injects structured provenance and the unchecked-ASR warning through the production AST helpers |
 
 ## Engine Version Source
 
@@ -122,26 +123,28 @@ preserves any align or transcribe comments. The processing history
 accumulates across different commands but doesn't duplicate within
 one command.
 
-## Tests
+## Human-readable unchecked-ASR warning
 
-`provenance.rs` includes 5 unit tests:
+Transcribe writes two comments for different audiences:
 
-| Test | What it verifies |
-|------|-----------------|
-| `format_morphotag_provenance` | Builder output matches `[ba3 morphotag \| ...]` format |
-| `format_empty_fields` | No-field comments format correctly |
-| `inject_replaces_existing_comment_for_same_command` | Re-run replaces, doesn't duplicate |
-| `inject_preserves_comments_from_other_commands` | Different-command comments survive |
-| `field_if_omits_false_values` | Boolean fields only appear when `true` |
+- `[ba3 transcribe | ...]` is machine-readable processing provenance; and
+- the warning below is a human-visible safety statement.
 
-## Legacy
-
-The old transcribe comment format:
 ```text
-@Comment:	Batchalign 0.1.0, ASR Engine rev. Unchecked output of ASR model.
+@Comment:	Batchalign 0.3.0, ASR Engine rev. Unchecked output of ASR model, DO NOT USE.
 ```
 
-is replaced by the structured `[ba3 transcribe | ...]` format. The old
-`insert_transcribe_comment()` function in `transcribe/asr_output.rs`
-still exists but is no longer called from the main pipeline path. It
-will be removed in a future cleanup.
+`inject_unchecked_warning()` owns this production path. It replaces any prior
+unchecked-ASR warning, writes the compiling product version and actual ASR
+engine identity, includes the mandated `DO NOT USE`, and uses the same
+constant-header-aware AST insertion point as structured provenance.
+
+## Regression coverage
+
+Tests beside `provenance.rs` cover deterministic formatting, replacement,
+cross-command preservation, constant-header ordering, extraction, no-op write
+detection, the product-version stamp, and the explicit safety warning. The ASR
+backend matrix in `transcribe/mod.rs` proves that Rev, Whisper variants,
+Tencent, Aliyun, Funaudio, and Qwen retain distinct provenance names. There is
+no test-only comment implementation: tests exercise the production builder and
+AST injection path.

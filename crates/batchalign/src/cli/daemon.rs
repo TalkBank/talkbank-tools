@@ -135,8 +135,8 @@ enum DaemonProfile {
     /// system or venv Python resolved by [`resolve_python_executable()`].
     Main,
     /// A secondary daemon dedicated to transcribe workloads that require
-    /// a different Python environment (e.g. Python 3.12 with
-    /// openai-whisper, while the main daemon runs 3.14t). Selected when
+    /// a different Python environment or model stack from the main daemon.
+    /// Selected when
     /// the dispatch layer detects a transcribe command and the sidecar
     /// Python is available. Uses `BATCHALIGN_SIDECAR_PYTHON` or falls
     /// back to `~/.batchalign3/sidecar/.venv/bin/python`.

@@ -205,8 +205,10 @@ pub fn transcribe_provenance(
 /// duplicated.
 pub fn inject_unchecked_warning(file: &mut ChatFile, asr_engine: &str) {
     let version = env!("CARGO_PKG_VERSION");
-    let warning_text =
-        format!("Batchalign {version}, ASR Engine {asr_engine}. Unchecked output of ASR model.");
+    let warning_text = format!(
+        "Batchalign {version}, ASR Engine {asr_engine}. \
+         Unchecked output of ASR model, DO NOT USE."
+    );
     let marker = "Unchecked output of ASR model";
 
     // Remove existing unchecked warning (if re-transcribing).
@@ -538,6 +540,14 @@ mod tests {
         assert!(
             birth_pos < warning_pos,
             "unchecked warning must follow @Birth of; got:\n{result}"
+        );
+        assert!(
+            result.contains("Unchecked output of ASR model, DO NOT USE."),
+            "unchecked output must carry the explicit safety warning; got:\n{result}"
+        );
+        assert!(
+            result.contains(concat!("Batchalign ", env!("CARGO_PKG_VERSION"))),
+            "warning must identify the compiling product version; got:\n{result}"
         );
     }
 

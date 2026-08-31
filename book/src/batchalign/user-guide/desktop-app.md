@@ -1,7 +1,7 @@
 # Batchalign Desktop (Experimental)
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:24 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 Batchalign Desktop is the native Batchalign GUI shell in
 `apps/dashboard-desktop/`. It is **experimental** and is **not** currently a
@@ -14,7 +14,8 @@ for first-time users.
 
 ## Current status
 
-- **Release contract:** Experimental (see repo-root `docs/RELEASE-CONTRACT.md`)
+- **Release contract:** Experimental (see the
+  [Release Contract](../developer/release-contract.md))
 - **Distribution:** no supported public desktop bundle line today
 - **Desktop shell location:** `apps/dashboard-desktop/`
 - **Supported product surface today:** `batchalign3` CLI, local server, and

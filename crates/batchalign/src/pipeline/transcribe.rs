@@ -173,11 +173,7 @@ impl<'a> TranscribePipelineContext<'a> {
         if let TranscribeEvidenceInput::LegacyReplay { replay, .. } = &self.evidence_input {
             return replay.producer().provenance_name();
         }
-        match self.opts.backend {
-            crate::transcribe::types::AsrBackend::RustRevAi => "rev",
-            crate::transcribe::types::AsrBackend::RustWhisperRs => "whisper_rs",
-            crate::transcribe::types::AsrBackend::Worker(_) => "whisper",
-        }
+        self.opts.backend.provenance_name()
     }
 }
 

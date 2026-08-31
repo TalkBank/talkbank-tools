@@ -1,76 +1,108 @@
 # Release Contract
 
 **Status:** Current
-**Last updated:** 2026-05-20 00:47 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
-This document defines the stability tiers for all public surfaces of the
-batchalign3 project. Consumers can use these tiers to decide which surfaces
-are safe to depend on and which may change without notice.
+This page defines the compatibility promises for the public `batchalign3`
+product. It describes the current 0.x public-preview line; it is not a promise
+that research-quality output is universally better than another system.
 
 ## Release state
 
-**Beta (1.0.0-beta).** Public release pending stabilization of packaging,
-cross-repo dependencies, and test strategy.
+**Public preview (0.x).** Releases are usable by external researchers, but CLI,
+wire, cache, and evidence schemas may still change between minor versions.
+Breaking changes must be described in release notes and migration docs.
 
-## Stable surfaces (target for 1.0)
+```mermaid
+stateDiagram-v2
+    [*] --> SourceCandidate
+    SourceCandidate --> ArtifactCandidate: local gates and exact-commit CI pass
+    ArtifactCandidate --> ReleaseCandidate: five-wheel dry run and smoke pass
+    ReleaseCandidate --> PublishedPreview: immutable annotated tag
+    PublishedPreview --> Superseded: newer version published
+    ReleaseCandidate --> SourceCandidate: defect found
+    PublishedPreview --> Withdrawn: release defect recorded
+    Withdrawn --> SourceCandidate: new patch version prepared
+```
 
-These surfaces will have committed APIs at 1.0. Breaking changes will follow
-semver after that point.
+## Supported public surfaces
 
-- **CLI (`batchalign3`)** -- transcribe, align, morphotag, utseg, translate,
-  coref, opensmile, avqi.
-- **Python package (`batchalign3` on PyPI)** -- CLI entry point plus the
-  `batchalign_core` Rust extension module.
-- **Local server mode (`batchalign3 serve`)** -- single-machine job execution
-  with REST + WebSocket interface.
+- **CLI (`batchalign3`)**: the documented commands and flags.
+- **Local server (`batchalign3 serve`)**: REST/WebSocket execution used by the
+  CLI and browser dashboard. Its schema is documented but not frozen during
+  preview.
+- **Browser dashboard**: the UI embedded in the released CLI/server.
+- **GitHub Release installers and wheels**: the supported installation path.
+  There is no PyPI distribution.
+- **CHAT output and debug/evidence artifacts**: supported as documented for the
+  release, but cache, replay-manifest, and evidence schema revisions remain
+  preview surfaces unless a page explicitly promises compatibility.
 
-## Preview surfaces
+The wheel contains Python model-worker code, the `batchalign_core` extension,
+and a platform-specific Rust `batchalign3` executable. It is a distribution
+artifact, not a supported import-level Python API. Python integrations should
+invoke the CLI or local server.
 
-These surfaces are functional and used in production, but their APIs may change
-between minor versions.
+## Experimental or internal surfaces
 
-- **Dashboard (React web UI)** -- functional, under active development.
-- **REST API** -- used by the dashboard. Schema is documented but not frozen.
+- **Batchalign Desktop (Tauri)**: an in-repo shell, not released.
+- **Direct Python imports**: internal implementation detail.
+- **Internal Rust crates**: workspace implementation details, not separately
+  published by the BA3 release workflow.
+- **Staged or remote multi-host execution**: experimental.
+- **Cache database internals**: replaceable implementation detail. Durable raw
+  evidence and fingerprinted replay artifacts have explicit schemas; a cache
+  row itself is not a preservation format.
 
-## Experimental / dormant surfaces
+## Evidence and quality claims
 
-These surfaces exist in the repo but are not packaged, not tested in CI, and
-not covered by any compatibility promise.
+Architectural guarantees and empirical quality claims are different:
 
-- **Desktop app (Tauri)** -- dormant, not functional.
-- **Installer scripts** -- partially implemented.
-- **Staged / remote execution** -- experimental.
+- Types, validation, fingerprints, and fail-closed writes can guarantee which
+  evidence was admitted and which algorithm produced an output.
+- They cannot by themselves guarantee optimal words, speakers, utterance
+  boundaries, or `%wor` timings.
+- Comparative claims about the upstream BA3 fork, earlier BA3, Whisper, Rev, or a
+  published corpus require controlled clips, identical inputs and provider
+  requests, preserved raw outputs, and recorded human adjudication.
+
+The product may therefore claim replayability and stronger correctness
+boundaries when the code proves them, while quality claims remain scoped to
+their experiment reports.
 
 ## Workspace dependency
 
-The batchalign crates live as siblings inside the talkbank-tools
-Cargo workspace (`batchalign3` was folded into talkbank-tools on
-2026-04-28). The runtime crate `batchalign` depends on the
-talkbank-* sibling crates by workspace path:
+BA3 lives in the `talkbank-tools` Cargo workspace and consumes the sibling
+TalkBank Rust crates by workspace dependency. That single reviewed repository
+is the release source of truth; there is no cross-repository dependency pin to
+update for a normal BA3 release.
 
-- `talkbank-model`: CHAT data model + validation
-- `talkbank-parser`: tree-sitter-backed CHAT parser
-- `talkbank-transform`: pipelines, alignment, CHAT↔JSON
-
-`talkbank-clan` is NOT a runtime dependency of the batchalign crate;
-it is a sibling crate used by the standalone `chatter` CLI.
-
-Before 1.0 the talkbank-* sibling crates target being published to
-crates.io with stable versioned APIs; the batchalign runtime will
-follow that publish cadence. Until then, the workspace path
-dependencies are the single source of truth and there is no
-separate cross-repo release boundary.
+The BA3 product version appears in `pyproject.toml`, the workspace package
+version, and `crates/batchalign/Cargo.toml`. Several internal helper crates keep
+independent 0.1.x versions and must not be mechanically changed to match the
+product.
 
 ## Platform support
 
-| Tier | Platforms | Meaning |
-|------|-----------|---------|
-| **A** (CI-tested) | Linux x86_64 | Every PR runs tests on this target |
-| **B** (release builds) | macOS ARM, macOS Intel, Linux ARM, Windows x86_64 | Release binaries are built but not exercised by CI |
+The release workflow builds five wheels:
 
-**Note:** Process lifecycle code uses Unix-specific APIs (signals, process
-groups). Windows support is build-only -- the server and worker subsystems are
-not expected to function on Windows without porting work.
+| Platform | Artifact / test promise |
+|---|---|
+| Linux x86_64 | Wheel build, clean CLI smoke, server-health smoke; full Linux CI elsewhere |
+| Linux ARM64 | Native wheel build; no release-workflow execution smoke |
+| macOS ARM64 | Wheel build, clean CLI smoke, server-health smoke |
+| macOS x86_64 | Wheel build; no release-workflow execution smoke |
+| Windows x86_64 | Wheel build and clean CLI smoke; server lifecycle is not supported |
+
+See [Platform Support](../reference/platform-support.md) for operational
+limitations.
+
+## Distribution and signing
+
+An immutable `vX.Y.Z` tag triggers the GitHub Release workflow. The release
+contains five wheels, one source distribution, shell and PowerShell installers,
+and a SHA-256 manifest. Artifacts are not currently code-signed or notarized;
+the checksums provide download-integrity evidence, not publisher identity.
 
 ## License
 

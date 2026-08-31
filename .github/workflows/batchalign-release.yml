@@ -1,9 +1,11 @@
 # Release the public batchalign3 Python package and embedded CLI wheels to a
 # GitHub Release (no PyPI). One abi3 wheel per platform plus the installer
 # scripts and a checksum file are attached. Triggered by a v* tag push, or
-# manually via workflow_dispatch with an existing tag. This does not release
-# internal crates or the experimental desktop surfaces. For a dry-run packaging
-# validation use installers/test-github-release.sh (a throwaway draft release).
+# manually via workflow_dispatch. A dry run accepts a prospective vX.Y.Z
+# identity and stops before publishing; a non-dry manual run requires that tag
+# to exist. This does not release internal crates or experimental desktop
+# surfaces. `installers/test-github-release.sh` remains the focused installer
+# integration test that uses a throwaway draft release.
 name: Batchalign Release
 
 run-name: batchalign3 ${{ inputs.tag || github.ref_name }}
@@ -15,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing git tag to (re)publish (e.g. v0.1.0)"
+        description: "Release identity; existing tag required unless dry-run (e.g. v0.3.0)"
         required: true
       dry_run:
         description: "Build and smoke-test only; do not create the GitHub Release"
@@ -66,18 +68,47 @@ jobs:
           import os
           import sys
           import tomllib
+          from pathlib import Path
 
           release_tag = os.environ["RELEASE_TAG"]
           with open("pyproject.toml", "rb") as f:
               pyproject = tomllib.load(f)
           package_version = pyproject["project"]["version"]
+          with open("Cargo.toml", "rb") as f:
+              workspace = tomllib.load(f)
+          workspace_version = workspace["workspace"]["package"]["version"]
+          with open("crates/batchalign/Cargo.toml", "rb") as f:
+              batchalign_crate = tomllib.load(f)
+          crate_version = batchalign_crate["package"]["version"]
+          runtime_version = Path("batchalign/version").read_text(
+              encoding="utf-8"
+          ).splitlines()[0].strip()
           tag_version = release_tag.removeprefix("v")
-          if tag_version != package_version:
+          release_identities = {
+              "tag": tag_version,
+              "pyproject": package_version,
+              "workspace": workspace_version,
+              "batchalign crate": crate_version,
+              "runtime metadata": runtime_version,
+          }
+          mismatches = {
+              source: version
+              for source, version in release_identities.items()
+              if version != tag_version
+          }
+          if mismatches:
               print(
-                  f"::error::Tag version ({tag_version}) does not match pyproject version ({package_version})"
+                  "::error::Batchalign release identity mismatch: "
+                  + ", ".join(
+                      f"{source}={version}" for source, version in mismatches.items()
+                  )
+                  + f"; expected {tag_version}"
               )
               sys.exit(1)
-          print(f"Validated Batchalign release identity {release_tag}")
+          print(
+              f"Validated Batchalign release identity {release_tag} across "
+              "pyproject, workspace, product crate, and runtime metadata"
+          )
           PY
 
   build:

@@ -1,11 +1,11 @@
 # Release Readiness State Machine
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 This document defines the authoritative release-readiness states for
-TalkBank's public-facing projects. Every release claim (in PRs, docs,
-PyPI metadata, or conversations) must reference one of these states.
+TalkBank's public-facing projects. Every release claim (in reviews, docs,
+package metadata, or conversations) must reference one of these states.
 Contradictory or informal readiness language ("almost ready", "basically
 done", "should be releasable") is not acceptable, use the state name.
 
@@ -42,14 +42,14 @@ stateDiagram-v2
 - Documentation aligned with actual capabilities
 - External users can try it with expectation of rough edges
 - Breaking changes possible but documented
-- `Development Status :: 4 - Beta` in PyPI classifiers
+- Preview/beta status in package metadata and installation docs
 
 ### Public Stable (1.0)
 
 - Semver enforced
 - Deprecation policy active
 - Breaking changes only in major versions
-- `Development Status :: 5 - Production/Stable` in PyPI classifiers
+- Stable status in package metadata and installation docs
 
 ## Current State
 
@@ -58,27 +58,29 @@ stateDiagram-v2
 Evidence:
 
 - CI gates pass (tests, typecheck, lint)
-- Artifact packaging has known issues (wheel CLI binary embedding)
-- Cross-repo dependency not yet versioned
-- Documentation being aligned with actual capabilities
-- Platform support partially verified
+- Platform wheels embed the Rust CLI and are distributed through GitHub Releases
+- The release workflow builds five wheels and performs clean-wheel CLI smokes
+  on Linux, macOS, and Windows plus server-health smokes on Unix
+- The Python/Rust runtime boundary, paid-evidence caches, offline replay, and
+  debug evidence are documented preview surfaces
+- The source lives in one Cargo workspace, so there is no floating cross-repo
+  runtime dependency
 
 Blockers to Public Stable:
 
-- [ ] Wheel packaging fixed (T020)
-- [ ] Cross-repo dependencies versioned (T098-T099)
-- [ ] Full release checklist passing (T025)
+- [ ] Public API/cache/evidence compatibility policy frozen for 1.0
+- [ ] Supported platform tiers expanded and exercised continuously
+- [ ] Code signing/notarization policy implemented where required
 - [ ] Stabilization period with no breaking changes
 
-**talkbank-tools: Internal Releasable**
+**talkbank-tools Rust libraries: Internal Releasable**
 
 Evidence:
 
 - CI gates pass (clippy, tests, parser equivalence)
-- Release workflow fixed and smoke-tested
 - Core crates (parser, model, transform, clan) well-tested
 
 Blockers to Public Beta:
 
 - [ ] Crates published to crates.io
-- [ ] Release workflow end-to-end validated with a real tag
+- [ ] A separate crates.io release contract and end-to-end publication path

@@ -1,7 +1,7 @@
 # Maturin Build and PyO3 Dependency Surface
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:59 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 ## Overview
 
@@ -49,9 +49,10 @@ Rev.AI, no talkbank-model, no talkbank-parser.
 The `batchalign3` CLI is a standalone Rust binary (`crates/batchalign`).
 It is **not** compiled into the .so extension. Instead:
 
-- **PyPI wheels**: The binary is pre-built and included as package data at
-  `batchalign/_bin/batchalign3`. The console_scripts entry point
-  (`batchalign/_cli.py`) finds and execs it.
+- **GitHub Release wheels**: The binary is pre-built and included as package
+  data at `batchalign/_bin/batchalign3`. The console-script entry point
+  (`batchalign/_cli.py`) finds and execs it. BA3 itself is not published to
+  PyPI.
 - **Dev checkout**: `_cli.py` falls back to `target/debug/batchalign3` or
   `cargo run -p batchalign`.
 

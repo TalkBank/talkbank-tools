@@ -132,6 +132,18 @@ impl AsrWorkerMode {
             Self::HkQwenV2 => AsrBackendV2::HkQwen,
         }
     }
+
+    /// Stable engine name written into transcript provenance.
+    fn provenance_name(self) -> &'static str {
+        match self {
+            Self::LocalWhisperV2 => "whisper",
+            Self::WhisperHubV2 => "whisper_hub",
+            Self::HkTencentV2 => "tencent",
+            Self::HkAliyunV2 => "aliyun",
+            Self::HkFunaudioV2 => "funaudio",
+            Self::HkQwenV2 => "qwen",
+        }
+    }
 }
 
 impl AsrBackend {
@@ -151,20 +163,13 @@ impl AsrBackend {
             Self::Worker(mode) => Some(NonRevAsrBackend::Worker(mode)),
         }
     }
-}
 
-#[cfg(test)]
-impl AsrBackend {
-    pub(super) fn comment_engine_name(self) -> &'static str {
+    /// Stable engine name written into transcript provenance and warnings.
+    pub(crate) fn provenance_name(self) -> &'static str {
         match self {
             Self::RustRevAi => "rev",
             Self::RustWhisperRs => "whisper_rs",
-            Self::Worker(AsrWorkerMode::LocalWhisperV2) => "whisper",
-            Self::Worker(AsrWorkerMode::WhisperHubV2) => "whisper_hub",
-            Self::Worker(AsrWorkerMode::HkTencentV2) => "tencent",
-            Self::Worker(AsrWorkerMode::HkAliyunV2) => "aliyun",
-            Self::Worker(AsrWorkerMode::HkFunaudioV2) => "funaudio",
-            Self::Worker(AsrWorkerMode::HkQwenV2) => "qwen",
+            Self::Worker(mode) => mode.provenance_name(),
         }
     }
 }

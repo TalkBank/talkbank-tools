@@ -62,7 +62,7 @@ mod tests {
     use super::*;
     use crate::api::{DurationSeconds, LanguageCode3, LanguageSpec, WorkerLanguage};
     use batchalign_transform::asr_postprocess::{self, SpeakerIndex};
-    use batchalign_transform::build_chat::{self, TranscriptDescription};
+    use batchalign_transform::build_chat;
     use batchalign_transform::serialize::to_chat_string;
 
     #[test]
@@ -84,6 +84,28 @@ mod tests {
             AsrBackend::from_engine_name("whisper_oai"),
             AsrBackend::Worker(AsrWorkerMode::LocalWhisperV2)
         );
+    }
+
+    #[test]
+    fn asr_backend_provenance_names_preserve_every_engine_identity() {
+        let cases = [
+            ("rev", "rev"),
+            ("whisper_rs", "whisper_rs"),
+            ("whisper_oai", "whisper"),
+            ("whisper_hub", "whisper_hub"),
+            ("tencent", "tencent"),
+            ("aliyun", "aliyun"),
+            ("funaudio", "funaudio"),
+            ("qwen", "qwen"),
+        ];
+
+        for (input_name, expected_provenance) in cases {
+            assert_eq!(
+                AsrBackend::from_engine_name(input_name).provenance_name(),
+                expected_provenance,
+                "provenance must retain the selected ASR engine identity"
+            );
+        }
     }
 
     /// `Auto` jobs reach the ASR worker with no resolved fallback. The
@@ -147,89 +169,6 @@ mod tests {
             text.contains("@Media:\tsample, audio, unlinked"),
             "empty ASR output must not claim timing linkage:\n{text}"
         );
-    }
-
-    #[test]
-    fn insert_transcribe_comment_inserts_header_before_utterances() {
-        let desc = TranscriptDescription {
-            langs: vec!["fra".into()],
-            participants: vec![build_chat::ParticipantDesc {
-                id: "PAR".into(),
-                name: None,
-                role: "Participant".to_string(),
-                corpus: String::new(),
-            }],
-            media_name: Some("sample".into()),
-            media_type: Some("audio".into()),
-            media_status: None,
-            utterances: vec![build_chat::UtteranceDesc {
-                speaker: "PAR".into(),
-                words: Some(vec![build_chat::WordDesc {
-                    text: asr_postprocess::ChatWordText::try_from("bonjour").expect("legal word"),
-                    start_ms: Some(0),
-                    end_ms: Some(500),
-                    kind: asr_postprocess::WordKind::Regular,
-                }]),
-                text: None,
-                start_ms: None,
-                end_ms: None,
-                lang: None,
-            }],
-            write_wor: false,
-        };
-        let chat_file = build_chat::build_chat(&desc).unwrap();
-        let text = to_chat_string(&chat_file);
-
-        let text = insert_transcribe_comment(
-            &text,
-            &sample_transcribe_options(AsrBackend::Worker(AsrWorkerMode::LocalWhisperV2)),
-        );
-
-        let comment_pos = text
-            .find("@Comment:\tBatchalign, ASR Engine whisper. Unchecked output of ASR model, DO NOT USE.")
-            .expect("must contain updated comment format");
-        let utterance_pos = text.find("\n*PAR:").unwrap();
-        assert!(comment_pos < utterance_pos);
-    }
-
-    /// The transcribe @Comment must include "DO NOT USE" per a user's request.
-    /// Users must not trust unchecked ASR output.
-    #[test]
-    fn transcribe_comment_includes_do_not_use() {
-        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
-            @Participants:\tPAR Participant\n\
-            @ID:\teng|test|PAR|||||Participant|||\n\
-            *PAR:\thello .\n@End\n";
-        let opts = sample_transcribe_options(AsrBackend::Worker(AsrWorkerMode::LocalWhisperV2));
-        let text = insert_transcribe_comment(chat_text, &opts);
-        let comment = text
-            .lines()
-            .find(|l| l.contains("Unchecked output"))
-            .expect("must have an 'Unchecked output' comment");
-        assert!(
-            comment.contains("DO NOT USE"),
-            "@Comment must include 'DO NOT USE', got: {comment}"
-        );
-    }
-
-    /// The transcribe @Comment must not contain a hardcoded semver version.
-    /// Use commit hash or omit version entirely.
-    #[test]
-    fn transcribe_comment_no_hardcoded_version() {
-        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
-            @Participants:\tPAR Participant\n\
-            @ID:\teng|test|PAR|||||Participant|||\n\
-            *PAR:\thello .\n@End\n";
-        let opts = sample_transcribe_options(AsrBackend::Worker(AsrWorkerMode::LocalWhisperV2));
-        let text = insert_transcribe_comment(chat_text, &opts);
-        for line in text.lines() {
-            if line.starts_with("@Comment:") && line.contains("Batchalign") {
-                assert!(
-                    !line.contains("0.1.0"),
-                    "@Comment must not contain '0.1.0', got: {line}"
-                );
-            }
-        }
     }
 
     #[test]

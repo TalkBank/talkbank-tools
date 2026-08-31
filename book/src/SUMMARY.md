@@ -92,6 +92,7 @@
 - [Stanza Capability Registry](batchalign/architecture/stanza-capability-registry.md)
 - [Stanza Defect Mitigation Map](batchalign/architecture/stanza-defect-mitigation-map.md)
 - [Observability](batchalign/architecture/observability.md)
+- [Evidence, Replay, and Experiment Topology](batchalign/architecture/evidence-replay-experiments.md)
 - [Incremental Processing](batchalign/architecture/incremental-processing.md)
 - [Server Model Loading](batchalign/architecture/server-model-loading.md)
 - [Dynamic Programming](architecture/parser-and-grammar/dynamic-programming.md)

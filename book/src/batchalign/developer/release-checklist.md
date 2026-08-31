@@ -1,88 +1,124 @@
 # Release Checklist
 
 **Status:** Current
-**Last updated:** 2026-07-30 18:21 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
-This checklist must be completed in full before any git tag or PyPI publish
-of batchalign3. No gate may be skipped. If a gate cannot be satisfied,
-the release is blocked until it is resolved.
+This is the required checklist for a public `batchalign3` release. The
+supported distribution channel is a GitHub Release; BA3 is not published to
+PyPI. A failed or unknown gate blocks the tag.
 
-## Pre-Release Gates
+## Release artifact topology
 
-### 1. Version Consistency
+```mermaid
+flowchart LR
+    S["Reviewed main commit"] --> D["Prospective-tag dry run"]
+    D --> W["Five platform wheels"]
+    D --> SD["Source distribution"]
+    W --> SM["Clean wheel smoke<br/>Linux, macOS, Windows"]
+    SM --> T["Annotated vX.Y.Z tag"]
+    SD --> T
+    T --> R["GitHub Release"]
+    R --> I["Shell and PowerShell installers"]
+    R --> C["SHA-256 manifest"]
+    R --> V["Download and install verification"]
+```
 
-- [ ] `pyproject.toml` version matches target release version and stays `< 1.0.0` unless `docs/RELEASE-CONTRACT.md` + `docs/VERSIONING.md` are updated in the same patch to promote the surface
-- [ ] `batchalign/version` mirrors the target version/date/description (runtime metadata only; not the canonical policy source)
-- [ ] `crates/batchalign-*/Cargo.toml` and `crates/batchalign-pyo3/Cargo.toml` mirror the target version
-- [ ] Version-consistency check passes, confirm `pyproject.toml`,
-  `batchalign/version`, every `crates/batchalign-*/Cargo.toml`, and
-  the `batchalign3 --version` runtime string all match by hand
-  (there is no dedicated `ci_checks` test binary today)
-- [ ] Desktop metadata versions updated if desktop is included in the release
+The dry run and tagged release use the same workflow. Dry run permits a
+prospective version identity but never creates a release. A publishing run
+requires the tag to exist and match `pyproject.toml` exactly.
 
-### 2. CI Green
+## Pre-release gates
 
-- [ ] All CI jobs pass on the release branch/tag
-- [ ] `uv run mypy` passes locally
-- [ ] `cargo check --workspace` passes
-- [ ] `uv run pytest batchalign -q` passes
+### 1. Release identity
 
-### 3. Artifact Verification
+- [ ] `pyproject.toml`, `[workspace.package].version`, and
+  `crates/batchalign/Cargo.toml` match the target.
+- [ ] `batchalign/version` names the same version. The Python regression test
+  compares it with the installed wheel metadata.
+- [ ] `batchalign3 version` reports the target from the packaged Rust binary.
+- [ ] The release remains below 1.0 unless the release contract and versioning
+  policy are promoted in the same reviewed change.
+- [ ] Desktop metadata changes only if a desktop release is explicitly in
+  scope; the normal BA3 release excludes it.
 
-- [ ] Wheel builds successfully: `uv build --wheel`
-- [ ] Clean install works: install wheel in a fresh venv, run `batchalign3 --help`
-- [ ] `batchalign3 version` shows correct version string
-- [ ] Server smoke passes from the packaged artifact, not just a source checkout:
-  ```bash
-  export BATCHALIGN_STATE_DIR="$PWD/.release-smoke/batchalign-state"
-  rm -rf "$BATCHALIGN_STATE_DIR"
-  mkdir -p "$BATCHALIGN_STATE_DIR"
-  batchalign3 serve start --host 127.0.0.1 --port 18080 --test-echo
-  batchalign3 serve status --server http://127.0.0.1:18080
-  curl --fail http://127.0.0.1:18080/health
-  batchalign3 serve stop
-  ```
+Internal crates do not all share the product version. Do not mechanically bump
+`batchalign-types`, `batchalign-fa-core`, `batchalign-core`, or
+`batchalign-pyo3`; their manifests intentionally retain independent internal
+versions.
 
-### 4. Cross-Platform
+### 2. Source and CI
 
-- [ ] Release workflow builds wheels for all 5 targets
-- [ ] At least one smoke test per platform tier (see `PLATFORM-SUPPORT.md`)
+- [ ] The release commit is on `main`, reviewed, and the worktree is clean.
+- [ ] All required GitHub checks for that exact commit pass.
+- [ ] `make ci-full` passes locally.
+- [ ] The release wheel passes the Python pytest, Ruff, formatting, drift, and
+  mypy gates (`make batchalign-ci-python`).
+- [ ] `make book-check`, `make lint-shell`, and `make lint-actionlint` pass.
+- [ ] Generated IPC, OpenAPI, dashboard, and book artifacts are current.
 
-### 5. License and Metadata
+### 3. Artifact dry run
 
-- [ ] `pyproject.toml` classifiers match actual release state
-- [ ] License metadata consistent across: `pyproject.toml`, Cargo.toml workspace, `LICENSE` file
-- [ ] README accurate (no overclaiming of features or platform support)
+- [ ] Dispatch `Batchalign Release` manually for prospective `vX.Y.Z` with
+  `dry_run=true` against the release commit.
+- [ ] Preflight accepts the version identity.
+- [ ] Five wheels build: macOS ARM and Intel, Linux x86_64 and ARM64, and
+  Windows x86_64.
+- [ ] The source distribution builds.
+- [ ] Clean-wheel `--help` and `version` smoke tests pass on Linux, macOS, and
+  Windows.
+- [ ] Packaged server health smoke passes on Linux and macOS.
+- [ ] The assembly job stages both installers and computes `sha256.sum` but
+  does not create a GitHub Release.
 
-### 6. Dependencies
+### 4. Product and documentation
 
-- [ ] `talkbank-tools` dependency pinned to a git SHA or version (not a floating path)
-- [ ] `pip-audit` / `cargo deny` clean (no known vulnerabilities)
-- [ ] No yanked or deprecated dependencies
+- [ ] The README and installation guide describe GitHub Release installation,
+  not PyPI.
+- [ ] The release contract and platform matrix match the artifacts and tested
+  behavior.
+- [ ] User and developer documentation cover new commands, flags, cache and
+  replay behavior, evidence formats, observability, and limitations without
+  overclaiming empirical quality.
+- [ ] Mermaid diagrams render and describe the implemented state boundaries.
+- [ ] Generated release notes have been reviewed before they are sent to
+  collaborators; GitHub may generate the initial notes at publication time.
 
-### 7. Documentation
+### 5. Dependencies and security
 
-- [ ] `docs/RELEASE-CONTRACT.md` up to date
-- [ ] `docs/PLATFORM-SUPPORT.md` up to date
-- [ ] `docs/code-signing-and-distribution.md` still matches the actual distribution channels being used
-- [ ] CHANGELOG or release notes drafted for this version
-- [ ] API stability documentation reflects current state
+- [ ] Cargo and uv lockfiles validate and are included when dependencies
+  changed.
+- [ ] Known advisories are reviewed and recorded. An advisory is a release
+  blocker when it is reachable in the shipped product or violates a configured
+  CI policy; the checklist does not make the false claim that every ecosystem
+  scanner must report zero findings.
+- [ ] GitHub Actions and installer changes receive focused security review.
+- [ ] License and classifier metadata match the public-preview state.
 
-## Release Procedure
+## Release procedure
 
-1. Create release branch: `release/vX.Y.Z`
-2. Complete every gate above (all boxes checked)
-3. Tag: `git tag vX.Y.Z`
-4. Push tag: triggers release workflow
-5. Verify published artifacts (download wheel, install in clean venv, run smoke test)
-6. Update `batchalign/version` for next development cycle (bump to next dev version)
+1. Complete the gates above on the reviewed `main` commit.
+2. Run and verify the prospective-tag dry run.
+3. Create an annotated tag: `git tag -a vX.Y.Z -m "batchalign3 vX.Y.Z"`.
+4. Push only that tag. The tag-triggered workflow builds, smokes, checksums,
+   and creates the GitHub Release.
+5. Verify the release contains five wheels, one source distribution, both
+   installers, and `sha256.sum`.
+6. Download from the published release and perform a clean installer or wheel
+   smoke outside the source checkout.
+7. Deploy the exact released identity where an operational deployment is in
+   scope, then verify `/health` and its build/runtime identities.
 
-## Rollback
+No release branch or immediate development-version bump is required. The next
+release receives its version when that release is prepared.
 
-If a release artifact is found to be broken after publish:
+## Failed publication and replacement
 
-1. Yank the PyPI release: `uv run twine yank batchalign3==X.Y.Z`
-2. Delete the GitHub release (set to draft state)
-3. Fix the issue on a patch branch
-4. Re-tag with an incremented patch version (never reuse a yanked version number)
-5. Re-release following the full procedure above
+If a published release is defective:
+
+1. Mark the GitHub Release as a prerelease or remove it from public discovery,
+   depending on severity, and record which artifacts are affected.
+2. Fix and review the defect on `main`.
+3. Choose a new patch version. Never move or reuse a published tag.
+4. Repeat the complete dry-run and release process.
+
+There is no PyPI release to yank.

@@ -109,8 +109,9 @@ python-packages = ["batchalign"]
 features = ["pyo3/extension-module", "pyo3/abi3-py313"]
 # Use the debug profile for editable installs so `uv run <anything>` rebuilds
 # the extension in seconds rather than minutes. Release wheels for distribution
-# are built explicitly via `maturin build --release` in the deploy script,
-# which overrides this setting.
+# are built explicitly via `maturin build --release` in the GitHub Release
+# workflow (and the local release-wheel Make target), which overrides this
+# setting.
 profile = "dev"
 include = [
     { path = "batchalign/runtime_constants.toml", format = "sdist" },

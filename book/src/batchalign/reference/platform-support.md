@@ -1,7 +1,7 @@
 # Platform Support Matrix
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:15 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 This page is the Batchalign-only view of platform support. The
 operator-facing repo-wide platform-support matrix (covering `chatter`,
@@ -12,17 +12,17 @@ public book.
 
 | Platform | Tier | CI | Wheel | Notes |
 |----------|------|----|-------|-------|
-| Linux x86_64 | A | Tests + typecheck | Yes | Primary CI platform |
-| Linux ARM | B | Release wheel | Yes | Cross-compiled |
-| macOS ARM (Apple Silicon) | B | Release wheel | Yes | |
-| macOS x86_64 (Intel) | B | Release wheel | Yes | |
-| Windows x86_64 | B | Release wheel | Yes | Process lifecycle uses Unix APIs (`pre_exec`, `setsid`, `killpg`); server/worker mode not tested on Windows |
+| Linux x86_64 | A | Full CI + clean-wheel CLI/server smoke | Yes | Primary CI platform |
+| Linux ARM64 | B | Native release build | Yes | Built on a native ARM64 runner; no execution smoke |
+| macOS ARM (Apple Silicon) | B | Clean-wheel CLI/server smoke | Yes | Release-smoke platform |
+| macOS x86_64 (Intel) | B | Native release build | Yes | No execution smoke |
+| Windows x86_64 | B | Clean-wheel CLI smoke | Yes | Process lifecycle uses Unix APIs (`pre_exec`, `setsid`, `killpg`); server/worker mode is not supported |
 
 ## Dashboard (React)
 
 | Platform | Tier | Notes |
 |----------|------|-------|
-| All (web browser) | B | Built in CI, Playwright smoke tested |
+| All (web browser) | B | Production bundle built in CI and embedded in release wheels; browser behavior is exercised by the dashboard test suite |
 
 ## Batchalign Desktop (experimental)
 
@@ -43,8 +43,8 @@ This section is about **Batchalign Desktop** in `apps/dashboard-desktop/`.
 
 - Worker process management uses Unix-specific syscalls (`pre_exec`, `setsid`,
   `killpg`). Windows alternatives needed for full Tier A support.
-- Bash-only tooling scripts (installer tests, drift checks) need cross-platform
-  equivalents.
+- Some contributor tooling remains shell-based; the public Windows installer
+  is PowerShell and the Windows wheel receives a clean CLI smoke.
 - `pyproject.toml` classifiers list macOS and Linux only (Windows build-only,
   not supported for server mode).
 

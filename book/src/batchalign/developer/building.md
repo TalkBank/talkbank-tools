@@ -1,7 +1,7 @@
 # Building & Development
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:38 EDT
+**Last updated:** 2026-08-30 21:00 EDT
 
 Development is supported on **Windows, macOS, and Linux**. The instructions below use Unix shell syntax; on Windows, use PowerShell or Git Bash equivalently.
 
@@ -11,7 +11,10 @@ Development is supported on **Windows, macOS, and Linux**. The instructions belo
 - **Rust (stable)** via [rustup](https://rustup.rs/) (all platforms) -- needed for the Rust CLI and PyO3 extension.
 - **Node.js + npm** -- needed for `make build` and `make build-dashboard`, which rebuild the embedded dashboard bundled into the Rust binary.
 - **[maturin](https://www.maturin.rs/)** -- Required only if you modify the Rust `batchalign_core` extension.
-- **Python 3.12** for development and current deployment targets. 3.14t/free-threaded work is paused again and is **not** an active install or deployment target. Revisit only when `developer/python-versioning.md` is updated for a newer interpreter line such as 3.15+.
+- **Python 3.13 or 3.14** for development. Installers and deployments default
+  to 3.13, while CI builds and tests both standard interpreter versions.
+  Free-threaded 3.14t is **not** a supported install or deployment target; see
+  [Python Versioning](python-versioning.md).
 - **Platform note:** On macOS, `python` and `python3` may not exist outside a venv. Always use `uv run` to execute Python commands, which handles this automatically on all platforms.
 
 ## Development Install
@@ -122,8 +125,9 @@ batchalign3 ships two native artifacts in its wheel:
 The Python entry point (`batchalign/_cli.py`) locates and execs the native CLI
 binary. It searches three locations in order:
 
-1. **Packaged binary** at `batchalign/_bin/batchalign3`: this is what PyPI
-   users get. The binary is bundled inside the wheel.
+1. **Packaged binary** at `batchalign/_bin/batchalign3`: this is what GitHub
+   Release installers and downloaded wheels use. The binary is bundled inside
+   the wheel.
 2. **Dev checkout** at `target/{debug,release}/batchalign3`: for developers
    who built the CLI with `cargo build`.
 3. **Cargo fallback**: execs `cargo run -p batchalign` to compile on the
@@ -160,7 +164,7 @@ include = [
 If the binary doesn't exist at build time, maturin silently skips it, the
 wheel still builds but `batchalign3 --help` will fail at runtime with
 "CLI binary not found." This is why CI must build and copy the binary
-**before** running `uv build --wheel`.
+**before** running the maturin wheel build.
 
 ## Where Command Logic Should Live
 
