@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:59 EDT
+**Last updated:** 2026-08-31 07:54 EDT
 
 ## Overview
 
@@ -24,7 +24,7 @@ flowchart TD
     fa["execute_v2('fa', prepared_audio + prepared_text)\n→ Whisper/Wave2Vec"]
     dp["DP alignment\n(Hirschberg O(n+m) space)\ntokens → transcript words"]
     inject["Inject timings\n+ generate %wor tier"]
-    mono["Enforce monotonicity\n(E362)"]
+    mono["Enforce document order\nstrip backward starts; clamp adjacent ends"]
     out["Serialize → CHAT"]
     retry{"FA failed +\nuntimed?"}
     fallback["Fallback UTR:\nrun_utr_pass() (once)"]
@@ -95,13 +95,14 @@ flowchart TD
     parse["Parse CHAT → ChatFile AST\n(single parse)"]
     utr["UTR: mutate ChatFile in-place\n(no serialize)"]
     fa["run_fa_from_ast(ChatFile)\nFA grouping + worker dispatch\n(no re-parse)"]
-    inject["Inject timings + %wor\n+ enforce monotonicity"]
+    inject["Inject timings + %wor"]
+    finalize["FaFinalized\noptional repair, then typed monotonicity"]
     serial["Serialize ChatFile → CHAT text\n(single serialize)"]
 
     start --> host
     host --> direct --> media
     host --> server --> media
-    media --> wav --> parse --> utr --> fa --> inject --> serial
+    media --> wav --> parse --> utr --> fa --> inject --> finalize --> serial
 ```
 
 **Key functions:**
@@ -287,11 +288,19 @@ generating it adds noise that CA researchers must manually remove. The
 
 #### End-Time Overlap Clamping
 
-After alignment, `enforce_monotonicity()` clamps utterance end times so
-that utterance N's end never exceeds utterance N+1's start. Without this,
-UTR's independent per-utterance token range assignment produces systematic
-~1000ms overlaps where adjacent utterances claim overlapping ASR token
-ranges from the global DP alignment.
+After alignment, the default `enforce_monotonicity()` policy clamps utterance
+end times so that utterance N's end never exceeds the next timed utterance's
+start. UTR
+token-range assignment is one source of such overlap, but a rerun can also
+expose stale prior bullets, segmentation conflict, conversational overlap, or
+fresh FA evidence that crosses the next main-tier boundary. The decision
+therefore records the neutral cause `adjacent_utterance_overlap`. A clamp that
+cuts retained main-tier or `%wor` word timing requests review; trimming only wordless
+container coverage does not. This is current behavior, not evidence that the
+clamped boundary is acoustically correct. The v0.4.0 experimental
+`--end-overlap-policy preserve-cross-speaker` arm preserves overlap between
+different speaker codes while retaining same-speaker clamps and all start
+ordering checks. It is a local projection over the same admitted FA evidence.
 
 Source: strategy selection in `crates/batchalign/src/chat_ops/fa/utr.rs`,
 two-pass config and algorithm in `crates/batchalign/src/chat_ops/fa/utr/two_pass.rs`.
@@ -418,7 +427,8 @@ flowchart TD
     fa_inc["process_fa_incremental()\n(fa/incremental.rs)"]
     fa_groups["Group utterances\n+ per-group dispatch\n(fa/transport.rs)"]
     fa_ok{"All groups\nresolved?"}
-    mono["enforce_monotonicity()\nstrip non-monotonic starts\nclamp end overlaps\n(chat_ops/fa/orchestrate.rs)"]
+    finalize["FaFinalized\noptional bullet repair first"]
+    mono["enforce_monotonicity_with_policy()\nstrip non-monotonic starts\nclamp ends per typed policy\n(chat_ops/fa/orchestrate.rs)"]
     mono_warn["WARN monotonicity:\nend_clamped / start_stripped\nfor affected utterances"]
     post_val["Post-validation\n(warn-only, never fatal)"]
     out["Serialize → CHAT\nwrite output"]
@@ -435,7 +445,7 @@ flowchart TD
     incremental -->|"yes"| fa_inc --> fa_groups
     incremental -->|"no"| fa_full --> fa_groups
     fa_groups --> fa_ok
-    fa_ok -->|"yes"| mono
+    fa_ok -->|"yes"| finalize --> mono
     mono --> mono_warn -.->|"(warn only)"| post_val --> out
     fa_ok -->|"no"| fa_err
     fa_err -->|"retryable worker error"| utr_fallback
@@ -640,34 +650,36 @@ WARN fa_transport: Whisper FA fallback also failed with model RuntimeFailure;
 
 #### Monotonicity warnings
 
-After all groups are resolved, `enforce_monotonicity()` makes two passes over
-the utterance list. Each stripping or clamping decision is always recorded in
-structured evidence and emits a `WARN` log line. BA3 does not project these
+After all groups are resolved, monotonicity enforcement makes two passes over
+the utterance list. The compatibility policy clamps every adjacent end
+overlap; the experimental `preserve-cross-speaker` policy skips that clamp only
+when the two speaker codes differ. Each stripping or clamping decision is
+recorded in structured evidence and emits a `WARN` log line. BA3 does not project these
 records into `%xalign` or `%xrev` (see
 [Decision evidence](../user-guide/review-tiers-guide.md)). The two decision
 types have different severity and review priority:
 
 | Decision | Cause | Needs review? | Action needed? |
 |----------|-------|:---:|---|
-| `end_clamped` | Utterance N's end overlapped N+1's start by a few ms, trimmed to avoid CLAN player seek regression | **No** | No, routine housekeeping, BA2 made these silently |
+| `end_clamped` | Utterance N's end overlapped the next timed utterance's start | **Only when it cuts retained word timing** | Adjudicate word-cutting cases; container-only trims are housekeeping |
 | `start_stripped` | Utterance start precedes previous accepted start, full timing removed | **Yes** | Review utterance; may indicate transcript/audio reordering |
 
 ```text
 WARN monotonicity: strategy="end_clamped" speaker=PAR line_idx=59
      reason="end_truncated_by=2160ms original_end=138165 clamped_to=136005
-             cause=utr_token_range_overlap"
+             cuts_word_timing=true cause=adjacent_utterance_overlap"
 
 WARN monotonicity: strategy="start_stripped" speaker=INV line_idx=23
      reason="start_before_previous=130000 previous_start=131500"
 ```
 
-`end_clamped` is a **routine post-processing step**, not an alignment defect.
-UTR's per-utterance token-range assignment systematically produces small
-end-time overlaps between adjacent utterances (typically 500-2000 ms) because
-both utterances can claim the same ASR tokens at their boundary.
-`enforce_monotonicity()` trims utterance N's end to utterance N+1's start.
-BA2 (`batchalign2`) made identical adjustments silently; BA3 logs them for
-observability but does not flag them for human review.
+An `end_clamped` record does not by itself identify an alignment defect. Small
+container-only trims can be routine cleanup of overlapping provisional
+coverage. Cutting a retained word observation is different: segmentation and
+word timing disagree, and the output no longer contains all of the admitted
+word interval. BA3 keeps that distinction in the decision reason and
+`needs_review`; the FA evidence sidecar retains the original and clamped ends
+for controlled listening rather than attributing every case to UTR.
 
 `start_stripped` is a genuine alignment concern, the utterance's start
 timestamp precedes the previous accepted start, which means time went backwards
@@ -959,9 +971,12 @@ regardless of which mode was used initially.
 FA keeps two per-group layers under the same semantic group key:
 
 - an immutable worker-protocol response, preferred on reads and replayed
-  through the current Rust timing projection;
-- a derived `WordTiming` vector, retained as a compatibility fallback when raw
-  evidence is absent or refused.
+  through the current Rust timing projection, inside an envelope that proves
+  the requested engine, selected-worker version, semantic key, and word count;
+- a derived `WordTiming` vector in a second versioned envelope, retained as a
+  compatibility fallback when raw evidence is absent or refused. Historical
+  bare vectors are no longer admitted because they do not identify the worker
+  version or distinguish direct inference from fallback output.
 
 The key is
 `BLAKE3("{audio identity}|{start}|{end}|{words}|{gap healing}|{engine}")`, so a
@@ -985,13 +1000,20 @@ a content hash. If you move or rename the audio file, the cache will miss even i
 content is identical. Conversely, overwriting a file in place with different content
 will miss only if the modification time or size changes (which the OS updates on write).
 
-### Why fallback traces survive raw-evidence replay
+### Why fallback traces are live-run evidence today
 
-Raw FA evidence records the requested engine, effective engine, and fallback
-reason together. A normal cache hit therefore reconstructs the fallback trace
-without dispatching Wave2Vec again. A historical derived-only cache hit cannot
-reconstruct a fallback event, because that older value contains timings but no
-route evidence.
+The admitted in-memory response records the requested engine, effective
+engine, and fallback reason together, so a successful Wave2Vec-to-Whisper
+fallback is fully observable in that run's trace. It does not cross the cache
+boundary. The primary Wave request namespace contains the selected Wave worker
+version but not the effective Whisper model version; replaying it later would
+therefore claim more provenance than the stored facts prove.
+
+Only direct, version-identified FA evidence can construct the replayable
+typestate used by both raw and derived cache writers. Fallback timings remain
+valid for the current output, but a later run repeats inference. This is a
+deliberate correctness tradeoff until the request identity can carry both the
+primary and effective fallback capabilities.
 
 When you specifically need to reproduce a **new live worker pass**, bypass both
 FA cache layers for that run:
@@ -1135,7 +1157,7 @@ prevent output from being written.  Only file-level errors prevent output.
 | `crates/batchalign/src/chat_ops/fa/mod.rs` | `Failed to deserialize cached FA timings` | Cache entry written by a different schema version | Wipe FA cache: `rm ~/Library/Caches/batchalign3/cache.db*` |
 | `fa/mod.rs` | `Failed to cache FA result` | SQLite cache write error (non-fatal; inference result still used) | Check disk space |
 | `fa/mod.rs` | `Post-validation warnings` | CHAT structural issues after injection | Review structured decision evidence and output |
-| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped"` | Utterance end time trimmed to avoid CLAN seek regression; routine UTR overlap correction | No; BA2 made these silently |
+| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped"` | Utterance end trimmed to the next timed utterance's start; reason says whether retained main-tier or `%wor` word timing was cut | Review when `cuts_word_timing=true`; otherwise informational |
 | `fa/orchestrate.rs` | `monotonicity: strategy="start_stripped"` | Utterance start precedes previous accepted start, full timing stripped | Review utterance; structured decision has `needs_review=true` |
 | `fa_pipeline` | `FA failed with untimed utterances; attempting fallback UTR` | FA error on file that still has untimed utterances | Informational; fallback UTR retry follows |
 | `fa_pipeline` | `Fallback UTR recovered timing` | Fallback UTR succeeded before retry | Informational; timing injected, FA retry queued |

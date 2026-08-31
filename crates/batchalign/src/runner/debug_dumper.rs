@@ -711,7 +711,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let dumper = DebugDumper::new(Some(dir.path()));
         let evidence = FaTimelineTrace {
-            evidence_schema_version: 2,
+            evidence_schema_version: crate::types::traces::CURRENT_FA_EVIDENCE_SCHEMA_VERSION,
             engine: "wav2vec_fa".to_owned(),
             engine_version: "test-build".to_owned(),
             groups: Vec::new(),
@@ -729,10 +729,12 @@ mod tests {
             }],
             timing_decisions: vec![FaTimingDecisionTrace::StartRegressionStripped {
                 line_idx: 7,
+                utterance_idx: 2,
                 speaker: "PAR0".to_owned(),
                 start_ms: 900,
                 previous_start_ms: 1_000,
                 previous_line_idx: 6,
+                previous_utterance_idx: 1,
                 previous_speaker: "PAR1".to_owned(),
             }],
             gap_healing: "Heal".to_owned(),
@@ -751,7 +753,10 @@ mod tests {
         let value: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(expected_path).expect("read evidence"))
                 .expect("parse evidence");
-        assert_eq!(value["evidence_schema_version"], 2);
+        assert_eq!(
+            value["evidence_schema_version"],
+            crate::types::traces::CURRENT_FA_EVIDENCE_SCHEMA_VERSION
+        );
         assert_eq!(value["engine"], "wav2vec_fa");
         assert_eq!(value["decisions"][0]["line_idx"], 7);
         assert_eq!(value["decisions"][0]["module"], "monotonicity");
@@ -761,7 +766,9 @@ mod tests {
             "start_regression_stripped"
         );
         assert_eq!(value["timing_decisions"][0]["start_ms"], 900);
+        assert_eq!(value["timing_decisions"][0]["utterance_idx"], 2);
         assert_eq!(value["timing_decisions"][0]["previous_line_idx"], 6);
+        assert_eq!(value["timing_decisions"][0]["previous_utterance_idx"], 1);
         assert_eq!(value["timing_decisions"][0]["previous_speaker"], "PAR1");
     }
 
@@ -814,7 +821,7 @@ mod tests {
         symlink(&sentinel, &evidence_path).expect("create destination symlink");
         let dumper = DebugDumper::new(Some(dir.path()));
         let evidence = FaTimelineTrace {
-            evidence_schema_version: 2,
+            evidence_schema_version: crate::types::traces::CURRENT_FA_EVIDENCE_SCHEMA_VERSION,
             engine: "wav2vec_fa".to_owned(),
             engine_version: "test-build".to_owned(),
             groups: Vec::new(),
@@ -841,7 +848,10 @@ mod tests {
         let written: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(evidence_path).expect("read evidence"))
                 .expect("parse evidence");
-        assert_eq!(written["evidence_schema_version"], 2);
+        assert_eq!(
+            written["evidence_schema_version"],
+            crate::types::traces::CURRENT_FA_EVIDENCE_SCHEMA_VERSION
+        );
     }
 
     #[test]

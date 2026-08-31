@@ -1,7 +1,7 @@
 # %wor Tier Specification
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:38 EDT
+**Last updated:** 2026-08-31 00:03 EDT
 
 How main tier words map to the %wor (word-level timing) dependent tier.
 
@@ -202,14 +202,18 @@ score. Consequently, reusing an existing `%wor` tier is observable as
 cannot be reconstructed from CHAT alone.
 
 For research and adjudication runs, `align --debug-dir DIR` writes a versioned
-`<stem>_fa_evidence.json` sidecar. Schema version 2 contains stable word IDs,
+`<stem>_fa_evidence.json` sidecar. Version 0.3.0 writes schema 2; version 0.4.0
+writes schema 3. Both contain stable word IDs,
 group cache keys and evidence sources, pre-injection timings, full start/end
 origin chains, Wave2Vec-family model scores where the engine supplies them,
-and the exact typed decisions that later clamped or removed timing.
+and the exact typed decisions that later clamped or removed timing. Schema 3
+also records stable utterance ordinals beside input-line coordinates for
+numeric monotonicity decisions, so header insertion cannot silently attach a
+decision to the wrong final utterance.
 Nested input identities receive a short digest suffix after the basename so
 two corpus branches containing the same filename retain distinct sidecars.
 The score is model evidence, not a calibrated boundary-correctness probability.
-Version 2 does not yet contain final per-word post-processing results, so the
+Neither schema contains final per-word post-processing results, so the
 sidecar and output CHAT are complementary rather than interchangeable.
 
 ## Tier-Level Structure
@@ -301,6 +305,14 @@ speaker evidence received from ASR and diarization.
    that may not cover the full speech span. See
    [Word timing clamping policy](forced-alignment.md#word-timing-clamping-policy)
    for the full rationale.
+   Version 0.4.0's experimental
+   `--existing-wor-boundaries rebuild-from-evidence` policy
+   disables this prior-boundary clamp and rebuilds each affected main bullet
+   from the admitted word hull. It is a projection choice, not a raw-evidence
+   cache-key dimension, so cache-required experiments can compare the two
+   policies without another model run. Pre-grouping `%wor` refresh always uses
+   compatibility preservation; rebuilding there would change audio windows
+   and invalidate the controlled comparison.
 5. `MainTier::generate_wor_tier()` walks the AST one final time, collecting
    each spoken word slot's `cleaned_text` and `timing_alignment` into a flat
    `WorTier`

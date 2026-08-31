@@ -1,7 +1,7 @@
 # Model Downloads and Caching (Developer Reference)
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:35 EDT
+**Last updated:** 2026-08-31 03:04 EDT
 
 This page documents how batchalign3 downloads, caches, and verifies ML
 models, the contributor-facing complement to the
@@ -171,15 +171,35 @@ revision identities of its own.
 | Cold | SQLite | Persistent | `~/.cache/batchalign3/cache.db` (Linux), `~/Library/Caches/batchalign3/cache.db` (macOS), `%LocalAppData%\batchalign3\cache.db` (Windows) |
 
 Cached task kinds are enumerated in
-`crates/batchalign/src/chat_ops/cache_key.rs::CacheTaskName`: forced alignment,
-normalized UTR ASR, raw Rev transcript evidence, raw speaker evidence, and
-derived speaker segments. Cache keys include the task's relevant combination
-of:
+`crates/batchalign/src/chat_ops/cache_key.rs::CacheTaskName`: forced-alignment
+projection, raw forced-alignment worker evidence, normalized UTR ASR, raw Rev
+transcript evidence, raw speaker evidence, and derived speaker segments. Cache
+keys include the task's relevant combination of:
 
 - Evidence schema and algorithm/preparation revision
 - Language code
 - Engine/model revision
 - Relevant per-task inputs
+
+### Engine identity comes from the selected worker
+
+The engine-version namespace is resolved from the exact typed worker route,
+not from whichever worker first populated the pool's availability snapshot.
+`WorkerKey` owns target, language, and engine recipe. Command dispatch obtains
+that worker, completes any lazy `ensure_task`, queries its live capabilities,
+and only then constructs the `EngineVersion` used by `PipelineServices` and
+the tiered cache.
+
+Lazy-profile keys retain engine selection. This is required for correctness,
+not only cache hygiene: a task-only key could load Wave2Vec once, report
+`already_loaded` to a later Whisper request, and let concurrent requests change
+process-global model state. Engine-specific keys make those states
+unrepresentable; host worker permits and idle eviction still bound memory.
+
+Raw evidence remains payload-validated on replay. That is defense in depth,
+not a substitute for an honest namespace. A legacy row whose label disagrees
+with its admitted payload must be migrated only through payload-validated
+tooling; it must not be relabeled from the old cache column alone.
 
 Text NLP tasks (`morphotag`, `utseg`, `translate`, `coref`) are NOT
 cached, running them twice runs the model twice.

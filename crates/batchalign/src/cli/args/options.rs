@@ -155,30 +155,38 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             // been asked for.
             let fa_engine = a.fa_selection();
             let utr_engine = a.utr_selection();
-            let utr_overlap_strategy = match a.utr_strategy {
+            let utr_overlap_strategy = match a.utr_args.tuning.utr_strategy {
                 CliUtrOverlapStrategy::Auto => AppUtrOverlapStrategy::Auto,
                 CliUtrOverlapStrategy::Global => AppUtrOverlapStrategy::Global,
                 CliUtrOverlapStrategy::TwoPass => AppUtrOverlapStrategy::TwoPass,
             };
-            let utr_ca_markers = match a.utr_ca_markers {
+            let utr_ca_markers = match a.utr_args.tuning.utr_ca_markers {
                 CliCaMarkerPolicy::Enabled => AppCaMarkerPolicy::Enabled,
                 CliCaMarkerPolicy::Disabled => AppCaMarkerPolicy::Disabled,
             };
             Some(CommandOptions::Align(AlignOptions {
                 common,
                 fa_engine,
-                utr_engine,
-                utr_overlap_strategy,
-                utr_two_pass: crate::chat_ops::fa::TwoPassConfig {
-                    ca_markers: utr_ca_markers,
-                    max_exclusion_density: a.utr_density_threshold,
-                    tight_buffer_ms: a.utr_tight_buffer,
-                    match_mode: match a.utr_fuzzy {
-                        Some(threshold) => crate::chat_ops::fa::UtrMatchMode::Fuzzy { threshold },
-                        None => crate::chat_ops::fa::TwoPassConfig::default().match_mode,
+                utr: crate::options::AlignUtrOptions {
+                    engine: utr_engine,
+                    overlap_strategy: utr_overlap_strategy,
+                    two_pass: crate::chat_ops::fa::TwoPassConfig {
+                        ca_markers: utr_ca_markers,
+                        max_exclusion_density: a.utr_args.tuning.utr_density_threshold,
+                        tight_buffer_ms: a.utr_args.tuning.utr_tight_buffer,
+                        match_mode: match a.utr_args.tuning.utr_fuzzy {
+                            Some(threshold) => {
+                                crate::chat_ops::fa::UtrMatchMode::Fuzzy { threshold }
+                            }
+                            None => crate::chat_ops::fa::TwoPassConfig::default().match_mode,
+                        },
                     },
                 },
                 pauses: a.pauses,
+                boundaries: crate::options::AlignBoundaryOptions {
+                    existing_wor_boundaries: a.boundaries.existing_wor_boundaries,
+                    end_overlap_policy: a.boundaries.end_overlap_policy,
+                },
                 wor: resolve_wor_tier_policy(a.wor, a.nowor),
                 merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
                 bullet_repair: a.bullet_repair,

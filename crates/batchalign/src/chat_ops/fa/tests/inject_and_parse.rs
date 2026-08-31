@@ -217,10 +217,12 @@ fn test_monotonicity_enforcement() {
     assert!(matches!(
         decisions.effects(),
         [MonotonicityEffect::StartRegressionStripped {
+            utterance_idx,
             start_ms: 2_000,
             previous_start_ms: 5_000,
+            previous_utterance_idx,
             ..
-        }]
+        }] if utterance_idx.raw() == 1 && previous_utterance_idx.raw() == 0
     ));
 }
 
@@ -277,14 +279,188 @@ fn test_monotonicity_clamps_overlapping_end_times() {
         2,
         "should have 2 end_clamped decisions"
     );
-    // `end_clamped` is routine housekeeping, a small UTR overlap correction.
-    // It must not request human review. BA2 made these same adjustments
-    // silently; only `timing_stripped`, where the utterance lost all timing,
-    // deserves a review flag in structured evidence.
+    // These fixture utterances have no `%wor` timing, so the clamp trims only
+    // container coverage and does not cut a retained word observation.
     assert!(
         !clamp_decisions[0].needs_review,
-        "end_clamped must NOT need review; it is routine overlap correction, \
-         not an alignment defect requiring human inspection"
+        "a container-only end clamp must not request review"
+    );
+}
+
+#[test]
+fn monotonicity_clamp_that_cuts_wor_timing_requests_review() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|x|CHI|||||Child|||\n*CHI:\thello world . \u{15}1000_5000\u{15}\n%wor:\thello \u{15}1000_3000\u{15} world \u{15}3000_5000\u{15} .\n*CHI:\tnext . \u{15}4000_6000\u{15}\n%wor:\tnext \u{15}4000_6000\u{15} .\n@End\n";
+    let mut chat = parse_chat(input);
+
+    let decisions = enforce_monotonicity(&mut chat);
+
+    let clamp = decisions
+        .records()
+        .iter()
+        .find(|decision| decision.strategy.strategy_name() == "end_clamped")
+        .expect("overlap should produce an end clamp");
+    assert!(
+        clamp.needs_review,
+        "cutting a retained %wor interval must request review"
+    );
+    assert!(clamp.reason.contains("cuts_word_timing=true"));
+    assert!(!clamp.reason.contains("utr_token_range_overlap"));
+}
+
+#[test]
+fn monotonicity_clamp_that_cuts_fresh_inline_word_timing_requests_review_without_wor() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|x|CHI|||||Child|||\n*CHI:\thello world . \u{15}1000_5000\u{15}\n*CHI:\tnext . \u{15}4000_6000\u{15}\n@End\n";
+    let mut chat = parse_chat(input);
+    let mut offset = 0;
+    inject_timings_for_utterance(
+        get_test_utterance(&mut chat, 0),
+        &[
+            WordTiming::fixture(1_000, 3_000),
+            WordTiming::fixture(3_000, 5_000),
+        ],
+        &mut offset,
+    );
+
+    let decisions = enforce_monotonicity(&mut chat);
+
+    let clamp = decisions
+        .records()
+        .iter()
+        .find(|decision| decision.strategy.strategy_name() == "end_clamped")
+        .expect("overlap should produce an end clamp");
+    assert!(
+        clamp.needs_review,
+        "fresh inline FA evidence must not become invisible merely because %wor output is disabled"
+    );
+    assert!(clamp.reason.contains("cuts_word_timing=true"));
+}
+
+#[test]
+fn cross_speaker_overlap_policy_preserves_only_cross_speaker_end_overlap() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|MOT|||||Mother|||\n*CHI:\tone . \u{15}1000_5000\u{15}\n*MOT:\ttwo . \u{15}4000_8000\u{15}\n*MOT:\tthree . \u{15}7000_9000\u{15}\n@End\n";
+    let mut chat = parse_chat(input);
+
+    let result =
+        enforce_monotonicity_with_policy(&mut chat, EndOverlapPolicy::PreserveCrossSpeaker);
+
+    assert_eq!(
+        get_test_utterance(&mut chat, 0)
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("cross-speaker timing retained")
+            .timing
+            .end_ms,
+        5_000
+    );
+    assert_eq!(
+        get_test_utterance(&mut chat, 1)
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("same-speaker timing retained")
+            .timing
+            .end_ms,
+        7_000
+    );
+    assert!(matches!(
+        result.effects(),
+        [MonotonicityEffect::EndClamped {
+            utterance_idx,
+            next_utterance_idx,
+            ..
+        }] if utterance_idx.raw() == 1 && next_utterance_idx.raw() == 2
+    ));
+}
+
+#[test]
+fn fa_applied_carries_end_overlap_policy_into_finalization() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|MOT|||||Mother|||\n*CHI:\tone . \u{15}1000_5000\u{15}\n*MOT:\ttwo . \u{15}4000_8000\u{15}\n@End\n";
+    let mut chat = parse_chat(input);
+    let policy = FaProjectionPolicy::new(
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        ExistingWorBoundaryPolicy::Preserve,
+        EndOverlapPolicy::PreserveCrossSpeaker,
+    );
+
+    let _finalized = apply_fa_results_with_projection_policy(&mut chat, &[], &[], policy, false)
+        .then_finalize(&mut chat, BulletRepairPolicy::Disabled);
+
+    assert_eq!(
+        get_test_utterance(&mut chat, 0)
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("cross-speaker timing retained")
+            .timing
+            .end_ms,
+        5_000
+    );
+}
+
+#[test]
+fn no_injection_projection_carries_end_overlap_policy_into_ordering() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|MOT|||||Mother|||\n*CHI:\tone . \u{15}1000_5000\u{15}\n*MOT:\ttwo . \u{15}4000_8000\u{15}\n@End\n";
+    let mut chat = parse_chat(input);
+    let policy = FaProjectionPolicy::new(
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        ExistingWorBoundaryPolicy::Preserve,
+        EndOverlapPolicy::PreserveCrossSpeaker,
+    );
+
+    let _finalized = finalize_without_injection(&mut chat, policy, BulletRepairPolicy::Disabled);
+
+    assert_eq!(
+        get_test_utterance(&mut chat, 0)
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("cross-speaker timing retained")
+            .timing
+            .end_ms,
+        5_000
+    );
+}
+
+#[test]
+fn fa_finalization_runs_optional_repair_before_monotonicity() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|MOT|||||Mother|||\n*CHI:\tone . \u{15}1000_5000\u{15}\n*MOT:\ttwo . \u{15}4800_8000\u{15}\n@End\n";
+    let mut chat = parse_chat(input);
+    let policy = FaProjectionPolicy::new(
+        WordEndPolicy::measured(WordGapHealing::Heal),
+        ExistingWorBoundaryPolicy::Preserve,
+        EndOverlapPolicy::ClampAllAdjacent,
+    );
+
+    let finalized = apply_fa_results_with_projection_policy(&mut chat, &[], &[], policy, false)
+        .then_finalize(&mut chat, BulletRepairPolicy::Enabled);
+
+    assert_eq!(finalized.repair_stats().boundary_averaged, 1);
+    assert_eq!(
+        get_test_utterance(&mut chat, 0)
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("earlier timing retained")
+            .timing
+            .end_ms,
+        4_900
+    );
+    assert_eq!(
+        get_test_utterance(&mut chat, 1)
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("later timing retained")
+            .timing
+            .start_ms,
+        4_900
     );
 }
 
@@ -392,6 +568,29 @@ fn test_parse_fa_response_token_level_mismatch_does_not_skip_tokens() {
         )
     );
     assert_eq!(timings[1], None);
+}
+
+#[test]
+fn test_parse_fa_response_token_level_zero_width_word_does_not_erase_suffix() {
+    let json = r#"{"tokens": [
+            {"text": "once", "time_s": 0.1},
+            {"text": "upon", "time_s": 0.1},
+            {"text": "a", "time_s": 0.6},
+            {"text": "time", "time_s": 0.8}
+        ]}"#;
+    let words = make_fa_words(&["once", "upon", "a", "time"]);
+    let timings = parse_fa_response(json, &words, &window_at(0).1, &fa_test_engine()).unwrap();
+
+    // Equal reported onsets cannot prove a positive interval for `once`, so it
+    // remains untimed.  That local span failure is not a lexical mismatch:
+    // every later word still has an independently stitched onset and must not
+    // be erased with the suffix.
+    assert_eq!(timings[0], None);
+    assert_eq!(timings[1].as_ref().map(|timing| timing.start_ms), Some(100));
+    assert_eq!(timings[1].as_ref().map(|timing| timing.end_ms), Some(600));
+    assert_eq!(timings[2].as_ref().map(|timing| timing.start_ms), Some(600));
+    assert_eq!(timings[2].as_ref().map(|timing| timing.end_ms), Some(800));
+    assert_eq!(timings[3].as_ref().map(|timing| timing.start_ms), Some(800));
 }
 
 #[test]

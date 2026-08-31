@@ -38,20 +38,24 @@ pub(super) fn execute_v2_worker_key(
     let infer_task = infer_task_for_execute_v2(request.task)?;
     let target = WorkerTarget::from_infer_task(infer_task, bootstrap_mode);
 
-    // In LazyProfile mode, all GPU tasks for a language share ONE worker
-    // process. Engine overrides are applied via ensure_task IPC, not by
-    // creating separate workers per override. This prevents the memory guard
-    // deadlock where pre-scale creates key "" and FA dispatch looks for
-    // {"fa":"wave2vec"} (a user incident 2026-04-02).
-    let engine_selection =
-        if bootstrap_mode == WorkerBootstrapMode::LazyProfile && target.is_concurrent() {
-            EngineSelection::none()
-        } else {
-            // Eager mode: the worker bootstrap preloads the whole profile, so
-            // the selection must name an engine for every preloaded task, not
-            // only the one this request carries.
-            EngineSelection::from_execute_request_for_target(target, request)
-        };
+    // The selected engine is part of the worker identity in every bootstrap
+    // mode. A lazy worker loads the recipe on demand, but it is not allowed to
+    // change recipes afterward: sharing one task-only key between Wave2Vec and
+    // Whisper made the Rust and Python "already loaded" caches return the
+    // first engine for later requests. It also allowed a concurrent request to
+    // switch process-global model state underneath in-flight inference.
+    //
+    // LazyProfile pre-scaling is disabled, so retaining this selection cannot
+    // recreate the old empty-key pre-scale mismatch. On constrained hosts the
+    // global worker permit and idle eviction still bound resident processes.
+    let engine_selection = if bootstrap_mode == WorkerBootstrapMode::LazyProfile {
+        EngineSelection::from_execute_request(request)
+    } else {
+        // Eager mode: the worker bootstrap preloads the whole profile, so the
+        // selection must name an engine for every preloaded task, not only the
+        // one this request carries.
+        EngineSelection::from_execute_request_for_target(target, request)
+    };
 
     Ok(WorkerKey {
         target,
@@ -362,9 +366,7 @@ mod tests {
     }
 
     #[test]
-    fn lazy_profile_gpu_key_drops_engine_overrides() {
-        // In LazyProfile mode, ALL GPU tasks for a language share one worker.
-        // Engine overrides are loaded via ensure_task, not baked into the key.
+    fn lazy_profile_gpu_key_retains_the_request_engine_recipe() {
         let fa_request = request_with_payload(
             InferenceTaskV2::ForcedAlignment,
             TaskRequestV2::ForcedAlignment(ForcedAlignmentRequestV2 {
@@ -401,11 +403,58 @@ mod tests {
         )
         .unwrap();
 
-        // Both use no engine selection, so they share one worker key.
-        assert!(fa_key.engine_selection.is_none());
-        assert!(asr_key.engine_selection.is_none());
-        // Same target and language → same worker.
+        assert_eq!(
+            fa_key.engine_selection.worker_config_json(),
+            r#"{"fa":"wave2vec"}"#
+        );
+        assert_eq!(
+            asr_key.engine_selection.worker_config_json(),
+            r#"{"asr":"whisper"}"#
+        );
         assert_eq!(fa_key.target, asr_key.target);
         assert_eq!(fa_key.language, asr_key.language);
+        assert_ne!(fa_key, asr_key);
+    }
+
+    /// The command-level capability probe and the actual V2 ASR dispatch are
+    /// two wire boundaries for one model recipe. This test survives because a
+    /// Rust type cannot prove that independently decoded command options and a
+    /// V2 request describe the same external model selection.
+    #[test]
+    fn lazy_transcribe_capability_key_matches_its_asr_execute_key() {
+        let language = WorkerLanguage::from(LanguageCode3::eng());
+        let options =
+            crate::options::CommandOptions::Transcribe(crate::options::TranscribeOptions {
+                common: crate::options::CommonOptions::default(),
+                asr_engine: AsrEngineName::Whisper,
+                diarize: false,
+                wor: false.into(),
+                merge_abbrev: false.into(),
+                utseg_fallback: false.into(),
+                batch_size: 8,
+            });
+        let request = request_with_payload(
+            InferenceTaskV2::Asr,
+            TaskRequestV2::Asr(AsrRequestV2 {
+                lang: language.clone(),
+                backend: AsrBackendV2::LocalWhisper,
+                input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
+                    audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
+                }),
+                extras: std::collections::BTreeMap::new(),
+            }),
+        );
+
+        let capability_key = WorkerKey::from_command_options(
+            crate::api::ReleasedCommand::Transcribe,
+            language.clone(),
+            &options,
+            WorkerBootstrapMode::LazyProfile,
+        );
+        let execute_key =
+            execute_v2_worker_key(language, &request, WorkerBootstrapMode::LazyProfile)
+                .expect("typed ASR request must derive a worker key");
+
+        assert_eq!(capability_key, execute_key);
     }
 }

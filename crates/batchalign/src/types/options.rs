@@ -164,6 +164,42 @@ pub enum UtrOverlapStrategy {
     TwoPass,
 }
 
+/// Utterance-timing-recovery policy persisted with an `align` job.
+///
+/// The fields remain flattened on the wire for compatibility, but Rust code
+/// cannot detach the selected engine from the strategy and two-pass tuning it
+/// governs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct AlignUtrOptions {
+    /// UTR engine selection; `None` disables the UTR pass.
+    #[serde(
+        default,
+        rename = "utr_engine",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub engine: Option<UtrEngine>,
+
+    /// How `+<` overlap utterances are handled during UTR.
+    #[serde(default, rename = "utr_overlap_strategy")]
+    pub overlap_strategy: UtrOverlapStrategy,
+
+    /// Two-pass UTR configuration (CA markers, density threshold, buffers).
+    #[serde(default, rename = "utr_two_pass")]
+    pub two_pass: crate::chat_ops::fa::TwoPassConfig,
+}
+
+/// Boundary-projection policy persisted with an `align` job.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct AlignBoundaryOptions {
+    /// How fresh FA evidence interacts with boundaries from an existing `%wor` run.
+    #[serde(default)]
+    pub existing_wor_boundaries: crate::chat_ops::fa::ExistingWorBoundaryPolicy,
+
+    /// How adjacent utterance end overlap is projected after alignment.
+    #[serde(default)]
+    pub end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy,
+}
+
 /// Options for the `align` command.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AlignOptions {
@@ -175,23 +211,17 @@ pub struct AlignOptions {
     #[serde(default = "default_fa_engine")]
     pub fa_engine: FaEngineName,
 
-    /// UTR engine selection.
-    ///
-    /// `None` means utterance timing recovery is disabled.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub utr_engine: Option<UtrEngine>,
-
-    /// How `+<` overlap utterances are handled during UTR.
-    #[serde(default)]
-    pub utr_overlap_strategy: UtrOverlapStrategy,
-
-    /// Two-pass UTR configuration (CA markers, density threshold, buffers).
-    #[serde(default)]
-    pub utr_two_pass: crate::chat_ops::fa::TwoPassConfig,
+    /// Utterance-timing-recovery selection and tuning.
+    #[serde(flatten)]
+    pub utr: AlignUtrOptions,
 
     /// Include pause durations in forced alignment.
     #[serde(default)]
     pub pauses: bool,
+
+    /// Existing- and cross-utterance boundary projection policy.
+    #[serde(flatten)]
+    pub boundaries: AlignBoundaryOptions,
 
     /// Generate `%wor` tier with word-level timing bullets.
     #[serde(default = "default_wor_tier_include")]
@@ -224,10 +254,9 @@ impl Default for AlignOptions {
         Self {
             common: CommonOptions::default(),
             fa_engine: default_fa_engine(),
-            utr_engine: None,
-            utr_overlap_strategy: UtrOverlapStrategy::default(),
-            utr_two_pass: Default::default(),
+            utr: AlignUtrOptions::default(),
             pauses: false,
+            boundaries: AlignBoundaryOptions::default(),
             wor: default_wor_tier_include(),
             merge_abbrev: MergeAbbrevPolicy::default(),
             bullet_repair: false,
@@ -240,7 +269,7 @@ impl Default for AlignOptions {
 impl AlignOptions {
     /// Get the two-pass UTR configuration.
     pub fn two_pass_config(&self) -> &crate::chat_ops::fa::TwoPassConfig {
-        &self.utr_two_pass
+        &self.utr.two_pass
     }
 
     /// Return the effective FA engine after applying any shared `fa` override.
@@ -256,7 +285,7 @@ impl AlignOptions {
     /// '{"utr":...}'` says WHICH engine, not WHETHER, exactly as the `fa` and
     /// `asr` overrides do.
     pub fn effective_utr_engine(&self) -> Option<UtrEngine> {
-        let requested = self.utr_engine.as_ref()?;
+        let requested = self.utr.engine.as_ref()?;
         Some(
             self.common
                 .engine_overrides
@@ -667,10 +696,15 @@ mod tests {
         let opts = CommandOptions::Align(AlignOptions {
             common: CommonOptions::default(),
             fa_engine: FaEngineName::Whisper,
-            utr_engine: Some(UtrEngine::RevAi),
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
+            utr: AlignUtrOptions {
+                engine: Some(UtrEngine::RevAi),
+                ..Default::default()
+            },
             pauses: true,
+            boundaries: AlignBoundaryOptions {
+                existing_wor_boundaries: Default::default(),
+                end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker,
+            },
             wor: true.into(),
             merge_abbrev: false.into(),
             bullet_repair: false,
@@ -722,10 +756,9 @@ mod tests {
                 CommandOptions::Align(AlignOptions {
                     common: CommonOptions::default(),
                     fa_engine: FaEngineName::Wave2Vec,
-                    utr_engine: None,
-                    utr_overlap_strategy: Default::default(),
-                    utr_two_pass: Default::default(),
+                    utr: Default::default(),
                     pauses: false,
+                    boundaries: Default::default(),
                     wor: true.into(),
                     merge_abbrev: false.into(),
                     bullet_repair: false,

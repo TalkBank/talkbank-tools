@@ -174,13 +174,48 @@ impl EngineSelection {
     /// silently overrule a better-informed choice: an align job, which never
     /// asked for ASR at all, would pin the ASR model for the whole worker.
     ///
-    /// Lazy-profile workers preload nothing and are keyed without a selection;
-    /// they name an engine per request instead.
+    /// Lazy-profile workers preload nothing but still retain the command's
+    /// selection in their identity. The selected recipe is loaded on demand;
+    /// a worker keyed for one engine cannot silently serve another.
     pub(super) fn for_target(target: WorkerTarget, options: &CommandOptions) -> Self {
         Self::from_overrides(Self::fill_for_preloaded_tasks(
             target,
             Self::overrides_for_command(options),
         ))
+    }
+
+    /// The single audio-engine recipe a lazy command capability probe loads.
+    ///
+    /// Lazy workers do not preload their profile siblings, so an ASR probe
+    /// must not acquire an unrelated FA selection and vice versa. Non-audio
+    /// primary tasks retain their existing command-specific recipe;
+    /// their V2 requests do not yet carry a backend identity to project here.
+    fn for_lazy_command(command: ReleasedCommand, options: &CommandOptions) -> Self {
+        let selected = Self::overrides_for_command(options);
+        match crate::command_model::command_spec(command)
+            .capabilities
+            .primary_infer_task
+        {
+            InferTask::Asr => Self::from_overrides(EngineOverrides {
+                asr: selected.asr,
+                extras: selected.extras,
+                ..EngineOverrides::default()
+            }),
+            InferTask::Fa => Self::from_overrides(EngineOverrides {
+                fa: selected.fa,
+                ..EngineOverrides::default()
+            }),
+            InferTask::Morphosyntax
+            | InferTask::Utseg
+            | InferTask::Translate
+            | InferTask::Coref
+            | InferTask::Opensmile
+            | InferTask::Avqi
+            | InferTask::Speaker => Self::for_target(
+                WorkerTarget::for_command_with_mode(command, WorkerBootstrapMode::LazyProfile),
+                options,
+            ),
+        }
     }
 
     /// Name an engine for every task the target's bootstrap will PRELOAD,
@@ -290,16 +325,16 @@ impl WorkerKey {
         bootstrap_mode: WorkerBootstrapMode,
     ) -> Self {
         let target = WorkerTarget::for_command_with_mode(command, bootstrap_mode);
+        let engine_selection = match bootstrap_mode {
+            WorkerBootstrapMode::LazyProfile => EngineSelection::for_lazy_command(command, options),
+            WorkerBootstrapMode::Profile | WorkerBootstrapMode::Task => {
+                EngineSelection::for_target(target, options)
+            }
+        };
         Self {
             target,
             language,
-            engine_selection: if bootstrap_mode == WorkerBootstrapMode::LazyProfile
-                && target.is_concurrent()
-            {
-                EngineSelection::none()
-            } else {
-                EngineSelection::for_target(target, options)
-            },
+            engine_selection,
         }
     }
 
@@ -1186,7 +1221,7 @@ mod default_pool_config_tests {
     }
 
     #[test]
-    fn lazy_profile_command_options_key_drops_engine_selection() {
+    fn lazy_profile_command_options_key_retains_engine_selection() {
         let options = CommandOptions::Align(AlignOptions::default());
         let key = WorkerKey::from_command_options(
             ReleasedCommand::Align,
@@ -1196,7 +1231,10 @@ mod default_pool_config_tests {
         );
 
         assert!(key.target.is_concurrent());
-        assert!(key.engine_selection.is_none());
+        assert_eq!(
+            key.engine_selection.worker_config_json(),
+            r#"{"fa":"wave2vec"}"#
+        );
     }
 
     #[tokio::test(flavor = "current_thread")]

@@ -81,6 +81,91 @@ pub enum DiarizationMode {
     Disabled,
 }
 
+/// Which utterance-timing-recovery pass an `align` invocation requests.
+#[derive(Args, Debug, Clone)]
+pub struct AlignUtrSelectionArgs {
+    /// UTR engine to recover utterance timings with.
+    #[arg(
+        long,
+        default_value = AppUtrEngine::DEFAULT.selection_name(),
+        value_parser = engine_selection_parser::<AppUtrEngine>(),
+    )]
+    pub utr_engine: AppUtrEngine,
+
+    /// Deprecated alias for `--utr-engine`; hidden, still honoured.
+    #[arg(long, hide = true, value_parser = engine_selection_parser::<AppUtrEngine>())]
+    pub utr_engine_custom: Option<AppUtrEngine>,
+
+    /// Include utterance timing recovery before forced alignment.
+    #[arg(long, default_value_t = true)]
+    pub utr: bool,
+
+    /// Skip UTR (faster, but untimed files may get incomplete alignment).
+    #[arg(long, conflicts_with = "utr")]
+    pub no_utr: bool,
+
+    /// BA2 compat: use --utr-engine whisper instead.
+    #[arg(long, hide = true)]
+    pub whisper: bool,
+
+    /// BA2 compat: use --utr-engine rev instead.
+    #[arg(long, hide = true)]
+    pub rev: bool,
+}
+
+/// How an enabled utterance-timing-recovery pass operates.
+#[derive(Args, Debug, Clone)]
+pub struct AlignUtrTuningArgs {
+    /// UTR overlap strategy: auto (default), global, or two-pass.
+    #[arg(long, value_enum, default_value_t)]
+    pub utr_strategy: UtrOverlapStrategy,
+
+    /// Use CA overlap markers (⌈⌉⌊⌋) for alignment windowing.
+    #[arg(long, value_enum, default_value_t)]
+    pub utr_ca_markers: CaMarkerPolicy,
+
+    /// Max overlap density before skipping pass-1 exclusion (0.0-1.0).
+    #[arg(long, default_value_t = 0.30)]
+    pub utr_density_threshold: f64,
+
+    /// Tight window buffer for pass-2 backchannel recovery (ms).
+    #[arg(long, default_value_t = 500)]
+    pub utr_tight_buffer: u64,
+
+    /// UTR word matching threshold; 1.0 requests exact matching.
+    #[arg(long)]
+    pub utr_fuzzy: Option<f64>,
+}
+
+/// Complete UTR CLI policy, lowered immediately to
+/// [`AlignUtrOptions`](crate::types::options::AlignUtrOptions).
+///
+/// Both parts are flattened, preserving the historical command line while
+/// preventing selection/compatibility state from becoming one bag with
+/// algorithm tuning.
+#[derive(Args, Debug, Clone)]
+pub struct AlignUtrArgs {
+    /// Whether and which UTR pass is requested.
+    #[command(flatten)]
+    pub selection: AlignUtrSelectionArgs,
+
+    /// Algorithm policy for an enabled UTR pass.
+    #[command(flatten)]
+    pub tuning: AlignUtrTuningArgs,
+}
+
+/// Existing- and cross-utterance boundary policies for `align`.
+#[derive(Args, Debug, Clone)]
+pub struct AlignBoundaryArgs {
+    /// Treatment of boundaries inherited from an existing `%wor` run.
+    #[arg(long, value_enum, default_value_t)]
+    pub existing_wor_boundaries: crate::chat_ops::fa::ExistingWorBoundaryPolicy,
+
+    /// Treatment of an earlier utterance end that crosses the next start.
+    #[arg(long, value_enum, default_value_t)]
+    pub end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy,
+}
+
 /// Arguments for the `align` subcommand (forced alignment).
 #[derive(Args, Debug, Clone)]
 pub struct AlignArgs {
@@ -92,25 +177,9 @@ pub struct AlignArgs {
     #[command(flatten)]
     pub incremental: IncrementalOpts,
 
-    // Keep these doc comments SHORT: clap renders them verbatim as the flag's
-    // help, so rationale written here is shown to users instead of the value
-    // list it derives from the enum.
-    /// UTR engine to recover utterance timings with.
-    #[arg(
-        long,
-        default_value = AppUtrEngine::DEFAULT.selection_name(),
-        value_parser = engine_selection_parser::<AppUtrEngine>(),
-    )]
-    pub utr_engine: AppUtrEngine,
-
-    /// Deprecated alias for `--utr-engine`; hidden, still honoured.
-    ///
-    /// Parsed by the SAME parser, so it can no longer accept a name that
-    /// `--utr-engine` would reject. It used to take an unvalidated string that
-    /// a later stage resolved with `.ok()?`, so a typo produced no engine and
-    /// no message.
-    #[arg(long, hide = true, value_parser = engine_selection_parser::<AppUtrEngine>())]
-    pub utr_engine_custom: Option<AppUtrEngine>,
+    /// Utterance-timing-recovery selection and tuning.
+    #[command(flatten)]
+    pub utr_args: AlignUtrArgs,
 
     /// Forced-alignment engine.
     #[arg(
@@ -148,6 +217,10 @@ pub struct AlignArgs {
     #[arg(long)]
     pub pauses: bool,
 
+    /// Word- and utterance-boundary projection policies.
+    #[command(flatten)]
+    pub boundaries: AlignBoundaryArgs,
+
     /// Write word-level alignment (%wor) tier.
     #[arg(long, default_value_t = true)]
     pub wor: bool,
@@ -164,48 +237,7 @@ pub struct AlignArgs {
     #[arg(long = "no-merge-abbrev", conflicts_with = "merge_abbrev")]
     pub no_merge_abbrev: bool,
 
-    /// Include utterance timing recovery before forced alignment.
-    #[arg(long, default_value_t = true)]
-    pub utr: bool,
-
-    /// Skip UTR (faster, but untimed files may get incomplete alignment).
-    #[arg(long, conflicts_with = "utr")]
-    pub no_utr: bool,
-
-    /// UTR overlap strategy: auto (default), global, or two-pass.
-    #[arg(long, value_enum, default_value_t)]
-    pub utr_strategy: UtrOverlapStrategy,
-
-    /// Use CA overlap markers (⌈⌉⌊⌋) for alignment windowing: enabled (default), disabled.
-    #[arg(long, value_enum, default_value_t)]
-    pub utr_ca_markers: CaMarkerPolicy,
-
-    /// Max overlap density before skipping pass-1 exclusion (0.0-1.0, default 0.30).
-    #[arg(long, default_value_t = 0.30)]
-    pub utr_density_threshold: f64,
-
-    /// Tight window buffer for pass-2 backchannel recovery (ms, default 500).
-    #[arg(long, default_value_t = 500)]
-    pub utr_tight_buffer: u64,
-
-    /// UTR word matching threshold. Default: 0.85 (fuzzy matching enabled).
-    ///
-    /// Uses Jaro-Winkler similarity to match ASR words against transcript
-    /// words even when they differ slightly (e.g., "gonna"/"gona"). Set to
-    /// 1.0 for exact matching only. The threshold controls how similar words
-    /// must be (0.0-1.0, higher = stricter).
-    #[arg(long)]
-    pub utr_fuzzy: Option<f64>,
-
     // -- Hidden BA2 compatibility aliases --
-    /// BA2 compat: use --utr-engine whisper instead.
-    #[arg(long, hide = true)]
-    pub whisper: bool,
-
-    /// BA2 compat: use --utr-engine rev instead.
-    #[arg(long, hide = true)]
-    pub rev: bool,
-
     /// BA2 compat: use --fa-engine whisper instead.
     #[arg(long, hide = true)]
     pub whisper_fa: bool,
@@ -273,16 +305,16 @@ impl AlignArgs {
     /// 3. the BA2 compatibility switch `--whisper` (unless `--rev` is also set).
     /// 4. `--utr-engine`, which has a default and so is always present.
     pub fn utr_selection(&self) -> Option<AppUtrEngine> {
-        if !self.utr || self.no_utr {
+        if !self.utr_args.selection.utr || self.utr_args.selection.no_utr {
             return None;
         }
-        if let Some(ref engine) = self.utr_engine_custom {
+        if let Some(ref engine) = self.utr_args.selection.utr_engine_custom {
             return Some(engine.clone());
         }
-        if self.whisper && !self.rev {
+        if self.utr_args.selection.whisper && !self.utr_args.selection.rev {
             return Some(AppUtrEngine::Whisper);
         }
-        Some(self.utr_engine.clone())
+        Some(self.utr_args.selection.utr_engine.clone())
     }
 
     /// Which forced-alignment engine this invocation selected.

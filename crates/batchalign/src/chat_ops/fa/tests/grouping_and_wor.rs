@@ -269,6 +269,26 @@ fn test_refresh_existing_alignment_rehydrates_main_tier_from_wor() {
 }
 
 #[test]
+fn rebuild_policy_reconstructs_reused_utterance_bullet_from_wor_hull() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\thello world . \u{15}300_1500\u{15}\n%wor:\thello \u{15}100_500\u{15} world \u{15}600_1000\u{15} .\n@End\n";
+    let mut chat = parse_chat(input);
+
+    refresh_existing_alignment_with_boundary_policy(
+        &mut chat,
+        true,
+        ExistingWorBoundaryPolicy::RebuildFromEvidence,
+    );
+
+    let bullet = get_utterance(&chat, 0)
+        .main
+        .content
+        .bullet
+        .as_ref()
+        .expect("reused word evidence should produce a bullet");
+    assert_eq!((bullet.timing.start_ms, bullet.timing.end_ms), (100, 1000));
+}
+
+#[test]
 fn test_group_utterances_includes_untimed_with_interpolation() {
     let input =
         include_str!("../../../../../../test-fixtures/fa_mixed_timed_untimed_interleaved.cha");

@@ -46,14 +46,14 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
         WordTiming::fixture(1000, 1500),
         WordTiming::fixture(1500, 3000),
     ]];
-    let ordered = apply_fa_results(
+    let finalized = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
         WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         false,
     )
-    .then_enforce_monotonicity(&mut chat);
+    .then_finalize(&mut chat, BulletRepairPolicy::Disabled);
 
     // Through the same owner production uses. This test used to hand-simulate
     // `fa/mod.rs` step 9d, including its BUG (inject-and-strip only when the
@@ -66,8 +66,7 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
         crate::chat_ops::fa::FaDecisions {
             rescue: Vec::new(),
             unplaceable: Vec::new(),
-            ordered,
-            repair: Vec::new(),
+            finalized,
         },
     );
     let (records, effects) = written.into_evidence();
@@ -562,19 +561,27 @@ fn test_fast_path_strips_backward_wor_timestamps_and_removes_stale_wor_tier() {
          without fix the fast path returns here with a backward bullet"
     );
 
-    // Step 2 (fast path FIX): call enforce_monotonicity to strip backward bullets.
-    let decisions = enforce_monotonicity(&mut chat);
+    // Step 2 (fast path FIX): enforce the declared complete projection policy.
+    let finalized = finalize_without_injection(
+        &mut chat,
+        FaProjectionPolicy::new(
+            WordEndPolicy::measured(WordGapHealing::Heal),
+            ExistingWorBoundaryPolicy::Preserve,
+            EndOverlapPolicy::ClampAllAdjacent,
+        ),
+        BulletRepairPolicy::Disabled,
+    );
 
     // Step 3 (fast path FIX): remove %wor from utterances whose bullets were
     // stripped, so the next re-run cannot reconstruct the backward bullet again.
-    strip_wor_from_monotonicity_stripped_utterances(&mut chat, &decisions);
+    strip_wor_from_monotonicity_stripped_utterances(&mut chat, finalized.monotonicity());
 
     // The cheap all-%wor path must not erase the very decision that changed
     // its output. It has no inference groups, but schema-2 evidence still
     // retains the generic decision and its structured numeric effect.
     let written = crate::chat_ops::fa::retain_decision_evidence(
         &mut chat,
-        crate::chat_ops::fa::FaDecisions::without_injection(Vec::new(), Vec::new(), decisions),
+        crate::chat_ops::fa::FaDecisions::without_injection(Vec::new(), Vec::new(), finalized),
     );
     let timeline = crate::types::results::FaResult::without_groups(
         chat.to_chat_string(),

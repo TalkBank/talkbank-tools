@@ -1,7 +1,7 @@
 # Command Flowcharts
 
 **Status:** Current
-**Last updated:** 2026-08-28 14:01 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 Option-driven flowcharts for every batchalign processing command. Each
 diagram shows how CLI flags route through different code paths at runtime.
@@ -425,6 +425,27 @@ flowchart TD
 
 ---
 
+## diarize
+
+Produces anonymous acoustic speaker turns without ASR or CHAT mutation. The
+standalone command currently uses local Pyannote; integrated
+`transcribe --diarization enabled` defaults to pyannoteAI Precision-2 and is
+shown separately in the transcribe diagram above.
+
+```mermaid
+flowchart TD
+    start([diarize invoked]) --> resolve[Resolve media inputs]
+    resolve --> prepare[Rust audio preparation\nvalidated PCM artifact]
+    prepare --> speaker["execute_v2(task=speaker)\nPython hosts local Pyannote"]
+    speaker --> validate[Validate ordered finite intervals\nand diarizer labels]
+    validate --> tracks[Map native labels deterministically\nto anonymous PAR0..PARn tracks]
+    tracks --> turns[Write one .turns.json artifact\nper input file]
+    turns -. optional later step .-> chatter["chatter rediarize\nproject tracks onto existing CHAT"]
+    chatter --> roles["chatter speaker-id + external evidence\nor adjudication assigns semantic CHAT roles"]
+```
+
+---
+
 ## morphotag
 
 Adds `%mor` and `%gra` tiers. Files are processed independently and
@@ -644,10 +665,9 @@ flowchart TD
 
 ---
 
-There is no standalone CLI `speaker` command in batchalign3, matching
-batchalign2. User-facing diarization remains part of `transcribe_s`; the
-low-level `speaker` worker task is documented in the worker-protocol V2 and
-interface chapters instead of here.
+There is no CLI command literally named `speaker`; that name belongs to the
+low-level worker task. User-facing diarization is available both inside
+`transcribe --diarization enabled` and through standalone `diarize`.
 
 ---
 

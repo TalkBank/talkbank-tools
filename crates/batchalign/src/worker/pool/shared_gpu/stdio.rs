@@ -52,6 +52,11 @@ pub(crate) struct SharedGpuWorker {
     #[allow(dead_code)]
     control: Arc<tokio::sync::Mutex<Option<oneshot::Sender<WorkerControlResponse>>>>,
 
+    /// Serializes control requests across their full request/response round
+    /// trip. The `control` mutex itself cannot do that because the reader must
+    /// acquire it to deliver the response.
+    control_gate: tokio::sync::Mutex<()>,
+
     /// Background stdout reader task handle.
     reader_task: tokio::task::JoinHandle<()>,
 
@@ -145,6 +150,7 @@ impl SharedGpuWorker {
             stdin,
             pending,
             control,
+            control_gate: tokio::sync::Mutex::new(()),
             reader_task,
             pid,
             config,
@@ -284,6 +290,7 @@ impl SharedGpuWorker {
     pub(in crate::worker::pool) async fn health_check(
         &self,
     ) -> Result<crate::worker::WorkerHealthResponse, WorkerError> {
+        let _control_guard = self.control_gate.lock().await;
         if self.shutdown_started.load(Ordering::Acquire) {
             return Err(WorkerError::HealthCheckFailed(
                 "GPU worker is shutting down".into(),
@@ -329,6 +336,36 @@ impl SharedGpuWorker {
         }
     }
 
+    /// Query this exact worker's live capability and engine identity.
+    pub(in crate::worker::pool) async fn capabilities(
+        &self,
+    ) -> Result<crate::worker::WorkerCapabilities, WorkerError> {
+        let _control_guard = self.control_gate.lock().await;
+        let (tx, rx) = oneshot::channel();
+        {
+            let mut ctrl = self.control.lock().await;
+            *ctrl = Some(tx);
+        }
+        {
+            let mut stdin = self.stdin.lock().await;
+            stdin.write_all(b"{\"op\":\"capabilities\"}\n").await?;
+            stdin.flush().await?;
+        }
+        match tokio::time::timeout(Duration::from_secs(60), rx).await {
+            Ok(Ok(WorkerControlResponse::Capabilities(response))) => Ok(response),
+            Ok(Ok(WorkerControlResponse::Error(error))) => Err(WorkerError::Protocol(error)),
+            Ok(Ok(other)) => Err(WorkerError::Protocol(format!(
+                "unexpected control response for capabilities: {other:?}"
+            ))),
+            Ok(Err(_)) => Err(WorkerError::Protocol(
+                "capabilities: control channel closed".into(),
+            )),
+            Err(_) => Err(WorkerError::Protocol(
+                "timeout waiting for capabilities response".into(),
+            )),
+        }
+    }
+
     /// Load one task's models on demand via the `ensure_task` IPC operation.
     ///
     /// Used by `LazyProfile` workers that start with no models loaded. The Rust
@@ -362,6 +399,21 @@ impl SharedGpuWorker {
             return Err(WorkerError::Protocol(
                 "GPU worker is shutting down, cannot ensure_task".into(),
             ));
+        }
+
+        let _control_guard = self.control_gate.lock().await;
+
+        // A peer may have completed the load while this request waited for the
+        // control gate.
+        {
+            let cache = self.loaded_tasks.lock().await;
+            if cache.contains(task) {
+                return Ok(crate::worker::EnsureTaskResponse {
+                    status: crate::worker::EnsureTaskStatus::AlreadyLoadedCached,
+                    task: task.to_owned(),
+                    elapsed_s: 0.0,
+                });
+            }
         }
 
         let (tx, rx) = oneshot::channel();

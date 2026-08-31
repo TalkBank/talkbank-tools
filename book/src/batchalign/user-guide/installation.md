@@ -81,7 +81,7 @@ for your platform from the
 and install it with `uv`:
 
 ```bash
-uv tool install --python 3.13 ./batchalign3-0.3.0-cp313-abi3-macosx_11_0_arm64.whl
+uv tool install --python 3.13 ./batchalign3-0.4.0-cp313-abi3-macosx_11_0_arm64.whl
 ```
 
 ## First run

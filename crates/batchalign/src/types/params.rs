@@ -220,10 +220,10 @@ pub struct MorphosyntaxParams<'a> {
     pub multilingual_policy: MultilingualPolicy,
     /// Multi-word token lexicon for retokenization overrides.
     pub mwt: &'a MwtDict,
-    /// [Experimental] Route @s words to secondary language Stanza models
+    /// \[Experimental\] Route @s words to secondary language Stanza models
     /// instead of blanking to L2|xxx.
     pub l2_morphotag: bool,
-    /// [Experimental] After morphotag, apply transcriber `$POS` hints:
+    /// \[Experimental\] After morphotag, apply transcriber `$POS` hints:
     /// for each main-tier word carrying a `$POS` suffix, override the
     /// Stanza-assigned `%mor` POS with the CLAN→UD-mapped POS when
     /// they disagree. Lemma and features from Stanza are preserved.
@@ -307,6 +307,10 @@ pub struct FaParams {
     /// Whether post-processing heals small gaps between words (`--pauses`
     /// selects `PreserveMeasured`).
     pub gap_healing: WordGapHealing,
+    /// How admitted word evidence treats boundaries inherited from prior `%wor`.
+    pub existing_wor_boundaries: crate::chat_ops::fa::ExistingWorBoundaryPolicy,
+    /// How adjacent utterance end overlap is projected.
+    pub end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy,
     /// Which FA engine to use: the engine itself, never a strategy derived
     /// from it. See [`FaEngineName`] for why that distinction matters.
     pub engine: FaEngineName,
@@ -327,6 +331,15 @@ impl FaParams {
     /// cannot disagree with it.
     pub fn word_end_policy(&self) -> crate::chat_ops::fa::WordEndPolicy {
         crate::chat_ops::fa::WordEndPolicy::for_engine(self.engine, self.gap_healing)
+    }
+
+    /// Complete downstream projection policy for this run.
+    pub fn projection_policy(&self) -> crate::chat_ops::fa::FaProjectionPolicy {
+        crate::chat_ops::fa::FaProjectionPolicy::new(
+            self.word_end_policy(),
+            self.existing_wor_boundaries,
+            self.end_overlap_policy,
+        )
     }
 
     /// Longest audio window handed to this run's engine in one dispatch.

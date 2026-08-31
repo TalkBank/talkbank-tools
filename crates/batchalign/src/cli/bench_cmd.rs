@@ -56,7 +56,10 @@ fn build_options(_global: &GlobalOpts, args: &BenchArgs) -> CommandOptions {
     match args.command {
         BenchTarget::Align => CommandOptions::Align(AlignOptions {
             common,
-            utr_engine: Some(UtrEngine::RevAi),
+            utr: crate::options::AlignUtrOptions {
+                engine: Some(UtrEngine::RevAi),
+                ..Default::default()
+            },
             ..AlignOptions::default()
         }),
         BenchTarget::Transcribe => CommandOptions::Transcribe(TranscribeOptions {

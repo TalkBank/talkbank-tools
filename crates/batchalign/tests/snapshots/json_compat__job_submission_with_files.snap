@@ -32,6 +32,8 @@ expression: sub
       }
     },
     "pauses": true,
+    "existing_wor_boundaries": "preserve",
+    "end_overlap_policy": "clamp_all_adjacent",
     "wor": true,
     "merge_abbrev": false,
     "bullet_repair": false,

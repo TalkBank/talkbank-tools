@@ -37,6 +37,7 @@ mod tests {
 
     use crate::api::{DisplayPath, NumWorkers, ReleasedCommand};
     use crate::config::ServerConfig;
+    use crate::error::{MissingForcedAlignmentEvidence, ServerError};
     use crate::host_facts::EffectiveConfig;
     use crate::runtime;
 
@@ -288,6 +289,24 @@ mod tests {
             FailureCategory::WorkerProtocol
         ));
         assert!(!is_retryable_worker_failure(FailureCategory::Validation));
+    }
+
+    #[test]
+    fn required_evidence_refusal_is_actionable_and_not_a_system_error() {
+        let error =
+            ServerError::RequiredEvidenceUnavailable(MissingForcedAlignmentEvidence::new(1, &[3]));
+        let category = classify_server_error(&error);
+        assert_eq!(category, FailureCategory::EvidenceUnavailable);
+
+        let message = user_facing_error(
+            category,
+            "Alignment",
+            "test.cha",
+            &format!("Alignment failed: {error}"),
+        );
+        assert!(message.contains("--require-media-cache"));
+        assert!(message.contains("groups [1, 3]"));
+        assert!(!message.contains("internal error"));
     }
 
     /// Regression: bootstrap-class errors must NOT be retried.

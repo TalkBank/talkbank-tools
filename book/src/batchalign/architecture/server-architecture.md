@@ -1,7 +1,7 @@
 # Server Dispatch Architecture
 
 **Status:** Current
-**Last updated:** 2026-08-28 17:00 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 This page describes the implemented `batchalign3` runtime:
 
@@ -335,11 +335,11 @@ For text-only commands, the server owns the full CHAT lifecycle, no CHAT text cr
 | align | infer (per-file, per-group) | Stateless audio/text alignment inference |
 | transcribe, transcribe_s | infer (per-file audio) | Raw ASR inference feeding a Rust-owned pipeline |
 | benchmark | infer (per-file audio + compare) | Raw ASR inference feeding Rust transcribe + compare |
-| opensmile, avqi | infer (per-file media V2) | Rust-owned prepared-audio media analysis over typed worker requests |
+| diarize, opensmile, avqi | infer (per-file media V2) | Rust-owned prepared-audio media analysis over typed worker requests |
 
-There is no standalone CLI `speaker` command in batchalign3, matching
-batchalign2. Speaker diarization remains a worker capability used to support
-`transcribe_s` and typed V2 execution.
+There is no CLI command literally named `speaker`; speaker is the low-level
+worker capability. It supports integrated `transcribe_s` and the standalone
+`diarize` command, whose product is anonymous turns JSON rather than CHAT.
 
 ## SSE job streaming
 

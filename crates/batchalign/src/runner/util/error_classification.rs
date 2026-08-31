@@ -72,6 +72,7 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         ServerError::WhisperEngine(_) => FailureCategory::System,
         ServerError::Validation(_) => FailureCategory::Validation,
         ServerError::MemoryPressure(_) => FailureCategory::MemoryPressure,
+        ServerError::RequiredEvidenceUnavailable(_) => FailureCategory::EvidenceUnavailable,
         ServerError::Io(_) => FailureCategory::System,
         ServerError::Database(_) | ServerError::Migration(_) | ServerError::Persistence(_) => {
             FailureCategory::System
@@ -168,6 +169,9 @@ pub(crate) fn user_facing_error(
             "{command_label} failed for {filename}: a required input file could not be \
              found. Check that all referenced media files exist."
         ),
+        FailureCategory::EvidenceUnavailable => {
+            format!("{command_label} did not run for {filename}: {raw_error}")
+        }
         // Validation, ParseError, and System categories typically already have
         // well-formed messages from the validation/parse layer, so we pass
         // them through with light framing.

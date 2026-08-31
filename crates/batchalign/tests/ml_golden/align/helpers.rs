@@ -51,7 +51,10 @@ pub(super) fn align_options_with_media_dir_and_utr(
     CommandOptions::Align(AlignOptions {
         common,
         fa_engine: engine,
-        utr_engine,
+        utr: batchalign::options::AlignUtrOptions {
+            engine: utr_engine,
+            ..Default::default()
+        },
         wor,
         media_dir,
         ..AlignOptions::default()

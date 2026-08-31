@@ -283,6 +283,13 @@ impl WorkerPool {
         if matches!(key.target, WorkerTarget::Profile(_))
             && let Some(mut tcp_handle) = self.try_checkout_tcp(&key)
         {
+            if self.config.runtime.bootstrap_mode == WorkerBootstrapMode::LazyProfile {
+                let (task_name, overrides) = execute_v2::ensure_task_params(request)?;
+                let timeout = self.config.effective_ensure_task_timeout_s();
+                tcp_handle
+                    .ensure_task(&task_name, overrides.as_ref(), timeout)
+                    .await?;
+            }
             let result = tcp_handle
                 .execute_v2_with_progress(request, progress_tx)
                 .await;
@@ -329,9 +336,16 @@ impl WorkerPool {
     ) -> Result<ExecuteResponseV2, WorkerError> {
         // Try TCP worker first (discovered from registry).
         if matches!(key.target, WorkerTarget::Profile(_)) {
-            let tcp_workers = self.gpu_tcp_workers.lock().await;
-            if let Some(tcp_worker) = tcp_workers.get(key) {
+            let tcp_worker = self.gpu_tcp_workers.lock().await.get(key).cloned();
+            if let Some(tcp_worker) = tcp_worker {
                 let _job_guard = TrackerGuard::new(&self.job_tracker, tcp_worker.pid());
+                if self.config.runtime.bootstrap_mode == WorkerBootstrapMode::LazyProfile {
+                    let (task_name, overrides) = execute_v2::ensure_task_params(request)?;
+                    let timeout = self.config.effective_ensure_task_timeout_s();
+                    tcp_worker
+                        .ensure_task(&task_name, overrides.as_ref(), timeout)
+                        .await?;
+                }
                 return tcp_worker.execute_v2(request).await;
             }
         }
@@ -361,45 +375,93 @@ impl WorkerPool {
         command: ReleasedCommand,
         lang: impl Into<WorkerLanguage>,
         options: &crate::options::CommandOptions,
-    ) -> Result<(), WorkerError> {
-        if self.config.test_echo || self.lazy_capabilities.get().is_some() {
-            return Ok(());
-        }
-
+    ) -> Result<crate::worker::WorkerCapabilities, WorkerError> {
         let key = WorkerKey::from_command_options(
             command,
             lang.into(),
             options,
             self.config.runtime.bootstrap_mode,
         );
+        let lazy_task = (self.config.runtime.bootstrap_mode == WorkerBootstrapMode::LazyProfile)
+            .then(|| {
+                let task = crate::command_model::command_spec(command)
+                    .capabilities
+                    .primary_infer_task;
+                let task_name = crate::worker::target::task_name(task).to_owned();
+                let overrides = key.engine_selection.overrides().dispatch_overrides();
+                (task_name, (!overrides.is_empty()).then_some(overrides))
+            });
 
         if key.target.is_concurrent() {
-            let _ = self.get_or_create_gpu_worker(&key).await?;
-            return Ok(());
+            if matches!(key.target, WorkerTarget::Profile(_)) {
+                let worker = self.gpu_tcp_workers.lock().await.get(&key).cloned();
+                if let Some(worker) = worker {
+                    if let Some((task, overrides)) = &lazy_task {
+                        worker
+                            .ensure_task(
+                                task,
+                                overrides.as_ref(),
+                                self.config.effective_ensure_task_timeout_s(),
+                            )
+                            .await?;
+                    }
+                    let caps = worker.capabilities().await?;
+                    self.record_capabilities(caps.clone());
+                    return Ok(caps);
+                }
+            }
+            let worker = self.get_or_create_gpu_worker(&key).await?;
+            if let Some((task, overrides)) = &lazy_task {
+                worker
+                    .ensure_task(
+                        task,
+                        overrides.as_ref(),
+                        self.config.effective_ensure_task_timeout_s(),
+                    )
+                    .await?;
+            }
+            let caps = worker.capabilities().await?;
+            self.record_capabilities(caps.clone());
+            return Ok(caps);
         }
 
         if matches!(key.target, WorkerTarget::Profile(_))
             && let Some(mut tcp_handle) = self.try_checkout_tcp(&key)
         {
-            if self.lazy_capabilities.get().is_none() {
-                let caps = tcp_handle.capabilities().await?;
-                info!(
-                    source = "checked-out-tcp-worker",
-                    infer_tasks = ?caps.infer_tasks,
-                    engine_versions = ?caps.engine_versions,
-                    "Recorded detected worker capabilities"
-                );
-                self.record_capabilities(caps);
+            if let Some((task, overrides)) = &lazy_task {
+                tcp_handle
+                    .ensure_task(
+                        task,
+                        overrides.as_ref(),
+                        self.config.effective_ensure_task_timeout_s(),
+                    )
+                    .await?;
             }
+            let caps = tcp_handle.capabilities().await?;
+            info!(
+                source = "checked-out-tcp-worker",
+                infer_tasks = ?caps.infer_tasks,
+                engine_versions = ?caps.engine_versions,
+                "Resolved selected worker capabilities"
+            );
+            self.record_capabilities(caps.clone());
             self.return_tcp_worker(tcp_handle, &key);
-            return Ok(());
+            return Ok(caps);
         }
 
         let mut worker = self.checkout(&key).await?;
-        if self.lazy_capabilities.get().is_none() {
-            self.detect_capabilities_from_worker(&mut worker).await?;
+        if let Some((task, overrides)) = &lazy_task {
+            worker
+                .ensure_task(
+                    task,
+                    overrides.as_ref(),
+                    self.config.effective_ensure_task_timeout_s(),
+                )
+                .await?;
         }
-        Ok(())
+        let caps = worker.capabilities().await?;
+        self.record_capabilities(caps.clone());
+        Ok(caps)
     }
 }
 

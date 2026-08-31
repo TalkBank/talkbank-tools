@@ -11,7 +11,7 @@ use crate::api::{DurationMs, WorkerLanguage};
 use crate::chat_ops::fa::coordinates::{FaWindow, FileMs, Recording};
 use crate::chat_ops::fa::origin::EngineId;
 use crate::chat_ops::fa::{FaGroup, FaInferItem, WordGapHealing, WordTiming};
-use crate::error::ServerError;
+use crate::error::{MissingForcedAlignmentEvidence, ServerError};
 use crate::params::CachePolicy;
 use crate::pipeline::PipelineServices;
 use crate::types::traces::FaFallbackEventTrace;
@@ -23,7 +23,9 @@ use crate::worker::request_builder_v2::{
 };
 use tracing::warn;
 
-use super::raw_evidence::{ExpectedFaWords, FaEvidenceRoute, FaRawEvidence};
+use super::raw_evidence::{
+    ExpectedFaWords, FaEvidenceRoute, FaRawEvidence, ReplayableFaRawEvidence,
+};
 
 static NEXT_FA_REQUEST_NAMESPACE: AtomicU64 = AtomicU64::new(1);
 
@@ -134,14 +136,14 @@ pub(crate) fn plan_fa_inference(
     policy: CachePolicy,
     miss_indices: &[usize],
 ) -> Result<FaInferencePlan<'_>, ServerError> {
-    if miss_indices.is_empty() {
+    let Some((&first_miss, remaining_misses)) = miss_indices.split_first() else {
         return Ok(FaInferencePlan::NothingToInfer);
-    }
+    };
     match policy {
         CachePolicy::RequireCache => {
-            return Err(ServerError::Persistence(format!(
-                "required forced-alignment evidence is missing for group(s) {miss_indices:?}"
-            )));
+            return Err(ServerError::RequiredEvidenceUnavailable(
+                MissingForcedAlignmentEvidence::new(first_miss, remaining_misses),
+            ));
         }
         CachePolicy::UseCache | CachePolicy::SkipCache => {}
     }
@@ -170,7 +172,7 @@ pub(crate) struct FaWorkerEvidenceResult {
     /// Parsed timings in the established Rust FA timing domain.
     pub timings: Vec<Option<WordTiming>>,
     /// Immutable worker response admitted against engine and word cardinality.
-    pub raw_evidence: FaRawEvidence,
+    pub raw_evidence: Option<ReplayableFaRawEvidence>,
     /// Fallback event metadata when this group had to retry with another engine.
     pub fallback_event: Option<FaFallbackEventTrace>,
 }
@@ -309,15 +311,20 @@ async fn infer_groups_v2(
             Err(other) => return Err(other),
         };
 
-        match admit_group_evidence(
-            &response,
-            batch.engine,
-            &batch.cache_keys[group_index],
-            FaEvidenceRoute::Direct,
+        // Bind every fact that identifies this group before interpreting any
+        // response. Primary and fallback responses must travel through the
+        // same capability, so a later branch cannot accidentally pair a
+        // response with another group's key, window, or word cardinality.
+        let admission = FaGroupEvidenceAdmission {
+            requested_engine: batch.engine,
+            request_engine_version: services.engine_version,
+            cache_key: &batch.cache_keys[group_index],
             group_index,
             group,
-            &window,
-        ) {
+            window: &window,
+        };
+
+        match admission.admit(&response, FaEvidenceRoute::Direct) {
             Ok(parsed) => parsed_results.push(FaWorkerGroupResult::Evidence(Box::new(parsed))),
             Err(error) => {
                 let Some(reason) = whisper_fallback_reason(batch.engine, &error) else {
@@ -356,15 +363,7 @@ async fn infer_groups_v2(
                     crate::types::engines::FaEngineName::Whisper,
                 )
                 .await?;
-                match admit_group_evidence(
-                    &fallback_response,
-                    batch.engine,
-                    &batch.cache_keys[group_index],
-                    FaEvidenceRoute::Fallback { reason },
-                    group_index,
-                    group,
-                    &window,
-                ) {
+                match admission.admit(&fallback_response, FaEvidenceRoute::Fallback { reason }) {
                     Ok(parsed) => parsed_results.push(FaWorkerGroupResult::Evidence(Box::new(
                         parsed.with_fallback_event(build_fallback_event(
                             group_index,
@@ -493,49 +492,74 @@ impl FaWorkerEvidenceResult {
     }
 }
 
-fn admit_group_evidence(
-    response: &crate::types::worker_v2::ExecuteResponseV2,
+/// Capability binding every current-request fact needed to admit one group's
+/// worker response.
+///
+/// Keeping these values together prevents the primary and fallback branches
+/// from independently reconstructing a six-value relationship by convention.
+struct FaGroupEvidenceAdmission<'a> {
     requested_engine: crate::types::engines::FaEngineName,
-    cache_key: &crate::chat_ops::CacheKey,
-    route: FaEvidenceRoute<'_>,
+    request_engine_version: &'a crate::api::EngineVersion,
+    cache_key: &'a crate::chat_ops::CacheKey,
     group_index: usize,
-    group: &FaGroup,
-    window: &FaWindow,
-) -> Result<FaWorkerEvidenceResult, ServerError> {
-    let raw_evidence = FaRawEvidence::admit_requested(
-        response,
-        requested_engine,
-        ExpectedFaWords::new(group.words.len()),
-        cache_key,
-        route,
-    )
-    .map_err(|error| {
-        ServerError::Validation(format!(
-            "failed to admit worker protocol V2 FA evidence for group {group_index}: {error}"
-        ))
-    })?;
-    let timings = parse_group_response(
-        raw_evidence.response(),
-        group_index,
-        group,
-        window,
-        &EngineId::new(raw_evidence.effective_engine().as_wire_name()),
-    )?;
-    Ok(FaWorkerEvidenceResult {
-        group_index,
-        timings,
-        raw_evidence,
-        fallback_event: None,
-    })
+    group: &'a FaGroup,
+    window: &'a FaWindow,
+}
+
+impl FaGroupEvidenceAdmission<'_> {
+    fn admit(
+        &self,
+        response: &crate::types::worker_v2::ExecuteResponseV2,
+        route: FaEvidenceRoute<'_>,
+    ) -> Result<FaWorkerEvidenceResult, ServerError> {
+        let raw_evidence = FaRawEvidence::admit_requested(
+            response,
+            self.requested_engine,
+            self.request_engine_version,
+            ExpectedFaWords::new(self.group.words.len()),
+            self.cache_key,
+            route,
+        )
+        .map_err(|error| {
+            ServerError::Validation(format!(
+                "failed to admit worker protocol V2 FA evidence for group {}: {error}",
+                self.group_index
+            ))
+        })?;
+        let timings = parse_group_response(
+            raw_evidence.response(),
+            self.group_index,
+            self.group,
+            self.window,
+            &EngineId::new(raw_evidence.effective_engine().as_wire_name()),
+        )?;
+        let replayable_raw_evidence = match raw_evidence.into_replayable() {
+            Ok(replayable) => Some(replayable),
+            Err(super::raw_evidence::FaRawEvidenceError::UnversionedFallbackEvidence) => None,
+            Err(error) => {
+                return Err(ServerError::Validation(format!(
+                    "failed to close FA evidence replay state for group {}: {error}",
+                    self.group_index
+                )));
+            }
+        };
+        Ok(FaWorkerEvidenceResult {
+            group_index: self.group_index,
+            timings,
+            raw_evidence: replayable_raw_evidence,
+            fallback_event: None,
+        })
+    }
 }
 
 /// Reparse one admitted cached response without invoking a model worker.
 pub(super) fn replay_group_evidence(
-    raw_evidence: FaRawEvidence,
+    raw_evidence: ReplayableFaRawEvidence,
     group_index: usize,
     group: &FaGroup,
     recording: &Recording,
 ) -> Result<FaWorkerEvidenceResult, ServerError> {
+    let raw_evidence = raw_evidence.into_inner();
     let window = FaWindow::within(
         recording,
         FileMs::new(group.audio_start_ms()),
@@ -565,7 +589,7 @@ pub(super) fn replay_group_evidence(
     Ok(FaWorkerEvidenceResult {
         group_index,
         timings,
-        raw_evidence,
+        raw_evidence: None,
         fallback_event,
     })
 }
@@ -863,7 +887,10 @@ mod tests {
         let error = plan_fa_inference(CachePolicy::RequireCache, &[1, 3])
             .expect_err("required evidence misses must refuse worker inference");
 
-        assert!(error.to_string().contains("group(s) [1, 3]"));
+        let ServerError::RequiredEvidenceUnavailable(missing) = error else {
+            panic!("cache precondition must have a typed refusal");
+        };
+        assert_eq!(missing.group_indices(), &[1, 3]);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 # Python-Rust Boundary
 
 **Status:** Current
-**Last updated:** 2026-08-28 19:15 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 The talkbank-tools workspace has two architectural layers: the **CHAT
 core** (entirely Rust, no Python) and the **Batchalign runtime** (Rust
@@ -11,6 +11,23 @@ and its Python workers.
 
 The CHAT core has no Python in it at all. References to Python below
 apply only to the Batchalign runtime layer.
+
+## Why the Runtime Is Deliberately Hybrid
+
+Batchalign3 is not a wholesale Python-to-Rust conversion made to follow an
+industry trend. The language boundary follows ownership and correctness:
+
+- Rust owns typed CHAT data, typestate-constrained orchestration, validation,
+  cache and provenance policy, concurrency, and deterministic transcript
+  transformation.
+- Python owns thin adapters around the ML ecosystem where PyTorch, Stanza,
+  Whisper, Pyannote, and provider SDK support is strongest.
+
+Performance and memory efficiency are benefits of the Rust control plane, but
+the primary reason for the split is to make invalid transcript and pipeline
+states difficult or impossible to represent. The boundary may move when a
+Rust implementation provides a clearer typed design, but replacing working ML
+bindings solely to eliminate Python is not a goal.
 
 ## Server Owns the CHAT Lifecycle
 
@@ -76,7 +93,7 @@ flowchart TD
     cmd -->|"morphotag, utseg,\ntranslate, coref, compare"| allchat
     cmd -->|"transcribe,\ntranscribe_s"| transcribe
     cmd -->|benchmark| benchmark
-    cmd -->|"opensmile,\navqi"| media
+    cmd -->|"diarize, opensmile,\navqi"| media
     allchat -->|yes| infer
     allchat -->|"yes (align)"| fainfer
     allchat -->|no| fail
@@ -399,8 +416,11 @@ local model package?".
 > install gives you every built-in engine family. The import probes exist as a safety net for environments
 > where a dependency failed to install or was removed.
 
-`speaker` is a worker infer task, not a standalone CLI command. The
-user-facing diarization surface is `transcribe_s` / `--diarize`.
+`speaker` is a low-level worker infer task, not a CLI command named
+`speaker`. Two user-facing surfaces compose it: integrated
+`transcribe --diarization enabled` (internally `transcribe_s`) and standalone
+`diarize`, which writes anonymous `.turns.json` evidence for later use by
+`chatter rediarize`.
 
 ### Sample capabilities response
 

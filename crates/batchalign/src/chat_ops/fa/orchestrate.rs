@@ -1,7 +1,9 @@
-//! Full-file orchestration: apply FA results, enforce monotonicity, enforce E704.
+//! Full-file orchestration: apply FA results, finalize timing, retain evidence.
 
 use std::collections::HashMap;
 
+use talkbank_model::UtteranceIdx;
+use talkbank_model::alignment::helpers::{WordItem, walk_words};
 use talkbank_model::alignment::{
     WorTimingBinding, WorTimingCorrespondence, WorTimingSequence, assess_wor_timing_sequence,
     bind_wor_timing, corroborate_wor_timing,
@@ -11,13 +13,14 @@ use talkbank_model::model::{
 };
 use talkbank_model::model::{BracketedItems, TierContentItems};
 
-use super::WordEndPolicy;
 use super::injection::inject_timings_for_utterance;
 use super::origin::Origin;
-use super::postprocess::postprocess_utterance_timings;
+use super::postprocess::postprocess_utterance_timings_with_boundary_policy;
+use super::repair::{BulletRepairPolicy, RepairStats, repair_bullets};
+use super::{EndOverlapPolicy, ExistingWorBoundaryPolicy, FaProjectionPolicy, WordEndPolicy};
 use super::{
     FaGroup, WordTiming, add_wor_tier, count_alignable_main_words, get_utterance_mut,
-    update_utterance_bullet,
+    update_utterance_bullet_with_boundary_policy,
 };
 
 /// Proof that FA results were injected into a file, carrying what that decided.
@@ -37,14 +40,15 @@ use super::{
 /// PRODUCER rather than a precondition on the consumer.
 ///
 /// So this type carries the records injection produced and offers no accessor
-/// for them. The only way to read them is
-/// [`FaApplied::then_enforce_monotonicity`], which runs the step first.
-/// Skipping enforcement now means never obtaining the records structured run
-/// evidence needs, which is pressure in the right direction rather than a rule
-/// to remember.
-#[must_use = "these records must reach structured evidence; call then_enforce_monotonicity"]
+/// for them. The production transition is [`FaApplied::then_finalize`], which
+/// runs optional repair and monotonicity before releasing a state that
+/// [`FaDecisions`] accepts. Skipping enforcement now means never obtaining the
+/// records structured run evidence needs, which is pressure in the right
+/// direction rather than a rule to remember.
+#[must_use = "these records must reach structured evidence; call then_finalize"]
 pub struct FaApplied {
     postprocess: Vec<batchalign_transform::decisions::DecisionRecord>,
+    end_overlap_policy: EndOverlapPolicy,
 }
 
 /// What injection and monotonicity enforcement decided, in that order.
@@ -54,11 +58,22 @@ pub struct FaApplied {
 /// to demonstrate the phase type instead demonstrated the hole: dropping the
 /// `FaApplied` and writing `FaOrdered { postprocess: Vec::new(), monotonicity:
 /// Vec::new() }` compiled, which is exactly the skipped-enforcement bug the
-/// type exists to forbid. `then_enforce_monotonicity` is now the only
-/// constructor, so possession really is the evidence.
-pub struct FaOrdered {
+/// type exists to forbid. The internal `then_enforce_monotonicity` transition
+/// is the only constructor, so possession really is the evidence.
+struct FaOrdered {
     postprocess: Vec<batchalign_transform::decisions::DecisionRecord>,
     monotonicity: MonotonicityResult,
+}
+
+/// Proof that optional repair and monotonicity ran in the sole valid order.
+///
+/// Keeping repair decisions inside this state prevents full and incremental
+/// execution from swapping the phases or omitting repair on a reuse path.
+#[must_use = "finalized FA decisions must reach structured evidence"]
+pub struct FaFinalized {
+    ordered: FaOrdered,
+    repair: Vec<batchalign_transform::decisions::DecisionRecord>,
+    repair_stats: RepairStats,
 }
 
 /// Machine-readable timing change made by monotonicity enforcement.
@@ -73,6 +88,8 @@ pub enum MonotonicityEffect {
     StartRegressionStripped {
         /// Affected line index, including headers.
         line_idx: usize,
+        /// Stable ordinal among utterances only.
+        utterance_idx: UtteranceIdx,
         /// Speaker on the affected utterance.
         speaker: String,
         /// Measured start that regressed.
@@ -81,6 +98,8 @@ pub enum MonotonicityEffect {
         previous_start_ms: u64,
         /// Line that supplied `previous_start_ms`.
         previous_line_idx: usize,
+        /// Stable ordinal of the preceding utterance.
+        previous_utterance_idx: UtteranceIdx,
         /// Speaker on the line that supplied `previous_start_ms`.
         previous_speaker: String,
     },
@@ -89,6 +108,8 @@ pub enum MonotonicityEffect {
     ZeroDurationClampStripped {
         /// Affected line index, including headers.
         line_idx: usize,
+        /// Stable ordinal among utterances only.
+        utterance_idx: UtteranceIdx,
         /// Speaker on the affected utterance.
         speaker: String,
         /// Original start of the earlier utterance.
@@ -99,6 +120,8 @@ pub enum MonotonicityEffect {
         next_start_ms: u64,
         /// Following line that supplied `next_start_ms`.
         next_line_idx: usize,
+        /// Stable ordinal of the following timed utterance.
+        next_utterance_idx: UtteranceIdx,
         /// Speaker on the following line.
         next_speaker: String,
     },
@@ -106,6 +129,8 @@ pub enum MonotonicityEffect {
     EndClamped {
         /// Affected line index, including headers.
         line_idx: usize,
+        /// Stable ordinal among utterances only.
+        utterance_idx: UtteranceIdx,
         /// Speaker on the affected utterance.
         speaker: String,
         /// End before clamping.
@@ -114,6 +139,8 @@ pub enum MonotonicityEffect {
         clamped_to_ms: u64,
         /// Following line that supplied the clamp boundary.
         next_line_idx: usize,
+        /// Stable ordinal of the following timed utterance.
+        next_utterance_idx: UtteranceIdx,
         /// Speaker on the following line.
         next_speaker: String,
     },
@@ -152,16 +179,74 @@ impl FaApplied {
     ///
     /// Consuming `self` is what makes the sequence unskippable: there is no
     /// other way to reach the injection records.
-    pub fn then_enforce_monotonicity(self, chat_file: &mut ChatFile) -> FaOrdered {
+    fn then_enforce_monotonicity(self, chat_file: &mut ChatFile) -> FaOrdered {
         FaOrdered {
             postprocess: self.postprocess,
-            monotonicity: enforce_monotonicity(chat_file),
+            monotonicity: enforce_monotonicity_with_policy(chat_file, self.end_overlap_policy),
+        }
+    }
+
+    /// Apply optional repair, then enforce the declared monotonicity policy.
+    ///
+    /// Repair must see the raw adjacent overlap in order to average a small
+    /// boundary. Enforcing monotonicity first would clamp that evidence away
+    /// and make `--bullet-repair` behave differently in incremental runs.
+    pub fn then_finalize(
+        self,
+        chat_file: &mut ChatFile,
+        repair_policy: BulletRepairPolicy,
+    ) -> FaFinalized {
+        let repair_result = match repair_policy {
+            BulletRepairPolicy::Disabled => Default::default(),
+            BulletRepairPolicy::Enabled => repair_bullets(chat_file, false),
+        };
+        let repair = repair_result.decisions.iter().map(Into::into).collect();
+        let ordered = self.then_enforce_monotonicity(chat_file);
+        FaFinalized {
+            ordered,
+            repair,
+            repair_stats: repair_result.stats,
         }
     }
 }
 
-/// Apply FA results to a ChatFile: inject timings, postprocess, optionally
-/// generate %wor, enforce monotonicity, enforce E704 same-speaker non-overlap.
+impl FaOrdered {
+    /// Monotonicity effects proved to have run in this ordered phase.
+    pub fn monotonicity(&self) -> &MonotonicityResult {
+        &self.monotonicity
+    }
+}
+
+impl FaFinalized {
+    /// Monotonicity effects proved to have run after optional repair.
+    pub fn monotonicity(&self) -> &MonotonicityResult {
+        self.ordered.monotonicity()
+    }
+
+    /// Aggregate observations from the optional repair phase.
+    pub fn repair_stats(&self) -> &RepairStats {
+        &self.repair_stats
+    }
+}
+
+fn projection_without_injection(policy: FaProjectionPolicy) -> FaApplied {
+    FaApplied {
+        postprocess: Vec::new(),
+        end_overlap_policy: policy.end_overlaps(),
+    }
+}
+
+/// Finalize a no-injection projection through the same repair/order typestate.
+pub fn finalize_without_injection(
+    chat_file: &mut ChatFile,
+    policy: FaProjectionPolicy,
+    repair_policy: BulletRepairPolicy,
+) -> FaFinalized {
+    projection_without_injection(policy).then_finalize(chat_file, repair_policy)
+}
+
+/// Apply FA results to a `ChatFile`: inject timings, postprocess, and optionally
+/// generate `%wor` before the required finalization transition.
 ///
 /// `groups` and `responses` must be parallel: `responses[i]` is the aligned
 /// timings for `groups[i]`.
@@ -177,6 +262,31 @@ pub fn apply_fa_results(
     groups: &[FaGroup],
     responses: &[Vec<Option<WordTiming>>],
     policy: WordEndPolicy,
+    write_wor: bool,
+) -> FaApplied {
+    apply_fa_results_with_projection_policy(
+        chat_file,
+        groups,
+        responses,
+        FaProjectionPolicy::new(
+            policy,
+            ExistingWorBoundaryPolicy::Preserve,
+            EndOverlapPolicy::ClampAllAdjacent,
+        ),
+        write_wor,
+    )
+}
+
+/// Apply FA evidence under an explicit, complete CHAT projection policy.
+///
+/// This is the production entry point. [`apply_fa_results`] remains as the
+/// compatibility helper whose old signature necessarily selects the historic
+/// prior-boundary behavior.
+pub fn apply_fa_results_with_projection_policy(
+    chat_file: &mut ChatFile,
+    groups: &[FaGroup],
+    responses: &[Vec<Option<WordTiming>>],
+    policy: FaProjectionPolicy,
     write_wor: bool,
 ) -> FaApplied {
     let mut decisions = Vec::new();
@@ -237,7 +347,12 @@ pub fn apply_fa_results(
             };
 
             let injected = inject_timings_for_utterance(utt, timings, &mut timing_offset);
-            let outcome = postprocess_utterance_timings(utt, policy, &injected);
+            let outcome = postprocess_utterance_timings_with_boundary_policy(
+                utt,
+                policy.word_ends(),
+                policy.existing_wor_boundaries(),
+                &injected,
+            );
 
             if let (true, Some(line_idx)) = (outcome.dropped.any(), line_idx) {
                 decisions.push(
@@ -271,7 +386,7 @@ pub fn apply_fa_results(
                 );
             }
 
-            update_utterance_bullet(utt);
+            update_utterance_bullet_with_boundary_policy(utt, policy.existing_wor_boundaries());
             if write_wor {
                 add_wor_tier(utt);
             }
@@ -287,6 +402,7 @@ pub fn apply_fa_results(
 
     FaApplied {
         postprocess: decisions,
+        end_overlap_policy: policy.end_overlaps(),
     }
 }
 
@@ -305,6 +421,19 @@ pub fn apply_fa_results(
 /// Callers should only use this after [`super::has_reusable_wor_timing`]
 /// succeeds.
 pub fn refresh_existing_alignment(chat_file: &mut ChatFile, write_wor: bool) {
+    refresh_existing_alignment_with_boundary_policy(
+        chat_file,
+        write_wor,
+        ExistingWorBoundaryPolicy::Preserve,
+    );
+}
+
+/// Refresh every reusable `%wor` tier under an explicit boundary policy.
+pub fn refresh_existing_alignment_with_boundary_policy(
+    chat_file: &mut ChatFile,
+    write_wor: bool,
+    existing_wor_boundaries: ExistingWorBoundaryPolicy,
+) {
     for line in &mut chat_file.lines {
         let Line::Utterance(utterance) = line else {
             continue;
@@ -313,7 +442,11 @@ pub fn refresh_existing_alignment(chat_file: &mut ChatFile, write_wor: bool) {
             continue;
         }
 
-        let refreshed = refresh_existing_alignment_for_utterance(utterance, write_wor);
+        let refreshed = refresh_existing_alignment_for_utterance_with_boundary_policy(
+            utterance,
+            write_wor,
+            existing_wor_boundaries,
+        );
         if !refreshed {
             tracing::warn!(
                 "skipping utterance with unreusable %wor timing in refresh_existing_alignment"
@@ -340,6 +473,19 @@ pub fn refresh_existing_alignment_for_utterance(
     utterance: &mut Utterance,
     write_wor: bool,
 ) -> bool {
+    refresh_existing_alignment_for_utterance_with_boundary_policy(
+        utterance,
+        write_wor,
+        ExistingWorBoundaryPolicy::Preserve,
+    )
+}
+
+/// Refresh one reusable `%wor` tier under an explicit boundary policy.
+fn refresh_existing_alignment_for_utterance_with_boundary_policy(
+    utterance: &mut Utterance,
+    write_wor: bool,
+    existing_wor_boundaries: ExistingWorBoundaryPolicy,
+) -> bool {
     let Some(timings) = collect_wor_backed_timings(utterance) else {
         return false;
     };
@@ -347,7 +493,7 @@ pub fn refresh_existing_alignment_for_utterance(
     strip_internal_bullet_tokens(&mut utterance.main.content.content);
     let mut offset = 0usize;
     inject_timings_for_utterance(utterance, &timings, &mut offset);
-    update_utterance_bullet(utterance);
+    update_utterance_bullet_with_boundary_policy(utterance, existing_wor_boundaries);
     if write_wor {
         add_wor_tier(utterance);
     }
@@ -382,44 +528,106 @@ pub fn refresh_reusable_utterances(
     }
 }
 
+fn furthest_word_timing_end(utterance: &Utterance) -> Option<u64> {
+    use talkbank_model::model::dependent_tier::WorItem;
+
+    // Fresh FA evidence lives on main-tier words before `%wor` generation and
+    // remains there when the user disables `%wor` output. Review policy must
+    // not become weaker merely because that serialization choice is off.
+    let mut main_end = None;
+    walk_words(&utterance.main.content.content, None, &mut |item| {
+        let word = match item {
+            WordItem::Word(word) => word,
+            WordItem::ReplacedWord(replaced) => &replaced.word,
+            WordItem::Separator(_) => return,
+        };
+        if let Some(end_ms) = word
+            .inline_bullet
+            .as_ref()
+            .map(|bullet| bullet.timing.end_ms)
+        {
+            main_end = Some(main_end.map_or(end_ms, |current: u64| current.max(end_ms)));
+        }
+    });
+
+    // Parsed legacy/rerun input may still carry its durable word evidence only
+    // on `%wor`, before the refresh path rehydrates main-tier inline bullets.
+    let wor_end = utterance.wor_tier().and_then(|wor| {
+        wor.items
+            .iter()
+            .filter_map(|item| match item {
+                WorItem::Word(word) => word
+                    .inline_bullet
+                    .as_ref()
+                    .map(|bullet| bullet.timing.end_ms),
+                WorItem::Separator { .. } => None,
+            })
+            .max()
+    });
+
+    main_end.into_iter().chain(wor_end).max()
+}
+
 /// Enforce E362: strip timing from utterances whose start time is before
 /// the previous utterance's start time (non-monotonic ordering).
 ///
 /// Also truncates end-time overlaps: when utterance N's end exceeds
-/// utterance N+1's start, N's end is clamped to N+1's start. Without
-/// this, UTR's independent per-utterance bullet assignment produces
-/// systematic ~1000ms overlaps where adjacent utterances claim
-/// overlapping ASR token ranges from the global DP alignment.
+/// utterance N+1's start, N's end is clamped to N+1's start. The overlap can
+/// originate in UTR, segmentation, prior transcript boundaries, or fresh FA;
+/// the enforcement layer does not pretend to know which. A clamp that cuts a
+/// retained word interval requests review, while a container-only trim does
+/// not.
 ///
 /// Special case: if the clamped end would equal or precede the utterance's
 /// own start (possible when two adjacent utterances share the same start_ms
 /// from overlapping UTR token ranges), the bullet is stripped entirely rather
-/// than left as a zero-duration `•T_T•` span, which would fail E362 validation.
 ///
 /// `#[must_use]` because these records must reach durable evidence rather than
 /// be produced and discarded. This is the one the attribute genuinely catches:
 /// the incremental path called it BARE, for its side effect on the file, and
 /// silently dropped every repair record. That form no longer compiles.
 pub fn enforce_monotonicity(chat_file: &mut ChatFile) -> MonotonicityResult {
+    enforce_monotonicity_with_policy(chat_file, EndOverlapPolicy::ClampAllAdjacent)
+}
+
+/// Enforce start ordering and an explicit adjacent end-overlap policy.
+///
+/// The compatibility [`enforce_monotonicity`] entry point selects
+/// [`EndOverlapPolicy::ClampAllAdjacent`]. Research projections use this
+/// entry point so preserving ordinary cross-speaker overlap is an explicit,
+/// closed policy rather than an untracked conditional.
+pub fn enforce_monotonicity_with_policy(
+    chat_file: &mut ChatFile,
+    end_overlap_policy: EndOverlapPolicy,
+) -> MonotonicityResult {
     use batchalign_transform::decisions::DecisionRecord;
 
     let mut decisions = Vec::new();
     let mut effects = Vec::new();
 
     // Pass 1: strip utterances with non-monotonic start times.
-    let mut last_start: Option<(u64, usize, String)> = None;
+    let mut last_start: Option<(u64, usize, UtteranceIdx, String)> = None;
+    let mut utterance_ordinal = 0;
     for (line_idx, line) in chat_file.lines.as_mut_slice().iter_mut().enumerate() {
         let utt = match line {
             Line::Utterance(u) => u,
             _ => continue,
         };
+        let utterance_idx = UtteranceIdx::new(utterance_ordinal);
+        utterance_ordinal += 1;
         match (
             utt.main.content.bullet.as_ref().map(|b| b.timing.start_ms),
             last_start.as_ref(),
         ) {
-            (Some(s), Some((previous_start_ms, previous_line_idx, previous_speaker)))
-                if s < *previous_start_ms =>
-            {
+            (
+                Some(s),
+                Some((
+                    previous_start_ms,
+                    previous_line_idx,
+                    previous_utterance_idx,
+                    previous_speaker,
+                )),
+            ) if s < *previous_start_ms => {
                 let speaker = utt.main.speaker.as_str().to_string();
                 decisions.push(DecisionRecord::new_and_trace(
                     line_idx,
@@ -435,43 +643,55 @@ pub fn enforce_monotonicity(chat_file: &mut ChatFile) -> MonotonicityResult {
                 ));
                 effects.push(MonotonicityEffect::StartRegressionStripped {
                     line_idx,
+                    utterance_idx,
                     speaker,
                     start_ms: s,
                     previous_start_ms: *previous_start_ms,
                     previous_line_idx: *previous_line_idx,
+                    previous_utterance_idx: *previous_utterance_idx,
                     previous_speaker: previous_speaker.clone(),
                 });
                 strip_utterance_timing(utt);
             }
             (Some(s), _) => {
-                last_start = Some((s, line_idx, utt.main.speaker.as_str().to_string()));
+                last_start = Some((
+                    s,
+                    line_idx,
+                    utterance_idx,
+                    utt.main.speaker.as_str().to_string(),
+                ));
             }
             (None, _) => {}
         }
     }
 
     // Pass 2: clamp end-time overlaps.
-    let timed: Vec<(usize, u64, String)> = chat_file
-        .lines
-        .iter()
-        .enumerate()
-        .filter_map(|(i, line)| {
-            if let Line::Utterance(u) = line {
-                Some((
-                    i,
-                    u.main.content.bullet.as_ref()?.timing.start_ms,
-                    u.main.speaker.as_str().to_string(),
-                ))
-            } else {
-                None
-            }
-        })
-        .collect();
+    let mut timed: Vec<(usize, UtteranceIdx, u64, String)> = Vec::new();
+    let mut utterance_ordinal = 0;
+    for (line_idx, line) in chat_file.lines.iter().enumerate() {
+        let Line::Utterance(utterance) = line else {
+            continue;
+        };
+        let utterance_idx = UtteranceIdx::new(utterance_ordinal);
+        utterance_ordinal += 1;
+        if let Some(bullet) = utterance.main.content.bullet.as_ref() {
+            timed.push((
+                line_idx,
+                utterance_idx,
+                bullet.timing.start_ms,
+                utterance.main.speaker.as_str().to_string(),
+            ));
+        }
+    }
 
     for pair in timed.windows(2) {
-        let (prev_idx, _prev_start, _) = &pair[0];
-        let (next_idx, next_start, next_speaker) = &pair[1];
+        let (prev_idx, prev_utterance_idx, _prev_start, prev_speaker) = &pair[0];
+        let (next_idx, next_utterance_idx, next_start, next_speaker) = &pair[1];
         let (prev_idx, next_idx, next_start) = (*prev_idx, *next_idx, *next_start);
+
+        if !end_overlap_policy.should_clamp(prev_speaker, next_speaker) {
+            continue;
+        }
 
         if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
             && let Some(bullet) = prev_utt.main.content.bullet.as_ref()
@@ -501,16 +721,20 @@ pub fn enforce_monotonicity(chat_file: &mut ChatFile) -> MonotonicityResult {
                 ));
                 effects.push(MonotonicityEffect::ZeroDurationClampStripped {
                     line_idx: prev_idx,
+                    utterance_idx: *prev_utterance_idx,
                     speaker,
                     start_ms,
                     original_end_ms: original_end,
                     next_start_ms: next_start,
                     next_line_idx: next_idx,
+                    next_utterance_idx: *next_utterance_idx,
                     next_speaker: next_speaker.clone(),
                 });
                 strip_utterance_timing(prev_utt);
             } else {
                 let speaker = prev_utt.main.speaker.as_str().to_string();
+                let cuts_word_timing = furthest_word_timing_end(prev_utt)
+                    .is_some_and(|word_end_ms| word_end_ms > next_start);
                 decisions.push(DecisionRecord::new_and_trace(
                     prev_idx,
                     speaker.clone(),
@@ -519,23 +743,23 @@ pub fn enforce_monotonicity(chat_file: &mut ChatFile) -> MonotonicityResult {
                     ),
                     format!(
                         "end_truncated_by={overlap_ms}ms original_end={original_end} \
-                                 clamped_to={next_start} cause=utr_token_range_overlap"
+                                 clamped_to={next_start} cuts_word_timing={cuts_word_timing} \
+                                 cause=adjacent_utterance_overlap"
                     ),
-                    // `end_clamped` is routine housekeeping: a few-millisecond
-                    // UTR overlap correction that prevents E362 validation
-                    // errors. It does NOT indicate an alignment defect and
-                    // must not request human review, which would mislead
-                    // researchers into thinking correctly aligned utterances
-                    // need correction. The decision still reaches evidence.
-                    // BA2 made these same corrections silently.
-                    false,
+                    // Trimming wordless container coverage is bookkeeping.
+                    // Cutting a retained word observation is a conflict
+                    // between segmentation and FA evidence, and only a human
+                    // can decide which boundary is wrong.
+                    cuts_word_timing,
                 ));
                 effects.push(MonotonicityEffect::EndClamped {
                     line_idx: prev_idx,
+                    utterance_idx: *prev_utterance_idx,
                     speaker,
                     original_end_ms: original_end,
                     clamped_to_ms: next_start,
                     next_line_idx: next_idx,
+                    next_utterance_idx: *next_utterance_idx,
                     next_speaker: next_speaker.clone(),
                 });
                 // Control-flow invariant: the enclosing
@@ -872,10 +1096,8 @@ pub struct FaDecisions {
     /// Utterances grouping refused to place. These reach the transcript with no
     /// timing at all, so a reviewer needs them more than any adjustment record.
     pub unplaceable: Vec<batchalign_transform::decisions::DecisionRecord>,
-    /// What injection and monotonicity enforcement decided, in that order.
-    pub ordered: FaOrdered,
-    /// Post-FA bullet repair, when `--bullet-repair` is on.
-    pub repair: Vec<batchalign_transform::decisions::DecisionRecord>,
+    /// Injection, optional repair, and monotonicity in the required order.
+    pub finalized: FaFinalized,
 }
 
 /// Proof that this run's decision records were written to the CHAT file.
@@ -908,20 +1130,17 @@ impl FaDecisions {
     /// The all-`%wor` fast path and a grouping-empty path are legitimate
     /// no-injection runs. They still need the same write-before-evidence
     /// typestate as a full run; this constructor is the only way to create the
-    /// otherwise-private empty [`FaOrdered`] postprocess state.
+    /// otherwise-private empty [`FaFinalized`] postprocess state. Callers must
+    /// obtain that state through [`finalize_without_injection`].
     pub fn without_injection(
         rescue: Vec<batchalign_transform::decisions::DecisionRecord>,
         unplaceable: Vec<batchalign_transform::decisions::DecisionRecord>,
-        monotonicity: MonotonicityResult,
+        finalized: FaFinalized,
     ) -> Self {
         Self {
             rescue,
             unplaceable,
-            ordered: FaOrdered {
-                postprocess: Vec::new(),
-                monotonicity,
-            },
-            repair: Vec::new(),
+            finalized,
         }
     }
 
@@ -936,12 +1155,16 @@ impl FaDecisions {
         let Self {
             rescue,
             unplaceable,
-            ordered:
-                FaOrdered {
-                    postprocess,
-                    monotonicity,
+            finalized:
+                FaFinalized {
+                    ordered:
+                        FaOrdered {
+                            postprocess,
+                            monotonicity,
+                        },
+                    repair,
+                    repair_stats: _,
                 },
-            repair,
         } = self;
         let (monotonicity, timing_effects) = monotonicity.into_parts();
         let mut records = Vec::with_capacity(

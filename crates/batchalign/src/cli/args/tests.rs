@@ -201,6 +201,44 @@ fn parse_align_with_options() {
 }
 
 #[test]
+fn align_rebuild_boundary_flag_reaches_typed_options() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "align",
+        "input/",
+        "--existing-wor-boundaries",
+        "rebuild-from-evidence",
+    ]);
+    let options = build_typed_options(&cli.command, &cli.global).expect("typed align options");
+    let CommandOptions::Align(options) = options else {
+        panic!("expected Align");
+    };
+    assert_eq!(
+        options.boundaries.existing_wor_boundaries,
+        crate::chat_ops::fa::ExistingWorBoundaryPolicy::RebuildFromEvidence
+    );
+}
+
+#[test]
+fn align_cross_speaker_overlap_flag_reaches_typed_options() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "align",
+        "input/",
+        "--end-overlap-policy",
+        "preserve-cross-speaker",
+    ]);
+    let options = build_typed_options(&cli.command, &cli.global).expect("typed align options");
+    let CommandOptions::Align(options) = options else {
+        panic!("expected Align");
+    };
+    assert_eq!(
+        options.boundaries.end_overlap_policy,
+        crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker
+    );
+}
+
+#[test]
 fn parse_align_with_engine_overrides() {
     let cli = Cli::parse_from([
         "batchalign3",
@@ -216,7 +254,10 @@ fn parse_align_with_engine_overrides() {
         // flags now parse into the engine enums, so there is no raw name left
         // to compare and no later stage that could fail to resolve one.
         assert_eq!(a.fa_selection(), FaEngineName::Wav2vecCanto);
-        assert_eq!(a.utr_engine_custom, Some(AppUtrEngine::HkTencent));
+        assert_eq!(
+            a.utr_args.selection.utr_engine_custom,
+            Some(AppUtrEngine::HkTencent)
+        );
     } else {
         panic!("expected Align");
     }
@@ -540,7 +581,7 @@ fn parse_ba2_compat_flags() {
         "input/",
     ]);
     if let Commands::Align(a) = &cli.command {
-        assert!(a.rev);
+        assert!(a.utr_args.selection.rev);
         assert!(a.wav2vec);
         assert!(a.no_merge_abbrev);
     } else {
@@ -859,7 +900,7 @@ fn build_options_align_defaults() {
             // Derived, not restated: this test is about the default being
             // plumbed through, not about which engine it is.
             assert_eq!(a.fa_engine, FaEngineName::DEFAULT);
-            assert_eq!(a.utr_engine, Some(AppUtrEngine::RevAi));
+            assert_eq!(a.utr.engine, Some(AppUtrEngine::RevAi));
             assert!(!a.pauses);
             assert!(a.wor.should_write());
             assert!(!a.merge_abbrev.should_merge());
@@ -899,11 +940,11 @@ fn build_options_align_single_flags() {
                 "tencent_utr",
                 "corpus/",
             ],
-            Box::new(|a| assert_eq!(a.utr_engine, Some(AppUtrEngine::HkTencent))),
+            Box::new(|a| assert_eq!(a.utr.engine, Some(AppUtrEngine::HkTencent))),
         ),
         (
             &["batchalign3", "align", "--no-utr", "corpus/"],
-            Box::new(|a| assert!(a.utr_engine.is_none())),
+            Box::new(|a| assert!(a.utr.engine.is_none())),
         ),
         (
             &["batchalign3", "align", "--nowor", "corpus/"],

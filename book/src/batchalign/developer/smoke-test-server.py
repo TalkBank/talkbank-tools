@@ -5,8 +5,8 @@ Default mode starts a temporary local server in `--test-echo` mode, then
 verifies basic HTTP lifecycle behavior.
 
 Usage:
-    python book/src/developer/smoke-test-server.py
-    python book/src/developer/smoke-test-server.py --server http://localhost:8000
+    python book/src/batchalign/developer/smoke-test-server.py
+    python book/src/batchalign/developer/smoke-test-server.py --server http://localhost:8000
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any
 from urllib import error as urlerror
 from urllib import request as urlrequest
-
 
 _MINIMAL_CHAT = """\
 @UTF8
@@ -81,15 +80,21 @@ def _wait_for_health(base_url: str, timeout_s: float = 20.0) -> dict[str, Any]:
             last_err = str(exc)
         time.sleep(0.2)
 
-    raise TimeoutError(f"server did not become healthy at {base_url} ({last_err or 'timeout'})")
+    raise TimeoutError(
+        f"server did not become healthy at {base_url} ({last_err or 'timeout'})"
+    )
 
 
-def _poll_job_terminal(base_url: str, job_id: str, timeout_s: float = 30.0) -> dict[str, Any]:
+def _poll_job_terminal(
+    base_url: str, job_id: str, timeout_s: float = 30.0
+) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
         status, data = _http_json("GET", f"{base_url}/jobs/{job_id}", timeout_s=3.0)
         if status != 200 or not isinstance(data, dict):
-            raise RuntimeError(f"job status request failed: status={status}, body={data!r}")
+            raise RuntimeError(
+                f"job status request failed: status={status}, body={data!r}"
+            )
         if data.get("status") in {"completed", "failed", "cancelled"}:
             return data
         time.sleep(0.2)
@@ -193,7 +198,7 @@ def run_smoke(base_url: str) -> tuple[int, int]:
     if not isinstance(capabilities, list):
         capabilities = []
 
-    # Unknown command should be rejected.
+    # Axum rejects an unknown variant while deserializing the typed request.
     status, body = _http_json(
         "POST",
         f"{base_url}/jobs",
@@ -202,7 +207,7 @@ def run_smoke(base_url: str) -> tuple[int, int]:
             "files": [{"filename": "x.cha", "content": _MINIMAL_CHAT}],
         },
     )
-    if status == 400:
+    if status == 422:
         print("  [ok] unknown command rejected")
         passed += 1
     else:
@@ -219,8 +224,9 @@ def run_smoke(base_url: str) -> tuple[int, int]:
             f"{base_url}/jobs",
             payload={
                 "command": cmd,
-                "lang": "eng",
+                "lang": "eng" if cmd == "utseg" else "per-file",
                 "num_speakers": 1,
+                "options": {"command": cmd},
                 "files": [{"filename": "sample.cha", "content": _MINIMAL_CHAT}],
             },
             timeout_s=10.0,
@@ -243,10 +249,14 @@ def run_smoke(base_url: str) -> tuple[int, int]:
                         print(f"  [ok] {cmd} job lifecycle")
                         passed += 1
                     else:
-                        print(f"  [fail] result payload missing expected CHAT content: {out!r}")
+                        print(
+                            f"  [fail] result payload missing expected CHAT content: {out!r}"
+                        )
                         failed += 1
                 else:
-                    print(f"  [fail] results fetch -> status={status}, body={results!r}")
+                    print(
+                        f"  [fail] results fetch -> status={status}, body={results!r}"
+                    )
                     failed += 1
 
     # List jobs

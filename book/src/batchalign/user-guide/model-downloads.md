@@ -1,7 +1,7 @@
 # Model Downloads and Caching
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:35 EDT
+**Last updated:** 2026-08-31 03:04 EDT
 
 ## The contract
 
@@ -198,18 +198,19 @@ you, as documented above).
 
 ## Result caching (separate from model caching)
 
-batchalign3 caches **audio-bound intermediate results** so repeated runs of
-`align` or `transcribe` on the same file with the same settings do not redo
-the expensive ASR / forced-alignment passes. Two task kinds are cached,
-both per-utterance:
-
-- `forced_alignment`: Wave2Vec word timings.
-- `utr_asr`: full-file ASR result used for utterance-timing recovery.
+batchalign3 caches **audio-bound intermediate evidence** so repeated runs of
+`align` or `transcribe` on the same media with the same settings do not redo
+expensive service calls or model inference. The cache distinguishes final
+forced-alignment projection, raw forced-alignment worker evidence, UTR ASR,
+raw Rev transcript evidence, raw speaker evidence, and normalized speaker
+segments.
 
 The authoritative list of cached task kinds is in
 `crates/batchalign/src/chat_ops/cache_key.rs::CacheTaskName`. Cache keys
-include the engine version, language, and relevant inputs, so changing any
-of those produces a fresh entry.
+include the engine version reported by the exact selected worker, language,
+evidence/projection revision, and relevant inputs, so changing any of those
+produces a fresh entry. In server mode, worker models remain loaded between
+jobs as well; result caching and warm workers remove different costs.
 
 **Text NLP tasks are not cached.** Running `morphotag`, `utseg`,
 `translate`, or `coref` twice on the same file runs the model twice. The

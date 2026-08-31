@@ -1,7 +1,7 @@
 # NLP Pipeline Decision Architecture
 
 **Status:** Current
-**Last updated:** 2026-08-30 20:05 EDT
+**Last updated:** 2026-08-31 00:52 EDT
 
 This chapter documents how batchalign3's four NLP pipelines (morphotag,
 utseg, coref, forced alignment) represent per-utterance decisions, how
@@ -268,12 +268,13 @@ flowchart TD
     FA -->|"Ok"| Rep
     FA -->|"JsonParse"| FE1["FaAlignmentError::JsonParse"]
     FA -->|"IndexedCountMismatch"| FE2["FaAlignmentError::IndexedCountMismatch"]
-    Rep{"Repair post-pass<br/>fa::repair::repair_bullets"}
+    Rep{"Optional repair post-pass<br/>fa::repair::repair_bullets"}
     Rep -->|"gap filled"| FD1["DecisionRecord<br/>Fa::GapFilled"]
     Rep -->|"boundary averaged"| FD2["DecisionRecord<br/>Fa::BoundaryAveraged"]
     Rep -->|"LIS removal"| FD3["DecisionRecord<br/>Fa::LisRemoval"]
-    Rep -->|"monotonicity strip"| FD4["DecisionRecord<br/>Monotonicity::TimingStripped"]
-    Rep -->|"end clamp"| FD5["DecisionRecord<br/>Monotonicity::EndClamped"]
+    Rep --> Mono{"Typed monotonicity<br/>fa::orchestrate"}
+    Mono -->|"monotonicity strip"| FD4["DecisionRecord<br/>Monotonicity::TimingStripped"]
+    Mono -->|"end clamp"| FD5["DecisionRecord<br/>Monotonicity::EndClamped"]
     Rep -->|"narrow bullet"| FD6["DecisionRecord<br/>Fa::NarrowBulletRescued"]
     Rep -->|"words timing dropped"| FD7["DecisionRecord<br/>Fa::WordsTimingDropped"]
 ```

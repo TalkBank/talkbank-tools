@@ -435,7 +435,7 @@ export interface components {
          *     error strings.
          * @enum {string}
          */
-        FailureCategory: "validation" | "parse_error" | "input_missing" | "worker_crash" | "worker_timeout" | "worker_protocol" | "worker_bootstrap" | "provider_transient" | "provider_terminal" | "memory_pressure" | "cancelled" | "system";
+        FailureCategory: "validation" | "parse_error" | "input_missing" | "evidence_unavailable" | "worker_crash" | "worker_timeout" | "worker_protocol" | "worker_bootstrap" | "provider_transient" | "provider_terminal" | "memory_pressure" | "cancelled" | "system";
         /** @description A single CHAT file submitted by the client. */
         FilePayload: {
             /** @description Full CHAT file text. */

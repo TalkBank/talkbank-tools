@@ -93,7 +93,7 @@ pub struct DispatchRequest<'a> {
 /// `BATCHALIGN_STATE_DIR` made it ambient PROCESS state, so the only way for a
 /// caller to steer it was to mutate its own environment. That is the same
 /// defect already cured on the worker spawn path by
-/// [`WorkerRuntimeConfig::state_dir`](crate::worker::WorkerRuntimeConfig),
+/// `WorkerRuntimeConfig::state_dir`,
 /// where three tests mutating process env raced each other under cargo's
 /// parallel threads and produced off-by-one daemon counts that read like
 /// registry bugs.

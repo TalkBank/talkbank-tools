@@ -102,6 +102,8 @@ pub enum FailureCategory {
     ParseError,
     /// Required input file or media could not be found or read.
     InputMissing,
+    /// A cache-only request could not be satisfied from reusable evidence.
+    EvidenceUnavailable,
     /// Worker process died unexpectedly.
     WorkerCrash,
     /// Worker or provider exceeded an expected time budget.
@@ -135,6 +137,7 @@ impl std::fmt::Display for FailureCategory {
             Self::Validation => write!(f, "validation"),
             Self::ParseError => write!(f, "parse_error"),
             Self::InputMissing => write!(f, "input_missing"),
+            Self::EvidenceUnavailable => write!(f, "evidence_unavailable"),
             Self::WorkerCrash => write!(f, "worker_crash"),
             Self::WorkerTimeout => write!(f, "worker_timeout"),
             Self::WorkerProtocol => write!(f, "worker_protocol"),
@@ -156,6 +159,7 @@ impl std::str::FromStr for FailureCategory {
             "validation" => Ok(Self::Validation),
             "parse_error" => Ok(Self::ParseError),
             "input_missing" => Ok(Self::InputMissing),
+            "evidence_unavailable" => Ok(Self::EvidenceUnavailable),
             "worker_crash" => Ok(Self::WorkerCrash),
             "worker_timeout" => Ok(Self::WorkerTimeout),
             "worker_protocol" => Ok(Self::WorkerProtocol),
@@ -359,6 +363,7 @@ mod tests {
             FailureCategory::Validation,
             FailureCategory::ParseError,
             FailureCategory::InputMissing,
+            FailureCategory::EvidenceUnavailable,
             FailureCategory::WorkerCrash,
             FailureCategory::WorkerTimeout,
             FailureCategory::WorkerProtocol,

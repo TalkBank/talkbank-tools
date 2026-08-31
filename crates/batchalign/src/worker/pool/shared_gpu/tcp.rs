@@ -5,7 +5,7 @@
 //! `request_id`, just like the stdio variant. The key difference: dropping
 //! does not kill the worker process.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -34,6 +34,12 @@ pub(crate) struct SharedGpuTcpWorker {
     /// Control channel for sequential non-V2 ops.
     #[allow(dead_code)]
     control: Arc<tokio::sync::Mutex<Option<oneshot::Sender<WorkerControlResponse>>>>,
+
+    /// Serializes non-V2 control request/response round trips.
+    control_gate: tokio::sync::Mutex<()>,
+
+    /// Tasks loaded on demand in this engine-specific lazy worker.
+    loaded_tasks: tokio::sync::Mutex<HashSet<String>>,
 
     /// Background reader task handle.
     reader_task: tokio::task::JoinHandle<()>,
@@ -110,6 +116,8 @@ impl SharedGpuTcpWorker {
             writer,
             pending,
             control,
+            control_gate: tokio::sync::Mutex::new(()),
+            loaded_tasks: tokio::sync::Mutex::new(HashSet::new()),
             reader_task,
             pid,
             audio_task_timeout_s,
@@ -178,6 +186,103 @@ impl SharedGpuTcpWorker {
                     "timeout ({timeout_s}s) waiting for TCP GPU execute_v2 response (request_id={request_id})"
                 )))
             }
+        }
+    }
+
+    /// Load one task in a lazy TCP worker.
+    pub(crate) async fn ensure_task(
+        &self,
+        task: &str,
+        engine_overrides: Option<&std::collections::BTreeMap<String, String>>,
+        timeout_s: u64,
+    ) -> Result<crate::worker::EnsureTaskResponse, WorkerError> {
+        {
+            let loaded = self.loaded_tasks.lock().await;
+            if loaded.contains(task) {
+                return Ok(crate::worker::EnsureTaskResponse {
+                    status: crate::worker::EnsureTaskStatus::AlreadyLoadedCached,
+                    task: task.to_owned(),
+                    elapsed_s: 0.0,
+                });
+            }
+        }
+        let _control_guard = self.control_gate.lock().await;
+        {
+            let loaded = self.loaded_tasks.lock().await;
+            if loaded.contains(task) {
+                return Ok(crate::worker::EnsureTaskResponse {
+                    status: crate::worker::EnsureTaskStatus::AlreadyLoadedCached,
+                    task: task.to_owned(),
+                    elapsed_s: 0.0,
+                });
+            }
+        }
+        let (tx, rx) = oneshot::channel();
+        {
+            let mut control = self.control.lock().await;
+            *control = Some(tx);
+        }
+        {
+            let mut writer = self.writer.lock().await;
+            let mut line = serde_json::to_string(&serde_json::json!({
+                "op": "ensure_task",
+                "request": {
+                    "task": task,
+                    "engine_overrides": engine_overrides,
+                }
+            }))
+            .map_err(|error| {
+                WorkerError::Protocol(format!("failed to encode ensure_task request: {error}"))
+            })?;
+            line.push('\n');
+            writer.write_all(line.as_bytes()).await?;
+            writer.flush().await?;
+        }
+        match tokio::time::timeout(Duration::from_secs(timeout_s), rx).await {
+            Ok(Ok(WorkerControlResponse::EnsureTask(response))) => {
+                self.loaded_tasks.lock().await.insert(task.to_owned());
+                Ok(response)
+            }
+            Ok(Ok(WorkerControlResponse::Error(error))) => Err(WorkerError::Bootstrap(error)),
+            Ok(Ok(other)) => Err(WorkerError::Protocol(format!(
+                "unexpected control response for ensure_task: {other:?}"
+            ))),
+            Ok(Err(_)) => Err(WorkerError::Protocol(
+                "ensure_task: control channel closed".into(),
+            )),
+            Err(_) => Err(WorkerError::Protocol(format!(
+                "timeout ({timeout_s}s) waiting for ensure_task({task}) response"
+            ))),
+        }
+    }
+
+    /// Query this exact TCP worker's live capability and engine identity.
+    pub(crate) async fn capabilities(
+        &self,
+    ) -> Result<crate::worker::WorkerCapabilities, WorkerError> {
+        let _control_guard = self.control_gate.lock().await;
+        let (tx, rx) = oneshot::channel();
+        {
+            let mut control = self.control.lock().await;
+            *control = Some(tx);
+        }
+        {
+            let mut writer = self.writer.lock().await;
+            writer.write_all(b"{\"op\":\"capabilities\"}\n").await?;
+            writer.flush().await?;
+        }
+        match tokio::time::timeout(Duration::from_secs(60), rx).await {
+            Ok(Ok(WorkerControlResponse::Capabilities(response))) => Ok(response),
+            Ok(Ok(WorkerControlResponse::Error(error))) => Err(WorkerError::Protocol(error)),
+            Ok(Ok(other)) => Err(WorkerError::Protocol(format!(
+                "unexpected control response for capabilities: {other:?}"
+            ))),
+            Ok(Err(_)) => Err(WorkerError::Protocol(
+                "capabilities: control channel closed".into(),
+            )),
+            Err(_) => Err(WorkerError::Protocol(
+                "timeout waiting for capabilities response".into(),
+            )),
         }
     }
 

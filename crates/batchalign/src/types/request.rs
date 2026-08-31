@@ -575,7 +575,10 @@ mod tests {
             source_dir: Default::default(),
             options: CommandOptions::Align(AlignOptions {
                 common: CommonOptions::default(),
-                utr_engine,
+                utr: crate::options::AlignUtrOptions {
+                    engine: utr_engine,
+                    ..Default::default()
+                },
                 ..AlignOptions::default()
             }),
             paths_mode: true,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
 use async_trait::async_trait;
 
-use crate::api::{EngineVersion, LanguageCode3, ReleasedCommand, WorkerLanguage};
+use crate::api::{EngineVersion, LanguageCode3};
 use crate::cache::UtteranceCache;
 use crate::error::ServerError;
 use crate::params::MorphosyntaxParams;
@@ -35,14 +35,6 @@ pub(crate) struct MorphotagRuntimeOptions {
 /// Worker-system seam consumed by the new execution kernel.
 #[async_trait]
 pub(crate) trait WorkerGateway: Send + Sync {
-    /// Ensure the worker system can execute the requested released command.
-    async fn ensure_command_capabilities(
-        &self,
-        command: ReleasedCommand,
-        lang: WorkerLanguage,
-        options: &crate::options::CommandOptions,
-    ) -> Result<crate::capability::WorkerCapabilitySnapshot, String>;
-
     /// Run the compare command's morphosyntax stage on one CHAT input.
     async fn morphotag_for_compare(
         &self,
@@ -122,26 +114,6 @@ impl PooledWorkerGateway {
 
 #[async_trait]
 impl WorkerGateway for PooledWorkerGateway {
-    async fn ensure_command_capabilities(
-        &self,
-        command: ReleasedCommand,
-        lang: WorkerLanguage,
-        options: &crate::options::CommandOptions,
-    ) -> Result<crate::capability::WorkerCapabilitySnapshot, String> {
-        self.pool
-            .ensure_command_capabilities(command, lang, options)
-            .await
-            .map_err(|error| error.to_string())?;
-        let detected = self.pool.detected_capabilities().ok_or_else(|| {
-            "worker capability probe completed without detected capabilities".to_string()
-        })?;
-        Ok(crate::capability::WorkerCapabilitySnapshot {
-            capabilities: detected.commands.clone(),
-            infer_tasks: detected.infer_tasks.clone(),
-            engine_versions: detected.engine_versions.clone(),
-        })
-    }
-
     async fn morphotag_for_compare(
         &self,
         chat_text: &str,

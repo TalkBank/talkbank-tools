@@ -46,14 +46,20 @@ pub use self::grouping::{
 pub use self::injection::inject_timings_for_utterance;
 pub(crate) use self::orchestrate::WrittenFaDecisions;
 pub use self::orchestrate::{
-    FaApplied, FaDecisions, FaOrdered, MonotonicityEffect, MonotonicityResult, apply_fa_results,
-    enforce_monotonicity, has_reusable_wor_timing_for_utterance, refresh_existing_alignment,
-    refresh_existing_alignment_for_utterance, refresh_reusable_utterances,
-    retain_decision_evidence, strip_e704_same_speaker_overlaps, strip_timing_from_content,
-    strip_wor_from_monotonicity_stripped_utterances,
+    FaApplied, FaDecisions, FaFinalized, MonotonicityEffect, MonotonicityResult, apply_fa_results,
+    apply_fa_results_with_projection_policy, enforce_monotonicity,
+    enforce_monotonicity_with_policy, finalize_without_injection,
+    has_reusable_wor_timing_for_utterance, refresh_existing_alignment,
+    refresh_existing_alignment_for_utterance, refresh_existing_alignment_with_boundary_policy,
+    refresh_reusable_utterances, retain_decision_evidence, strip_e704_same_speaker_overlaps,
+    strip_timing_from_content, strip_wor_from_monotonicity_stripped_utterances,
 };
-pub use self::postprocess::postprocess_utterance_timings;
-pub use self::repair::{RepairDecision, RepairResult, RepairStats, repair_bullets};
+pub use self::postprocess::{
+    postprocess_utterance_timings, postprocess_utterance_timings_with_boundary_policy,
+};
+pub use self::repair::{
+    BulletRepairPolicy, RepairDecision, RepairResult, RepairStats, repair_bullets,
+};
 pub use self::rescue_narrow_bullets::rescue_narrow_bullets;
 // `ReviewLevel` remains on the wire surface for stored-job compatibility. It
 // does not reach CHAT serialization; `retain_decision_evidence` always strips
@@ -526,6 +532,49 @@ pub enum WordGapHealing {
     PreserveMeasured,
 }
 
+/// How an alignment projection treats main-tier boundaries from a prior `%wor` run.
+///
+/// This policy changes only the projection of admitted raw evidence into CHAT;
+/// it does not participate in the raw FA cache key and cannot authorize model
+/// inference.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum ExistingWorBoundaryPolicy {
+    /// Keep compatibility with established rerun behavior by clamping fresh
+    /// word timings to the previous authoritative utterance bullet.
+    #[default]
+    Preserve,
+    /// Treat the prior `%wor` and main bullet as revisable projections: retain
+    /// admitted word extents, then rebuild the main bullet from their hull.
+    RebuildFromEvidence,
+}
+
+/// How monotonicity projection treats an earlier utterance end that crosses
+/// the following utterance's start.
+///
+/// This is downstream projection policy. It never changes the raw FA evidence
+/// or its cache key. Cross-speaker overlap can be ordinary conversation, while
+/// same-speaker overlap still indicates incompatible segmentation or timing.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum EndOverlapPolicy {
+    /// Preserve established behavior by clamping every adjacent overlap.
+    #[default]
+    ClampAllAdjacent,
+    /// Preserve cross-speaker overlap, while retaining the existing clamp for
+    /// adjacent utterances carrying the same speaker code.
+    PreserveCrossSpeaker,
+}
+
+impl EndOverlapPolicy {
+    fn should_clamp(self, earlier_speaker: &str, next_speaker: &str) -> bool {
+        match self {
+            Self::ClampAllAdjacent => true,
+            Self::PreserveCrossSpeaker => earlier_speaker == next_speaker,
+        }
+    }
+}
+
 /// What post-processing may do to a word's end time.
 ///
 /// Two independent facts that must describe the SAME run: whether the user
@@ -541,6 +590,49 @@ pub enum WordGapHealing {
 pub struct WordEndPolicy {
     gap_healing: WordGapHealing,
     resolution: crate::types::engines::FaTimingResolution,
+}
+
+/// Complete policy for projecting one run's raw FA evidence into CHAT.
+///
+/// Keeping these decisions in one value prevents the full and incremental
+/// paths from applying different interpretations to the same evidence. This
+/// type deliberately contains no cache or inference policy: projection is a
+/// downstream transformation and must never change the raw-evidence key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FaProjectionPolicy {
+    word_ends: WordEndPolicy,
+    existing_wor_boundaries: ExistingWorBoundaryPolicy,
+    end_overlaps: EndOverlapPolicy,
+}
+
+impl FaProjectionPolicy {
+    /// Construct a complete projection policy.
+    pub fn new(
+        word_ends: WordEndPolicy,
+        existing_wor_boundaries: ExistingWorBoundaryPolicy,
+        end_overlaps: EndOverlapPolicy,
+    ) -> Self {
+        Self {
+            word_ends,
+            existing_wor_boundaries,
+            end_overlaps,
+        }
+    }
+
+    /// Word-end and gap-healing policy for this projection.
+    pub fn word_ends(self) -> WordEndPolicy {
+        self.word_ends
+    }
+
+    /// Treatment of boundaries inherited from an earlier `%wor` projection.
+    pub fn existing_wor_boundaries(self) -> ExistingWorBoundaryPolicy {
+        self.existing_wor_boundaries
+    }
+
+    /// Treatment of one utterance ending after the next begins.
+    pub fn end_overlaps(self) -> EndOverlapPolicy {
+        self.end_overlaps
+    }
 }
 
 impl WordEndPolicy {
@@ -815,7 +907,7 @@ pub(crate) fn count_alignable_main_words(utterance: &Utterance) -> usize {
 
 /// Update the utterance-level bullet from word timings.
 ///
-/// The behavior depends on the bullet's provenance ([`BulletSource`]):
+/// The behavior depends on the bullet's provenance (`BulletSource`):
 ///
 /// - **No pre-existing bullet**, sets bullet directly from the FA word span.
 ///
@@ -840,6 +932,19 @@ pub(crate) fn count_alignable_main_words(utterance: &Utterance) -> usize {
 /// Every bullet written by this function has `BulletSource::Authoritative`,
 /// marking it as FA-derived (no longer a provisional UTR hint).
 pub fn update_utterance_bullet(utterance: &mut Utterance) {
+    update_utterance_bullet_with_boundary_policy(utterance, ExistingWorBoundaryPolicy::Preserve);
+}
+
+/// Update the utterance bullet under an explicit prior-boundary policy.
+///
+/// [`ExistingWorBoundaryPolicy::RebuildFromEvidence`] writes the exact hull of
+/// the admitted word evidence. This can shrink prior leading or trailing
+/// coverage, so callers must opt into it explicitly; the compatibility entry
+/// point [`update_utterance_bullet`] continues to preserve that coverage.
+pub fn update_utterance_bullet_with_boundary_policy(
+    utterance: &mut Utterance,
+    existing_wor_boundaries: ExistingWorBoundaryPolicy,
+) {
     use talkbank_model::model::BulletSource;
 
     const MAX_AUTHORITATIVE_START_LEAD_MS: u64 = 2_000;
@@ -863,29 +968,35 @@ pub fn update_utterance_bullet(utterance: &mut Utterance) {
     }
 
     if let (Some(word_start), Some(word_end)) = (first_start, last_end) {
-        let (final_start, final_end) = match &utterance.main.content.bullet {
-            // Provisional UTR hint: FA word span is authoritative, overwrite.
-            Some(existing) if existing.source == BulletSource::Utr => (word_start, word_end),
-            // Authoritative hand-linked/FA bullet: reruns with an existing %wor
-            // can preserve stale starts from a previous pass. If that lead is
-            // implausibly large and there is no untimed leading filler coverage
-            // left to preserve, snap the start back to the FA word span.
-            // Otherwise keep the old leading coverage.
-            Some(existing) => {
-                let start_lead_ms = word_start.saturating_sub(existing.timing.start_ms);
-                let final_start = if !has_fa_wor
-                    || has_untimed_leading_filler_coverage
-                    || start_lead_ms <= MAX_AUTHORITATIVE_START_LEAD_MS
-                {
-                    word_start.min(existing.timing.start_ms)
-                } else {
-                    word_start
-                };
-                (final_start, word_end.max(existing.timing.end_ms))
-            }
-            // No pre-existing bullet: set from word span.
-            None => (word_start, word_end),
-        };
+        let (final_start, final_end) =
+            match (existing_wor_boundaries, &utterance.main.content.bullet) {
+                // Research projection: prior boundaries are revisable output, not
+                // constraints on newly admitted evidence.
+                (ExistingWorBoundaryPolicy::RebuildFromEvidence, _) => (word_start, word_end),
+                // Provisional UTR hint: FA word span is authoritative, overwrite.
+                (_, Some(existing)) if existing.source == BulletSource::Utr => {
+                    (word_start, word_end)
+                }
+                // Authoritative hand-linked/FA bullet: reruns with an existing %wor
+                // can preserve stale starts from a previous pass. If that lead is
+                // implausibly large and there is no untimed leading filler coverage
+                // left to preserve, snap the start back to the FA word span.
+                // Otherwise keep the old leading coverage.
+                (_, Some(existing)) => {
+                    let start_lead_ms = word_start.saturating_sub(existing.timing.start_ms);
+                    let final_start = if !has_fa_wor
+                        || has_untimed_leading_filler_coverage
+                        || start_lead_ms <= MAX_AUTHORITATIVE_START_LEAD_MS
+                    {
+                        word_start.min(existing.timing.start_ms)
+                    } else {
+                        word_start
+                    };
+                    (final_start, word_end.max(existing.timing.end_ms))
+                }
+                // No pre-existing bullet: set from word span.
+                (_, None) => (word_start, word_end),
+            };
         // The resulting bullet is authoritative (FA-derived).
         utterance.main.content.bullet = Some(Bullet::new(final_start, final_end));
     }

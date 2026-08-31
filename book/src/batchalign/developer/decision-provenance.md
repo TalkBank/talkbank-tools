@@ -1,7 +1,7 @@
 # Decision Evidence
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:35 EDT
+**Last updated:** 2026-08-31 00:52 EDT
 
 ## Current policy
 
@@ -69,8 +69,10 @@ paths at compile time until each explicitly supplies it.
 ```mermaid
 stateDiagram-v2
     [*] --> FaApplied: apply word timings
-    FaApplied --> FaOrdered: enforce monotonicity
-    FaOrdered --> FaDecisions: add rescue / refusal / repair records
+    [*] --> NoInjectionProjection: reuse or empty groups
+    FaApplied --> FaFinalized: optional repair, then typed monotonicity
+    NoInjectionProjection --> FaFinalized: finalize_without_injection
+    FaFinalized --> FaDecisions: add rescue / refusal records
     FaDecisions --> WrittenFaDecisions: retain_decision_evidence
     WrittenFaDecisions --> FaEvidence: into_evidence
     FaEvidence --> [*]: serialize debug evidence
@@ -87,9 +89,11 @@ decision records alongside group windows, word identities, cache keys, source
 classification, raw/pre-injection timings, fallback events, and validation
 violations. The evidence file is the research and replay surface; CHAT is not.
 
-The full, incremental, complete-`%wor`, and grouping-empty paths all traverse
-the same finalizer. A run with zero fresh inference groups therefore cannot
-erase a grouping refusal or monotonicity decision.
+The full, incremental, complete-`%wor`, and grouping-empty paths all produce
+the same `FaFinalized` typestate. Optional repair is therefore always before
+the declared monotonicity policy, and a run with zero fresh inference groups
+cannot substitute compatibility policy, erase a grouping refusal, or omit a
+monotonicity decision.
 
 ## Other command families
 

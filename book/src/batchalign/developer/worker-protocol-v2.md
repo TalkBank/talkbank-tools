@@ -1,8 +1,8 @@
 # Worker Protocol V2
 
 **Status:** Current
-**Last verified:** 2026-08-30 16:51 EDT
-**Last updated:** 2026-08-30 19:38 EDT
+**Last verified:** 2026-08-31 07:13 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 This document is the implementation spec for the live typed worker boundary
 currently named `worker_v2`.
@@ -528,8 +528,8 @@ Current implementation status:
   generic JSON bags
 - the old legacy `batch_infer(task="speaker")` route is no longer part of the
   live worker dispatch table
-- batchalign3 continues the batchalign2 product surface here: diarization is a
-  capability used by `transcribe_s`, not a standalone CLI `speaker` command
+- `speaker` remains a low-level infer-task name rather than a CLI command;
+  both integrated `transcribe_s` and standalone `diarize` compose this task
 - `opensmile` and `avqi` now use the same `execute_v2(...)` envelope family with
   Rust-owned prepared-audio attachments and dedicated Rust request builders
 
@@ -818,7 +818,11 @@ Key components:
 - **`stdin: Mutex<ChildStdin>`**: serialized writes so JSON lines don't interleave
 - **`pending: Mutex<HashMap<String, oneshot::Sender>>`**: maps request_id to response channel
 - **Background reader task**: continuously reads stdout, parses responses, routes by request_id
-- **Control channel**: sequential non-V2 ops (health, capabilities, shutdown) via a separate oneshot
+- **Control channel**: sequential non-V2 ops (health, capabilities,
+  `ensure_task`, shutdown) via a separate oneshot. A dedicated control gate is
+  held for the complete request/response round trip; locking only the oneshot
+  slot would allow a concurrent caller to replace its recipient before the
+  reader delivered the first response.
 
 ### The dispatch semaphore contract
 

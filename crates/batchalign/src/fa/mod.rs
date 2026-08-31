@@ -35,9 +35,10 @@ mod transport;
 
 use crate::cache::CacheBackend;
 use crate::chat_ops::fa::{
-    WordTiming, apply_fa_results, cache_key, enforce_monotonicity, expand_bullets_for_edge_fillers,
-    find_reusable_utterance_indices, group_utterances, has_reusable_wor_timing,
-    refresh_existing_alignment, refresh_reusable_utterances, rescue_narrow_bullets,
+    BulletRepairPolicy, WordTiming, apply_fa_results_with_projection_policy, cache_key,
+    expand_bullets_for_edge_fillers, finalize_without_injection, find_reusable_utterance_indices,
+    group_utterances, has_reusable_wor_timing, refresh_existing_alignment_with_boundary_policy,
+    refresh_reusable_utterances, rescue_narrow_bullets,
     strip_wor_from_monotonicity_stripped_utterances,
 };
 use crate::chat_ops::{CacheKey, CacheTaskName};
@@ -98,28 +99,116 @@ pub(super) fn collect_evidence_sources(
     Ok(sources.into_iter().flatten().collect())
 }
 
-/// Cached timings proven to correspond one-to-one with a current FA group.
+const FA_DERIVED_EVIDENCE_SCHEMA_VERSION: u8 = 1;
+
+/// Persisted local timing projection with the request facts needed for replay.
 ///
-/// Deserialization establishes only the element type. This admission state
-/// also proves the parallel-vector invariant before cached data can be labelled
-/// as reusable evidence.
+/// The old cache stored a bare timing vector. It could not prove whether the
+/// vector came from the requested engine or an unversioned fallback, so this
+/// envelope deliberately invalidates that legacy shape.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VersionedCachedFaTimings {
+    schema_version: u8,
+    requested_engine: crate::types::engines::FaEngineName,
+    request_engine_version: crate::api::EngineVersion,
+    expected_words: usize,
+    cache_key: CacheKey,
+    timings: Vec<Option<WordTiming>>,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum FaDerivedEvidenceError {
+    #[error("forced-alignment derived evidence JSON is invalid: {0}")]
+    InvalidJson(#[from] serde_json::Error),
+    #[error("unsupported forced-alignment derived evidence schema version {0}")]
+    SchemaVersion(u8),
+    #[error("derived evidence requested {cached:?}, not current engine {current:?}")]
+    EngineDrift {
+        cached: crate::types::engines::FaEngineName,
+        current: crate::types::engines::FaEngineName,
+    },
+    #[error("derived evidence worker version {cached} does not match current version {current}")]
+    EngineVersionDrift {
+        cached: crate::api::EngineVersion,
+        current: crate::api::EngineVersion,
+    },
+    #[error("derived evidence belongs to a different semantic cache key")]
+    CacheKeyDrift,
+    #[error("derived evidence expected {cached} words, not current cardinality {current}")]
+    ExpectedWordsDrift { cached: usize, current: usize },
+    #[error("derived evidence contains {actual} timings for {expected} request words")]
+    WordCardinality { expected: usize, actual: usize },
+}
+
+/// Cached timings proven to correspond one-to-one with a current FA group.
 #[derive(Debug)]
-pub(super) struct AdmittedCachedFaTimings(Vec<Option<WordTiming>>);
+struct AdmittedCachedFaTimings(Vec<Option<WordTiming>>);
 
 impl AdmittedCachedFaTimings {
-    pub(super) fn decode(value: serde_json::Value, expected_words: usize) -> Result<Self, String> {
-        let timings = serde_json::from_value::<Vec<Option<WordTiming>>>(value)
-            .map_err(|error| error.to_string())?;
+    fn encode_from_raw(
+        timings: Vec<Option<WordTiming>>,
+        raw: &raw_evidence::ReplayableFaRawEvidence,
+    ) -> Result<serde_json::Value, FaDerivedEvidenceError> {
+        let expected_words = raw.expected_words().get();
         if timings.len() != expected_words {
-            return Err(format!(
-                "cache entry contains {} cached timings for {expected_words} words",
-                timings.len()
-            ));
+            return Err(FaDerivedEvidenceError::WordCardinality {
+                expected: expected_words,
+                actual: timings.len(),
+            });
         }
-        Ok(Self(timings))
+        Ok(serde_json::to_value(VersionedCachedFaTimings {
+            schema_version: FA_DERIVED_EVIDENCE_SCHEMA_VERSION,
+            requested_engine: raw.requested_engine(),
+            request_engine_version: raw.request_engine_version().clone(),
+            expected_words,
+            cache_key: raw.cache_key().clone(),
+            timings,
+        })?)
     }
 
-    pub(super) fn into_timings(self) -> Vec<Option<WordTiming>> {
+    fn decode(
+        value: serde_json::Value,
+        requested_engine: crate::types::engines::FaEngineName,
+        current_engine_version: &crate::api::EngineVersion,
+        expected_words: usize,
+        cache_key: &CacheKey,
+    ) -> Result<Self, FaDerivedEvidenceError> {
+        let cached: VersionedCachedFaTimings = serde_json::from_value(value)?;
+        if cached.schema_version != FA_DERIVED_EVIDENCE_SCHEMA_VERSION {
+            return Err(FaDerivedEvidenceError::SchemaVersion(cached.schema_version));
+        }
+        if cached.requested_engine != requested_engine {
+            return Err(FaDerivedEvidenceError::EngineDrift {
+                cached: cached.requested_engine,
+                current: requested_engine,
+            });
+        }
+        if &cached.request_engine_version != current_engine_version {
+            return Err(FaDerivedEvidenceError::EngineVersionDrift {
+                cached: cached.request_engine_version,
+                current: current_engine_version.clone(),
+            });
+        }
+        if &cached.cache_key != cache_key {
+            return Err(FaDerivedEvidenceError::CacheKeyDrift);
+        }
+        if cached.expected_words != expected_words {
+            return Err(FaDerivedEvidenceError::ExpectedWordsDrift {
+                cached: cached.expected_words,
+                current: expected_words,
+            });
+        }
+        if cached.timings.len() != expected_words {
+            return Err(FaDerivedEvidenceError::WordCardinality {
+                expected: expected_words,
+                actual: cached.timings.len(),
+            });
+        }
+        Ok(Self(cached.timings))
+    }
+
+    fn into_timings(self) -> Vec<Option<WordTiming>> {
         self.0
     }
 }
@@ -129,13 +218,15 @@ fn replay_cached_raw_evidence(
     value: serde_json::Value,
     cache_key: &CacheKey,
     engine: crate::types::engines::FaEngineName,
+    engine_version: &crate::api::EngineVersion,
     group_index: usize,
     group: &crate::chat_ops::fa::FaGroup,
     recording: &crate::chat_ops::fa::coordinates::Recording,
 ) -> Result<transport::FaWorkerEvidenceResult, ServerError> {
-    let evidence = raw_evidence::FaRawEvidence::decode(
+    let evidence = raw_evidence::ReplayableFaRawEvidence::decode(
         value,
         engine,
+        engine_version,
         raw_evidence::ExpectedFaWords::new(group.words.len()),
         cache_key,
     )
@@ -174,57 +265,95 @@ struct FaCacheResolution {
     refusals: Vec<RefusedFaCacheLayer>,
 }
 
-fn resolve_cached_fa_group(
-    raw_value: Option<&serde_json::Value>,
-    derived_value: Option<&serde_json::Value>,
-    cache_key: &CacheKey,
+/// Capability binding one current FA group to the exact facts against which
+/// both cache layers must be admitted.
+///
+/// Lookup code constructs this where the group index and semantic key are
+/// born. Raw and derived candidates then share the same relationship instead
+/// of receiving six parallel facts independently.
+struct FaCacheGroupAdmission<'a> {
+    cache_key: &'a CacheKey,
     engine: crate::types::engines::FaEngineName,
+    engine_version: &'a crate::api::EngineVersion,
     group_index: usize,
-    group: &crate::chat_ops::fa::FaGroup,
-    recording: &crate::chat_ops::fa::coordinates::Recording,
-) -> FaCacheResolution {
-    let mut refusals = Vec::new();
+    group: &'a crate::chat_ops::fa::FaGroup,
+    recording: &'a crate::chat_ops::fa::coordinates::Recording,
+}
 
-    if let Some(value) = raw_value {
-        match replay_cached_raw_evidence(
-            value.clone(),
+impl<'a> FaCacheGroupAdmission<'a> {
+    fn new(
+        cache_key: &'a CacheKey,
+        engine: crate::types::engines::FaEngineName,
+        engine_version: &'a crate::api::EngineVersion,
+        group_index: usize,
+        group: &'a crate::chat_ops::fa::FaGroup,
+        recording: &'a crate::chat_ops::fa::coordinates::Recording,
+    ) -> Self {
+        Self {
             cache_key,
             engine,
+            engine_version,
             group_index,
             group,
             recording,
-        ) {
-            Ok(evidence) => {
-                return FaCacheResolution {
-                    admitted: AdmittedFaCacheGroup::RawEvidence(Box::new(evidence)),
-                    refusals,
-                };
-            }
-            Err(error) => refusals.push(RefusedFaCacheLayer {
-                layer: RAW_EVIDENCE_CACHE_TASK.as_str(),
-                error: error.to_string(),
-            }),
         }
     }
 
-    if let Some(value) = derived_value {
-        match AdmittedCachedFaTimings::decode(value.clone(), group.words.len()) {
-            Ok(timings) => {
-                return FaCacheResolution {
-                    admitted: AdmittedFaCacheGroup::DerivedTimings(timings),
-                    refusals,
-                };
-            }
-            Err(error) => refusals.push(RefusedFaCacheLayer {
-                layer: CACHE_TASK.as_str(),
-                error,
-            }),
-        }
-    }
+    fn resolve(
+        &self,
+        raw_value: Option<&serde_json::Value>,
+        derived_value: Option<&serde_json::Value>,
+    ) -> FaCacheResolution {
+        let mut refusals = Vec::new();
 
-    FaCacheResolution {
-        admitted: AdmittedFaCacheGroup::Miss,
-        refusals,
+        if let Some(value) = raw_value {
+            match replay_cached_raw_evidence(
+                value.clone(),
+                self.cache_key,
+                self.engine,
+                self.engine_version,
+                self.group_index,
+                self.group,
+                self.recording,
+            ) {
+                Ok(evidence) => {
+                    return FaCacheResolution {
+                        admitted: AdmittedFaCacheGroup::RawEvidence(Box::new(evidence)),
+                        refusals,
+                    };
+                }
+                Err(error) => refusals.push(RefusedFaCacheLayer {
+                    layer: RAW_EVIDENCE_CACHE_TASK.as_str(),
+                    error: error.to_string(),
+                }),
+            }
+        }
+
+        if let Some(value) = derived_value {
+            match AdmittedCachedFaTimings::decode(
+                value.clone(),
+                self.engine,
+                self.engine_version,
+                self.group.words.len(),
+                self.cache_key,
+            ) {
+                Ok(timings) => {
+                    return FaCacheResolution {
+                        admitted: AdmittedFaCacheGroup::DerivedTimings(timings),
+                        refusals,
+                    };
+                }
+                Err(error) => refusals.push(RefusedFaCacheLayer {
+                    layer: CACHE_TASK.as_str(),
+                    error: error.to_string(),
+                }),
+            }
+        }
+
+        FaCacheResolution {
+            admitted: AdmittedFaCacheGroup::Miss,
+            refusals,
+        }
     }
 }
 
@@ -392,7 +521,11 @@ pub(crate) async fn run_fa_from_ast(
     // without sending audio back through FA.
     if has_reusable_wor_timing(&chat_file) {
         info!("FA fast path: reusing existing %wor timing");
-        refresh_existing_alignment(&mut chat_file, write_wor);
+        refresh_existing_alignment_with_boundary_policy(
+            &mut chat_file,
+            write_wor,
+            fa_params.existing_wor_boundaries,
+        );
 
         // A previous run may have written backward `%wor` timestamps (e.g.
         // APROCSA 2256_T4.cha: UTR anchor drift placed utterances from task N
@@ -401,14 +534,21 @@ pub(crate) async fn run_fa_from_ast(
         // data, and the E362 violation persists indefinitely.
         //
         // Step 1: strip backward main-tier bullets.
-        let decisions = enforce_monotonicity(&mut chat_file);
+        let finalized = finalize_without_injection(
+            &mut chat_file,
+            fa_params.projection_policy(),
+            BulletRepairPolicy::from(fa_params.bullet_repair),
+        );
+        if fa_params.bullet_repair {
+            tracing::info!(stats = %finalized.repair_stats(), "bullet repair applied");
+        }
         // Step 2: remove `%wor` from stripped utterances so the next run goes
         // through full FA rather than reconstructing the backward bullet again.
-        strip_wor_from_monotonicity_stripped_utterances(&mut chat_file, &decisions);
+        strip_wor_from_monotonicity_stripped_utterances(&mut chat_file, finalized.monotonicity());
 
         let written = crate::chat_ops::fa::retain_decision_evidence(
             &mut chat_file,
-            crate::chat_ops::fa::FaDecisions::without_injection(Vec::new(), Vec::new(), decisions),
+            crate::chat_ops::fa::FaDecisions::without_injection(Vec::new(), Vec::new(), finalized),
         );
 
         return Ok(FaResult::without_groups(
@@ -428,6 +568,10 @@ pub(crate) async fn run_fa_from_ast(
             reusable = reusable_indices.len(),
             "FA partial reuse: refreshing utterances with clean %wor"
         );
+        // This is a pre-grouping reconstruction, so it MUST preserve the
+        // inherited main bullets. Rebuilding here changes group windows and
+        // therefore raw-evidence cache keys. The explicit projection policy is
+        // applied later, after evidence collection, to every group.
         refresh_reusable_utterances(&mut chat_file, &reusable_indices, write_wor);
     }
 
@@ -471,14 +615,21 @@ pub(crate) async fn run_fa_from_ast(
     } = group_utterances(&chat_file, fa_params.max_group_ms().0, &recording);
 
     if groups.is_empty() {
-        let monotonicity = enforce_monotonicity(&mut chat_file);
-        strip_wor_from_monotonicity_stripped_utterances(&mut chat_file, &monotonicity);
+        let finalized = finalize_without_injection(
+            &mut chat_file,
+            fa_params.projection_policy(),
+            BulletRepairPolicy::from(fa_params.bullet_repair),
+        );
+        if fa_params.bullet_repair {
+            tracing::info!(stats = %finalized.repair_stats(), "bullet repair applied");
+        }
+        strip_wor_from_monotonicity_stripped_utterances(&mut chat_file, finalized.monotonicity());
         let written = crate::chat_ops::fa::retain_decision_evidence(
             &mut chat_file,
             crate::chat_ops::fa::FaDecisions::without_injection(
                 rescue_decisions,
                 unplaceable_decisions,
-                monotonicity,
+                finalized,
             ),
         );
         return Ok(FaResult::without_groups(
@@ -595,15 +746,15 @@ pub(crate) async fn run_fa_from_ast(
         // Tier 3: fall back to the admitted derived timing cache when raw
         // evidence is unavailable. This ordering is what makes local algorithm
         // experiments inference-free.
-        let resolution = resolve_cached_fa_group(
-            cached_raw.get(key.as_str()),
-            cached.get(key.as_str()),
+        let resolution = FaCacheGroupAdmission::new(
             key,
             fa_params.engine,
+            services.engine_version,
             i,
             &groups[i],
             &recording,
-        );
+        )
+        .resolve(cached_raw.get(key.as_str()), cached.get(key.as_str()));
         for refusal in resolution.refusals {
             warn!(
                 error = %refusal.error,
@@ -685,7 +836,7 @@ pub(crate) async fn run_fa_from_ast(
                     (
                         evidence.group_index,
                         evidence.timings,
-                        Some(evidence.raw_evidence),
+                        evidence.raw_evidence,
                         evidence.fallback_event,
                     )
                 }
@@ -700,22 +851,31 @@ pub(crate) async fn run_fa_from_ast(
                 fallback_events.push(event);
             }
 
-            // Cache the result
+            // Only direct, version-identified evidence can enter either cache
+            // layer. Fallback and unaligned results remain valid for this run
+            // but are deliberately recomputed later: the fallback model is
+            // outside the primary request's version namespace.
             let ba_version = env!("CARGO_PKG_VERSION");
-            if let Ok(cache_data) = serde_json::to_value(&timings)
-                && let Err(e) = services
-                    .cache
-                    .put_batch(
-                        &[(cache_keys[miss_idx].as_str().to_string(), cache_data)],
-                        CACHE_TASK.as_str(),
-                        services.engine_version,
-                        ba_version,
-                    )
-                    .await
-            {
-                warn!(error = %e, "Failed to cache FA result (non-fatal)");
-            }
             if let Some(raw_evidence) = raw_evidence {
+                match AdmittedCachedFaTimings::encode_from_raw(timings.clone(), &raw_evidence) {
+                    Ok(cache_data) => {
+                        if let Err(error) = services
+                            .cache
+                            .put_batch(
+                                &[(cache_keys[miss_idx].as_str().to_string(), cache_data)],
+                                CACHE_TASK.as_str(),
+                                services.engine_version,
+                                ba_version,
+                            )
+                            .await
+                        {
+                            warn!(error = %error, "Failed to cache derived FA evidence (non-fatal)");
+                        }
+                    }
+                    Err(error) => {
+                        warn!(error = %error, "Failed to encode derived FA evidence (non-fatal)");
+                    }
+                }
                 match serde_json::to_value(raw_evidence) {
                     Ok(cache_data) => {
                         if let Err(error) = services
@@ -773,32 +933,27 @@ pub(crate) async fn run_fa_from_ast(
         })
         .collect();
 
-    let fa_applied = apply_fa_results(
+    let fa_applied = apply_fa_results_with_projection_policy(
         &mut chat_file,
         &groups,
         &final_timings,
-        fa_params.word_end_policy(),
+        fa_params.projection_policy(),
         write_wor,
     );
 
-    // 9. Post-FA bullet repair (experimental, opt-in via --bullet-repair).
-    let repair_decisions = if fa_params.bullet_repair {
-        let repair_result = crate::chat_ops::fa::repair_bullets(&mut chat_file, false);
-        tracing::info!(%repair_result.stats, "bullet repair applied");
-        repair_result.decisions
-    } else {
-        Vec::new()
-    };
-
-    // 9b. (Decision tiers injected in step 9d below, after all decisions are collected.)
-
-    // 9c. Enforce monotonicity: strip non-monotonic start times and clamp
+    // 9. Apply optional repair, then enforce monotonicity: strip non-monotonic start times and clamp
     //    end-time overlaps. The old enforcement was removed (see comment in
     //    apply_fa_results) because it stripped too aggressively. The current
     //    version strips every start-time regression and clamps end times to
     //    the next utterance's start. Timing removal is now retained as a typed
     //    decision in both the optional CHAT projection and durable evidence.
-    let ordered = fa_applied.then_enforce_monotonicity(&mut chat_file);
+    let finalized = fa_applied.then_finalize(
+        &mut chat_file,
+        BulletRepairPolicy::from(fa_params.bullet_repair),
+    );
+    if fa_params.bullet_repair {
+        tracing::info!(stats = %finalized.repair_stats(), "bullet repair applied");
+    }
 
     // 9d. Retain decision provenance for all pipeline decisions that altered
     //    the output and strip abandoned review tiers. Ordering and retention
@@ -809,8 +964,7 @@ pub(crate) async fn run_fa_from_ast(
         crate::chat_ops::fa::FaDecisions {
             rescue: rescue_decisions,
             unplaceable: unplaceable_decisions,
-            ordered,
-            repair: repair_decisions.iter().map(Into::into).collect(),
+            finalized,
         },
     );
     let (decision_records, timing_effects) = written_decisions.into_evidence();
@@ -925,24 +1079,92 @@ mod tests {
     }
 
     #[test]
-    fn cached_group_timing_admission_refuses_word_count_drift() {
+    fn cached_group_timing_admission_refuses_legacy_bare_vectors() {
         let value = serde_json::json!([null]);
 
-        let error = AdmittedCachedFaTimings::decode(value, 2)
-            .expect_err("a short cache vector must not become group timing evidence");
+        let error = AdmittedCachedFaTimings::decode(
+            value,
+            crate::types::engines::FaEngineName::Wave2Vec,
+            &crate::api::EngineVersion::from("test-fa-wave-v1"),
+            1,
+            &CacheKey::from_content("legacy-derived"),
+        )
+        .expect_err("an unversioned bare vector must not become replayable evidence");
 
-        assert!(error.contains("1 cached timings for 2 words"));
+        assert!(matches!(error, FaDerivedEvidenceError::InvalidJson(_)));
     }
 
     #[test]
-    fn cached_group_timing_admission_accepts_exact_parallel_shape() {
-        let value = serde_json::json!([null, null]);
+    fn cached_group_timing_admission_accepts_an_exact_versioned_envelope() {
+        use crate::api::DurationSeconds;
+        use crate::types::engines::FaEngineName;
+        use crate::types::worker_v2::{
+            ExecuteResponseV2, IndexedWordTimingResultV2, TaskResultV2, WorkerRequestIdV2,
+        };
 
-        let timings = AdmittedCachedFaTimings::decode(value, 2)
-            .expect("an exact cache vector should be admitted")
-            .into_timings();
+        let key = CacheKey::from_content("derived-exact");
+        let engine_version = crate::api::EngineVersion::from("test-fa-wave-v1");
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("derived-exact"),
+            TaskResultV2::IndexedWordTimingResult(IndexedWordTimingResultV2 {
+                indexed_timings: vec![None, None],
+            }),
+            DurationSeconds(0.01),
+        );
+        let raw = raw_evidence::FaRawEvidence::admit_requested(
+            &response,
+            FaEngineName::Wave2Vec,
+            &engine_version,
+            raw_evidence::ExpectedFaWords::new(2),
+            &key,
+            raw_evidence::FaEvidenceRoute::Direct,
+        )
+        .expect("fixture raw evidence")
+        .into_replayable()
+        .expect("direct evidence is replayable");
+        let value = AdmittedCachedFaTimings::encode_from_raw(vec![None, None], &raw)
+            .expect("encode derived evidence");
+
+        let timings = AdmittedCachedFaTimings::decode(
+            value,
+            FaEngineName::Wave2Vec,
+            &engine_version,
+            2,
+            &key,
+        )
+        .expect("an exact cache vector should be admitted")
+        .into_timings();
 
         assert_eq!(timings, vec![None, None]);
+    }
+
+    #[test]
+    fn cached_group_timing_admission_refuses_worker_version_drift() {
+        let key = CacheKey::from_content("derived-version-drift");
+        let mut value = serde_json::to_value(VersionedCachedFaTimings {
+            schema_version: FA_DERIVED_EVIDENCE_SCHEMA_VERSION,
+            requested_engine: crate::types::engines::FaEngineName::Wave2Vec,
+            request_engine_version: crate::api::EngineVersion::from("test-fa-wave-v1"),
+            expected_words: 1,
+            cache_key: key.clone(),
+            timings: vec![None],
+        })
+        .expect("serialize versioned timing fixture");
+        value["request_engine_version"] = serde_json::json!("test-fa-wave-v0");
+
+        let error = AdmittedCachedFaTimings::decode(
+            value,
+            crate::types::engines::FaEngineName::Wave2Vec,
+            &crate::api::EngineVersion::from("test-fa-wave-v1"),
+            1,
+            &key,
+        )
+        .expect_err("derived timings from another worker build must not replay");
+
+        assert!(matches!(
+            error,
+            FaDerivedEvidenceError::EngineVersionDrift { .. }
+        ));
     }
 
     #[test]
@@ -976,11 +1198,14 @@ mod tests {
         let raw = raw_evidence::FaRawEvidence::admit_requested(
             &response,
             FaEngineName::Wave2Vec,
+            &crate::api::EngineVersion::from("test-fa-wave-v1"),
             raw_evidence::ExpectedFaWords::new(1),
             &key,
             raw_evidence::FaEvidenceRoute::Direct,
         )
-        .expect("fixture evidence is valid");
+        .expect("fixture evidence is valid")
+        .into_replayable()
+        .expect("direct evidence is replayable");
         let raw_json = serde_json::to_value(raw).expect("serialize raw evidence");
         let derived_timing = WordTiming::new(
             110,
@@ -993,15 +1218,15 @@ mod tests {
             serde_json::to_value(vec![Some(derived_timing)]).expect("serialize derived timing");
         let recording = Recording::of_duration(Ms(1_000)).expect("non-empty recording");
 
-        let resolution = resolve_cached_fa_group(
-            Some(&raw_json),
-            Some(&derived_json),
+        let resolution = FaCacheGroupAdmission::new(
             &key,
             FaEngineName::Wave2Vec,
+            &crate::api::EngineVersion::from("test-fa-wave-v1"),
             0,
             &group,
             &recording,
-        );
+        )
+        .resolve(Some(&raw_json), Some(&derived_json));
 
         assert!(resolution.refusals.is_empty());
         match resolution.admitted {

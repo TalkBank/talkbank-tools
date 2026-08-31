@@ -24,7 +24,7 @@ use super::{FaWord, LAST_WORD_FALLBACK_MS, ModelAlignmentScore, WordTiming};
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum FaAlignmentError {
     /// The worker's JSON response could not be deserialized into
-    /// [`FaRawResponse`](crate::chat_ops::nlp::FaRawResponse).
+    /// [`FaRawResponse`].
     #[error("failed to parse raw FA response: {message}")]
     JsonParse {
         /// Underlying serde error rendered as a string (preserved
@@ -252,6 +252,19 @@ fn normalize_fa_alignment_unit(text: &str) -> String {
         .collect()
 }
 
+/// Whether the current transcript word found its exact ordered token identity.
+///
+/// This state is deliberately independent of whether those tokens yielded a
+/// usable positive timing span.  Whisper can report equal adjacent onsets: the
+/// word identity is still stitched even though that one span must be refused.
+/// Conflating those facts used to turn one local zero-width refusal into loss
+/// of every later word in the group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TokenStitchState {
+    Mismatch,
+    Stitched,
+}
+
 /// Align token-level onset times (typical for Whisper) with original CHAT words.
 ///
 /// This path is deterministic only: it stitches normalized Whisper tokens onto
@@ -314,7 +327,8 @@ fn align_token_timings(
 
     let mut results = vec![None; original.len()];
     let mut token_idx = 0usize;
-    let mut matched_words = 0usize;
+    let mut stitched_words = 0usize;
+    let mut timed_words = 0usize;
 
     for (word_idx, word_norm) in word_norms.iter().enumerate() {
         if token_idx >= token_norms.len() {
@@ -323,7 +337,7 @@ fn align_token_timings(
 
         let start = &token_onsets[token_idx];
         let mut acc = String::new();
-        let mut matched = false;
+        let mut stitch_state = TokenStitchState::Mismatch;
 
         while token_idx < token_norms.len() {
             let mut next_acc = acc.clone();
@@ -334,6 +348,8 @@ fn align_token_timings(
             acc = next_acc;
             token_idx += 1;
             if acc == *word_norm {
+                stitch_state = TokenStitchState::Stitched;
+                stitched_words += 1;
                 // An onset-only engine says when a word STARTS and never when
                 // it ends, so this word's end is always somebody else's number.
                 // Which somebody is a fact about the value, and each case has
@@ -370,8 +386,7 @@ fn align_token_timings(
                             span.start().origin().clone(),
                             span.end().origin().clone(),
                         );
-                        matched_words += 1;
-                        matched = true;
+                        timed_words += 1;
                     }
                     // A zero-width or inverted span is refused, never nudged: a
                     // word cannot start and end at the same instant, so an
@@ -383,7 +398,7 @@ fn align_token_timings(
             }
         }
 
-        if !matched {
+        if stitch_state == TokenStitchState::Mismatch {
             break;
         }
     }
@@ -394,9 +409,10 @@ fn align_token_timings(
     // never read: bookkeeping that cost work and told nobody anything.
     discarded.warn_if_any(tokens.len(), engine, window);
 
-    if matched_words < original.len() {
+    if stitched_words < original.len() {
         tracing::warn!(
-            matched_words,
+            stitched_words,
+            timed_words,
             total_words = original.len(),
             token_count = token_norms.len(),
             "deterministic token stitching did not cover all words; leaving unmatched words untimed"

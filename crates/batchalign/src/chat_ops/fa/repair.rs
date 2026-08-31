@@ -26,6 +26,30 @@ const BOUNDARY_AVERAGING_THRESHOLD_MS: u64 = 500;
 /// Gap range (ms) eligible for same-speaker gap filling (Strategy 3).
 const GAP_FILL_MAX_MS: u64 = 1000;
 
+/// Whether the optional post-FA bullet-repair phase runs.
+///
+/// A closed policy keeps pipeline phase selection out of loosely coordinated
+/// booleans. Stored command options remain backward-compatible booleans and
+/// cross into this type once, at the projection boundary.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum BulletRepairPolicy {
+    /// Skip experimental repair.
+    #[default]
+    Disabled,
+    /// Apply repair before final monotonicity enforcement.
+    Enabled,
+}
+
+impl From<bool> for BulletRepairPolicy {
+    fn from(enabled: bool) -> Self {
+        if enabled {
+            Self::Enabled
+        } else {
+            Self::Disabled
+        }
+    }
+}
+
 /// Statistics from a bullet repair pass.
 #[derive(Debug, Clone, Default)]
 pub struct RepairStats {
@@ -63,7 +87,7 @@ pub struct RepairDecision {
     /// Typed FA strategy that produced this decision. Narrower than
     /// the crate-wide [`DecisionStrategy`](batchalign_transform::decisions::DecisionStrategy):
     /// this struct is FA-specific, so the strategy is constrained to
-    /// [`FaStrategy`] at the point of construction.
+    /// `FaStrategy` at the point of construction.
     pub strategy: batchalign_transform::decisions::FaStrategy,
     /// Human-readable reason string for evidence and tracing.
     pub reason: String,

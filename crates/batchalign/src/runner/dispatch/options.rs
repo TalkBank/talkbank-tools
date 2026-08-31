@@ -51,6 +51,8 @@ pub(crate) fn extract_fa_dispatch_params(
     let (
         fa_engine,
         pauses,
+        existing_wor_boundaries,
+        end_overlap_policy,
         wor,
         utr_engine,
         utr_overlap_strategy,
@@ -61,12 +63,14 @@ pub(crate) fn extract_fa_dispatch_params(
         CommandOptions::Align(a) => (
             a.effective_fa_engine(),
             a.pauses,
+            a.boundaries.existing_wor_boundaries,
+            a.boundaries.end_overlap_policy,
             a.wor,
             // `effective_`, not the raw field. FA read its override here and
             // UTR read the flag, so `--engine-overrides '{"utr":...}'` was
             // ignored at this line even once the key was typed upstream.
             a.effective_utr_engine(),
-            a.utr_overlap_strategy,
+            a.utr.overlap_strategy,
             a.merge_abbrev,
             a.bullet_repair,
             a.review_level,
@@ -92,6 +96,8 @@ pub(crate) fn extract_fa_dispatch_params(
     Some(FaDispatchParams {
         fa_params: FaParams {
             gap_healing,
+            existing_wor_boundaries,
+            end_overlap_policy,
             engine: fa_engine,
             cache_policy,
             wor_tier: wor,
@@ -285,10 +291,12 @@ mod tests {
         CommandOptions::Align(AlignOptions {
             common: common_default(),
             fa_engine: FaEngineName::from_wire_name(fa_engine).expect("test fa_engine"),
-            utr_engine,
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
+            utr: crate::options::AlignUtrOptions {
+                engine: utr_engine,
+                ..Default::default()
+            },
             pauses,
+            boundaries: Default::default(),
             wor: wor.into(),
             merge_abbrev: merge_abbrev.into(),
             media_dir: None,
@@ -370,6 +378,39 @@ mod tests {
     }
 
     #[test]
+    fn fa_dispatch_reads_existing_wor_boundary_policy() {
+        let opts = CommandOptions::Align(AlignOptions {
+            boundaries: crate::options::AlignBoundaryOptions {
+                existing_wor_boundaries:
+                    crate::chat_ops::fa::ExistingWorBoundaryPolicy::RebuildFromEvidence,
+                ..Default::default()
+            },
+            ..AlignOptions::default()
+        });
+        let params = extract_fa_dispatch_params(&opts, CachePolicy::UseCache).unwrap();
+        assert_eq!(
+            params.fa_params.existing_wor_boundaries,
+            crate::chat_ops::fa::ExistingWorBoundaryPolicy::RebuildFromEvidence
+        );
+    }
+
+    #[test]
+    fn fa_dispatch_reads_end_overlap_policy() {
+        let opts = CommandOptions::Align(AlignOptions {
+            boundaries: crate::options::AlignBoundaryOptions {
+                end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker,
+                ..Default::default()
+            },
+            ..AlignOptions::default()
+        });
+        let params = extract_fa_dispatch_params(&opts, CachePolicy::UseCache).unwrap();
+        assert_eq!(
+            params.fa_params.end_overlap_policy,
+            crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker
+        );
+    }
+
+    #[test]
     fn fa_dispatch_reads_wor() {
         let p1 = extract_fa_dispatch_params(
             &align_opts("wav2vec_fa", None, false, true, false),
@@ -415,10 +456,9 @@ mod tests {
         let opts = CommandOptions::Align(AlignOptions {
             common: common_default(),
             fa_engine: FaEngineName::Wave2Vec,
-            utr_engine: None,
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
+            utr: Default::default(),
             pauses: false,
+            boundaries: Default::default(),
             wor: true.into(),
             merge_abbrev: true.into(),
             media_dir: None,
@@ -434,10 +474,9 @@ mod tests {
         let opts = CommandOptions::Align(AlignOptions {
             common: common_default(),
             fa_engine: FaEngineName::Wave2Vec,
-            utr_engine: None,
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
+            utr: Default::default(),
             pauses: false,
+            boundaries: Default::default(),
             wor: true.into(),
             merge_abbrev: false.into(),
             media_dir: None,
@@ -623,10 +662,9 @@ mod tests {
         let align = CommandOptions::Align(AlignOptions {
             common: common_default(),
             fa_engine: FaEngineName::Wave2Vec,
-            utr_engine: None,
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
+            utr: Default::default(),
             pauses: false,
+            boundaries: Default::default(),
             wor: true.into(),
             merge_abbrev: false.into(),
             media_dir: None,
@@ -681,10 +719,9 @@ mod tests {
             CommandOptions::Align(AlignOptions {
                 common: common.clone(),
                 fa_engine: FaEngineName::Wave2Vec,
-                utr_engine: None,
-                utr_overlap_strategy: Default::default(),
-                utr_two_pass: Default::default(),
+                utr: Default::default(),
                 pauses: false,
+                boundaries: Default::default(),
                 wor: true.into(),
                 merge_abbrev: false.into(),
                 media_dir: None,

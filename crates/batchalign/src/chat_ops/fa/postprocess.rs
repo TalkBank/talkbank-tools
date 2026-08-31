@@ -10,8 +10,8 @@ use super::get_word_timing;
 use super::injection::InjectedTimings;
 use super::origin::{ClampBound, Origin, ProvenanceTally};
 use super::{
-    DegenerateWordTiming, DroppedWordTimings, LAST_WORD_FALLBACK_MS, TimeSpan, WordEndPolicy,
-    WordTiming,
+    DegenerateWordTiming, DroppedWordTimings, ExistingWorBoundaryPolicy, LAST_WORD_FALLBACK_MS,
+    TimeSpan, WordEndPolicy, WordTiming,
 };
 
 /// A word's extent while post-processing is still deciding it, WITH the record
@@ -299,6 +299,21 @@ pub fn postprocess_utterance_timings(
     policy: WordEndPolicy,
     injected: &InjectedTimings,
 ) -> PostprocessOutcome {
+    postprocess_utterance_timings_with_boundary_policy(
+        utterance,
+        policy,
+        ExistingWorBoundaryPolicy::Preserve,
+        injected,
+    )
+}
+
+/// Post-process with an explicit policy for boundaries inherited from `%wor`.
+pub fn postprocess_utterance_timings_with_boundary_policy(
+    utterance: &mut Utterance,
+    policy: WordEndPolicy,
+    existing_wor_boundaries: ExistingWorBoundaryPolicy,
+    injected: &InjectedTimings,
+) -> PostprocessOutcome {
     // Origins come from the VALUES, never from the bullets they were written
     // into, which are two integers and cannot carry one. This was a two-variant
     // `TimingSeed` until 2026-08-15, whose second variant read the bullets back
@@ -529,6 +544,7 @@ pub fn postprocess_utterance_timings(
     if let Some(ref bullet) = utterance.main.content.bullet
         && bullet.source == BulletSource::Authoritative
         && has_fa_wor
+        && existing_wor_boundaries == ExistingWorBoundaryPolicy::Preserve
     {
         let utt_start = bullet.timing.start_ms;
         let utt_end = bullet.timing.end_ms;

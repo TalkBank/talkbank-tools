@@ -172,6 +172,9 @@ pub struct UtteranceTrace {
 // FA Timeline
 // ---------------------------------------------------------------------------
 
+/// Schema written by the current [`FaTimelineTrace`] producer.
+pub const CURRENT_FA_EVIDENCE_SCHEMA_VERSION: u32 = 3;
+
 /// Forced alignment trace: grouping, timing injection, and post-processing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
@@ -179,8 +182,9 @@ pub struct FaTimelineTrace {
     /// Evidence schema revision. Version 1 records pre-injection timing,
     /// confidence, and full boundary provenance. Version 2 additionally
     /// records the typed post-injection decisions that altered or removed
-    /// timing; `post_injection_timings` remains reserved for a later complete
-    /// per-word outcome projection.
+    /// timing. Version 3 adds stable utterance ordinals to numeric
+    /// monotonicity effects; `post_injection_timings` remains reserved for a
+    /// later complete per-word outcome projection.
     #[serde(default)]
     pub evidence_schema_version: u32,
     /// Forced-alignment engine selected for this run.
@@ -259,6 +263,8 @@ pub enum FaTimingDecisionTrace {
     StartRegressionStripped {
         /// Affected line index, including headers.
         line_idx: usize,
+        /// Stable ordinal among utterances only.
+        utterance_idx: usize,
         /// Speaker on the affected utterance.
         speaker: String,
         /// Measured start that regressed.
@@ -267,6 +273,8 @@ pub enum FaTimingDecisionTrace {
         previous_start_ms: u64,
         /// Line that supplied `previous_start_ms`.
         previous_line_idx: usize,
+        /// Stable ordinal of the preceding utterance.
+        previous_utterance_idx: usize,
         /// Speaker on the preceding line.
         previous_speaker: String,
     },
@@ -274,6 +282,8 @@ pub enum FaTimingDecisionTrace {
     ZeroDurationClampStripped {
         /// Affected line index, including headers.
         line_idx: usize,
+        /// Stable ordinal among utterances only.
+        utterance_idx: usize,
         /// Speaker on the affected utterance.
         speaker: String,
         /// Original start of the earlier utterance.
@@ -284,6 +294,8 @@ pub enum FaTimingDecisionTrace {
         next_start_ms: u64,
         /// Following line that supplied `next_start_ms`.
         next_line_idx: usize,
+        /// Stable ordinal of the following timed utterance.
+        next_utterance_idx: usize,
         /// Speaker on the following line.
         next_speaker: String,
     },
@@ -291,6 +303,8 @@ pub enum FaTimingDecisionTrace {
     EndClamped {
         /// Affected line index, including headers.
         line_idx: usize,
+        /// Stable ordinal among utterances only.
+        utterance_idx: usize,
         /// Speaker on the affected utterance.
         speaker: String,
         /// End before clamping.
@@ -299,6 +313,8 @@ pub enum FaTimingDecisionTrace {
         clamped_to_ms: u64,
         /// Following line that supplied the clamp boundary.
         next_line_idx: usize,
+        /// Stable ordinal of the following timed utterance.
+        next_utterance_idx: usize,
         /// Speaker on the following line.
         next_speaker: String,
     },
@@ -310,49 +326,61 @@ impl From<crate::chat_ops::fa::MonotonicityEffect> for FaTimingDecisionTrace {
         match effect {
             MonotonicityEffect::StartRegressionStripped {
                 line_idx,
+                utterance_idx,
                 speaker,
                 start_ms,
                 previous_start_ms,
                 previous_line_idx,
+                previous_utterance_idx,
                 previous_speaker,
             } => Self::StartRegressionStripped {
                 line_idx,
+                utterance_idx: utterance_idx.raw(),
                 speaker,
                 start_ms,
                 previous_start_ms,
                 previous_line_idx,
+                previous_utterance_idx: previous_utterance_idx.raw(),
                 previous_speaker,
             },
             MonotonicityEffect::ZeroDurationClampStripped {
                 line_idx,
+                utterance_idx,
                 speaker,
                 start_ms,
                 original_end_ms,
                 next_start_ms,
                 next_line_idx,
+                next_utterance_idx,
                 next_speaker,
             } => Self::ZeroDurationClampStripped {
                 line_idx,
+                utterance_idx: utterance_idx.raw(),
                 speaker,
                 start_ms,
                 original_end_ms,
                 next_start_ms,
                 next_line_idx,
+                next_utterance_idx: next_utterance_idx.raw(),
                 next_speaker,
             },
             MonotonicityEffect::EndClamped {
                 line_idx,
+                utterance_idx,
                 speaker,
                 original_end_ms,
                 clamped_to_ms,
                 next_line_idx,
+                next_utterance_idx,
                 next_speaker,
             } => Self::EndClamped {
                 line_idx,
+                utterance_idx: utterance_idx.raw(),
                 speaker,
                 original_end_ms,
                 clamped_to_ms,
                 next_line_idx,
+                next_utterance_idx: next_utterance_idx.raw(),
                 next_speaker,
             },
         }

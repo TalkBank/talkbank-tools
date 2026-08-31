@@ -1,7 +1,7 @@
 # Caching
 
 **Status:** Current
-**Last updated:** 2026-08-30 20:05 EDT
+**Last updated:** 2026-08-31 07:54 EDT
 
 ## What gets cached
 
@@ -186,10 +186,20 @@ raw-evidence gate refuses the provider call.
 
 Forced alignment also keeps raw and derived layers. On a normal hit, BA3
 prefers the admitted worker response and reruns the current local timing
-projection; a historical derived timing vector is only the fallback when raw
-evidence is absent or refused. This means experiments with Rust-side timing
-interpretation can reuse model work automatically. `--override-media-cache`
-and `--override-media-cache-tasks forced_alignment` bypass both FA layers and
+projection; an admitted versioned derived envelope is the fallback when raw
+evidence is absent or refused. Both envelopes prove the requested engine,
+selected-worker version, semantic group key, and word cardinality. Historical
+bare timing vectors are refused and treated as misses because they cannot
+prove whether the result came from the requested engine or an unversioned
+fallback. This means experiments with Rust-side timing interpretation can
+reuse identified direct model work automatically.
+
+A live Wave2Vec-to-Whisper fallback is intentionally not cached today. It is
+valid for the current output and is recorded in the debug trace, but the Wave
+request's version namespace does not identify the effective Whisper model.
+Persisting that response would make later replay ambiguous, so a future run
+repeats the fallback. `--override-media-cache` and
+`--override-media-cache-tasks forced_alignment` bypass both FA layers and
 therefore request fresh model inference.
 
 This flag is not a general offline, no-network, or zero-compute mode. Ordinary

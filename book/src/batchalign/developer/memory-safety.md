@@ -1,7 +1,7 @@
 # Memory Safety: Preventing Kernel OOM Crashes
 
 **Status:** Current
-**Last updated:** 2026-07-30 18:21 EDT
+**Last updated:** 2026-08-31 03:04 EDT
 
 ## The Problem
 
@@ -191,7 +191,12 @@ These values are defined exactly once in
 flow in via `RuntimeOverridesConfig.{gpu,stanza,io}_startup_mb`,
 which override the tier-derived values. The Medium tier uses
 **LazyProfile** for GPU: the worker starts with only process
-overhead and loads model weights on demand. They are intentionally
+overhead and loads model weights on demand. A lazy worker key still includes
+the selected engine recipe; two engines cannot share one task-only process.
+The host permit gate and idle-worker eviction bound how many recipe-specific
+workers remain resident. This trades a small amount of process overhead for a
+hard correctness guarantee: an already-loaded model cannot silently satisfy a
+request for another engine. The startup reservations are intentionally
 more conservative than the per-command execution budgets. They
 protect the model-loading spike where Whisper, Stanza, or related
 engines can temporarily consume far more memory than steady-state

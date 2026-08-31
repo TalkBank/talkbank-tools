@@ -17,8 +17,8 @@ use crate::cache::UtteranceCache;
 use crate::capability::resolve_worker_capability_snapshot;
 use crate::command_model::{RunnerDispatchKind, command_runner_dispatch_kind};
 use crate::execution::{
-    MorphotagRuntimeOptions, PooledWorkerGateway, WorkerGateway, dispatch_compare_job,
-    dispatch_coref_job, dispatch_morphotag_job, dispatch_translate_job, dispatch_utseg_job,
+    MorphotagRuntimeOptions, PooledWorkerGateway, dispatch_compare_job, dispatch_coref_job,
+    dispatch_morphotag_job, dispatch_translate_job, dispatch_utseg_job,
 };
 use crate::store::{RunnerJobSnapshot, unix_now};
 use crate::worker::InferTask;
@@ -182,22 +182,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         );
         let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
-        if let Err(error) = gateway
-            .ensure_command_capabilities(
-                command,
-                job.dispatch.lang.to_worker_language(),
-                &job.dispatch.options,
-            )
-            .await
-        {
-            let err_msg = format!(
-                "Failed to bootstrap morphotag worker capabilities for '{}': {}",
-                command, error
-            );
-            warn!(job_id = %job_id, correlation_id = %correlation_id, "{}", err_msg);
-            sink.fail_job(job_id, &err_msg, unix_now()).await;
-            return Ok(());
-        }
         info!(
             job_id = %job_id,
             correlation_id = %correlation_id,
@@ -230,22 +214,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         );
         let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
-        if let Err(error) = gateway
-            .ensure_command_capabilities(
-                command,
-                job.dispatch.lang.to_worker_language(),
-                &job.dispatch.options,
-            )
-            .await
-        {
-            let err_msg = format!(
-                "Failed to bootstrap compare worker capabilities for '{}': {}",
-                command, error
-            );
-            warn!(job_id = %job_id, correlation_id = %correlation_id, "{}", err_msg);
-            sink.fail_job(job_id, &err_msg, unix_now()).await;
-            return Ok(());
-        }
         info!(
             job_id = %job_id,
             correlation_id = %correlation_id,
@@ -265,22 +233,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         let gateway: std::sync::Arc<dyn crate::execution::WorkerGateway> = std::sync::Arc::new(
             PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone()),
         );
-        if let Err(error) = gateway
-            .ensure_command_capabilities(
-                command,
-                job.dispatch.lang.to_worker_language(),
-                &job.dispatch.options,
-            )
-            .await
-        {
-            let err_msg = format!(
-                "Failed to bootstrap utseg worker capabilities for '{}': {}",
-                command, error
-            );
-            warn!(job_id = %job_id, correlation_id = %correlation_id, "{}", err_msg);
-            sink.fail_job(job_id, &err_msg, unix_now()).await;
-            return Ok(());
-        }
         info!(
             job_id = %job_id,
             correlation_id = %correlation_id,
@@ -305,22 +257,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         );
         let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
-        if let Err(error) = gateway
-            .ensure_command_capabilities(
-                command,
-                job.dispatch.lang.to_worker_language(),
-                &job.dispatch.options,
-            )
-            .await
-        {
-            let err_msg = format!(
-                "Failed to bootstrap translate worker capabilities for '{}': {}",
-                command, error
-            );
-            warn!(job_id = %job_id, correlation_id = %correlation_id, "{}", err_msg);
-            sink.fail_job(job_id, &err_msg, unix_now()).await;
-            return Ok(());
-        }
         info!(
             job_id = %job_id,
             correlation_id = %correlation_id,
@@ -338,22 +274,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         );
         let plan = BatchedInferDispatchPlan::from_job(&job);
         let gateway = PooledWorkerGateway::new(pool.clone(), cache.clone(), engine_version.clone());
-        if let Err(error) = gateway
-            .ensure_command_capabilities(
-                command,
-                job.dispatch.lang.to_worker_language(),
-                &job.dispatch.options,
-            )
-            .await
-        {
-            let err_msg = format!(
-                "Failed to bootstrap coref worker capabilities for '{}': {}",
-                command, error
-            );
-            warn!(job_id = %job_id, correlation_id = %correlation_id, "{}", err_msg);
-            sink.fail_job(job_id, &err_msg, unix_now()).await;
-            return Ok(());
-        }
         info!(
             job_id = %job_id,
             correlation_id = %correlation_id,
@@ -568,26 +488,31 @@ async fn resolve_runtime_capability_snapshot(
     lang: impl Into<crate::api::WorkerLanguage>,
     options: &crate::options::CommandOptions,
 ) -> Result<crate::capability::WorkerCapabilitySnapshot, String> {
-    // Every released command has an infer task, so the only questions left are
-    // whether we are in test-echo mode and whether capabilities were already
-    // probed.
-    if !test_echo_mode && pool.detected_capabilities().is_none() {
-        pool.ensure_command_capabilities(command, lang, options)
-            .await
-            .map_err(|error| {
-                format!(
-                    "Failed to bootstrap live worker capabilities for '{}': {}",
-                    command, error
-                )
-            })?;
-    }
+    // Resolve capabilities from the exact worker key selected by this command.
+    // A pool-wide first-worker snapshot can advertise task availability, but
+    // it cannot identify the model behind another engine-specific key and must
+    // never namespace that key's cache evidence.
+    let selected_worker_capabilities = if test_echo_mode {
+        None
+    } else {
+        Some(
+            pool.ensure_command_capabilities(command, lang, options)
+                .await
+                .map_err(|error| {
+                    format!(
+                        "Failed to resolve selected worker capabilities for '{}': {}",
+                        command, error
+                    )
+                })?,
+        )
+    };
 
     resolve_worker_capability_snapshot(
         &[],
         startup_infer_tasks,
         startup_engine_versions,
         test_echo_mode,
-        pool.detected_capabilities(),
+        selected_worker_capabilities.as_ref(),
     )
     .map_err(|error| error.to_string())
 }

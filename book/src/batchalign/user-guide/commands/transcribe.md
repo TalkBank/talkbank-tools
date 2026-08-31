@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:35 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -62,6 +62,13 @@ The local engine uses ambient Hugging Face auth. The machine running
 `batchalign3` must have a valid `hf auth login` cache/keychain entry, or an
 `HF_TOKEN` exported in that process environment. `--speaker-engine nemo` is a
 second local alternative.
+
+The standalone [`diarize`](diarize.md) command is intended for producing
+anonymous `.turns.json` evidence for an existing transcript. It currently uses
+the local Pyannote route rather than this command's default paid pyannoteAI
+backend. Integrated diarized transcription projects speaker evidence onto
+timed ASR words before utterance segmentation and CHAT construction; it does
+not require a later `chatter rediarize` pass.
 
 ### Rev and speaker evidence caching
 

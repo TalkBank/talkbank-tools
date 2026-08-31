@@ -35,9 +35,8 @@ mod tests {
     use super::*;
     use crate::api::{
         CorrelationId, DisplayPath, JobId, LanguageCode3, LanguageSpec, NumSpeakers,
-        ReleasedCommand, WorkerLanguage,
+        ReleasedCommand,
     };
-    use crate::capability::WorkerCapabilitySnapshot;
     use crate::execution::worker_gateway::MorphotagRuntimeOptions;
     use crate::options::{CommandOptions, CommonOptions, CorefOptions};
     use crate::store::PendingJobFile;
@@ -56,15 +55,6 @@ mod tests {
 
     #[async_trait]
     impl WorkerGateway for FakeCorefGateway {
-        async fn ensure_command_capabilities(
-            &self,
-            _command: ReleasedCommand,
-            _lang: WorkerLanguage,
-            _options: &crate::options::CommandOptions,
-        ) -> Result<WorkerCapabilitySnapshot, String> {
-            unreachable!()
-        }
-
         async fn morphotag_for_compare(
             &self,
             _chat_text: &str,

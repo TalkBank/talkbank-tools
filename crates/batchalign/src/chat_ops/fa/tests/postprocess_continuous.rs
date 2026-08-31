@@ -655,6 +655,59 @@ fn test_postprocess_with_existing_wor_does_not_clamp_final_word_to_near_zero_dur
 }
 
 #[test]
+fn rebuild_policy_keeps_fresh_measurement_before_prior_wor_boundary() {
+    let input = "\
+@UTF8\n\
+@Begin\n\
+@Languages:\teng\n\
+@Participants:\tCHI Target_Child\n\
+@ID:\teng|test|CHI|||||Target_Child|||\n\
+@Media:\ttest, audio\n\
+*CHI:\tfrog where . \u{0015}30215_33959\u{0015}\n\
+%wor:\tfrog \u{0015}32193_32553\u{0015} where \u{0015}32553_32914\u{0015} .\n\
+@End\n\
+";
+    let mut chat = parse_chat(input);
+    let utt = get_test_utterance(&mut chat, 0);
+    let timings = vec![
+        WordTiming::fixture(29427, 30089),
+        WordTiming::fixture(30129, 30669),
+    ];
+    let mut offset = 0;
+    let injected = inject_timings_for_utterance(utt, &timings, &mut offset);
+
+    let outcome = postprocess_utterance_timings_with_boundary_policy(
+        utt,
+        WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
+        ExistingWorBoundaryPolicy::RebuildFromEvidence,
+        &injected,
+    );
+
+    assert_eq!(outcome.dropped, DroppedWordTimings::default());
+    update_utterance_bullet_with_boundary_policy(
+        utt,
+        ExistingWorBoundaryPolicy::RebuildFromEvidence,
+    );
+    let mut collected = Vec::new();
+    postprocess::collect_word_timings(&utt.main.content.content, &mut collected);
+    assert_eq!(
+        collected,
+        vec![
+            Some(PendingTiming::fixture(TimeSpan::new(29427, 30089))),
+            Some(PendingTiming::fixture(TimeSpan::new(30129, 30669))),
+        ]
+    );
+    assert_eq!(
+        utt.main
+            .content
+            .bullet
+            .as_ref()
+            .map(|bullet| (bullet.timing.start_ms, bullet.timing.end_ms)),
+        Some((29427, 30669))
+    );
+}
+
+#[test]
 fn test_postprocess_does_not_clamp_word_timings_to_utr_hint_bullet() {
     use talkbank_model::alignment::helpers::{WordItemMut, walk_words_mut};
     use talkbank_model::model::{Bullet, BulletSource};

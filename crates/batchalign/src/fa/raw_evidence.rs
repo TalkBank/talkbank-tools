@@ -2,11 +2,38 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::api::EngineVersion;
 use crate::chat_ops::CacheKey;
 use crate::types::engines::FaEngineName;
 use crate::types::worker_v2::{ExecuteOutcomeRef, ExecuteResponseV2, TaskResultV2};
 
-const FA_RAW_EVIDENCE_SCHEMA_VERSION: u8 = 1;
+const FA_RAW_EVIDENCE_SCHEMA_VERSION: u8 = 2;
+
+/// Where the request-engine namespace attached to raw evidence came from.
+///
+/// New evidence receives the exact live capability of the worker selected for
+/// the request. Schema-1 evidence had no such field; when it is admitted from
+/// an exact-version cache lookup, that weaker provenance remains visible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum FaRequestEngineVersionOrigin {
+    SelectedWorkerCapability,
+    LegacyCacheNamespace,
+}
+
+/// Requested model identity carried with the evidence rather than paired
+/// later by convention.
+///
+/// This is deliberately not called the producing-engine identity: a fallback
+/// response may be produced by another engine. The payload proves that
+/// effective engine family separately; fully versioning both fallback legs is
+/// a distinct cache-key design.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FaRequestEngineIdentity {
+    version: EngineVersion,
+    origin: FaRequestEngineVersionOrigin,
+}
 
 /// Expected main-tier word cardinality attached to one FA request.
 ///
@@ -34,14 +61,16 @@ pub(super) enum FaEvidenceRoute<'a> {
     Fallback { reason: &'a str },
 }
 
-/// Raw worker response admitted against the request facts needed for replay.
+/// Raw worker response admitted against the request facts needed for use.
 ///
-/// Fields are private and this type does not implement `Deserialize`:
-/// persisted JSON must pass through [`FaRawEvidence::decode`], which rechecks
-/// engine identity and cardinality before returning replayable evidence.
+/// A fallback response is valid for the current run but cannot enter the
+/// replay cache: its effective Whisper model version is not part of the
+/// primary Wave request namespace. Only [`ReplayableFaRawEvidence`] crosses
+/// the persistence boundary.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub(super) struct FaRawEvidence {
     schema_version: u8,
+    request_engine_identity: FaRequestEngineIdentity,
     requested_engine: FaEngineName,
     effective_engine: FaEngineName,
     expected_words: ExpectedFaWords,
@@ -54,6 +83,8 @@ pub(super) struct FaRawEvidence {
 #[serde(deny_unknown_fields)]
 struct RawFaRawEvidence {
     schema_version: u8,
+    #[serde(default)]
+    request_engine_identity: Option<FaRequestEngineIdentity>,
     requested_engine: FaEngineName,
     effective_engine: FaEngineName,
     expected_words: ExpectedFaWords,
@@ -68,6 +99,17 @@ pub(super) enum FaRawEvidenceError {
     InvalidJson(#[from] serde_json::Error),
     #[error("unsupported forced-alignment raw evidence schema version {0}")]
     SchemaVersion(u8),
+    #[error("forced-alignment raw evidence schema {schema_version} has no engine identity")]
+    MissingEngineIdentity { schema_version: u8 },
+    #[error("legacy forced-alignment raw evidence unexpectedly carries a version identity")]
+    UnexpectedLegacyEngineIdentity,
+    #[error(
+        "cached forced-alignment request namespace {cached} does not match selected worker version {current}"
+    )]
+    EngineVersionDrift {
+        cached: EngineVersion,
+        current: EngineVersion,
+    },
     #[error(
         "cached forced-alignment evidence requested {cached:?}, not current engine {current:?}"
     )]
@@ -107,13 +149,28 @@ pub(super) enum FaRawEvidenceError {
     IneffectiveFallback,
     #[error("forced-alignment fallback reason must not be empty")]
     EmptyFallbackReason,
+    #[error(
+        "forced-alignment fallback evidence is valid for this run but lacks a versioned effective-engine cache identity"
+    )]
+    UnversionedFallbackEvidence,
 }
+
+/// Raw evidence proven safe to persist and replay.
+///
+/// Construction consumes admitted evidence and refuses fallback output. This
+/// wrapper is the only raw-evidence type exposed to cache-writing code, so a
+/// future caller cannot accidentally persist a response whose effective model
+/// version is absent from the cache identity.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(transparent)]
+pub(super) struct ReplayableFaRawEvidence(FaRawEvidence);
 
 impl FaRawEvidence {
     /// Admit a newly returned worker response against its request facts.
     pub(super) fn admit_requested(
         response: &ExecuteResponseV2,
         requested_engine: FaEngineName,
+        request_engine_version: &EngineVersion,
         expected_words: ExpectedFaWords,
         cache_key: &CacheKey,
         route: FaEvidenceRoute<'_>,
@@ -157,6 +214,10 @@ impl FaRawEvidence {
 
         Ok(Self {
             schema_version: FA_RAW_EVIDENCE_SCHEMA_VERSION,
+            request_engine_identity: FaRequestEngineIdentity {
+                version: request_engine_version.clone(),
+                origin: FaRequestEngineVersionOrigin::SelectedWorkerCapability,
+            },
             requested_engine,
             effective_engine,
             expected_words,
@@ -166,51 +227,12 @@ impl FaRawEvidence {
         })
     }
 
-    /// Decode persisted evidence only after proving it still matches the request.
-    pub(super) fn decode(
-        value: serde_json::Value,
-        requested_engine: FaEngineName,
-        expected_words: ExpectedFaWords,
-        cache_key: &CacheKey,
-    ) -> Result<Self, FaRawEvidenceError> {
-        let raw: RawFaRawEvidence = serde_json::from_value(value)?;
-        if raw.schema_version != FA_RAW_EVIDENCE_SCHEMA_VERSION {
-            return Err(FaRawEvidenceError::SchemaVersion(raw.schema_version));
+    /// Close fresh evidence into the persistence-capable state.
+    pub(super) fn into_replayable(self) -> Result<ReplayableFaRawEvidence, FaRawEvidenceError> {
+        if self.fallback_reason.is_some() {
+            return Err(FaRawEvidenceError::UnversionedFallbackEvidence);
         }
-        if raw.requested_engine != requested_engine {
-            return Err(FaRawEvidenceError::RequestedEngineDrift {
-                cached: raw.requested_engine,
-                current: requested_engine,
-            });
-        }
-        if raw.expected_words != expected_words {
-            return Err(FaRawEvidenceError::ExpectedWordsDrift {
-                cached: raw.expected_words.get(),
-                current: expected_words.get(),
-            });
-        }
-        if &raw.cache_key != cache_key {
-            return Err(FaRawEvidenceError::CacheKeyDrift);
-        }
-
-        let route = match raw.fallback_reason.as_deref() {
-            Some(reason) => FaEvidenceRoute::Fallback { reason },
-            None => FaEvidenceRoute::Direct,
-        };
-        let admitted = Self::admit_requested(
-            &raw.response,
-            requested_engine,
-            expected_words,
-            cache_key,
-            route,
-        )?;
-        if raw.effective_engine != admitted.effective_engine {
-            return Err(FaRawEvidenceError::EffectiveEngineDrift {
-                cached: raw.effective_engine,
-                proven: admitted.effective_engine,
-            });
-        }
-        Ok(admitted)
+        Ok(ReplayableFaRawEvidence(self))
     }
 
     pub(super) fn requested_engine(&self) -> FaEngineName {
@@ -235,6 +257,99 @@ impl FaRawEvidence {
     }
 }
 
+impl ReplayableFaRawEvidence {
+    /// Decode persisted evidence only after proving it still matches the request.
+    pub(super) fn decode(
+        value: serde_json::Value,
+        requested_engine: FaEngineName,
+        current_engine_version: &EngineVersion,
+        expected_words: ExpectedFaWords,
+        cache_key: &CacheKey,
+    ) -> Result<Self, FaRawEvidenceError> {
+        let raw: RawFaRawEvidence = serde_json::from_value(value)?;
+        let request_engine_identity = match (raw.schema_version, raw.request_engine_identity) {
+            (1, None) => FaRequestEngineIdentity {
+                version: current_engine_version.clone(),
+                origin: FaRequestEngineVersionOrigin::LegacyCacheNamespace,
+            },
+            (1, Some(_)) => return Err(FaRawEvidenceError::UnexpectedLegacyEngineIdentity),
+            (FA_RAW_EVIDENCE_SCHEMA_VERSION, Some(identity)) => identity,
+            (FA_RAW_EVIDENCE_SCHEMA_VERSION, None) => {
+                return Err(FaRawEvidenceError::MissingEngineIdentity {
+                    schema_version: FA_RAW_EVIDENCE_SCHEMA_VERSION,
+                });
+            }
+            (version, _) => return Err(FaRawEvidenceError::SchemaVersion(version)),
+        };
+        if &request_engine_identity.version != current_engine_version {
+            return Err(FaRawEvidenceError::EngineVersionDrift {
+                cached: request_engine_identity.version,
+                current: current_engine_version.clone(),
+            });
+        }
+        if raw.requested_engine != requested_engine {
+            return Err(FaRawEvidenceError::RequestedEngineDrift {
+                cached: raw.requested_engine,
+                current: requested_engine,
+            });
+        }
+        if raw.expected_words != expected_words {
+            return Err(FaRawEvidenceError::ExpectedWordsDrift {
+                cached: raw.expected_words.get(),
+                current: expected_words.get(),
+            });
+        }
+        if &raw.cache_key != cache_key {
+            return Err(FaRawEvidenceError::CacheKeyDrift);
+        }
+
+        let route = match raw.fallback_reason.as_deref() {
+            Some(reason) => FaEvidenceRoute::Fallback { reason },
+            None => FaEvidenceRoute::Direct,
+        };
+        let admitted = FaRawEvidence::admit_requested(
+            &raw.response,
+            requested_engine,
+            current_engine_version,
+            expected_words,
+            cache_key,
+            route,
+        )?;
+        if raw.effective_engine != admitted.effective_engine {
+            return Err(FaRawEvidenceError::EffectiveEngineDrift {
+                cached: raw.effective_engine,
+                proven: admitted.effective_engine,
+            });
+        }
+        admitted.into_replayable().map(|replayable| {
+            Self(FaRawEvidence {
+                request_engine_identity,
+                ..replayable.0
+            })
+        })
+    }
+
+    pub(super) fn into_inner(self) -> FaRawEvidence {
+        self.0
+    }
+
+    pub(super) fn requested_engine(&self) -> FaEngineName {
+        self.0.requested_engine
+    }
+
+    pub(super) fn request_engine_version(&self) -> &EngineVersion {
+        &self.0.request_engine_identity.version
+    }
+
+    pub(super) fn expected_words(&self) -> ExpectedFaWords {
+        self.0.expected_words
+    }
+
+    pub(super) fn cache_key(&self) -> &CacheKey {
+        &self.0.cache_key
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,8 +364,13 @@ mod tests {
         CacheKey::from_content(label)
     }
 
+    fn engine_version() -> EngineVersion {
+        EngineVersion::from("test-fa-wave-v1")
+    }
+
     #[test]
     fn admitted_raw_evidence_round_trips_without_losing_engine_or_cardinality() {
+        let engine_version = engine_version();
         let response = ExecuteResponseV2::success(
             WorkerRequestIdV2::from("fa-raw-1"),
             TaskResultV2::IndexedWordTimingResult(IndexedWordTimingResultV2 {
@@ -266,19 +386,22 @@ mod tests {
         let evidence = FaRawEvidence::admit_requested(
             &response,
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("roundtrip"),
             FaEvidenceRoute::Direct,
         )
         .expect("valid indexed evidence");
         let encoded = serde_json::to_value(&evidence).expect("serialize evidence");
-        let replayed = FaRawEvidence::decode(
+        let replayed = ReplayableFaRawEvidence::decode(
             encoded,
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("roundtrip"),
         )
-        .expect("decode evidence");
+        .expect("decode evidence")
+        .into_inner();
 
         assert_eq!(replayed.requested_engine(), FaEngineName::Wave2Vec);
         assert_eq!(replayed.effective_engine(), FaEngineName::Wave2Vec);
@@ -287,6 +410,7 @@ mod tests {
 
     #[test]
     fn cached_evidence_for_a_different_requested_engine_is_refused() {
+        let engine_version = engine_version();
         let response = ExecuteResponseV2::success(
             WorkerRequestIdV2::from("fa-raw-2"),
             TaskResultV2::WhisperTokenTimingResult(WhisperTokenTimingResultV2 {
@@ -300,15 +424,17 @@ mod tests {
         let evidence = FaRawEvidence::admit_requested(
             &response,
             FaEngineName::Whisper,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("engine-drift"),
             FaEvidenceRoute::Direct,
         )
         .expect("valid token evidence");
 
-        let error = FaRawEvidence::decode(
+        let error = ReplayableFaRawEvidence::decode(
             serde_json::to_value(evidence).expect("serialize evidence"),
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("engine-drift"),
         )
@@ -322,6 +448,7 @@ mod tests {
 
     #[test]
     fn indexed_raw_evidence_with_wrong_word_cardinality_is_refused() {
+        let engine_version = engine_version();
         let response = ExecuteResponseV2::success(
             WorkerRequestIdV2::from("fa-raw-3"),
             TaskResultV2::IndexedWordTimingResult(IndexedWordTimingResultV2 {
@@ -333,6 +460,7 @@ mod tests {
         let error = FaRawEvidence::admit_requested(
             &response,
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("cardinality"),
             FaEvidenceRoute::Direct,
@@ -344,6 +472,7 @@ mod tests {
 
     #[test]
     fn cached_evidence_for_a_different_semantic_key_is_refused() {
+        let engine_version = engine_version();
         let response = ExecuteResponseV2::success(
             WorkerRequestIdV2::from("fa-raw-4"),
             TaskResultV2::IndexedWordTimingResult(IndexedWordTimingResultV2 {
@@ -354,15 +483,17 @@ mod tests {
         let evidence = FaRawEvidence::admit_requested(
             &response,
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("first-group"),
             FaEvidenceRoute::Direct,
         )
         .expect("valid indexed evidence");
 
-        let error = FaRawEvidence::decode(
+        let error = ReplayableFaRawEvidence::decode(
             serde_json::to_value(evidence).expect("serialize evidence"),
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("second-group"),
         )
@@ -372,7 +503,8 @@ mod tests {
     }
 
     #[test]
-    fn fallback_route_round_trips_with_its_reason_and_effective_engine() {
+    fn fallback_route_is_usable_now_but_cannot_enter_the_replay_cache() {
+        let engine_version = engine_version();
         let response = ExecuteResponseV2::success(
             WorkerRequestIdV2::from("fa-raw-fallback"),
             TaskResultV2::WhisperTokenTimingResult(WhisperTokenTimingResultV2 {
@@ -387,6 +519,7 @@ mod tests {
         let evidence = FaRawEvidence::admit_requested(
             &response,
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &key,
             FaEvidenceRoute::Fallback {
@@ -395,23 +528,23 @@ mod tests {
         )
         .expect("valid fallback evidence");
 
-        let replayed = FaRawEvidence::decode(
-            serde_json::to_value(evidence).expect("serialize evidence"),
-            FaEngineName::Wave2Vec,
-            ExpectedFaWords::new(1),
-            &key,
-        )
-        .expect("decode fallback evidence");
-
-        assert_eq!(replayed.effective_engine(), FaEngineName::Whisper);
+        assert_eq!(evidence.effective_engine(), FaEngineName::Whisper);
         assert_eq!(
-            replayed.fallback_reason(),
+            evidence.fallback_reason(),
             Some("targets length is too long for CTC")
         );
+        let error = evidence
+            .into_replayable()
+            .expect_err("fallback evidence has no effective-model cache identity");
+        assert!(matches!(
+            error,
+            FaRawEvidenceError::UnversionedFallbackEvidence
+        ));
     }
 
     #[test]
     fn direct_route_cannot_hide_an_effective_engine_change() {
+        let engine_version = engine_version();
         let response = ExecuteResponseV2::success(
             WorkerRequestIdV2::from("fa-raw-unlabelled-fallback"),
             TaskResultV2::WhisperTokenTimingResult(WhisperTokenTimingResultV2 {
@@ -423,6 +556,7 @@ mod tests {
         let error = FaRawEvidence::admit_requested(
             &response,
             FaEngineName::Wave2Vec,
+            &engine_version,
             ExpectedFaWords::new(1),
             &cache_key("unlabelled-fallback"),
             FaEvidenceRoute::Direct,
@@ -430,5 +564,80 @@ mod tests {
         .expect_err("a fallback response needs an explicit fallback route");
 
         assert!(matches!(error, FaRawEvidenceError::UnexpectedDirectEngine));
+    }
+
+    #[test]
+    fn schema_two_evidence_is_refused_after_worker_version_drift() {
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("fa-raw-version-drift"),
+            TaskResultV2::IndexedWordTimingResult(IndexedWordTimingResultV2 {
+                indexed_timings: vec![None],
+            }),
+            DurationSeconds(0.01),
+        );
+        let admitted_version = EngineVersion::from("test-fa-wave-v1");
+        let evidence = FaRawEvidence::admit_requested(
+            &response,
+            FaEngineName::Wave2Vec,
+            &admitted_version,
+            ExpectedFaWords::new(1),
+            &cache_key("version-drift"),
+            FaEvidenceRoute::Direct,
+        )
+        .expect("fixture evidence is valid");
+
+        let error = ReplayableFaRawEvidence::decode(
+            serde_json::to_value(evidence).expect("serialize evidence"),
+            FaEngineName::Wave2Vec,
+            &EngineVersion::from("test-fa-wave-v2"),
+            ExpectedFaWords::new(1),
+            &cache_key("version-drift"),
+        )
+        .expect_err("evidence from another worker version must not replay");
+
+        assert!(matches!(
+            error,
+            FaRawEvidenceError::EngineVersionDrift { .. }
+        ));
+    }
+
+    #[test]
+    fn schema_one_evidence_retains_its_weaker_cache_namespace_origin() {
+        let engine_version = engine_version();
+        let response = ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("fa-raw-schema-one"),
+            TaskResultV2::IndexedWordTimingResult(IndexedWordTimingResultV2 {
+                indexed_timings: vec![None],
+            }),
+            DurationSeconds(0.01),
+        );
+        let evidence = FaRawEvidence::admit_requested(
+            &response,
+            FaEngineName::Wave2Vec,
+            &engine_version,
+            ExpectedFaWords::new(1),
+            &cache_key("schema-one"),
+            FaEvidenceRoute::Direct,
+        )
+        .expect("fixture evidence is valid");
+        let mut encoded = serde_json::to_value(evidence).expect("serialize evidence");
+        let object = encoded.as_object_mut().expect("evidence object");
+        object.insert("schema_version".to_owned(), serde_json::json!(1));
+        object.remove("request_engine_identity");
+
+        let replayed = ReplayableFaRawEvidence::decode(
+            encoded,
+            FaEngineName::Wave2Vec,
+            &engine_version,
+            ExpectedFaWords::new(1),
+            &cache_key("schema-one"),
+        )
+        .expect("schema-one evidence was already selected by exact cache namespace")
+        .into_inner();
+
+        assert_eq!(
+            replayed.request_engine_identity.origin,
+            FaRequestEngineVersionOrigin::LegacyCacheNamespace
+        );
     }
 }

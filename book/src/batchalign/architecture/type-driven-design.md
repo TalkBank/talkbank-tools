@@ -1,7 +1,7 @@
 # Type-Driven Design
 
 **Status:** Current
-**Last updated:** 2026-07-30 18:21 EDT
+**Last updated:** 2026-08-31 08:28 EDT
 
 Batchalign uses Rust's type system to encode domain invariants at compile time. This document catalogs the patterns in use, explains when to reach for each one, and records the serde techniques that keep the wire format stable while the internal types evolve.
 
@@ -162,6 +162,30 @@ Serialized JSON stays flat even though the Rust model is grouped:
 This pattern now shows up across command option structs in
 `crates/batchalign/src/types/options.rs`, where one `CommonOptions` payload
 is reused by multiple command-specific types.
+
+`align` applies the same pattern at two boundaries. The CLI groups UTR
+selection/compatibility flags separately from UTR algorithm tuning and groups
+word-boundary policies separately from unrelated command flags. Lowering then
+produces persisted `AlignUtrOptions` and `AlignBoundaryOptions` values. Serde
+flattening preserves the existing flat job JSON, so the internal type model can
+be made harder to misuse without breaking stored jobs or clients.
+
+```mermaid
+flowchart LR
+    A[AlignArgs] --> S[AlignUtrSelectionArgs]
+    A --> T[AlignUtrTuningArgs]
+    A --> B[AlignBoundaryArgs]
+    S --> U[AlignUtrOptions]
+    T --> U
+    B --> P[AlignBoundaryOptions]
+    U --> O[AlignOptions]
+    P --> O
+    O --> F[Typed FA dispatch and projection policies]
+```
+
+This is more than cosmetic organization: constructors must supply each policy
+group explicitly, while compatibility tests verify that CLI spelling and the
+serialized wire shape remain unchanged.
 
 **When to use:** Shared wire fields that belong together semantically but should
 not introduce extra nesting in request/response JSON.

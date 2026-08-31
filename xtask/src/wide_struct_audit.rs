@@ -104,12 +104,12 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/batchalign/src/cli/args/commands.rs",
         struct_name: "AlignArgs",
-        max_fields: 25,
-        max_bool_fields: 12,
+        max_fields: 16,
+        max_bool_fields: 8,
         disposition: WideStructDisposition::RefactorTarget,
-        reason: "three --flag/--no-flag pairs (wor, merge_abbrev, utr) are the boolean \
-                 blindness rule 4 names by example; clap overrides_with or an enum removes six \
-                 fields outright",
+        reason: "UTR selection/tuning and boundary policy now have owned flattened types; the \
+                 remaining --flag/--no-flag pairs (wor, merge_abbrev) and BA2 compatibility \
+                 switches still make the outer clap boundary a refactor target",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/cli/args/commands.rs",
@@ -297,10 +297,11 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/batchalign/src/types/options.rs",
         struct_name: "AlignOptions",
-        max_fields: 11,
+        max_fields: 10,
         max_bool_fields: 2,
         disposition: WideStructDisposition::BoundaryShim,
-        reason: "alignment option bag shared across CLI, API, and runtime seams",
+        reason: "alignment option boundary retains its flat JSON contract while typed UTR and \
+                 boundary sub-capabilities own the related Rust fields",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/types/request.rs",

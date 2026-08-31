@@ -116,10 +116,9 @@ mod tests {
         CommandOptions::Align(AlignOptions {
             common: CommonOptions::default(),
             fa_engine: FaEngineName::Wave2Vec,
-            utr_engine: None,
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
+            utr: Default::default(),
             pauses: false,
+            boundaries: Default::default(),
             wor: true.into(),
             merge_abbrev: false.into(),
             media_dir: None,

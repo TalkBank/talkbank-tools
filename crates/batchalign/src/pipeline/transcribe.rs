@@ -1347,6 +1347,35 @@ mod tests {
         matches.into_iter().next().expect("one debug artifact")
     }
 
+    /// Assert that two transcribe outputs differ, if at all, only in the
+    /// execution timestamp of an otherwise identical provenance receipt.
+    fn assert_same_transcribe_semantics(left: &str, right: &str) {
+        let left_provenance = crate::provenance::extract_provenance(left);
+        let right_provenance = crate::provenance::extract_provenance(right);
+        assert_eq!(
+            left_provenance.len(),
+            1,
+            "expected one left provenance receipt"
+        );
+        assert_eq!(
+            right_provenance.len(),
+            1,
+            "expected one right provenance receipt"
+        );
+        assert_eq!(left_provenance[0].command, "transcribe");
+        assert_eq!(right_provenance[0].command, "transcribe");
+        assert_eq!(left_provenance[0].fields, right_provenance[0].fields);
+        assert!(
+            left == right
+                || crate::provenance::is_provenance_only_difference(
+                    left,
+                    right,
+                    crate::api::ReleasedCommand::Transcribe,
+                ),
+            "transcribe outputs differ outside the execution timestamp"
+        );
+    }
+
     /// A durable Rev cache hit must replay the same evidence through the full
     /// Rust post-processing and CHAT construction path. The causal receipt is
     /// intentionally different (`inferred_not_found` versus `replayed`), but
@@ -1399,7 +1428,7 @@ mod tests {
         .expect("replayed transcribe");
 
         assert_eq!(inference.calls.load(Ordering::SeqCst), 1);
-        assert_eq!(cold.chat_text, replayed.chat_text);
+        assert_same_transcribe_semantics(&cold.chat_text, &replayed.chat_text);
         assert_eq!(
             std::fs::read(only_debug_artifact(&cold_debug, "_asr_response.json"))
                 .expect("cold ASR artifact"),

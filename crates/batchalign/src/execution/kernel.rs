@@ -545,15 +545,6 @@ mod tests {
 
     #[async_trait]
     impl WorkerGateway for FakeGateway {
-        async fn ensure_command_capabilities(
-            &self,
-            _command: ReleasedCommand,
-            _lang: crate::api::WorkerLanguage,
-            _options: &crate::options::CommandOptions,
-        ) -> Result<crate::capability::WorkerCapabilitySnapshot, String> {
-            unreachable!("test does not call ensure_command_capabilities")
-        }
-
         async fn morphotag_for_compare(
             &self,
             chat_text: &str,

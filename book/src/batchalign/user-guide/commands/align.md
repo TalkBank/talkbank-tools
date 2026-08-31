@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:35 EDT
+**Last updated:** 2026-08-31 07:54 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -106,7 +106,11 @@ flowchart TD
     dp_align_fa --> inject_fa
 
     inject_fa --> retry_check{FA\nsucceeded?}
-    retry_check -->|Yes| wor_check
+    retry_check -->|Yes| prior_boundary_check{"--existing-wor-boundaries?"}
+    prior_boundary_check -->|preserve| preserve_prior[Clamp against prior authoritative bounds<br/>and preserve compatible edge coverage]
+    prior_boundary_check -->|rebuild-from-evidence| rebuild_prior[Keep fresh word extents<br/>rebuild main bullet from word hull]
+    preserve_prior --> wor_check
+    rebuild_prior --> wor_check
     retry_check -->|No + retryable| fallback_check{Untimed utts\nnot recovered?}
     fallback_check -->|Yes + not tried| fallback_utr["Fallback: run_utr_pass()\n(at most once)"]
     fallback_utr --> retry_loop[Retry FA with\nrecovered timing]
@@ -118,8 +122,12 @@ flowchart TD
     wor_check -->|--wor| gen_wor[Generate %wor tier]
     wor_check -->|--nowor| skip_wor[Omit %wor tier]
 
-    gen_wor --> merge_check
-    skip_wor --> merge_check
+    gen_wor --> overlap_policy{"--end-overlap-policy?"}
+    skip_wor --> overlap_policy
+    overlap_policy -->|clamp-all-adjacent| clamp_all[Clamp every adjacent end overlap]
+    overlap_policy -->|preserve-cross-speaker| preserve_cross[Preserve cross-speaker overlap<br/>clamp same-speaker overlap]
+    clamp_all --> merge_check
+    preserve_cross --> merge_check
 
     merge_check{--merge-abbrev?}
     merge_check -->|Yes| merge[merge_abbreviations transform]
@@ -269,6 +277,39 @@ back into the output:
    being chopped back to a near-zero tail. This prevents reruns from preserving
    stale narrow bullet windows that were only ever estimates.
 
+5. **Prior-boundary rebuilding is an explicit v0.4.0 research projection.** The
+   default `--existing-wor-boundaries preserve` retains the compatibility
+   behavior above. `rebuild-from-evidence` instead treats earlier `%wor` and
+   main-tier boundaries as revisable output: it keeps admitted word extents and
+   rebuilds the main bullet from their minimum/maximum hull. This flag does not
+   change FA raw-evidence cache keys and cannot authorize inference. Use it
+   with `--require-media-cache` and `--debug-dir` for controlled replay. It can
+   reveal real conflicts between adjacent utterance boundaries; a structurally
+   wider word hull is not by itself proof that its acoustic boundaries are
+   correct.
+
+   This option does not force new evidence resolution. If every utterance
+   qualifies for the reusable-`%wor` fast path, rebuild reconstructs main-tier
+   bullets from those existing admitted word timings and does not replay raw FA
+   cache entries. A controlled raw-evidence comparison must use an input whose
+   intended groups actually reach evidence resolution, then confirm each
+   sidecar's evidence source.
+
+6. **Cross-speaker end overlap is an explicit v0.4.0 research projection.**
+   The default `--end-overlap-policy clamp-all-adjacent` preserves current
+   behavior. `preserve-cross-speaker` leaves conversational overlap between
+   different speaker codes intact while continuing to clamp same-speaker
+   overlap. It does not relax start-order enforcement and does not change raw
+   FA cache identity. Treat it as an experimental arm until blinded listening
+   evidence supports a wider policy.
+
+7. **Execution shape does not change the declared projection.** The same
+   prior-boundary, optional-repair, and end-overlap policies now apply whether
+   a run performs fresh injection, reuses every `%wor`, or resolves no FA
+   groups. Optional repair always runs before final monotonicity enforcement.
+   This is a consistency guarantee, not a recommendation to enable the
+   experimental repair flag.
+
 The practical effect is that reruns now prefer **fresh FA over stale reuse**
 whenever the old timing distribution already looks suspicious, and postprocess
 is more conservative about turning real pauses/fillers into dominant words.
@@ -303,6 +344,8 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--fa-engine-custom NAME` |: | **Deprecated alias for `--fa-engine`**, still honoured, hidden from `--help`. |
 | `--wor` / `--nowor` | `--wor` | Include or suppress the `%wor` word-timing tier |
 | `--pauses` | off | Preserve each engine-reported word end instead of healing small plausible gaps. For Whisper, it also selects the historical character-spaced text mode. |
+| `--existing-wor-boundaries {preserve,rebuild-from-evidence}` | `preserve` | v0.4.0 option controlling how a rerun projects fresh FA evidence when the input already has `%wor`. `preserve` keeps compatibility; the experimental rebuild mode keeps fresh word extents and reconstructs the main bullet from their hull. It is a local projection only and does not change raw-evidence cache identity. |
+| `--end-overlap-policy {clamp-all-adjacent,preserve-cross-speaker}` | `clamp-all-adjacent` | v0.4.0 option controlling the later monotonicity projection. The experimental arm preserves cross-speaker overlap but still clamps same-speaker overlap. It does not change raw-evidence cache identity. |
 | `--merge-abbrev` | off | Merge abbreviations in the output CHAT |
 | `--before PATH` |: | Previous version of the file for incremental alignment (skip unchanged utterances) |
 | `--bullet-repair` | off | Post-FA bullet repair for timing violations (experimental) |
@@ -329,14 +372,19 @@ filename contains directories, Batchalign appends a short digest of that full
 identity so equal basenames from different corpus branches cannot overwrite
 one another.
 
-Evidence schema version 2 records the selected engine and build/model version,
+Version 0.3.0 writes evidence schema version 2. Version 0.4.0 writes schema
+version 3. Both record the selected
+engine and build/model version,
 the cache key and evidence source for every group (`wor_reuse`, `cache`, or
 `inference`), stable word identifiers, pre-injection timings, Wave2Vec-family
 model scores when available, complete start/end provenance chains, and every
 typed decision that later clamped or removed timing. Those decisions remain in
 the JSON while CHAT output contains no review-tier projection. A model
 score is evidence emitted by the aligner, **not** a calibrated probability
-that a boundary is correct. Schema version 2 does not yet record the final
+that a boundary is correct. Schema 3 additionally records stable utterance
+ordinals beside the input-AST line indices for numeric monotonicity effects;
+this lets a consumer survive an inserted provenance header without attaching
+the decision to the preceding utterance. Schema version 3 does not yet record the final
 per-word timings after post-processing; use the resulting CHAT for those final
 bullets and do not infer a complete repair history from the sidecar.
 
@@ -367,7 +415,7 @@ whether this is the file's first alignment or a re-alignment.
    This is the self-healing property: valid FA word timings produce a valid
    utterance bullet by construction, regardless of how accurate the UTR hint was.
 
-**Re-alignment (file already has FA word timings):**
+**Re-alignment, default `preserve` policy (file already has FA word timings):**
 
 If the file already has utterance bullets set by a previous FA run (or
 hand-linked by an annotator), the bullet is **expanded but never shrunk**:
@@ -377,6 +425,19 @@ hand-linked by an annotator), the bullet is **expanded but never shrunk**:
 - This preserves timing coverage around fillers (`&-uh`), pauses, gestures
   (`&=laughs`), and other elements that FA cannot align but whose timing was
   already captured in the original bullet.
+
+**Re-alignment, experimental v0.4.0 `rebuild-from-evidence` policy:**
+
+- Admitted word extents are not clamped to the prior authoritative bullet.
+- The main bullet is replaced by the exact minimum-start/maximum-end hull of
+  the admitted word evidence.
+- The raw FA cache key remains unchanged, so a cache-required comparison can
+  vary this projection without rerunning the model.
+- A later document-order monotonicity pass applies the selected
+  `--end-overlap-policy`. The default still clamps any overlap; the research
+  arm preserves only cross-speaker overlap. Word-cutting cases remain explicit
+  evidence for adjudication; do not equate CHAT validity or word containment
+  counts with boundary accuracy.
 
 **FA failure fallback:**
 
@@ -395,11 +456,14 @@ flowchart TD
     any_words -->|Yes| source_check{"Existing bullet\nsource?"}
     source_check -->|"No bullet"| set_word_span["Set bullet =\nword span\n(first start → last end)"]
     source_check -->|"UTR hint\n(provisional)"| overwrite["Overwrite with word span\n(UTR estimate → FA precision)"]
-    source_check -->|"Authoritative\n(hand-linked or prior FA)"| union["Union: never shrink\nmin(word_start, existing_start)\n→ max(word_end, existing_end)"]
+    source_check -->|"Authoritative\n(hand-linked or prior FA)"| boundary_policy{"Prior-boundary policy?"}
+    boundary_policy -->|preserve| union["Union compatible coverage\nmin(word_start, existing_start)\n→ max(word_end, existing_end)"]
+    boundary_policy -->|rebuild-from-evidence| exact_hull["Replace with exact\nfresh word hull"]
     keep_existing --> result(["Utterance bullet written"])
     set_word_span --> result
     overwrite --> result
     union --> result
+    exact_hull --> result
 ```
 
 ---
@@ -411,14 +475,17 @@ exists but utterances have not yet been aligned to timestamps, it is the
 normal pre-alignment state. `align` is precisely the command that creates
 those links. The audio file is still resolved and used normally.
 
-**Re-aligning an already-aligned file never shrinks utterance bullets.**
+**Re-aligning an already-aligned file does not shrink utterance bullets under
+the default `preserve` policy.**
 If an utterance already has a bullet from a previous FA run or from
 hand-linking, the new bullet will cover _at least_ as wide a span as the
 original. This is intentional: the original bullet may cover fillers,
 pauses, and gestures at the edges of the utterance that FA itself cannot
 align (because they produce no acoustic signal the aligner recognises).
 The union policy ensures that re-running `align` on the same file is safe
-and idempotent.
+and idempotent. The experimental `rebuild-from-evidence` policy deliberately
+does not make that guarantee; use it only when testing whether prior boundaries
+are stale, with evidence retention and output comparison.
 
 **Audio must be visible to the execution host.** With `--server`, the server
 resolves `@Media` against its own filesystem. Paths that are valid on your

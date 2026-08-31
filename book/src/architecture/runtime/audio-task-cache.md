@@ -1,7 +1,7 @@
 # Audio-Task Cache
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:59 EDT
+**Last updated:** 2026-08-31 07:54 EDT
 
 Batchalign caches **audio-task results** (forced alignment, UTR ASR, raw Rev
 transcript evidence, dedicated transcribe speaker evidence, and media
@@ -76,19 +76,30 @@ every real scenario in the second bucket.
 Forced alignment has two cache layers for each semantic group key. They serve
 different purposes and are deliberately not interchangeable:
 
-- `forced_alignment_raw_evidence` stores the admitted worker-protocol response,
-  including requested/effective engine and fallback route. It is immutable
-  model evidence.
-- `forced_alignment` stores the locally projected `WordTiming` vector. It is a
-  faster compatibility fallback, not the source of truth when raw evidence is
-  available.
+- `forced_alignment_raw_evidence` stores a versioned envelope around an
+  admitted direct worker-protocol response. The envelope owns the requested
+  engine, exact selected-worker version, semantic group key, expected word
+  cardinality, and response-proven effective engine.
+- `forced_alignment` stores the locally projected `WordTiming` vector in a
+  second versioned envelope carrying the same request facts. It is a faster
+  compatibility fallback, not the source of truth when raw evidence is
+  available. Historical bare timing vectors are refused because they cannot
+  prove which direct or fallback model produced them.
 
 Normal reads prefer raw evidence and run it through the current Rust timing
 projection. This makes changes to containment, token/word reconciliation,
 score handling, or evidence summaries testable without repeating model
-inference. If raw evidence is absent or corrupt, BA3 may admit the derived
-vector instead. Only a miss at both layers can become an inference request, and
-`--require-media-cache` prevents that miss from obtaining dispatch authority.
+inference. If raw evidence is absent or refused, BA3 may admit an exactly
+versioned derived envelope instead. Only a miss at both layers can become an
+inference request, and `--require-media-cache` prevents that miss from
+obtaining dispatch authority.
+
+A Wave2Vec request that succeeds only through the Whisper fallback is usable
+for the current run and emits its fallback trace, but neither its raw response
+nor its derived timings are cached. The Wave request namespace does not prove
+the effective Whisper model version. The persistence typestate therefore
+accepts direct evidence only; a later run recomputes the fallback rather than
+silently replaying evidence with an incomplete identity.
 
 ```mermaid
 stateDiagram-v2
@@ -101,8 +112,11 @@ stateDiagram-v2
     DerivedCandidate --> CacheMiss: absent or refused
     CacheMiss --> AuthorizedInference: UseCache / SkipCache
     CacheMiss --> Refused: RequireCache
-    AuthorizedInference --> RawCommitted: successful worker evidence
-    RawCommitted --> DerivedCommitted: current projection
+    AuthorizedInference --> DirectEvidence: requested engine succeeds
+    AuthorizedInference --> LiveFallback: fallback engine succeeds
+    DirectEvidence --> RawCommitted: replayable raw evidence
+    DirectEvidence --> DerivedCommitted: versioned current projection
+    LiveFallback --> CurrentChatLogic: usable now, deliberately not cached
     WorReuse --> CurrentChatLogic
     RawReplay --> CurrentChatLogic
     DerivedReuse --> CurrentChatLogic

@@ -1,7 +1,7 @@
 # Worker Failure Classification and Retry Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-19 21:04 EDT
+**Last updated:** 2026-08-31 00:02 EDT
 
 This chapter is the canonical contributor reference for how a Python
 worker exception becomes, or does not become, an end-user error. It
@@ -294,11 +294,11 @@ preserve behavior on already-debugged paths.
 ### `FailureCategory` and the retry decision
 
 `FailureCategory` is the broader classification that the retry loop, the
-user-facing message router, and the persistence layer all consume. Eleven
+user-facing message router, and the persistence layer all consume. Thirteen
 variants:
 
 ```text
-Validation, ParseError, InputMissing, WorkerCrash, WorkerTimeout,
+Validation, ParseError, InputMissing, EvidenceUnavailable, WorkerCrash, WorkerTimeout,
 WorkerProtocol, WorkerBootstrap, ProviderTransient, ProviderTerminal,
 MemoryPressure, Cancelled, System
 ```
@@ -418,6 +418,15 @@ FailureCategory::WorkerCrash => {
 Bootstrap errors are *not* "the processing engine crashed", they are
 *"X is missing or unreachable, here's what to do"*. The verbatim
 inclusion is what makes the difference.
+
+`EvidenceUnavailable` is likewise terminal and actionable, but it does not
+mean a worker failed. It means a cache-required request reached a typed
+evidence boundary without a reusable entry. For forced alignment, the error
+retains a nonempty `MissingForcedAlignmentEvidence` value containing the exact
+group indices and maps to HTTP 412. The user-facing message states that
+`--require-media-cache` prevented inference. An empty missing-group error is
+unrepresentable, so the public category cannot be emitted for the successful
+"nothing to infer" state.
 
 ## The retry loop
 

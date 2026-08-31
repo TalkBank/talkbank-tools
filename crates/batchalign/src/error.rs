@@ -10,6 +10,41 @@ use axum::response::{IntoResponse, Response};
 use crate::api::JobId;
 use crate::media::window::EmptySegment;
 
+/// Non-empty forced-alignment cache misses behind `--require-media-cache`.
+///
+/// Construction requires a head index, so the error cannot represent the
+/// contradictory state "required evidence is unavailable, but nothing is
+/// missing." The remaining indices retain the pipeline's group order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingForcedAlignmentEvidence {
+    group_indices: Vec<usize>,
+}
+
+impl MissingForcedAlignmentEvidence {
+    pub(crate) fn new(first_group: usize, remaining_groups: &[usize]) -> Self {
+        let mut group_indices = Vec::with_capacity(remaining_groups.len() + 1);
+        group_indices.push(first_group);
+        group_indices.extend_from_slice(remaining_groups);
+        Self { group_indices }
+    }
+
+    /// FA group ordinals whose evidence was absent from the reusable cache.
+    pub fn group_indices(&self) -> &[usize] {
+        &self.group_indices
+    }
+}
+
+impl std::fmt::Display for MissingForcedAlignmentEvidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "required forced-alignment evidence is unavailable for groups {:?}; \
+             --require-media-cache prevented new inference",
+            self.group_indices
+        )
+    }
+}
+
 /// Detail of a single file that conflicts with an already-active job.
 ///
 /// Returned inside the `conflicts` array of a [`ServerError::JobConflict`]
@@ -55,6 +90,13 @@ pub enum ServerError {
     /// stored JSON payload in SQLite.
     #[error("persistence error: {0}")]
     Persistence(String),
+
+    /// A cache-only request reached a non-empty set of FA cache misses.
+    ///
+    /// This is an intentional, actionable precondition refusal, not corrupt
+    /// persistence and not an internal system failure.
+    #[error("{0}")]
+    RequiredEvidenceUnavailable(MissingForcedAlignmentEvidence),
 
     /// The requested `job_id` does not exist in the [`JobStore`](crate::store::JobStore).
     ///
@@ -197,6 +239,7 @@ impl ServerError {
         match self {
             Self::Database(_) | Self::Migration(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Persistence(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::RequiredEvidenceUnavailable(_) => StatusCode::PRECONDITION_FAILED,
             Self::JobNotFound(_) => StatusCode::NOT_FOUND,
             Self::JobConflict { .. } => StatusCode::CONFLICT,
             Self::JobNotTerminal(_) => StatusCode::CONFLICT,

@@ -133,7 +133,7 @@ fn compat_engine_aliases_override_canonical_enums_before_dispatch() {
 
     match typed_options(&["align", "--utr-engine", "rev", "--whisper", "corpus/"]) {
         CommandOptions::Align(options) => {
-            assert_eq!(options.utr_engine, Some(AppUtrEngine::Whisper));
+            assert_eq!(options.utr.engine, Some(AppUtrEngine::Whisper));
         }
         other => panic!("expected Align options, got {other:?}"),
     }
@@ -163,7 +163,7 @@ fn compat_engine_aliases_override_canonical_enums_before_dispatch() {
 fn align_utr_strategy_defaults_to_auto_and_maps_explicit_variants() {
     match typed_options(&["align", "corpus/"]) {
         CommandOptions::Align(options) => {
-            assert_eq!(options.utr_overlap_strategy, AppUtrOverlapStrategy::Auto)
+            assert_eq!(options.utr.overlap_strategy, AppUtrOverlapStrategy::Auto)
         }
         other => panic!("expected Align options, got {other:?}"),
     }
@@ -176,7 +176,7 @@ fn align_utr_strategy_defaults_to_auto_and_maps_explicit_variants() {
         match typed_options(&["align", "--utr-strategy", flag, "corpus/"]) {
             CommandOptions::Align(options) => {
                 assert_eq!(
-                    options.utr_overlap_strategy, expected,
+                    options.utr.overlap_strategy, expected,
                     "--utr-strategy {flag} should map to the typed overlap strategy"
                 );
             }
@@ -210,7 +210,7 @@ fn custom_engine_names_override_hidden_aliases_and_canonical_enums() {
         "corpus/",
     ]) {
         CommandOptions::Align(options) => {
-            assert_eq!(options.utr_engine, Some(AppUtrEngine::HkTencent))
+            assert_eq!(options.utr.engine, Some(AppUtrEngine::HkTencent))
         }
         other => panic!("expected Align options, got {other:?}"),
     }

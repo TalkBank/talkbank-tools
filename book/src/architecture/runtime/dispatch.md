@@ -1,7 +1,7 @@
 # Dispatch and Execution
 
 **Status:** Current
-**Last updated:** 2026-07-30 18:21 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 How a job moves from the CLI to a running command: the four CLI
 dispatch targets, the workflow families that organize commands, the
@@ -114,11 +114,12 @@ flowchart TD
 | Cross-file batch | `utseg`, `translate`, `coref` | Pool utterances across files in one GPU batch |
 | Reference projection | `compare` | Main transcript + gold companion → projected views from typed compare bundle |
 | Composite | `benchmark` (= `transcribe` + `compare`) | Chains existing workflows without reimplementing |
-| Analysis | `opensmile`, `avqi` | Produces metrics / non-CHAT output |
+| Analysis | `diarize`, `opensmile`, `avqi` | Produces turns, metrics, or other non-CHAT output |
 
 The low-level `speaker` infer task still exists for typed worker
-execution but is not a standalone CLI command; diarization remains
-part of `transcribe_s`, matching batchalign2.
+execution but is not itself a CLI command. It is composed by both integrated
+`transcribe_s` and standalone `diarize`; the latter writes anonymous turns JSON
+without constructing or modifying CHAT.
 
 ## Where to add new command semantics
 

@@ -20,7 +20,7 @@ use crate::api::DurationSeconds;
 // Forced alignment
 // ---------------------------------------------------------------------------
 
-/// Structured result from [`crate::fa::process_fa`].
+/// Structured result from the internal `crate::fa::process_fa` pipeline.
 pub struct FaResult {
     /// Serialized CHAT text with timings injected.
     pub chat_text: String,
@@ -98,7 +98,7 @@ impl FaResult {
             pre_injection_timings.push(evidence.pre_injection_timings);
         }
         FaTimelineTrace {
-            evidence_schema_version: 2,
+            evidence_schema_version: crate::types::traces::CURRENT_FA_EVIDENCE_SCHEMA_VERSION,
             engine: self.engine,
             engine_version: self.engine_version,
             groups,

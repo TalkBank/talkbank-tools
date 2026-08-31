@@ -1,7 +1,7 @@
 # Server Model Loading and Caching
 
 **Status:** Current
-**Last updated:** 2026-08-28 14:01 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 This document describes every ML model loaded by batchalign3 workers,
 when each model is loaded into memory, and how results are cached.
@@ -84,15 +84,18 @@ returns a model name. Currently: `eng` (`talkbank/CHATUtterance-en`),
 `cmn` / `zho` (`talkbank/CHATUtterance-zh_CN`), `yue` (Cantonese-specific
 model).
 
-**Result caching:** ASR results are NOT cached (each run re-transcribes).
+**Result caching:** Raw provider-shaped Rev.AI evidence is cached and replayed
+after strict validation. Ordinary non-Rev ASR engines are not yet cached and
+run inference again.
 
 ---
 
 ### `transcribe_s` (server-owned composition over `asr`)
 
 `transcribe_s` now follows the same server-owned transcribe pipeline as
-`transcribe`. As in batchalign2, the user-facing surface is diarized
-transcription rather than a standalone `speaker` command. When the selected ASR
+`transcribe`. The low-level task has no CLI command literally named `speaker`,
+but it has two product surfaces: integrated diarized transcription and the
+standalone `diarize` command. When the selected ASR
 backend already returns usable speaker labels (for example Rev.AI or the
 Cantonese provider adapters), Rust keeps those labels on the default path. When
 `--diarize` is explicitly requested, Rust also composes the low-level `speaker`
@@ -107,7 +110,11 @@ exclusive diarization for ASR reconciliation. Local Pyannote and NeMo remain
 explicit alternatives. Local Pyannote loads lazily on the first request in a
 worker process and is then reused within that process.
 
-**Result caching:** Diarization results are NOT cached.
+**Result caching:** Integrated diarized transcription caches validated raw
+backend evidence separately from derived normalized turns. A normal warm run
+can therefore replay evidence without another paid or local diarization call.
+Standalone `diarize` output is not yet connected to that cache and reruns local
+inference.
 
 ---
 

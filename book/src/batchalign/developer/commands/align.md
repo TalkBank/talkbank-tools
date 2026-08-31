@@ -1,7 +1,7 @@
 # align: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:59 EDT
+**Last updated:** 2026-08-31 00:52 EDT
 
 Implementation guide for the `align` command. For user-facing documentation,
 see [User Guide: align](../../user-guide/commands/align.md).
@@ -95,6 +95,53 @@ policy without changing the other. `--require-media-cache` resolves both to
 `RequireCache` and prevents either unresolved boundary from authorizing
 inference.
 
+`FaParams::projection_policy()` combines the engine-derived `WordEndPolicy`
+with typed `ExistingWorBoundaryPolicy` and `EndOverlapPolicy` values. Full,
+incremental, all-`%wor`, and empty-group paths consume that single
+`FaProjectionPolicy`, preventing execution shape from changing the local
+interpretation of the same evidence. Both local policies are deliberately
+absent from `cache_key()`: changing either must replay the same evidence, not
+create a new inference identity.
+
+The final phase is also typed. Fresh injection produces `FaApplied`; a
+no-injection path can only enter through `finalize_without_injection`. Both
+must produce `FaFinalized`, which runs `BulletRepairPolicy` first and
+`EndOverlapPolicy` monotonicity second. Only `FaFinalized` can enter
+`FaDecisions`. This prevents the former incremental defect where monotonicity
+clamped away a small overlap before optional repair could average it, and the
+former reuse defect where no-injection paths silently selected the default
+overlap policy.
+
+Partial `%wor` reuse has a load-bearing phase boundary. Before grouping,
+`refresh_reusable_utterances()` always uses compatibility preservation so the
+input bullet continues to define the same audio window and raw cache key. The
+explicit projection policy applies only after evidence collection. The
+all-reusable fast path has no grouping or inference and may therefore rebuild
+directly from the existing admitted `%wor` timings. The option does not force a
+fully reusable document back through raw-cache replay. A cache-required
+development experiment caught and refused an early version that rebuilt before
+grouping; that refusal is the executable reason this phase separation must
+remain visible in code and diagrams.
+
+```mermaid
+flowchart LR
+    I["Input CHAT + existing %wor"] --> R["Pre-group refresh<br/>always Preserve"]
+    R --> G["Stable group windows<br/>and raw cache keys"]
+    G --> E{"Evidence state"}
+    E -->|raw hit| P["FaProjectionPolicy"]
+    E -->|wor reuse| P
+    E -->|required miss| F["EvidenceUnavailable refusal"]
+    P -->|Preserve prior bounds| C["Compatibility word projection"]
+    P -->|RebuildFromEvidence| H["Admitted word hull projection"]
+    C --> PHASE["FaApplied or typed<br/>no-injection projection"]
+    H --> PHASE
+    PHASE --> B{"BulletRepairPolicy"}
+    B -->|Disabled| O{"EndOverlapPolicy"}
+    B -->|Enabled| RPR["Repair small boundaries"] --> O
+    O -->|ClampAllAdjacent| COMP["Compatibility end projection"]
+    O -->|PreserveCrossSpeaker| X["Keep cross-speaker overlap<br/>clamp same-speaker overlap"]
+```
+
 ---
 
 ## Four-state evidence resolution
@@ -114,17 +161,20 @@ re-admits it against the current request facts, then runs the current Rust
 projection. This is the research path: local reconciliation can change without
 running the model again.
 
-**Tier 3: Derived-timing compatibility fallback**
+**Tier 3: Versioned derived-timing fallback**
 
-When raw evidence is absent or refused, an admitted derived timing vector can
-still satisfy the group. Historical caches therefore remain useful, while a
+When raw evidence is absent or refused, an admitted derived timing envelope can
+still satisfy the group. It must prove the requested engine, selected-worker
+version, semantic key, and word cardinality. Historical bare vectors are
+refused because they cannot prove direct-versus-fallback provenance, while a
 new raw entry cannot be masked by an older local projection.
 
 **Tier 4: Authorized inference**
 
 Only a miss at all three earlier states reaches the worker. `RequireCache`
-cannot construct the authorization value needed by the worker batch. A
-successful worker response is stored in both raw and derived layers.
+cannot construct the authorization value needed by the worker batch. A direct,
+version-identified worker response is stored in both raw and derived layers;
+fallback output is valid for the live run but deliberately remains uncached.
 
 ```mermaid
 flowchart TD
@@ -132,11 +182,13 @@ flowchart TD
     W{"Complete, corroborated<br/>%wor timing?"}
     R{"Admitted raw worker<br/>evidence?"}
     RP["Replay through current<br/>Rust timing projection"]
-    D{"Admitted derived<br/>timing vector?"}
+    D{"Admitted versioned<br/>derived timing envelope?"}
     P{"Cache policy permits<br/>inference?"}
     A["Typed inference authorization"]
     I["Worker inference"]
-    C["Commit raw evidence<br/>and derived timings"]
+    V{"Direct version-identified<br/>evidence?"}
+    C["Commit direct raw evidence<br/>and versioned derived timings"]
+    L["Use fallback/unaligned result<br/>for this run only"]
     F["Fail closed:<br/>required evidence missing"]
     O["Apply current CHAT/%wor logic"]
 
@@ -147,7 +199,9 @@ flowchart TD
     R -->|absent or refused| D
     D -->|yes| O
     D -->|no| P
-    P -->|UseCache or SkipCache| A --> I --> C --> O
+    P -->|UseCache or SkipCache| A --> I --> V
+    V -->|yes| C --> O
+    V -->|no| L --> O
     P -->|RequireCache| F
 ```
 
@@ -198,14 +252,16 @@ probability.
 The previous auto-detection logic (which selected `TwoPassOverlapUtr` for English
 files with `+<` or CA overlap markers) was **disabled 2026-03-30** due to:
 1. Operator-reported alignment regressions on real files
-2. End-time overlap bug in `enforce_monotonicity()`: it only corrects start-time
-   violations, not end-time overlaps, so overlapping utterance bullets go uncorrected
+2. At the time, `enforce_monotonicity()` corrected only start regressions and
+   left end overlap unexamined. Current code clamps adjacent ends, but a clamp
+   that cuts retained word timing is now evidence for review rather than proof that the
+   overlap-aware segmentation was wrong.
 3. Two-pass algorithm was only tuned on 4 corpora, not broadly validated
 
 **Explicit overrides:**
 - `--utr-strategy global` → `GlobalUtr` (single-pass monotonic recovery)
 - `--utr-strategy two-pass` → `TwoPassOverlapUtr` (experimental; overlap-aware,
-  gated until the end-time overlap bug is resolved)
+  gated until its segmentation and downstream overlap policy are validated)
 
 When both `total_audio_ms` and `max_group_ms` are available, a `GroupingContext` is
 passed to `TwoPassOverlapUtr` so it can detect and avoid the wider-window regression
@@ -343,17 +399,25 @@ filename with the raw evidence-key prefix, preventing full-file and
 partial-window calls from overwriting each other while avoiding temporary
 segment paths as identities.
 
-Schema version 2 adds `decisions` to retain post-inference clamping, repair,
+Schema version 2 added `decisions` to retain post-inference clamping, repair,
 and timing-removal outcomes. A typestate return from `retain_decision_evidence`
 is consumed into the evidence trace, so the JSON cannot be assembled from a
 different record set than the pipeline produced. The complete-`%wor` fast path
 and a grouping-empty path retain any decisions they make as well; zero fresh
 inference groups does not erase a monotonicity change or grouping refusal.
+Schema version 3 adds stable current and neighbouring utterance ordinals to
+every numeric monotonicity effect. The legacy `line_idx` fields name the input
+`ChatFile.lines` state and are retained for debugging, but they cannot alone
+address final CHAT because provenance serialization may insert an `@Comment`
+header. An utterance ordinal is invariant under header-only changes. Research
+consumers should corroborate both coordinates against the exact input and
+resolve the ordinal against output while checking speaker and spoken-token
+identity; they must not index final `ChatFile.lines` with the legacy value.
 `post_injection_timings`
 remains intentionally empty: the
 post-processing phase still lowers final `WordTiming` values into CHAT bullets
 before a group-shaped evidence record can retain them, particularly for split
-compound fillers. Do not describe v1 as a complete repair history. A later
+compound fillers. Do not describe any current schema as a complete repair history. A later
 future schema must carry a typed identity mapping across that phase rather than
 re-reading bullets and falsely labeling them observations.
 

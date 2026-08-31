@@ -1,9 +1,14 @@
 # Evidence, Replay, and Experiment Topology
 
 **Status:** Current
-**Last updated:** 2026-08-30 21:00 EDT
+**Last updated:** 2026-08-31 03:11 EDT
 
-This chapter is the visual map for BA3's v0.3 evidence architecture. Detailed
+This chapter is the visual map for BA3's evidence architecture. Version 0.3.0
+has raw-evidence caching and FA evidence schema 2. Version 0.4.0 additionally
+has the experimental
+`rebuild-from-evidence` and `preserve-cross-speaker` projections plus schema 3
+stable utterance ordinals; those additions are not claims about the deployed
+v0.3 service. Detailed
 contracts remain in [Audio-Task Cache](../../architecture/runtime/audio-task-cache.md),
 [Observability](observability.md), and the developer references for
 [transcribe](../developer/commands/transcribe.md) and
@@ -13,6 +18,32 @@ The central design rule is that acquiring model evidence, projecting that
 evidence through local algorithms, and judging transcript quality are separate
 operations. BA3 now constrains the first two. Human or corpus-specific
 adjudication remains an experiment-layer responsibility.
+
+For forced-alignment reruns, `--existing-wor-boundaries` is one such local
+projection dimension. It is intentionally downstream of raw evidence and
+absent from the cache key. `preserve` is the compatibility default;
+`rebuild-from-evidence` keeps fresh word extents and reconstructs main-tier
+coverage from their hull. A valid or structurally self-contained result still
+requires acoustic adjudication, especially when adjacent utterances overlap
+and the later monotonicity pass intervenes.
+
+`--end-overlap-policy` is an independent local projection dimension. Its
+compatibility default clamps all adjacent end overlap. The experimental
+`preserve-cross-speaker` arm keeps overlap only when adjacent speaker codes
+differ; same-speaker clamps and start-regression stripping remain unchanged.
+Both policies travel inside one `FaProjectionPolicy`, so full, incremental,
+all-reusable, and empty-group paths cannot silently apply different
+combinations. A second phase type, `FaFinalized`, requires optional bullet
+repair to run before that policy's monotonicity projection on every path.
+
+A cache-only ten-file development experiment held every other typed option
+fixed and changed only this policy. All 547 FA groups replayed
+from cache. Nine normalized outputs were identical; the tenth retained exactly
+one cross-speaker overlap that the compatibility arm had clamped. The ten
+same-speaker clamps and seven start-regression removals were unchanged. This
+proves causal isolation of the local projection, not that either boundary is
+acoustically preferable; a sealed listening experiment remains the promotion
+gate.
 
 ## Implemented evidence lanes
 
@@ -31,13 +62,13 @@ flowchart TB
     subgraph LOCAL["Versioned local projections"]
         ASRP["ASR cleanup and timed chunks"]
         SPKP["Normalized turns and speaker projection"]
-        FAP["Word timings and %wor policy"]
+        FAP["Word timings, %wor policy,<br/>and typed end-overlap projection"]
         UTP["Pre-CHAT and post-CHAT boundaries"]
     end
 
     subgraph OUTPUTS["Durable experiment products"]
         CACHE["Content-addressed raw/derived cache"]
-        SIDE["Causal evidence sidecars"]
+        SIDE["Causal evidence sidecars<br/>schema 3: line + utterance identity"]
         REPLAY["Fingerprint-admitted replay bundle"]
         OUT["Validated CHAT"]
     end
@@ -74,7 +105,9 @@ validated and committed durably before projection succeeds.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> RequestIdentity: validate media and request facts
+    [*] --> WorkerRecipe: derive exact engine recipe
+    WorkerRecipe --> SelectedWorker: select/load recipe-specific worker
+    SelectedWorker --> RequestIdentity: obtain that worker's live engine identity
     RequestIdentity --> CompletedEvidence: admitted durable hit
     RequestIdentity --> CacheMiss: absent or deliberate refresh
     RequestIdentity --> Refused: corrupt or incompatible evidence
@@ -90,7 +123,11 @@ stateDiagram-v2
 
 This is a typestate boundary. Provider adapters cannot manufacture
 `AuthorizedRun`, and offline replay cannot accidentally acquire provider-call
-capability.
+capability. A per-job cache key uses the capability of the exact worker selected
+for that request. A process-wide availability snapshot is not evidence of which
+engine handled a job and cannot enter cache identity. Lazy workers are keyed by
+their engine recipe, so requests for different ASR or forced-alignment engines
+cannot reuse one process and silently inherit whichever model loaded first.
 
 ## Replay has two deliberately different meanings
 
@@ -114,6 +151,15 @@ The current offline transcribe bundle begins from retained projected ASR and
 turn artifacts, so it tests downstream speaker projection, segmentation, CHAT
 construction, and postprocessing without claiming that those artifacts are raw
 Rev or raw pyannote evidence.
+
+FA schema 3 keeps the input-AST line index for debugging and adds an ordinal
+among utterances only for every structured monotonicity effect and its
+neighbour. Command provenance can insert an `@Comment` before final
+serialization, so a line index alone is not a stable final-output address.
+Experiment admission cross-checks the recorded ordinal against the exact input
+CHAT and then resolves the same speaker/token identity in output CHAT; a
+header-only rewrite succeeds, while an utterance insertion, deletion, reorder,
+or lexical drift refuses.
 
 ## Reproducible comparative experiment loop
 

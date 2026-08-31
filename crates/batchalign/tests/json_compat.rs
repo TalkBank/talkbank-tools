@@ -73,9 +73,8 @@ fn snapshot_job_submission_with_files() {
         options: CommandOptions::Align(AlignOptions {
             common: CommonOptions::default(),
             fa_engine: batchalign::options::FaEngineName::Wave2Vec,
-            utr_engine: None,
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
+            utr: Default::default(),
+            boundaries: Default::default(),
             pauses: true,
             wor: true.into(),
             merge_abbrev: false.into(),

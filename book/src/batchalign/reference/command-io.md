@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-08-28 14:01 EDT
+**Last updated:** 2026-08-31 07:13 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -350,7 +350,7 @@ Rust layer first rather than adding logic in CLI dispatch.
 | **Mutation** | **Never mutates input.** Creates new `.opensmile.csv` files in `OUT_DIR`. | Same |
 | **Key options** | `--feature-set` (eGeMAPSv02, etc.), `--lang` | All passed |
 
-**Special output:** This is the only command that produces non-CHAT output.
+**Special output:** This command produces non-CHAT output.
 
 ---
 
@@ -379,6 +379,26 @@ batchalign3 avqi INPUT_DIR OUTPUT_DIR
 
 ---
 
+### 12. diarize
+
+**Purpose:** Detect anonymous acoustic speaker turns without transcription or
+CHAT mutation.
+
+| Aspect | Local CLI | Explicit remote `--server` |
+|--------|-----------|---------------------|
+| **Input files** | `.mp3`, `.mp4`, `.wav` files in input paths | Media filenames only; the server must resolve the audio on its own filesystem |
+| **Extensions filter** | `["mp3", "mp4", "wav"]` | Same |
+| **Output** | One `<media-stem>.turns.json` file per input | Same JSON artifacts returned to the client, which writes them locally |
+| **Mutation** | **Never mutates input.** Does not read or write CHAT. | Same |
+| **Key options** | `--num-speakers`, `--lang` | Same |
+
+The output identifies anonymous acoustic tracks (`PAR0`, `PAR1`, ...), not
+semantic CHAT roles. Standalone `diarize` currently executes local Pyannote;
+integrated `transcribe --diarization enabled` is a separate product path whose
+dedicated speaker backend defaults to paid pyannoteAI Precision-2.
+
+---
+
 ## Summary: Input Sources and Mutation Patterns
 
 ### Commands that mutate `.cha` files in place (when `OUT_DIR = IN_DIR`)
@@ -402,6 +422,7 @@ audio files referenced by `align` are read but never modified.
 |---------|-------|----------------|
 | **transcribe** | Audio files (`.mp3`/`.mp4`/`.wav`) | New `.cha` files |
 | **benchmark** | Audio files | New `.cha` files with eval metrics |
+| **diarize** | Audio files | New `.turns.json` files |
 | **opensmile** | Audio files | New `.opensmile.csv` files |
 | **avqi** | Paired `.cs`/`.sv` audio | New `.avqi.txt` files |
 
@@ -469,6 +490,7 @@ Remote submissions always use content mode.
 | `align` | `PathsModeAudio` | Forced alignment needs audio paths the server can open |
 | `transcribe` / `transcribe_s` | `PathsModeAudio` | ASR runs on server-visible media files |
 | `benchmark` | `PathsModeAudio` | Composite of transcribe + compare over server-visible media |
+| `diarize` | `PathsModeAudio` | Runs speaker inference over server-visible media and writes turns JSON |
 | `avqi` | `PathsModeAudio` | Reads paired `.cs`/`.sv` audio directly from the filesystem |
 | `morphotag` | `PathsModeText` | Server-side runner reads CHAT input from `source_paths` |
 | `utseg` | `PathsModeText` | Same runner as morphotag |
@@ -591,6 +613,7 @@ filter dummy CHAT locally.
 | translate | Full | Full | Full | |
 | coref | Full | Full | Full | |
 | benchmark | Full | Full | Full | Prefers the local daemon when `auto_daemon` is enabled; explicit `--server` stays the fallback if the daemon path is unavailable |
+| diarize | Full | Full | Full | Produces anonymous turns JSON; standalone evidence is not yet replayed from the integrated speaker cache |
 | opensmile | Full | Full | Full | Special CSV output handling on both sides |
 | compare | Full | Full | Full | Gold file resolved locally or server-side |
 | avqi | Full (local) | Full (local) | Full | Prefers the local daemon when `auto_daemon` is enabled; explicit `--server` stays the fallback if the daemon path is unavailable |

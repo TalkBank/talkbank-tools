@@ -1,7 +1,7 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-08-30 20:05 EDT
+**Last updated:** 2026-08-31 03:04 EDT
 
 ## Release boundary
 
@@ -62,6 +62,40 @@ evidence supports decoder-policy analysis; and final CHAT is the user-visible
 product. None can silently stand in for another.
 
 ## Current source-tree behavior
+
+### Selected-worker engine identity
+
+Task availability and execution identity are different facts. A pool-wide
+capability snapshot can say that forced alignment is installed, but it cannot
+say which model served an engine-specific worker key. Current dispatch therefore
+queries capabilities from the exact worker selected by command, language, and
+typed engine recipe. Cache lookup and commit use that selected worker's live
+engine version.
+
+Lazy-profile workers retain the engine recipe in `WorkerKey` even though they
+load the model on demand. Wave2Vec and Whisper requests therefore cannot share
+a task-only worker or reuse its `already_loaded` state. The lazy load completes
+before the selected worker reports the version used for cache identity. Shared
+stdio and TCP workers serialize control operations across the entire
+request/response round trip, so an `ensure_task` response cannot be delivered
+to a concurrent capability request.
+
+```mermaid
+flowchart LR
+    J[Typed command options] --> K[WorkerKey<br/>target + language + engine recipe]
+    K --> W[Exact selected worker]
+    W -->|lazy profile| L[ensure_task for this recipe]
+    W -->|eager profile or task| C[capabilities]
+    L --> C
+    C --> I[Selected engine version]
+    I --> R[PipelineServices]
+    I --> H[Cache lookup and commit]
+    P[Pool-wide availability snapshot] -.->|never cache identity| H
+```
+
+This distinction matters for experiments: a cache row labeled with another
+worker's engine version is false provenance even if payload validation later
+prevents the wrong engine from consuming it.
 
 ### Rev paid-boundary identity
 
@@ -148,6 +182,44 @@ The trace keeps exact input words and assignments together with the source and
 model evidence. This permits policy replay and confidence analysis without
 another model invocation, while keeping the final CHAT free of dependent-tier
 debug clutter.
+
+### Forced-alignment decision evidence
+
+When `align --debug-dir DIR` is enabled, BA3 writes a versioned, fail-closed
+`<stem>_fa_evidence.json` causal trace. Version 0.3.0 writes schema 2. Version
+0.4.0 writes schema 3,
+which adds stable utterance ordinals to numeric monotonicity decisions while
+retaining the schema-2 input-line coordinates for debugging.
+
+The two coordinates deliberately name different spaces. `line_idx` addresses
+the exact input `ChatFile.lines` collection. It must never be used to index the
+final document: provenance serialization may insert an `@Comment` header and
+shift every following line without changing any utterance. The utterance
+ordinal survives that header-only transformation. Research tooling therefore
+derives and corroborates the ordinal from the exact input, then resolves it in
+the output while checking speaker identity and normalized spoken tokens.
+
+```mermaid
+flowchart LR
+    I["Exact input CHAT"] --> L["Input line index<br/>debug coordinate"]
+    I --> O["Input-derived utterance ordinal<br/>stable coordinate"]
+    L --> D["Typed FA decision"]
+    O --> D
+    D --> E["Schema-3 evidence sidecar"]
+    I --> P["Alignment + provenance projection"]
+    P --> H["Possible @Comment insertion"]
+    H --> F["Final CHAT"]
+    E --> C{"Corroborate ordinal,<br/>speaker, spoken tokens"}
+    F --> C
+    C -->|"all agree"| R["Resolved output utterance"]
+    C -->|"drift"| X["Refuse the evidence join"]
+```
+
+This is an observability contract, not a claim that the trace is a complete
+repair history. Current FA evidence retains pre-injection timings, scores,
+origin chains, and typed decisions, but final post-processing still lowers
+word timings into CHAT before a group-shaped evidence value can own them. The
+resulting CHAT remains necessary when evaluating final word boundaries.
 
 ### Submit-path retries
 

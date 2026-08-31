@@ -12,9 +12,10 @@
 use crate::api::DurationMs;
 use crate::cache::CacheBackend;
 use crate::chat_ops::fa::{
-    FaGroup, WordTiming, apply_fa_results, cache_key, collect_existing_fa_word_timings,
-    enforce_monotonicity, expand_bullets_for_edge_fillers, group_utterances,
-    refresh_existing_alignment_for_utterance, strip_wor_from_monotonicity_stripped_utterances,
+    BulletRepairPolicy, FaGroup, WordTiming, apply_fa_results_with_projection_policy, cache_key,
+    collect_existing_fa_word_timings, expand_bullets_for_edge_fillers, finalize_without_injection,
+    group_utterances, refresh_existing_alignment_for_utterance,
+    strip_wor_from_monotonicity_stripped_utterances,
 };
 use crate::chat_ops::{CacheKey, ChatFile, Line, Utterance};
 use crate::error::ServerError;
@@ -128,14 +129,21 @@ pub(crate) async fn process_fa_incremental(
         windows_clamped,
     } = group_utterances(&chat_file, fa_params.max_group_ms().0, &recording);
     if groups.is_empty() {
-        let monotonicity = enforce_monotonicity(&mut chat_file);
-        strip_wor_from_monotonicity_stripped_utterances(&mut chat_file, &monotonicity);
+        let finalized = finalize_without_injection(
+            &mut chat_file,
+            fa_params.projection_policy(),
+            BulletRepairPolicy::from(fa_params.bullet_repair),
+        );
+        if fa_params.bullet_repair {
+            tracing::info!(stats = %finalized.repair_stats(), "bullet repair applied (incremental)");
+        }
+        strip_wor_from_monotonicity_stripped_utterances(&mut chat_file, finalized.monotonicity());
         let written = crate::chat_ops::fa::retain_decision_evidence(
             &mut chat_file,
             crate::chat_ops::fa::FaDecisions::without_injection(
                 Vec::new(),
                 unplaceable_decisions,
-                monotonicity,
+                finalized,
             ),
         );
         return Ok(FaResult::without_groups(
@@ -250,15 +258,15 @@ pub(crate) async fn process_fa_incremental(
             continue;
         }
 
-        let resolution = super::resolve_cached_fa_group(
-            cached_raw.get(key.as_str()),
-            cached.get(key.as_str()),
+        let resolution = super::FaCacheGroupAdmission::new(
             key,
             fa_params.engine,
+            services.engine_version,
             i,
             &groups[i],
             &recording,
-        );
+        )
+        .resolve(cached_raw.get(key.as_str()), cached.get(key.as_str()));
         for refusal in resolution.refusals {
             warn!(
                 error = %refusal.error,
@@ -335,7 +343,7 @@ pub(crate) async fn process_fa_incremental(
                     (
                         evidence.group_index,
                         evidence.timings,
-                        Some(evidence.raw_evidence),
+                        evidence.raw_evidence,
                         evidence.fallback_event,
                     )
                 }
@@ -351,20 +359,29 @@ pub(crate) async fn process_fa_incremental(
             }
 
             let ba_version = env!("CARGO_PKG_VERSION");
-            if let Ok(cache_data) = serde_json::to_value(&timings)
-                && let Err(error) = services
-                    .cache
-                    .put_batch(
-                        &[(cache_keys[miss_idx].as_str().to_string(), cache_data)],
-                        CACHE_TASK.as_str(),
-                        services.engine_version,
-                        ba_version,
-                    )
-                    .await
-            {
-                warn!(error = %error, "Failed to cache FA result (non-fatal)");
-            }
             if let Some(raw_evidence) = raw_evidence {
+                match super::AdmittedCachedFaTimings::encode_from_raw(
+                    timings.clone(),
+                    &raw_evidence,
+                ) {
+                    Ok(cache_data) => {
+                        if let Err(error) = services
+                            .cache
+                            .put_batch(
+                                &[(cache_keys[miss_idx].as_str().to_string(), cache_data)],
+                                CACHE_TASK.as_str(),
+                                services.engine_version,
+                                ba_version,
+                            )
+                            .await
+                        {
+                            warn!(error = %error, "Failed to cache derived FA evidence (non-fatal)");
+                        }
+                    }
+                    Err(error) => {
+                        warn!(error = %error, "Failed to encode derived FA evidence (non-fatal)");
+                    }
+                }
                 match serde_json::to_value(raw_evidence) {
                     Ok(cache_data) => {
                         if let Err(error) = services
@@ -415,29 +432,27 @@ pub(crate) async fn process_fa_incremental(
         })
         .collect();
 
-    // Injection, then monotonicity enforcement, as ONE step. The sequence used
+    // Injection, optional repair, then monotonicity enforcement, as ONE typed
+    // transition. The sequence used
     // to be two statements plus a comment saying the second must follow the
     // first, and this path shipped without it: UTR anchor drift survived into
     // the output (APROCSA 2256_T4.cha, 2026-04-09). Consuming `FaApplied` is
     // now the only way to reach the injection records, so the comment is a
     // signature.
-    let ordered = apply_fa_results(
+    let finalized = apply_fa_results_with_projection_policy(
         &mut chat_file,
         &groups,
         &final_timings,
-        fa_params.word_end_policy(),
+        fa_params.projection_policy(),
         fa_params.wor_tier.should_write(),
     )
-    .then_enforce_monotonicity(&mut chat_file);
-
-    // Post-FA bullet repair (experimental, opt-in via --bullet-repair).
-    let repair_decisions = if fa_params.bullet_repair {
-        let repair_result = crate::chat_ops::fa::repair_bullets(&mut chat_file, false);
-        tracing::info!(%repair_result.stats, "bullet repair applied (incremental)");
-        repair_result.decisions
-    } else {
-        Vec::new()
-    };
+    .then_finalize(
+        &mut chat_file,
+        BulletRepairPolicy::from(fa_params.bullet_repair),
+    );
+    if fa_params.bullet_repair {
+        tracing::info!(stats = %finalized.repair_stats(), "bullet repair applied (incremental)");
+    }
 
     // The same owner the full path uses, so the ORDER lives in one place and a
     // new source cannot reach one path only. The strip and the two guards this
@@ -453,8 +468,7 @@ pub(crate) async fn process_fa_incremental(
         crate::chat_ops::fa::FaDecisions {
             rescue: Vec::new(),
             unplaceable: unplaceable_decisions,
-            ordered,
-            repair: repair_decisions.iter().map(Into::into).collect(),
+            finalized,
         },
     );
     let (decision_records, timing_effects) = written_decisions.into_evidence();
@@ -706,8 +720,8 @@ mod tests {
     // ran `enforce_monotonicity` after `apply_fa_results` and the incremental
     // path omitted it, so backward timestamps survived. That scenario is no
     // longer writable. `apply_fa_results` returns `FaApplied`, whose records are
-    // reachable only through `then_enforce_monotonicity`, so a path that skips
-    // enforcement cannot obtain the records required by durable evidence.
+    // reachable by durable evidence only through `then_finalize`, so a path
+    // that skips enforcement cannot obtain the records required by that sink.
     //
     // What survives here is the part a signature cannot express: that
     // enforcement strips a backward bullet and leaves the forward one alone.
@@ -788,7 +802,7 @@ mod tests {
         );
         // Through the same route production takes, rather than replicating the
         // sequence by hand.
-        let _ = applied.then_enforce_monotonicity(&mut chat);
+        let _ = applied.then_finalize(&mut chat, crate::chat_ops::fa::BulletRepairPolicy::Disabled);
 
         let utt0 = get_utterance(&chat, 0).expect("utterance 0 must exist");
         let utt1 = get_utterance(&chat, 1).expect("utterance 1 must exist");

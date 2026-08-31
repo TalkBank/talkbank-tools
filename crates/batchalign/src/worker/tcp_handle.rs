@@ -39,9 +39,17 @@ enum WorkerRequest<'a> {
     Infer { request: &'a InferRequest },
     BatchInfer { request: &'a BatchInferRequest },
     ExecuteV2 { request: &'a ExecuteRequestV2 },
+    EnsureTask { request: EnsureTaskRequest<'a> },
     Health,
     Capabilities,
     Shutdown,
+}
+
+#[derive(Debug, Serialize)]
+struct EnsureTaskRequest<'a> {
+    task: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    engine_overrides: Option<&'a std::collections::BTreeMap<String, String>>,
 }
 
 /// Wire-level response envelope (same as handle.rs, shared protocol).
@@ -65,6 +73,9 @@ enum WorkerResponse {
     },
     Capabilities {
         response: WorkerCapabilities,
+    },
+    EnsureTask {
+        response: crate::worker::EnsureTaskResponse,
     },
     Shutdown,
     Error {
@@ -430,6 +441,43 @@ impl TcpWorkerHandle {
             WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
             other => Err(WorkerError::Protocol(format!(
                 "unexpected TCP response for capabilities: {other:?}"
+            ))),
+        }
+    }
+
+    /// Load one task in a lazy-profile TCP worker.
+    pub async fn ensure_task(
+        &mut self,
+        task: &str,
+        engine_overrides: Option<&std::collections::BTreeMap<String, String>>,
+        timeout_s: u64,
+    ) -> Result<crate::worker::EnsureTaskResponse, WorkerError> {
+        self.write_request(&WorkerRequest::EnsureTask {
+            request: EnsureTaskRequest {
+                task,
+                engine_overrides,
+            },
+        })
+        .await?;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_s);
+        let response = self
+            .read_response_skipping_progress(deadline, None)
+            .await
+            .map_err(|error| match error {
+                WorkerError::Protocol(message) if message.contains("timeout") => {
+                    WorkerError::Protocol(format!(
+                        "timeout ({timeout_s}s) waiting for ensure_task({task}) response"
+                    ))
+                }
+                other => other,
+            })?;
+        match response {
+            WorkerResponse::EnsureTask { response } => Ok(response),
+            WorkerResponse::Error { error, kind: _ } => Err(WorkerError::Bootstrap(format!(
+                "ensure_task failed: {error}"
+            ))),
+            other => Err(WorkerError::Protocol(format!(
+                "unexpected TCP response for ensure_task: {other:?}"
             ))),
         }
     }
