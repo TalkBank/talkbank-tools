@@ -154,6 +154,14 @@ pub enum WorkerError {
     #[error("worker bootstrap error: {0}")]
     Bootstrap(String),
 
+    /// A newly spawned worker reports different executable code from the
+    /// runtime already pinned by this server.
+    ///
+    /// **Terminal** -- admitting it would make result provenance ambiguous;
+    /// the server must be restarted into one coherent Python environment.
+    #[error("worker runtime identity differs from the runtime pinned by this server")]
+    RuntimeIdentityMismatch,
+
     /// Low-level I/O failure on the stdin/stdout pipes to the worker process.
     ///
     /// Usually means the pipe was closed (worker crashed) or a system-level
@@ -213,4 +221,10 @@ pub enum WorkerError {
     /// against. Callers should let the job unwind.
     #[error("worker pool is shutting down")]
     PoolShuttingDown,
+}
+
+impl From<super::runtime_identity::WorkerRuntimeMismatch> for WorkerError {
+    fn from(_: super::runtime_identity::WorkerRuntimeMismatch) -> Self {
+        Self::RuntimeIdentityMismatch
+    }
 }

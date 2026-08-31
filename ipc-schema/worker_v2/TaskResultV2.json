@@ -318,6 +318,12 @@
         "success"
       ]
     },
+    "BoundaryProbabilityMicrosV2": {
+      "description": "Fixed-point probability in the inclusive unit interval at micro precision.\n\nThe private field and fallible deserializer prevent invalid probabilities\nfrom crossing the worker boundary as ordinary integers.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
     "CorefAnnotationV2": {
       "description": "One per-sentence coreference annotation returned by Python.",
       "type": "object",
@@ -745,6 +751,94 @@
         "items"
       ]
     },
+    "UtsegAdjacencyPolicyRevisionV2": {
+      "description": "Closed raw-to-applied boundary-action policy revisions.",
+      "oneOf": [
+        {
+          "description": "Preserve current behavior: suppress the earlier adjacent non-ordinary action.",
+          "type": "string",
+          "const": "suppress-earlier-adjacent-nonordinary-v1"
+        },
+        {
+          "description": "Experimental replay: suppress only the earlier of adjacent true boundaries.",
+          "type": "string",
+          "const": "suppress-earlier-adjacent-boundaries-v1"
+        }
+      ]
+    },
+    "UtsegBoundaryActionV2": {
+      "description": "Closed label vocabulary emitted by the TalkBank utterance-boundary model.\n\nNames describe model semantics instead of exposing classifier label indices,\nwhose numeric ordering is an implementation detail of the Python model.",
+      "oneOf": [
+        {
+          "description": "Ordinary lexical word with no punctuation or onset label.",
+          "type": "string",
+          "const": "ordinary"
+        },
+        {
+          "description": "Capitalized word classified as an utterance onset.",
+          "type": "string",
+          "const": "capitalized_onset"
+        },
+        {
+          "description": "Period-like utterance boundary.",
+          "type": "string",
+          "const": "period_boundary"
+        },
+        {
+          "description": "Question-like utterance boundary.",
+          "type": "string",
+          "const": "question_boundary"
+        },
+        {
+          "description": "Exclamation-like utterance boundary.",
+          "type": "string",
+          "const": "exclamation_boundary"
+        },
+        {
+          "description": "Comma-like non-boundary punctuation.",
+          "type": "string",
+          "const": "comma"
+        }
+      ]
+    },
+    "UtsegBoundaryModelEvidenceV2": {
+      "description": "Provenance-bearing evidence emitted by one boundary-model invocation.\n\nThe wrapper prevents a per-word evidence vector from traveling without the\nmodel identity needed to interpret or reproduce it.",
+      "type": "object",
+      "properties": {
+        "adjacency_policy_revision": {
+          "description": "Exact raw-to-applied adjacency-policy semantics.",
+          "$ref": "#/$defs/UtsegAdjacencyPolicyRevisionV2"
+        },
+        "model_id": {
+          "description": "HuggingFace model identifier selected by the resolver.",
+          "type": "string"
+        },
+        "model_revision": {
+          "description": "Exact HuggingFace revision when the loaded config exposes one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "normalization_revision": {
+          "description": "Exact lexical-normalization semantics applied before inference.",
+          "$ref": "#/$defs/UtsegNormalizationRevisionV2"
+        },
+        "word_evidence": {
+          "description": "Evidence states parallel to the request word list.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UtsegWordBoundaryEvidenceV2"
+          }
+        }
+      },
+      "required": [
+        "model_id",
+        "normalization_revision",
+        "adjacency_policy_revision",
+        "word_evidence"
+      ]
+    },
     "UtsegItemResultV2": {
       "description": "One utseg item result returned by Python.",
       "type": "object",
@@ -760,6 +854,17 @@
             "format": "uint",
             "minimum": 0
           }
+        },
+        "boundary_model_evidence": {
+          "description": "Provenance-bearing classifier evidence parallel to the request words.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UtsegBoundaryModelEvidenceV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "error": {
           "description": "Optional per-item runtime error.",
@@ -780,6 +885,16 @@
         }
       }
     },
+    "UtsegNormalizationRevisionV2": {
+      "description": "Closed lexical-normalization semantics applied before model inference.",
+      "oneOf": [
+        {
+          "description": "Lowercase, trim, and remove ASCII period/question/exclamation/comma.",
+          "type": "string",
+          "const": "lower-strip-ascii-punctuation-v1"
+        }
+      ]
+    },
     "UtsegResultV2": {
       "description": "Batched utterance-segmentation response payload.",
       "type": "object",
@@ -794,6 +909,65 @@
       },
       "required": [
         "items"
+      ]
+    },
+    "UtsegWordBoundaryEvidenceV2": {
+      "description": "Evidence state for one input word, parallel to the request word list.\n\nA normalization omission is a first-class variant, so consumers never\nconfuse \"the model classified this as ordinary\" with \"the model never saw\nthis word\". List position owns word identity; there is no redundant index\nthat could disagree with it.",
+      "oneOf": [
+        {
+          "description": "The normalized word reached the classifier.",
+          "type": "object",
+          "properties": {
+            "applied_action": {
+              "description": "Decision after adjacency policy, used to build assignments.",
+              "$ref": "#/$defs/UtsegBoundaryActionV2"
+            },
+            "boundary_probability_micros": {
+              "description": "Sum of the model probabilities for the three true boundary labels.",
+              "$ref": "#/$defs/BoundaryProbabilityMicrosV2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "classified"
+            },
+            "raw_action": {
+              "description": "Raw classifier decision before adjacency policy.",
+              "$ref": "#/$defs/UtsegBoundaryActionV2"
+            }
+          },
+          "required": [
+            "kind",
+            "raw_action",
+            "applied_action",
+            "boundary_probability_micros"
+          ]
+        },
+        {
+          "description": "Normalization removed the word before classifier inference.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "normalization_omission"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "description": "The normalized input was too short for classifier inference.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "model_short_circuit"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
       ]
     },
     "WhisperChunkResultV2": {

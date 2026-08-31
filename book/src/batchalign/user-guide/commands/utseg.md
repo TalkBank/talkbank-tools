@@ -1,7 +1,7 @@
 # utseg
 
 **Status:** Current
-**Last updated:** 2026-05-23 09:20 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 Re-segment utterance boundaries in an existing CHAT transcript. Text-only
 , no audio involved. The model selected per language is either a trained
@@ -96,6 +96,13 @@ or scheduling.
 - Existing `%mor` and `%gra` tiers on recomputed utterances will be
   invalidated; re-run `morphotag` after `utseg` if those tiers are needed
 - No audio is involved
+
+The boundary model uses lexical context only. It does not receive audio pause,
+energy, pitch, or diarization evidence. Internally BA3 validates one assignment
+per input word and retains typed model evidence across the worker boundary.
+The versioned `--debug-dir` evidence sidecars described in the transcribe guide
+belong to transcribe's distinct pre-CHAT and post-CHAT phases; standalone
+`utseg` does not currently write those sidecars.
 
 ---
 

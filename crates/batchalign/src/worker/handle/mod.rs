@@ -26,6 +26,7 @@ use std::time::Duration;
 
 use crate::worker::WorkerPid;
 use crate::worker::error::WorkerError;
+use crate::worker::runtime_identity::WorkerRuntimeIdentity;
 use tokio::io::BufReader;
 use tokio::process::{Child, ChildStdin, ChildStdout};
 use tracing::{debug, info};
@@ -35,6 +36,7 @@ pub struct WorkerHandle {
     config: WorkerConfig,
     child: Child,
     pid: WorkerPid,
+    runtime: WorkerRuntimeIdentity,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
     /// Monotonic instant when the last request was dispatched.
@@ -62,6 +64,8 @@ pub(crate) struct WorkerHandleParts {
     pub child: Child,
     /// Worker process ID.
     pub pid: WorkerPid,
+    /// Content-addressed runtime evidence from the ready handshake.
+    pub runtime: WorkerRuntimeIdentity,
     /// Child's stdin for writing requests.
     pub stdin: ChildStdin,
     /// Child's stdout for reading responses.
@@ -176,6 +180,7 @@ impl WorkerHandle {
             .take()
             .ok_or_else(|| WorkerError::SpawnFailed("child stdin not captured".into()))?;
         let pid = WorkerPid(ready.pid);
+        let runtime = ready.runtime;
         let startup_ms = spawn_start.elapsed().as_millis() as u64;
 
         info!(
@@ -215,6 +220,7 @@ impl WorkerHandle {
             config,
             child,
             pid,
+            runtime,
             stdin,
             stdout: stdout_reader,
             last_activity: tokio::time::Instant::now(),

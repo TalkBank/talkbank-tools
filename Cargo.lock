@@ -407,7 +407,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "batchalign"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -512,13 +512,13 @@ dependencies = [
 
 [[package]]
 name = "batchalign-transform"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "aho-corasick",
  "blake3",
  "csv",
  "ferrous-opencc",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "insta",
  "proptest",
  "schemars 1.2.2",
@@ -2438,9 +2438,9 @@ dependencies = [
 
 [[package]]
 name = "fraction"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33fee0259ffdc3d7bd64438b6b08437884d4df5700f9cb8a23b079c3958ae578"
+checksum = "e246562084dde8ebbcc943b261c406ce4f68e5032ec28029a251a47d6a295500"
 dependencies = [
  "num",
  "num-bigint",
@@ -3050,7 +3050,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "slab",
  "tokio",
  "tokio-util",
@@ -3321,9 +3321,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d22053281f852e11534f5198498373cbb59295120a20771d90f7ed1897490a72"
+checksum = "27b501faa50e7a26c3d3560ca625132f4078a17771f4810baf70475ae48cbe43"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -3570,9 +3570,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.14.0"
+version = "2.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
+checksum = "07aa2048142242915a31d35844fb311e0e53fcca590c3a0a40dcf1b841fa09eb"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
@@ -3893,9 +3893,9 @@ dependencies = [
 
 [[package]]
 name = "jsonschema"
-version = "0.51.0"
+version = "0.52.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152999731bfbe0bb82d561550be73b0c31a9827d6ebe3fe96ad47563703b5328"
+checksum = "93e842fa72fd1e50ca4676a527641c13f5ee0d423ac699bfe1cd2afa3a4fdbac"
 dependencies = [
  "ahash",
  "bytecount",
@@ -3904,7 +3904,6 @@ dependencies = [
  "fancy-regex 0.19.0",
  "fraction",
  "getrandom 0.3.4",
- "idna",
  "itoa",
  "jsonschema-regex",
  "jsonschema-value",
@@ -3922,18 +3921,18 @@ dependencies = [
 
 [[package]]
 name = "jsonschema-regex"
-version = "0.51.0"
+version = "0.52.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cb2e614e1c610e31e947d53156e877340c718e053cfce0dfe9b9ce7beff4d31"
+checksum = "f5d90ea83fa606c96f0b4737ecedf1fa6b624272022edc42039565f8d8af0b78"
 dependencies = [
  "regex-syntax 0.8.11",
 ]
 
 [[package]]
 name = "jsonschema-value"
-version = "0.51.0"
+version = "0.52.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24373bc85409cb935a46af0ffb41294c5372c08cf9b0709913d908154cd10582"
+checksum = "da4ab4cbe58181a117d8c3582844ce20b07184319b51ba6d756596c1c451aebc"
 dependencies = [
  "ahash",
  "bytecount",
@@ -3941,6 +3940,7 @@ dependencies = [
  "num-cmp",
  "num-traits",
  "serde_json",
+ "zmij",
 ]
 
 [[package]]
@@ -5475,7 +5475,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da1d65da6dd5d1e44199ac0f58712d241c0f439f80adea8924d832384087f85"
 dependencies = [
  "base64 0.22.1",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "quick-xml",
  "serde",
  "time",
@@ -6257,9 +6257,9 @@ dependencies = [
 
 [[package]]
 name = "referencing"
-version = "0.51.0"
+version = "0.52.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0aff997fc7eecb671a947b0f73f5ce4bcb4ad3534fd5bff2dd752718a8107525"
+checksum = "d38a014525040cdc9893361b7419bcf1f43b7ba7055eabaf6d91d6b75caa8b3f"
 dependencies = [
  "ahash",
  "fluent-uri",
@@ -6446,7 +6446,7 @@ dependencies = [
  "bytecheck",
  "bytes",
  "hashbrown 0.17.1",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "munge",
  "ptr_meta",
  "rancor",
@@ -6743,7 +6743,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "687274d293b6cdc6e73e0fee520bf2049650090d7164f87672d212a3c530cf4a"
 dependencies = [
  "dyn-clone",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "ref-cast",
  "schemars_derive 1.2.2",
  "serde",
@@ -6915,7 +6915,7 @@ version = "1.0.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "itoa",
  "memchr",
  "serde",
@@ -6995,7 +6995,7 @@ dependencies = [
  "chrono",
  "hex",
  "indexmap 1.9.3",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "jiff",
  "schemars 0.9.0",
  "schemars 1.2.2",
@@ -7023,7 +7023,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "itoa",
  "ryu",
  "serde",
@@ -7360,7 +7360,7 @@ dependencies = [
  "futures-util",
  "hashbrown 0.16.1",
  "hashlink",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "log",
  "memchr",
  "percent-encoding",
@@ -7914,8 +7914,8 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "talkbank-derive"
-version = "0.16.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.16.0#8b445304cf61913449154e8e3f831dfd25666338"
+version = "0.17.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.17.0#733da964d4daa9ae85afeb09070eb685bf351a41"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7924,11 +7924,11 @@ dependencies = [
 
 [[package]]
 name = "talkbank-model"
-version = "0.16.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.16.0#8b445304cf61913449154e8e3f831dfd25666338"
+version = "0.17.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.17.0#733da964d4daa9ae85afeb09070eb685bf351a41"
 dependencies = [
  "dashmap",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "miette",
  "parking_lot",
  "phf 0.14.0",
@@ -7946,10 +7946,10 @@ dependencies = [
 
 [[package]]
 name = "talkbank-parser"
-version = "0.16.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.16.0#8b445304cf61913449154e8e3f831dfd25666338"
+version = "0.17.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.17.0#733da964d4daa9ae85afeb09070eb685bf351a41"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "smallvec",
  "smol_str",
  "talkbank-model",
@@ -7961,11 +7961,11 @@ dependencies = [
 
 [[package]]
 name = "talkbank-parser-re2c"
-version = "0.16.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.16.0#8b445304cf61913449154e8e3f831dfd25666338"
+version = "0.17.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.17.0#733da964d4daa9ae85afeb09070eb685bf351a41"
 dependencies = [
  "chumsky",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "miette",
  "quote",
  "serde",
@@ -7978,8 +7978,8 @@ dependencies = [
 
 [[package]]
 name = "talkbank-transform"
-version = "0.16.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.16.0#8b445304cf61913449154e8e3f831dfd25666338"
+version = "0.17.0"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.17.0#733da964d4daa9ae85afeb09070eb685bf351a41"
 dependencies = [
  "chrono",
  "jsonschema",
@@ -8796,7 +8796,7 @@ version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "serde_core",
  "serde_spanned 1.1.1",
  "toml_datetime 0.7.5+spec-1.1.0",
@@ -8811,7 +8811,7 @@ version = "1.1.4+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3aace63f4bbcdfc2c965b059de67119c89c4017a70d633be6c104910f67056f5"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "serde_core",
  "serde_spanned 1.1.1",
  "toml_datetime 1.1.1+spec-1.1.0",
@@ -8853,7 +8853,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "toml_datetime 0.6.3",
  "winnow 0.5.40",
 ]
@@ -8864,7 +8864,7 @@ version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "serde",
  "serde_spanned 0.6.9",
  "toml_datetime 0.6.3",
@@ -8877,7 +8877,7 @@ version = "0.25.13+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6975367e4d2ef766d86af01ffad14b622fecc8d4357a998fbc4deb6e9bacaf9b"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
  "winnow 1.0.4",
@@ -8946,7 +8946,7 @@ checksum = "ebe5ef63511595f1344e2d5cfa636d973292adc0eec1f0ad45fae9f0851ab1d4"
 dependencies = [
  "futures-core",
  "futures-util",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "pin-project-lite",
  "slab",
  "sync_wrapper",
@@ -9152,13 +9152,12 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.26.13"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17ebdd3a5a7e28a1890b876fdbd0c3c0fe0a6336cffaa104f11b9f720c9daa29"
+checksum = "2038684e0058edba0d17302619f62eabce4a8e11c6ac59506996a8d79848851d"
 dependencies = [
  "cc",
  "regex",
- "regex-syntax 0.8.11",
  "serde_json",
  "streaming-iterator",
  "tree-sitter-language",
@@ -9166,14 +9165,14 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-language"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
+checksum = "ca0d1bf6fdd806e43ae5198f82f527056d359def39e54e67a0f478ac09dac081"
 
 [[package]]
 name = "tree-sitter-talkbank"
 version = "0.1.0"
-source = "git+https://github.com/TalkBank/chatter?tag=v0.16.0#8b445304cf61913449154e8e3f831dfd25666338"
+source = "git+https://github.com/TalkBank/chatter?tag=v0.17.0#733da964d4daa9ae85afeb09070eb685bf351a41"
 dependencies = [
  "cc",
  "tree-sitter-language",
@@ -9208,7 +9207,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0061c28f1469e94771bb8aa626ce6b29265c2fb5034115046a170b0cba2e33d2"
 dependencies = [
  "bytes",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "rand 0.9.5",
  "rand_distr",
  "scoped-tls",
@@ -9455,7 +9454,7 @@ version = "5.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8bde15df68e80b16c7d16b9616e80770ad158988daa56a27dccd1e55558b0160"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "serde",
  "serde_json",
  "utoipa-gen",
@@ -10694,7 +10693,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "batchalign-types",
  "blake3",
@@ -10819,7 +10818,7 @@ checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
 dependencies = [
  "crc32fast",
  "flate2",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "memchr",
  "typed-path",
  "zopfli",

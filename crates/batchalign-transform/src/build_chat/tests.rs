@@ -28,6 +28,7 @@ fn test_build_chat_minimal() {
         }],
         media_name: None,
         media_type: None,
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(vec![
@@ -62,6 +63,7 @@ fn test_build_chat_with_timing() {
         }],
         media_name: Some("test.mp3".to_string()),
         media_type: Some("audio".to_string()),
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(vec![
@@ -85,6 +87,64 @@ fn test_build_chat_with_timing() {
     assert!(
         errors.is_empty(),
         "serialized CHAT should reparse cleanly: {errors:?}"
+    );
+}
+
+/// Regression for the archived 3039 replay: a segmented utterance had timed
+/// `%wor` words but no main-tier bullet, while the next main-tier bullet kept
+/// an enclosing pre-segmentation start. Word-mode CHAT construction owns both
+/// tiers, so each main bullet must be the hull of that utterance's own words.
+#[test]
+fn word_utterance_main_bullets_are_derived_from_own_word_hulls() {
+    let desc = TranscriptDescription {
+        langs: vec!["eng".to_string()],
+        participants: vec![ParticipantDesc {
+            id: "PAR".to_string(),
+            name: None,
+            role: "Participant".to_string(),
+            corpus: String::new(),
+        }],
+        media_name: Some("3039.mp3".to_string()),
+        media_type: Some("audio".to_string()),
+        media_status: None,
+        utterances: vec![
+            UtteranceDesc {
+                speaker: "PAR".to_string(),
+                words: Some(vec![
+                    wd("Department", Some(24_275), Some(24_945)),
+                    wd("store", Some(24_945), Some(25_265)),
+                    wd(".", None, None),
+                ]),
+                text: None,
+                start_ms: None,
+                end_ms: None,
+                lang: None,
+            },
+            UtteranceDesc {
+                speaker: "PAR".to_string(),
+                words: Some(vec![
+                    wd("almost", Some(25_265), Some(25_585)),
+                    wd("anniversary", Some(27_455), Some(28_145)),
+                    wd(".", None, None),
+                ]),
+                text: None,
+                start_ms: None,
+                end_ms: None,
+                lang: None,
+            },
+        ],
+        write_wor: true,
+    };
+
+    let output = to_chat_string(&build_chat(&desc).expect("word-timed CHAT should build"));
+
+    assert!(
+        output.contains("*PAR:\tDepartment store . \u{15}24275_25265\u{15}"),
+        "first main-tier hull must come from its own words: {output}"
+    );
+    assert!(
+        output.contains("*PAR:\talmost anniversary . \u{15}25265_28145\u{15}"),
+        "second main-tier hull must not retain an enclosing start: {output}"
     );
 }
 
@@ -118,6 +178,7 @@ fn test_build_chat_text_utterance() {
         }],
         media_name: None,
         media_type: None,
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: None,
@@ -146,6 +207,7 @@ fn test_build_chat_question_terminator() {
         }],
         media_name: None,
         media_type: None,
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(vec![wd("how", None, None), wd("?", None, None)]),
@@ -174,6 +236,7 @@ fn test_write_wor_false_suppresses_wor_tier() {
         }],
         media_name: Some("test.mp3".to_string()),
         media_type: Some("audio".to_string()),
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(vec![
@@ -411,6 +474,7 @@ fn test_empty_participants_error() {
         participants: vec![],
         media_name: None,
         media_type: None,
+        media_status: None,
         utterances: vec![],
         write_wor: false,
     };
@@ -442,6 +506,7 @@ fn build_single_utterance(words: Vec<WordDesc>) -> String {
         }],
         media_name: None,
         media_type: None,
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(words),
@@ -630,6 +695,7 @@ fn media_header_has_comma_separator() {
         }],
         media_name: Some("279home-2.mp3".to_string()),
         media_type: Some("audio".to_string()),
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(vec![wd("hello", None, None), wd(".", None, None)]),
@@ -744,6 +810,7 @@ fn transcribe_comment_includes_do_not_use() {
         }],
         media_name: None,
         media_type: None,
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(vec![wd("hello", None, None), wd(".", None, None)]),
@@ -1334,6 +1401,7 @@ fn test_build_chat_invalid_language_code_is_a_build_error() {
         }],
         media_name: None,
         media_type: None,
+        media_status: None,
         utterances: vec![],
         write_wor: false,
     };
@@ -1425,6 +1493,7 @@ fn an_unrepresentable_media_name_is_an_error_not_a_missing_header() {
         }],
         media_name: Some("interview,part2".to_string()),
         media_type: Some("audio".to_string()),
+        media_status: None,
         utterances: vec![UtteranceDesc {
             speaker: "PAR".to_string(),
             words: Some(vec![wd("hello", None, None), wd(".", None, None)]),

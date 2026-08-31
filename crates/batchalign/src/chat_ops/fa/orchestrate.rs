@@ -2,12 +2,16 @@
 
 use std::collections::HashMap;
 
-use talkbank_model::alignment::resolve_wor_timing_sidecar;
+use talkbank_model::alignment::{
+    WorTimingBinding, WorTimingCorrespondence, WorTimingSequence, assess_wor_timing_sequence,
+    bind_wor_timing, corroborate_wor_timing,
+};
 use talkbank_model::model::{
     BracketedItem, ChatFile, DependentTier, Line, Utterance, UtteranceContent,
 };
 use talkbank_model::model::{BracketedItems, TierContentItems};
 
+use super::WordEndPolicy;
 use super::injection::inject_timings_for_utterance;
 use super::origin::Origin;
 use super::postprocess::postprocess_utterance_timings;
@@ -15,7 +19,6 @@ use super::{
     FaGroup, WordTiming, add_wor_tier, count_alignable_main_words, get_utterance_mut,
     update_utterance_bullet,
 };
-use super::{ReviewLevel, TimeSpan, WordEndPolicy};
 
 /// Proof that FA results were injected into a file, carrying what that decided.
 ///
@@ -36,9 +39,10 @@ use super::{ReviewLevel, TimeSpan, WordEndPolicy};
 /// So this type carries the records injection produced and offers no accessor
 /// for them. The only way to read them is
 /// [`FaApplied::then_enforce_monotonicity`], which runs the step first.
-/// Skipping enforcement now means never obtaining the records `%xalign` needs,
-/// which is pressure in the right direction rather than a rule to remember.
-#[must_use = "these records must reach %xalign; call then_enforce_monotonicity"]
+/// Skipping enforcement now means never obtaining the records structured run
+/// evidence needs, which is pressure in the right direction rather than a rule
+/// to remember.
+#[must_use = "these records must reach structured evidence; call then_enforce_monotonicity"]
 pub struct FaApplied {
     postprocess: Vec<batchalign_transform::decisions::DecisionRecord>,
 }
@@ -54,7 +58,93 @@ pub struct FaApplied {
 /// constructor, so possession really is the evidence.
 pub struct FaOrdered {
     postprocess: Vec<batchalign_transform::decisions::DecisionRecord>,
-    monotonicity: Vec<batchalign_transform::decisions::DecisionRecord>,
+    monotonicity: MonotonicityResult,
+}
+
+/// Machine-readable timing change made by monotonicity enforcement.
+///
+/// The generic decision record remains the human-facing audit message. This
+/// enum carries the numeric facts without requiring research code to parse the
+/// message string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MonotonicityEffect {
+    /// A later utterance started before the greatest preceding start and lost
+    /// its timing.
+    StartRegressionStripped {
+        /// Affected line index, including headers.
+        line_idx: usize,
+        /// Speaker on the affected utterance.
+        speaker: String,
+        /// Measured start that regressed.
+        start_ms: u64,
+        /// Greatest preceding start in document order.
+        previous_start_ms: u64,
+        /// Line that supplied `previous_start_ms`.
+        previous_line_idx: usize,
+        /// Speaker on the line that supplied `previous_start_ms`.
+        previous_speaker: String,
+    },
+    /// Clamping an earlier utterance to the next start would have made it
+    /// zero-width, so the earlier timing was removed.
+    ZeroDurationClampStripped {
+        /// Affected line index, including headers.
+        line_idx: usize,
+        /// Speaker on the affected utterance.
+        speaker: String,
+        /// Original start of the earlier utterance.
+        start_ms: u64,
+        /// Original end of the earlier utterance.
+        original_end_ms: u64,
+        /// Following start that made a positive clamp impossible.
+        next_start_ms: u64,
+        /// Following line that supplied `next_start_ms`.
+        next_line_idx: usize,
+        /// Speaker on the following line.
+        next_speaker: String,
+    },
+    /// An earlier utterance end was clamped to the following start.
+    EndClamped {
+        /// Affected line index, including headers.
+        line_idx: usize,
+        /// Speaker on the affected utterance.
+        speaker: String,
+        /// End before clamping.
+        original_end_ms: u64,
+        /// Following start used as the new end.
+        clamped_to_ms: u64,
+        /// Following line that supplied the clamp boundary.
+        next_line_idx: usize,
+        /// Speaker on the following line.
+        next_speaker: String,
+    },
+}
+
+/// The inseparable human-readable and numeric outputs of monotonicity.
+#[must_use = "monotonicity decisions must reach review and evidence outputs"]
+pub struct MonotonicityResult {
+    records: Vec<batchalign_transform::decisions::DecisionRecord>,
+    effects: Vec<MonotonicityEffect>,
+}
+
+impl MonotonicityResult {
+    /// Generic records retained in structured evidence.
+    pub fn records(&self) -> &[batchalign_transform::decisions::DecisionRecord] {
+        &self.records
+    }
+
+    /// Numeric timing effects paired with the generic records.
+    pub fn effects(&self) -> &[MonotonicityEffect] {
+        &self.effects
+    }
+
+    fn into_parts(
+        self,
+    ) -> (
+        Vec<batchalign_transform::decisions::DecisionRecord>,
+        Vec<MonotonicityEffect>,
+    ) {
+        (self.records, self.effects)
+    }
 }
 
 impl FaApplied {
@@ -306,51 +396,72 @@ pub fn refresh_reusable_utterances(
 /// from overlapping UTR token ranges), the bullet is stripped entirely rather
 /// than left as a zero-duration `•T_T•` span, which would fail E362 validation.
 ///
-/// `#[must_use]` because these records must reach `%xalign` rather than be
-/// produced and discarded. This is the one the attribute genuinely catches:
+/// `#[must_use]` because these records must reach durable evidence rather than
+/// be produced and discarded. This is the one the attribute genuinely catches:
 /// the incremental path called it BARE, for its side effect on the file, and
 /// silently dropped every repair record. That form no longer compiles.
-#[must_use]
-pub fn enforce_monotonicity(
-    chat_file: &mut ChatFile,
-) -> Vec<batchalign_transform::decisions::DecisionRecord> {
+pub fn enforce_monotonicity(chat_file: &mut ChatFile) -> MonotonicityResult {
     use batchalign_transform::decisions::DecisionRecord;
 
     let mut decisions = Vec::new();
+    let mut effects = Vec::new();
 
     // Pass 1: strip utterances with non-monotonic start times.
-    let mut last_start_ms: u64 = 0;
+    let mut last_start: Option<(u64, usize, String)> = None;
     for (line_idx, line) in chat_file.lines.as_mut_slice().iter_mut().enumerate() {
         let utt = match line {
             Line::Utterance(u) => u,
             _ => continue,
         };
-        match utt.main.content.bullet.as_ref().map(|b| b.timing.start_ms) {
-            Some(s) if s < last_start_ms => {
+        match (
+            utt.main.content.bullet.as_ref().map(|b| b.timing.start_ms),
+            last_start.as_ref(),
+        ) {
+            (Some(s), Some((previous_start_ms, previous_line_idx, previous_speaker)))
+                if s < *previous_start_ms =>
+            {
+                let speaker = utt.main.speaker.as_str().to_string();
                 decisions.push(DecisionRecord::new_and_trace(
                     line_idx,
-                    utt.main.speaker.as_str().to_string(),
+                    speaker.clone(),
                     batchalign_transform::decisions::DecisionStrategy::Monotonicity(
                         batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
                     ),
-                    format!("non_monotonic start_ms={s} previous_start_ms={last_start_ms}"),
+                    format!(
+                        "non_monotonic start_ms={s} previous_start_ms={previous_start_ms} \
+                         previous_line_idx={previous_line_idx} previous_speaker={previous_speaker}"
+                    ),
                     true,
                 ));
+                effects.push(MonotonicityEffect::StartRegressionStripped {
+                    line_idx,
+                    speaker,
+                    start_ms: s,
+                    previous_start_ms: *previous_start_ms,
+                    previous_line_idx: *previous_line_idx,
+                    previous_speaker: previous_speaker.clone(),
+                });
                 strip_utterance_timing(utt);
             }
-            Some(s) => last_start_ms = s,
-            None => {}
+            (Some(s), _) => {
+                last_start = Some((s, line_idx, utt.main.speaker.as_str().to_string()));
+            }
+            (None, _) => {}
         }
     }
 
     // Pass 2: clamp end-time overlaps.
-    let timed: Vec<(usize, u64)> = chat_file
+    let timed: Vec<(usize, u64, String)> = chat_file
         .lines
         .iter()
         .enumerate()
         .filter_map(|(i, line)| {
             if let Line::Utterance(u) = line {
-                Some((i, u.main.content.bullet.as_ref()?.timing.start_ms))
+                Some((
+                    i,
+                    u.main.content.bullet.as_ref()?.timing.start_ms,
+                    u.main.speaker.as_str().to_string(),
+                ))
             } else {
                 None
             }
@@ -358,8 +469,9 @@ pub fn enforce_monotonicity(
         .collect();
 
     for pair in timed.windows(2) {
-        let (prev_idx, _prev_start) = pair[0];
-        let (_next_idx, next_start) = pair[1];
+        let (prev_idx, _prev_start, _) = &pair[0];
+        let (next_idx, next_start, next_speaker) = &pair[1];
+        let (prev_idx, next_idx, next_start) = (*prev_idx, *next_idx, *next_start);
 
         if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
             && let Some(bullet) = prev_utt.main.content.bullet.as_ref()
@@ -373,9 +485,10 @@ pub fn enforce_monotonicity(
                 // Clamping would produce a zero-or-negative-duration
                 // bullet (next_start ≤ prev.start), which fails E362.
                 // Strip the bullet entirely, untimed is safer than invalid.
+                let speaker = prev_utt.main.speaker.as_str().to_string();
                 decisions.push(DecisionRecord::new_and_trace(
                     prev_idx,
-                    prev_utt.main.speaker.as_str().to_string(),
+                    speaker.clone(),
                     batchalign_transform::decisions::DecisionStrategy::Monotonicity(
                         batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
                     ),
@@ -386,11 +499,21 @@ pub fn enforce_monotonicity(
                     ),
                     true,
                 ));
+                effects.push(MonotonicityEffect::ZeroDurationClampStripped {
+                    line_idx: prev_idx,
+                    speaker,
+                    start_ms,
+                    original_end_ms: original_end,
+                    next_start_ms: next_start,
+                    next_line_idx: next_idx,
+                    next_speaker: next_speaker.clone(),
+                });
                 strip_utterance_timing(prev_utt);
             } else {
+                let speaker = prev_utt.main.speaker.as_str().to_string();
                 decisions.push(DecisionRecord::new_and_trace(
                     prev_idx,
-                    prev_utt.main.speaker.as_str().to_string(),
+                    speaker.clone(),
                     batchalign_transform::decisions::DecisionStrategy::Monotonicity(
                         batchalign_transform::decisions::MonotonicityStrategy::EndClamped,
                     ),
@@ -400,14 +523,21 @@ pub fn enforce_monotonicity(
                     ),
                     // `end_clamped` is routine housekeeping: a few-millisecond
                     // UTR overlap correction that prevents E362 validation
-                    // errors.  It does NOT indicate an alignment defect and
-                    // must not trigger %xrev (human review), which would
-                    // mislead researchers into thinking correctly-aligned
-                    // utterances need correction.  The %xalign audit record
-                    // is still written; only the %xrev flag is suppressed.
+                    // errors. It does NOT indicate an alignment defect and
+                    // must not request human review, which would mislead
+                    // researchers into thinking correctly aligned utterances
+                    // need correction. The decision still reaches evidence.
                     // BA2 made these same corrections silently.
                     false,
                 ));
+                effects.push(MonotonicityEffect::EndClamped {
+                    line_idx: prev_idx,
+                    speaker,
+                    original_end_ms: original_end,
+                    clamped_to_ms: next_start,
+                    next_line_idx: next_idx,
+                    next_speaker: next_speaker.clone(),
+                });
                 // Control-flow invariant: the enclosing
                 // `if let Line::Utterance(prev_utt) ... && let Some(bullet)`
                 // guard at line 261-263 already proved
@@ -422,7 +552,10 @@ pub fn enforce_monotonicity(
         }
     }
 
-    decisions
+    MonotonicityResult {
+        records: decisions,
+        effects,
+    }
 }
 
 /// Strip `%wor` tiers from utterances whose bullets were removed by
@@ -456,7 +589,7 @@ pub fn enforce_monotonicity(
 /// keep their `%wor` because their timing is still monotonic.
 pub fn strip_wor_from_monotonicity_stripped_utterances(
     chat_file: &mut ChatFile,
-    decisions: &[batchalign_transform::decisions::DecisionRecord],
+    decisions: &MonotonicityResult,
 ) {
     use batchalign_transform::decisions::{DecisionStrategy, MonotonicityStrategy};
 
@@ -464,6 +597,7 @@ pub fn strip_wor_from_monotonicity_stripped_utterances(
     // (as opposed to end-clamped, which still have valid timing).
     // Typically 0-2 utterances, so a small Vec is cheaper than a HashSet.
     let stripped: Vec<usize> = decisions
+        .records()
         .iter()
         .filter(|d| {
             matches!(
@@ -631,29 +765,24 @@ fn collect_wor_backed_timings(utterance: &Utterance) -> Option<Vec<Option<WordTi
     const MIN_WORDS_FOR_DOMINANCE_CHECK: usize = 3;
     const MIN_REUSABLE_WOR_WORD_DURATION_MS: u64 = 40;
 
-    let wor = utterance.wor_tier()?.clone();
-    let sidecar = resolve_wor_timing_sidecar(&utterance.main, &wor);
-    let count = sidecar.positional_count()?;
-    if count != count_alignable_main_words(utterance) {
-        return None;
-    }
-
-    let wor_words: Vec<_> = wor.words().collect();
-    if wor_words.len() != count {
-        return None;
-    }
-    let mut timings = Vec::with_capacity(count);
-
-    for word in wor_words {
-        let bullet = word.inline_bullet.as_ref()?;
-        timings.push(
-            WordTiming::from_transcript(TimeSpan::new(
-                bullet.timing.start_ms,
-                bullet.timing.end_ms,
-            ))
-            .ok(),
-        );
-    }
+    let wor = utterance.wor_tier()?;
+    let count_matched = match bind_wor_timing(&utterance.main, Some(wor)) {
+        WorTimingBinding::CountMatched(count_matched) => count_matched,
+        WorTimingBinding::Missing(_) | WorTimingBinding::Drifted(_) => return None,
+    };
+    let corroborated = match corroborate_wor_timing(count_matched) {
+        WorTimingCorrespondence::Corroborated(corroborated) => corroborated,
+        WorTimingCorrespondence::Uncorroborated(_) => return None,
+    };
+    let complete = match assess_wor_timing_sequence(corroborated) {
+        WorTimingSequence::Complete(complete) => complete,
+        WorTimingSequence::Empty(_) | WorTimingSequence::Rejected(_) => return None,
+    };
+    let timings: Vec<Option<WordTiming>> = complete
+        .slots()
+        .iter()
+        .map(|slot| Some(WordTiming::from_complete_wor_slot(slot)))
+        .collect();
 
     if timings
         .iter()
@@ -721,7 +850,7 @@ pub(super) fn strip_utterance_timing(utt: &mut Utterance) {
         .retain(|t| !matches!(t.tier, DependentTier::Wor(_)));
 }
 
-/// Every source of `%xalign` records one FA run can produce.
+/// Every source of structured decision records one FA run can produce.
 ///
 /// # Why a struct rather than two hand-built vectors
 ///
@@ -731,8 +860,8 @@ pub(super) fn strip_utterance_timing(utt: &mut Utterance) {
 /// five sources and the incremental path four, because incremental never runs
 /// narrow-bullet rescue. The difference is legitimate, which is exactly why a
 /// comment is the wrong thing to hold it: nothing would have noticed when the
-/// sets diverged for a BAD reason, and a sixth source added to one path only is
-/// the same defect that had `%xalign` silently thinner on one path for months.
+/// sets diverged for a BAD reason, and a sixth source added to one path only
+/// would make durable evidence silently thinner on one path.
 ///
 /// Built with a struct literal on purpose. Adding a field breaks BOTH paths at
 /// compile time, and the incremental path states `rescue: Vec::new()` outright
@@ -749,10 +878,61 @@ pub struct FaDecisions {
     pub repair: Vec<batchalign_transform::decisions::DecisionRecord>,
 }
 
+/// Proof that this run's decision records were written to the CHAT file.
+///
+/// The private field prevents callers from manufacturing the state. Consuming
+/// it is the only way to move the exact written records into durable evidence,
+/// so transcript review tiers and JSON evidence cannot silently diverge.
+#[must_use = "written FA decisions must be retained in the evidence trace"]
+pub struct WrittenFaDecisions {
+    records: Vec<batchalign_transform::decisions::DecisionRecord>,
+    timing_effects: Vec<MonotonicityEffect>,
+}
+
+impl WrittenFaDecisions {
+    /// Consume the proof and return the records that were written.
+    pub fn into_evidence(
+        self,
+    ) -> (
+        Vec<batchalign_transform::decisions::DecisionRecord>,
+        Vec<MonotonicityEffect>,
+    ) {
+        (self.records, self.timing_effects)
+    }
+}
+
 impl FaDecisions {
-    /// The records in the order they must appear, which is defined ONLY here.
+    /// Assemble a run that made no fresh FA injection but still changed or
+    /// refused timing before/while enforcing monotonicity.
+    ///
+    /// The all-`%wor` fast path and a grouping-empty path are legitimate
+    /// no-injection runs. They still need the same write-before-evidence
+    /// typestate as a full run; this constructor is the only way to create the
+    /// otherwise-private empty [`FaOrdered`] postprocess state.
+    pub fn without_injection(
+        rescue: Vec<batchalign_transform::decisions::DecisionRecord>,
+        unplaceable: Vec<batchalign_transform::decisions::DecisionRecord>,
+        monotonicity: MonotonicityResult,
+    ) -> Self {
+        Self {
+            rescue,
+            unplaceable,
+            ordered: FaOrdered {
+                postprocess: Vec::new(),
+                monotonicity,
+            },
+            repair: Vec::new(),
+        }
+    }
+
+    /// The records and numeric timing effects in the order they must appear.
     #[must_use]
-    pub fn into_records(self) -> Vec<batchalign_transform::decisions::DecisionRecord> {
+    fn into_parts(
+        self,
+    ) -> (
+        Vec<batchalign_transform::decisions::DecisionRecord>,
+        Vec<MonotonicityEffect>,
+    ) {
         let Self {
             rescue,
             unplaceable,
@@ -763,6 +943,7 @@ impl FaDecisions {
                 },
             repair,
         } = self;
+        let (monotonicity, timing_effects) = monotonicity.into_parts();
         let mut records = Vec::with_capacity(
             rescue.len()
                 + unplaceable.len()
@@ -775,31 +956,27 @@ impl FaDecisions {
         records.extend(postprocess);
         records.extend(repair);
         records.extend(monotonicity);
-        records
+        (records, timing_effects)
     }
 }
 
-/// Write this run's decision provenance into the file: strip, then inject.
+/// Finalize this run's decision provenance: strip legacy CHAT tiers and retain
+/// the typed records for structured evidence.
 ///
 /// # Why the strip is unconditional and separate
 ///
-/// [`batchalign_transform::decisions::inject_decision_tiers`] returns early on
-/// `ReviewLevel::None` or an empty record set, and its own strip happens INSIDE
-/// that early return. So a run that produces nothing would leave the previous
-/// run's `%xalign` in place, and the next run that does produce records would
-/// append to it. Both paths knew this and both called `strip` first; typing the
-/// verb means neither has to know it again, and the guards they each wrapped
-/// around the inject (one on `review_level`, one on emptiness, both already
-/// enforced by the injector) go away.
-pub fn write_decision_tiers(
+/// Review-level compatibility input does not reach this operation, so no
+/// caller can accidentally make it authorize CHAT-tier generation. Calling
+/// the policy owner unconditionally guarantees stale `%xalign` and `%xrev`
+/// tiers are removed even when this run produced no decisions.
+pub fn retain_decision_evidence(
     chat_file: &mut ChatFile,
     decisions: FaDecisions,
-    review_level: ReviewLevel,
-) {
+) -> WrittenFaDecisions {
+    let (records, timing_effects) = decisions.into_parts();
     batchalign_transform::decisions::strip_decision_tiers(chat_file);
-    batchalign_transform::decisions::inject_decision_tiers(
-        chat_file,
-        &decisions.into_records(),
-        review_level,
-    );
+    WrittenFaDecisions {
+        records,
+        timing_effects,
+    }
 }

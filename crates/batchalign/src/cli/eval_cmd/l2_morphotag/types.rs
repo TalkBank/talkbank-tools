@@ -458,7 +458,7 @@ pub enum UtteranceOutcome {
     /// Most commonly this is the pipeline having absorbed a
     /// [`MorOutcomeKind::MisalignmentBug`] at the file-level boundary
     /// and emitted no tier for this utterance. The companion
-    /// `DecisionRecord` (if `%xalign` was enabled) will tell us
+    /// `DecisionRecord` evidence will tell us
     /// which `MisalignmentClass` was involved.
     PipelineAbsorbedFailure {
         /// CHAT-side Mor-alignable word count (> 0).

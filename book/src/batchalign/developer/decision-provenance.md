@@ -1,184 +1,145 @@
-# Decision Provenance
+# Decision Evidence
 
 **Status:** Current
-**Last updated:** 2026-06-15 13:21 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
-## Overview
+## Current policy
 
-Every batchalign3 command makes decisions that alter output: clamping
-timestamps, stripping timing, skipping utterances, defaulting values,
-normalizing text. These decisions were previously logged via `tracing` but
-invisible to the user in the output CHAT file.
+Batchalign3 records machine decisions such as timing removal, boundary
+clamping, grouping refusal, and morphosyntax mapping failure as typed
+`DecisionRecord` values. It does **not** write `%xalign` or `%xrev` dependent
+tiers. The `align` and `morphotag` serialization paths strip those two
+abandoned legacy tiers if they are present in an input file.
 
-The **decision provenance system** surfaces these decisions as `%xalign` and
-`%xrev` dependent tiers so users can review what the pipeline did and why.
-
-## Architecture
-
-**Single source of truth:** Every decision point creates a `DecisionRecord`
-via `new_and_trace()`, which emits a structured tracing event AND returns
-the record. No duplicate logging, the `DecisionRecord` is the source of
-truth; tracing events, `%xalign` tiers, and dashboard warnings are all
-derived from it.
+The CLI and wire protocol still accept `review_level` values so stored jobs and
+older clients continue to deserialize. The value is deliberately absent from
+the operation that finalizes decision evidence, so no caller can use it to
+authorize CHAT-tier generation.
 
 ```mermaid
-flowchart TD
-    point["Decision point\n(clamping, skipping, defaulting)"]
-    record["DecisionRecord::new_and_trace()"]
-    trace["tracing::warn! / info!\n(terminal + daemon log)"]
-    collect["Vec&lt;DecisionRecord&gt;\ncollected by orchestrator"]
-    inject["inject_decision_tiers()"]
-    xalign["%xalign: module:strategy reason\n(persistent, in output file)"]
-    xrev["%xrev: [?]\n(human review marker)"]
+flowchart LR
+    P["Pipeline decision"] --> R["DecisionRecord<br/>typed module + strategy"]
+    R --> L["Structured tracing"]
+    R --> F["FA decision finalizer"]
+    F --> W["WrittenFaDecisions<br/>typestate proof"]
+    W --> J["FaDecisionTrace<br/>in *_fa_evidence.json"]
 
-    point --> record
-    record --> trace
-    record --> collect
-    collect --> inject
-    inject --> xalign
-    inject -->|"needs_review=true"| xrev
+    C["Parsed CHAT"] --> S["strip_decision_tiers"]
+    S --> O["Serialized CHAT<br/>no %xalign / %xrev"]
+
+    V["Legacy ReviewLevel"] -. "wire compatibility only" .-> X["No presentation authority"]
 ```
 
-Key design principle: **callers should NOT separately call `tracing::warn!`**
-with the same information. `DecisionRecord::new_and_trace()` handles both
-the tracing event and the record creation in one call.
+This separation is intentional. CHAT remains the researcher-facing transcript;
+machine confidence and provenance remain machine-readable evidence rather than
+dependent-tier clutter.
 
-## DecisionRecord
+## The typed record
 
-**Source:** `crates/batchalign-transform/src/decisions.rs`:
-`DecisionRecord` at :281, `DecisionModule` at :38, `new_and_trace`
-at :344, `inject_decision_tiers` at :380.
+`DecisionRecord` is defined in
+`crates/batchalign-transform/src/decisions.rs`:
 
 ```rust,ignore
 pub struct DecisionRecord {
-    pub line_idx: usize,           // which utterance
-    pub speaker: String,           // speaker code
-    pub module: DecisionModule,    // pipeline stage
-    pub strategy: &'static str,    // what was done
-    pub reason: String,            // structured key=value detail
-    pub needs_review: bool,        // emit %xrev: [?]?
+    pub line_idx: LineIdx,
+    pub speaker: String,
+    pub strategy: DecisionStrategy,
+    pub reason: String,
+    pub needs_review: bool,
 }
 ```
 
-### DecisionModule
+`LineIdx` is a newtype over the index into `ChatFile.lines`; it cannot be
+silently confused with an utterance ordinal. `DecisionStrategy` is an
+exhaustive enum over module-specific strategy enums. Stable module and strategy
+names are derived from those variants for tracing and serialized evidence.
 
-| Module | Pipeline stage |
-|--------|---------------|
-| `Fa` | Forced alignment (grouping, injection, postprocessing) |
-| `Utr` | Utterance timing recovery |
-| `Monotonicity` | Monotonicity enforcement (end-time clamping, start-time stripping) |
-| `Morphosyntax` | Stanza mapping, retokenization |
-| `Utseg` | Utterance segmentation |
-| `Build` | CHAT building from ASR output |
-| `AsrPostprocess` | Compounds, numbers, Cantonese, retraces |
+`DecisionRecord::new_and_trace()` constructs and immediately traces a record.
+Callers that construct records through an outcome adapter call `trace()` at the
+decision boundary. A caller must not emit a second ad-hoc warning for the same
+decision.
 
-### Tier format
+## Forced-alignment evidence lifecycle
 
-`%xalign` content is: `module:strategy reason_string`
+Forced alignment has the complete durable path. The pipeline collects every
+decision source in a `FaDecisions` struct rather than assembling parallel
+vectors by convention. Adding a new source breaks both the full and incremental
+paths at compile time until each explicitly supplies it.
 
-```text
-*CHI:   hello world . ⌈15⌉1000_5000⌈15⌉
-%xalign:	monotonicity:end_clamped overlap=1200ms prev_end=6200 next_start=5000
+```mermaid
+stateDiagram-v2
+    [*] --> FaApplied: apply word timings
+    FaApplied --> FaOrdered: enforce monotonicity
+    FaOrdered --> FaDecisions: add rescue / refusal / repair records
+    FaDecisions --> WrittenFaDecisions: retain_decision_evidence
+    WrittenFaDecisions --> FaEvidence: into_evidence
+    FaEvidence --> [*]: serialize debug evidence
 ```
 
-When `needs_review` is true, a `%xrev: [?]` tier is also added:
+`retain_decision_evidence` performs two inseparable actions:
 
-```text
-*CHI:   hello world .
-%xalign:	monotonicity:timing_stripped non_monotonic start_ms=2000 previous_start_ms=5000
-%xrev:	[?]
-```
+1. strips legacy `%xalign` and `%xrev` tiers from the CHAT model; and
+2. returns `WrittenFaDecisions`, whose records and numeric timing effects are
+   consumed into the FA evidence trace.
 
-## Controlling output
+With `--debug-dir`, the resulting `<stem>_fa_evidence.json` contains typed
+decision records alongside group windows, word identities, cache keys, source
+classification, raw/pre-injection timings, fallback events, and validation
+violations. The evidence file is the research and replay surface; CHAT is not.
 
-The review level controls which decision tiers are emitted. Both `align`
-and `morphotag` expose it as `--review-level` (or the equivalent
-`review_level` job option):
+The full, incremental, complete-`%wor`, and grouping-empty paths all traverse
+the same finalizer. A run with zero fresh inference groups therefore cannot
+erase a grouping refusal or monotonicity decision.
 
-| Level | Behavior |
-|-------|----------|
-| `none` (default) | No decision tiers (smallest output) |
-| `low-confidence` | Only `needs_review=true` decisions |
-| `all` | Every decision + informational `%xalign: no_decisions` on clean utterances |
+## Other command families
 
-## Currently instrumented decisions
+The shared vocabulary is broader than the currently durable evidence sinks.
+That distinction matters:
 
-### Monotonicity enforcement
+| Command family | Typed outcome/record today | Trace today | Durable per-file decision evidence today |
+|---|---|---|---|
+| Forced alignment | Yes | Yes | Yes, in FA debug evidence when requested |
+| Morphotag | Yes | Yes for anomaly records | No; the injection collection is not yet serialized |
+| Utterance segmentation | Typed outcomes and adapters exist | Not a complete production sink | No |
+| Coreference | Typed outcomes and adapters exist | Not a complete production sink | No |
 
-| Strategy | needs_review | When |
-|----------|:------------:|------|
-| `timing_stripped` | yes | Utterance start time is before previous utterance's start (E362 violation). All timing removed. |
-| `end_clamped` | no | Utterance end time exceeds next utterance's start. End clamped to next start. |
+Do not describe the common `DecisionRecord` vocabulary as though every command
+already persists it. Extending durable evidence to morphotag, utseg, and coref
+requires a typed result owned by each command and an explicit serialization
+boundary; reintroducing CHAT tiers is not that boundary.
 
-**Source:** `crates/batchalign/src/chat_ops/fa/orchestrate.rs:213`,
-`enforce_monotonicity()`
+## CHAT cleanup paths
 
-### UTR unmatched
+Both `align` and `morphotag` strip legacy review tiers unconditionally before
+serialization. This includes:
 
-| Strategy | needs_review | When |
-|----------|:------------:|------|
-| `utr_unmatched` | yes | Untimed utterance could not be matched to any ASR tokens during timing recovery. |
+- a normal inference run;
+- a cache-only or no-work run;
+- incremental morphotag with no changed utterances; and
+- CA morphotag pass-through.
 
-**Source:** `crates/batchalign/src/chat_ops/fa/utr.rs:223`: `run_global_utr()`
+The CA case is covered by an end-to-end pipeline regression test because it
+previously returned before cleanup and preserved old tiers.
 
-### FA word timing drop
+## Adding a decision
 
-| Strategy | needs_review | When |
-|----------|:------------:|------|
-| `words_timing_dropped` | yes | Word-level timing was dropped because clamping to utterance boundary made start >= end. |
+1. Add a variant to the narrowest module-specific strategy enum.
+2. Add its stable name in that enum's exhaustive `as_str()` match.
+3. Construct the record at the point where the decision is made, using a typed
+   line index and a structured key/value reason.
+4. Set `needs_review` only when a human can usefully adjudicate the outcome.
+5. Thread the record into the command's typed result. For FA, add a field to
+   `FaDecisions` if it is a new producer; do not append it independently in the
+   full and incremental paths.
+6. Add a boundary test proving the record reaches its evidence sink. Do not add
+   a test for CHAT-tier generation; no such operation exists.
 
-**Source:** `crates/batchalign/src/chat_ops/fa/postprocess.rs:37`,
-`postprocess_utterance_timings()`
+## Legacy compatibility
 
-### FA bullet repair (existing)
+`ReviewLevel::{None, LowConfidence, All}` remains serializable and parseable.
+All values have the same presentation behavior: no `%xalign` or `%xrev` output.
+New scripts should omit `--review-level`.
 
-Repair decisions from `crates/batchalign/src/chat_ops/fa/repair.rs:58`
-(`RepairDecision`) are converted to `DecisionRecord` via
-`From<&RepairDecision>` and included in the same injection pass.
-
-### Morphosyntax (morphotag command)
-
-| Strategy | needs_review | When |
-|----------|:------------:|------|
-| `mapping_failed` | yes | UD→CHAT conversion failed for this utterance. No %mor/%gra produced. |
-| `retokenization_failed` | yes | Stanza tokens could not be mapped back to CHAT words. No %mor/%gra produced. |
-| `injection_failed` | yes | MOR word count mismatch (e.g., MWT expansion). No %mor/%gra produced. |
-| `nlp_no_sentences` | yes | Stanza returned an empty response for this utterance. No %mor/%gra produced. |
-
-**Source:** `crates/batchalign-transform/src/morphosyntax/injection.rs`
-(consumed by `crates/batchalign/src/morphosyntax/worker.rs` on the
-mapping/retokenization/injection error paths).
-
-## Audit of uninstrumented silent decisions
-
-These decisions are logged via `tracing` but not yet tracked as
-`DecisionRecord`. They are candidates for future instrumentation:
-
-| Decision | File | Priority |
-|----------|------|:--------:|
-| FA grouping skip (no timing/estimate) | `crates/batchalign/src/chat_ops/fa/grouping.rs` | Medium |
-| Token stitching partial | `crates/batchalign/src/chat_ops/fa/alignment.rs` | Medium |
-| Hardcoded period terminator | `crates/batchalign-transform/src/build_chat/` (directory) | Low |
-| Default language (eng) | `crates/batchalign-transform/src/build_chat/` | Low |
-| Cantonese normalization | `crates/batchalign-transform/src/asr_postprocess/cantonese.rs` | Low |
-| Compound merging | `crates/batchalign-transform/src/asr_postprocess/compounds.rs` | Low |
-| Number expansion | `crates/batchalign-transform/src/asr_postprocess/num2text.rs` | Low |
-| Retrace detection | `crates/batchalign-transform/src/asr_postprocess/mod.rs` | Low |
-| Stanza terminator mismatch | `crates/batchalign-transform/src/retokenize/parse_helpers.rs` | Low |
-| Retokenization fallback | `crates/batchalign-transform/src/morphosyntax/injection.rs` | Medium |
-
-## Integration with existing %xalign/%xrev
-
-The decision provenance system generalizes the existing FA bullet
-repair review tier infrastructure
-(`crates/batchalign/src/chat_ops/fa/review_tiers.rs:26`
-`inject_review_tiers`). The original `inject_review_tiers()` function
-and `RepairDecision` type (`chat_ops/fa/repair.rs:58`) are preserved
-for backward compatibility. `DecisionRecord` adds the `module` field
-and `From<&RepairDecision>` enables seamless conversion.
-
-The FA orchestrator (`crates/batchalign/src/chat_ops/fa/mod.rs` +
-`chat_ops/fa/orchestrate.rs`) now collects decisions from all stages
-(FA postprocessing, bullet repair, monotonicity enforcement) and
-injects them in a single pass via `inject_decision_tiers()` (defined
-at `crates/batchalign-transform/src/decisions.rs:380`).
+`strip_decision_tiers` retains its explicit legacy labels because removal must
+recognize old files. References to those labels in cleanup tests are historical
+fixtures, not supported output examples.

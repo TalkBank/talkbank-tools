@@ -6,13 +6,15 @@
 //! corpus, morphotag for non-L2) will land under this same namespace.
 
 pub mod l2_morphotag;
+pub mod transcribe_replay;
 
 use crate::cli::args::{EvalAction, EvalArgs};
 use crate::cli::error::CliError;
 
 /// Dispatch an `eval ...` invocation to the right sub-handler.
-pub fn run(args: &EvalArgs) -> Result<(), CliError> {
+pub async fn run(args: &EvalArgs) -> Result<(), CliError> {
     match &args.action {
         EvalAction::L2Morphotag(a) => l2_morphotag::run(a),
+        EvalAction::TranscribeReplay(a) => transcribe_replay::run(a).await,
     }
 }

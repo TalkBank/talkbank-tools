@@ -356,18 +356,6 @@ fn run_one_assertion(
         ));
     }
 
-    if let FixtureAssertion::NoFaGroupInvalidAudioWindow = assertion {
-        return crate::common::drift_assertions::check_no_fa_group_invalid_audio_window(
-            &output.parsed_chat,
-        );
-    }
-
-    if let FixtureAssertion::NoMonotonicityRescueEmitted = assertion {
-        return crate::common::drift_assertions::check_no_monotonicity_rescue_emitted(
-            &output.parsed_chat,
-        );
-    }
-
     if let FixtureAssertion::UtteranceBulletMonotonicityPreserved = assertion {
         return crate::common::drift_assertions::check_utterance_bullet_monotonicity_preserved(
             &output.parsed_chat,
@@ -438,10 +426,6 @@ fn run_one_assertion(
             "min_utr_coverage_percent: UTR covered {newly_timed}/{total} = {pct}% of formerly-untimed \
              utterances (< {threshold}% required)"
         ));
-    }
-
-    if let FixtureAssertion::NoSilentTimingStrip = assertion {
-        return crate::common::drift_assertions::check_no_silent_timing_strip(&output.parsed_chat);
     }
 
     if let FixtureAssertion::MediaHeaderMatchesInputBasename = assertion {
@@ -749,19 +733,10 @@ fn run_one_assertion(
         FixtureAssertion::MediaHeaderMatchesInputBasename => {
             unreachable!("global assertions should return before utterance-scoped assertion setup")
         }
-        FixtureAssertion::NoFaGroupInvalidAudioWindow => {
-            unreachable!("global assertions should return before utterance-scoped assertion setup")
-        }
-        FixtureAssertion::NoMonotonicityRescueEmitted => {
-            unreachable!("global assertions should return before utterance-scoped assertion setup")
-        }
         FixtureAssertion::UtteranceBulletMonotonicityPreserved => {
             unreachable!("global assertions should return before utterance-scoped assertion setup")
         }
         FixtureAssertion::MinUtrCoveragePercent { .. } => {
-            unreachable!("global assertions should return before utterance-scoped assertion setup")
-        }
-        FixtureAssertion::NoSilentTimingStrip => {
             unreachable!("global assertions should return before utterance-scoped assertion setup")
         }
     }

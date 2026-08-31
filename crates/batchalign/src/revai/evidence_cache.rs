@@ -1,9 +1,8 @@
 //! Durable raw Rev.AI transcript evidence and paid-call typestate.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncReadExt;
 
 use crate::api::{EngineVersion, LanguageCode3, LanguageSpec, NumSpeakers};
 use crate::cache::{CacheBackend, CacheError, InferenceLease, UtteranceCache};
@@ -12,35 +11,137 @@ use crate::error::ServerError;
 use crate::params::CachePolicy;
 
 use super::Transcript;
+use super::types::{RevTranscriptEvidence, RevTranscriptFidelity};
 
-const REV_ASR_EVIDENCE_SCHEMA_VERSION: u32 = 1;
+const REV_ASR_EVIDENCE_STORAGE_SCHEMA_VERSION: u32 = 3;
+const REV_ASR_REQUEST_IDENTITY_REVISION: u32 = 2;
 const REV_ASR_REQUEST_POLICY_REVISION: &str = "langid-skip-itn-v1";
+const REV_ASR_TRACE_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 struct RevProviderMediaDigest(String);
 
 impl RevProviderMediaDigest {
-    async fn from_path(path: &Path) -> Result<Self, RevAsrEvidenceCacheError> {
-        let mut file = tokio::fs::File::open(path).await?;
+    fn from_bytes(bytes: &[u8]) -> Self {
         let mut hasher = blake3::Hasher::new();
-        let mut buffer = vec![0_u8; 1024 * 1024];
-        loop {
-            let bytes_read = file.read(&mut buffer).await?;
-            if bytes_read == 0 {
-                break;
-            }
-            hasher.update(&buffer[..bytes_read]);
-        }
-        Ok(Self(hasher.finalize().to_hex().to_string()))
+        hasher.update(bytes);
+        Self(hasher.finalize().to_hex().to_string())
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum RevMediaPreparationRecipe {
+    /// Preserve source bytes and the historical `audio/mpeg` multipart type.
+    SourceBytesLegacyAudioMpegV1,
+}
+
+impl RevMediaPreparationRecipe {
+    fn upload_mime(self) -> &'static str {
+        match self {
+            Self::SourceBytesLegacyAudioMpegV1 => "audio/mpeg",
+        }
+    }
+
+    fn prepare_provider_bytes(self, source_bytes: Vec<u8>) -> Vec<u8> {
+        match self {
+            Self::SourceBytesLegacyAudioMpegV1 => source_bytes,
+        }
+    }
+}
+
+/// Complete provider-visible presentation used by both request identity and
+/// observability.
+///
+/// Keeping this relationship in one value prevents the cache key and trace
+/// from independently reassembling a MIME/name/metadata tuple that could
+/// drift while still describing the same provider bytes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct RevProviderPresentation {
+    provider_media_blake3: RevProviderMediaDigest,
+    preparation_recipe: RevMediaPreparationRecipe,
+    upload_file_name: String,
+    upload_mime: &'static str,
+    upload_metadata: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PreparedRevProviderMedia {
+    source_path: PathBuf,
+    source_digest: RevProviderMediaDigest,
+    presentation: RevProviderPresentation,
+}
+
+impl PreparedRevProviderMedia {
+    pub(crate) async fn from_source(path: &Path) -> Result<Self, RevAsrEvidenceCacheError> {
+        let bytes = tokio::fs::read(path).await?;
+        let source_digest = RevProviderMediaDigest::from_bytes(&bytes);
+        let recipe = RevMediaPreparationRecipe::SourceBytesLegacyAudioMpegV1;
+        let provider_media_blake3 =
+            RevProviderMediaDigest::from_bytes(&recipe.prepare_provider_bytes(bytes));
+        let upload_extension = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .filter(|extension| {
+                !extension.is_empty() && extension.bytes().all(|byte| byte.is_ascii_alphanumeric())
+            })
+            .map(str::to_ascii_lowercase)
+            .unwrap_or_else(|| "media".to_owned());
+        let upload_file_name = format!("provider-media.{upload_extension}");
+        let upload_metadata = format!("batchalign3_{}", &provider_media_blake3.0[..16]);
+        Ok(Self {
+            source_path: path.to_owned(),
+            source_digest,
+            presentation: RevProviderPresentation {
+                provider_media_blake3,
+                preparation_recipe: recipe,
+                upload_file_name,
+                upload_mime: recipe.upload_mime(),
+                upload_metadata,
+            },
+        })
+    }
+
+    pub(super) fn verify(self) -> Result<VerifiedRevProviderMedia, RevAsrEvidenceCacheError> {
+        let source_bytes = std::fs::read(&self.source_path)?;
+        if RevProviderMediaDigest::from_bytes(&source_bytes) != self.source_digest {
+            return Err(RevAsrEvidenceCacheError::ProviderMediaDrift(
+                self.source_path,
+            ));
+        }
+        let bytes = self
+            .presentation
+            .preparation_recipe
+            .prepare_provider_bytes(source_bytes);
+        if RevProviderMediaDigest::from_bytes(&bytes) != self.presentation.provider_media_blake3 {
+            return Err(RevAsrEvidenceCacheError::ProviderPreparationDrift(
+                self.source_path,
+            ));
+        }
+        Ok(VerifiedRevProviderMedia {
+            bytes,
+            upload_file_name: self.presentation.upload_file_name,
+            upload_mime: self.presentation.upload_mime,
+            metadata: self.presentation.upload_metadata,
+        })
+    }
+}
+
+pub(super) struct VerifiedRevProviderMedia {
+    pub(super) bytes: Vec<u8>,
+    pub(super) upload_file_name: String,
+    pub(super) upload_mime: &'static str,
+    pub(super) metadata: String,
 }
 
 #[derive(Debug, Serialize)]
 struct RevAsrEvidenceKeyMaterial<'a> {
     domain: &'static str,
-    schema_version: u32,
-    provider_media_blake3: &'a RevProviderMediaDigest,
+    #[serde(rename = "schema_version")]
+    request_identity_revision: u32,
+    #[serde(flatten)]
+    provider_presentation: &'a RevProviderPresentation,
     requested_language: String,
     expected_speakers: u32,
     request_policy_revision: &'static str,
@@ -65,11 +166,14 @@ impl RevAsrModelRevision {
 pub(crate) struct RevAsrEvidenceRequest {
     cache_key: CacheKey,
     model_revision: RevAsrModelRevision,
+    provider_media: PreparedRevProviderMedia,
+    requested_language: LanguageSpec,
+    expected_speakers: NumSpeakers,
 }
 
 impl RevAsrEvidenceRequest {
-    pub(crate) async fn from_audio(
-        audio_path: &Path,
+    pub(crate) fn new(
+        provider_media: PreparedRevProviderMedia,
         requested_language: &LanguageSpec,
         expected_speakers: NumSpeakers,
         model_revision: &RevAsrModelRevision,
@@ -79,11 +183,10 @@ impl RevAsrEvidenceRequest {
                 "Rev.AI transcribe evidence cannot use per-file language routing".to_owned(),
             ));
         }
-        let digest = RevProviderMediaDigest::from_path(audio_path).await?;
         let material = RevAsrEvidenceKeyMaterial {
             domain: "rev_asr_evidence",
-            schema_version: REV_ASR_EVIDENCE_SCHEMA_VERSION,
-            provider_media_blake3: &digest,
+            request_identity_revision: REV_ASR_REQUEST_IDENTITY_REVISION,
+            provider_presentation: &provider_media.presentation,
             requested_language: requested_language.to_string(),
             expected_speakers: expected_speakers.0,
             request_policy_revision: REV_ASR_REQUEST_POLICY_REVISION,
@@ -93,11 +196,42 @@ impl RevAsrEvidenceRequest {
         Ok(Self {
             cache_key: CacheKey::from_content(&canonical),
             model_revision: model_revision.clone(),
+            provider_media,
+            requested_language: requested_language.clone(),
+            expected_speakers,
         })
     }
 
     pub(crate) fn cache_key(&self) -> &CacheKey {
         &self.cache_key
+    }
+
+    fn trace_seed(&self) -> RevAsrEvidenceTraceSeed {
+        RevAsrEvidenceTraceSeed {
+            trace_schema_version: REV_ASR_TRACE_SCHEMA_VERSION,
+            source_media_blake3: self.provider_media.source_digest.0.clone(),
+            provider_presentation: self.provider_media.presentation.clone(),
+            requested_language: self.requested_language.to_string(),
+            expected_speakers: self.expected_speakers.0,
+            request_policy_revision: REV_ASR_REQUEST_POLICY_REVISION,
+            model_revision: self.model_revision.as_str().to_owned(),
+            raw_evidence_key: self.cache_key.to_string(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn from_audio(
+        audio_path: &Path,
+        requested_language: &LanguageSpec,
+        expected_speakers: NumSpeakers,
+        model_revision: &RevAsrModelRevision,
+    ) -> Result<Self, RevAsrEvidenceCacheError> {
+        Self::new(
+            PreparedRevProviderMedia::from_source(audio_path).await?,
+            requested_language,
+            expected_speakers,
+            model_revision,
+        )
     }
 
     async fn lookup(
@@ -106,12 +240,15 @@ impl RevAsrEvidenceRequest {
         policy: CachePolicy,
     ) -> Result<RevAsrEvidenceLookup, RevAsrEvidenceCacheError> {
         let lease = InferenceLease::acquire(&self.cache_key, cache).await;
-        if policy.should_skip() && !lease.observed_commit_while_waiting() {
-            return Ok(RevAsrEvidenceLookup::Miss(RevAsrEvidenceMiss {
-                request: self.clone(),
-                reason: RevAsrEvidenceMissReason::ForcedRefresh,
-                _lease: lease,
-            }));
+        match policy {
+            CachePolicy::SkipCache if !lease.observed_commit_while_waiting() => {
+                return Ok(RevAsrEvidenceLookup::Miss(Box::new(RevAsrEvidenceMiss {
+                    request: self.clone(),
+                    reason: RevAsrEvidenceMissReason::ForcedRefresh,
+                    _lease: lease,
+                })));
+            }
+            CachePolicy::UseCache | CachePolicy::RequireCache | CachePolicy::SkipCache => {}
         }
         let stored = cache
             .get(
@@ -121,16 +258,23 @@ impl RevAsrEvidenceRequest {
             )
             .await?;
         let Some(stored) = stored else {
-            return Ok(RevAsrEvidenceLookup::Miss(RevAsrEvidenceMiss {
+            match policy {
+                CachePolicy::RequireCache => {
+                    return Err(RevAsrEvidenceCacheError::RequiredEvidenceMissing(
+                        self.cache_key.to_string(),
+                    ));
+                }
+                CachePolicy::UseCache | CachePolicy::SkipCache => {}
+            }
+            return Ok(RevAsrEvidenceLookup::Miss(Box::new(RevAsrEvidenceMiss {
                 request: self.clone(),
                 reason: RevAsrEvidenceMissReason::NotFound,
                 _lease: lease,
-            }));
+            })));
         };
-        let envelope: StoredRevAsrEvidence = serde_json::from_value(stored)
-            .map_err(|error| RevAsrEvidenceCacheError::InvalidEvidence(error.to_string()))?;
-        envelope.validate_for(self)?;
-        Ok(RevAsrEvidenceLookup::Hit(envelope.evidence))
+        Ok(RevAsrEvidenceLookup::Hit(StoredRevAsrEvidence::decode_for(
+            stored, self,
+        )?))
     }
 
     #[cfg(test)]
@@ -154,12 +298,18 @@ impl RevAsrEvidenceRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct CompletedRevAsrEvidence {
-    pub(crate) transcript: Transcript,
+    pub(crate) transcript_evidence: RevTranscriptEvidence,
     pub(crate) resolved_language: LanguageCode3,
 }
 
 fn validate_evidence(evidence: &CompletedRevAsrEvidence) -> Result<(), RevAsrEvidenceCacheError> {
-    for (monologue_index, monologue) in evidence.transcript.monologues.iter().enumerate() {
+    for (monologue_index, monologue) in evidence
+        .transcript_evidence
+        .transcript()
+        .monologues
+        .iter()
+        .enumerate()
+    {
         if monologue.speaker < 0 {
             return Err(RevAsrEvidenceCacheError::InvalidEvidence(format!(
                 "monologue {monologue_index} has negative speaker index"
@@ -202,23 +352,72 @@ struct StoredRevAsrEvidence {
 }
 
 impl StoredRevAsrEvidence {
-    fn validate_for(
-        &self,
+    fn decode_for(
+        value: serde_json::Value,
         request: &RevAsrEvidenceRequest,
-    ) -> Result<(), RevAsrEvidenceCacheError> {
-        if self.schema_version != REV_ASR_EVIDENCE_SCHEMA_VERSION {
-            return Err(RevAsrEvidenceCacheError::InvalidEvidence(format!(
-                "schema version {} does not match {}",
-                self.schema_version, REV_ASR_EVIDENCE_SCHEMA_VERSION
-            )));
-        }
-        if self.request_fingerprint != request.cache_key.as_str() {
-            return Err(RevAsrEvidenceCacheError::InvalidEvidence(
-                "request fingerprint does not match cache key".to_owned(),
-            ));
-        }
-        validate_evidence(&self.evidence)
+    ) -> Result<CompletedRevAsrEvidence, RevAsrEvidenceCacheError> {
+        let schema_version = value
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| {
+                RevAsrEvidenceCacheError::InvalidEvidence(
+                    "stored evidence has no numeric schema version".to_owned(),
+                )
+            })?;
+        let evidence = match schema_version {
+            3 => {
+                let envelope: Self = serde_json::from_value(value).map_err(|error| {
+                    RevAsrEvidenceCacheError::InvalidEvidence(error.to_string())
+                })?;
+                validate_request_fingerprint(&envelope.request_fingerprint, request)?;
+                envelope.evidence
+            }
+            2 => {
+                let envelope: StoredRevAsrEvidenceV2 =
+                    serde_json::from_value(value).map_err(|error| {
+                        RevAsrEvidenceCacheError::InvalidEvidence(error.to_string())
+                    })?;
+                validate_request_fingerprint(&envelope.request_fingerprint, request)?;
+                CompletedRevAsrEvidence {
+                    transcript_evidence: RevTranscriptEvidence::from_legacy_transcript(
+                        envelope.evidence.transcript,
+                    ),
+                    resolved_language: envelope.evidence.resolved_language,
+                }
+            }
+            unsupported => {
+                return Err(RevAsrEvidenceCacheError::InvalidEvidence(format!(
+                    "unsupported stored evidence schema version {unsupported}"
+                )));
+            }
+        };
+        validate_evidence(&evidence)?;
+        Ok(evidence)
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct StoredRevAsrEvidenceV2 {
+    request_fingerprint: String,
+    evidence: CompletedRevAsrEvidenceV2,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompletedRevAsrEvidenceV2 {
+    transcript: Transcript,
+    resolved_language: LanguageCode3,
+}
+
+fn validate_request_fingerprint(
+    request_fingerprint: &str,
+    request: &RevAsrEvidenceRequest,
+) -> Result<(), RevAsrEvidenceCacheError> {
+    if request_fingerprint != request.cache_key.as_str() {
+        return Err(RevAsrEvidenceCacheError::InvalidEvidence(
+            "request fingerprint does not match cache key".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,10 +426,95 @@ pub(crate) enum RevAsrEvidenceMissReason {
     ForcedRefresh,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum RevAsrEvidenceCacheOutcome {
+    Replayed,
+    InferredNotFound,
+    InferredForcedRefresh,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) enum RevAsrProjectionRevision {
+    #[serde(rename = "rev-transcript-to-asr-response-v1")]
+    AsrResponseV1,
+    #[serde(rename = "rev-transcript-to-utr-asr-response-v1")]
+    UtrAsrResponseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub(crate) struct RevAsrEvidenceTrace {
+    #[serde(flatten)]
+    request: RevAsrEvidenceTraceSeed,
+    cache_outcome: RevAsrEvidenceCacheOutcome,
+    transcript_fidelity: RevTranscriptFidelity,
+    projection_revision: RevAsrProjectionRevision,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct RevAsrEvidenceTraceSeed {
+    trace_schema_version: u32,
+    source_media_blake3: String,
+    #[serde(flatten)]
+    provider_presentation: RevProviderPresentation,
+    requested_language: String,
+    expected_speakers: u32,
+    request_policy_revision: &'static str,
+    model_revision: String,
+    raw_evidence_key: String,
+}
+
+impl RevAsrEvidenceTraceSeed {
+    fn finish(
+        self,
+        cache_outcome: RevAsrEvidenceCacheOutcome,
+        transcript_fidelity: RevTranscriptFidelity,
+        projection_revision: RevAsrProjectionRevision,
+    ) -> RevAsrEvidenceTrace {
+        RevAsrEvidenceTrace {
+            request: self,
+            cache_outcome,
+            transcript_fidelity,
+            projection_revision,
+        }
+    }
+}
+
+/// Stable meaning of a Rev projection, excluding only how its evidence was
+/// obtained for this run.
+///
+/// A cold inference and a durable replay should compare equal here while
+/// retaining distinct causal receipts in [`RevAsrEvidenceTrace`]. Borrowing
+/// the request identity prevents tests and callers from manufacturing a second,
+/// subtly divergent trace-shaped record.
+#[cfg(test)]
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct RevAsrEvidenceSemanticProjection<'a> {
+    request: &'a RevAsrEvidenceTraceSeed,
+    transcript_fidelity: RevTranscriptFidelity,
+    projection_revision: RevAsrProjectionRevision,
+}
+
+impl RevAsrEvidenceTrace {
+    #[cfg(test)]
+    pub(crate) fn cache_outcome(&self) -> RevAsrEvidenceCacheOutcome {
+        self.cache_outcome
+    }
+
+    #[cfg(test)]
+    pub(crate) fn semantic_projection(&self) -> RevAsrEvidenceSemanticProjection<'_> {
+        RevAsrEvidenceSemanticProjection {
+            request: &self.request,
+            transcript_fidelity: self.transcript_fidelity,
+            projection_revision: self.projection_revision,
+        }
+    }
+}
+
 #[derive(Debug)]
 enum RevAsrEvidenceLookup {
     Hit(CompletedRevAsrEvidence),
-    Miss(RevAsrEvidenceMiss),
+    Miss(Box<RevAsrEvidenceMiss>),
 }
 
 #[derive(Debug)]
@@ -251,13 +535,56 @@ impl RevAsrEvidenceMiss {
 }
 
 #[derive(Debug)]
-pub(crate) struct RevAsrInferenceAuthorization {
+struct RevAsrInferenceAuthorization {
     request: RevAsrEvidenceRequest,
     reason: RevAsrEvidenceMissReason,
     _lease: InferenceLease,
 }
 
+pub(crate) struct AuthorizedRevEvidenceRun {
+    pub(super) provider_media: PreparedRevProviderMedia,
+    pub(super) requested_language: LanguageSpec,
+    pub(super) expected_speakers: NumSpeakers,
+}
+
 impl RevAsrInferenceAuthorization {
+    fn into_run(self) -> (AuthorizedRevEvidenceRun, RevAsrEvidenceCommitPermit) {
+        let Self {
+            request,
+            reason,
+            _lease,
+        } = self;
+        let RevAsrEvidenceRequest {
+            cache_key,
+            model_revision,
+            provider_media,
+            requested_language,
+            expected_speakers,
+        } = request;
+        (
+            AuthorizedRevEvidenceRun {
+                provider_media,
+                requested_language,
+                expected_speakers,
+            },
+            RevAsrEvidenceCommitPermit {
+                cache_key,
+                model_revision,
+                reason,
+                _lease,
+            },
+        )
+    }
+}
+
+struct RevAsrEvidenceCommitPermit {
+    cache_key: CacheKey,
+    model_revision: RevAsrModelRevision,
+    reason: RevAsrEvidenceMissReason,
+    _lease: InferenceLease,
+}
+
+impl RevAsrEvidenceCommitPermit {
     async fn commit(
         self,
         cache: &UtteranceCache,
@@ -265,16 +592,16 @@ impl RevAsrInferenceAuthorization {
     ) -> Result<CompletedRevAsrEvidence, RevAsrEvidenceCacheError> {
         validate_evidence(&evidence)?;
         let envelope = StoredRevAsrEvidence {
-            schema_version: REV_ASR_EVIDENCE_SCHEMA_VERSION,
-            request_fingerprint: self.request.cache_key.to_string(),
+            schema_version: REV_ASR_EVIDENCE_STORAGE_SCHEMA_VERSION,
+            request_fingerprint: self.cache_key.to_string(),
             evidence,
         };
         let value = serde_json::to_value(&envelope)?;
         cache
             .put(
-                self.request.cache_key.as_str(),
+                self.cache_key.as_str(),
                 CacheTaskName::RevAsrEvidence.as_str(),
-                self.request.model_revision.as_str(),
+                self.model_revision.as_str(),
                 env!("CARGO_PKG_VERSION"),
                 &value,
             )
@@ -288,33 +615,92 @@ impl RevAsrInferenceAuthorization {
 pub(crate) trait RevAsrEvidenceInference: Sync {
     async fn infer(
         &self,
-        authorization: &RevAsrInferenceAuthorization,
+        run: AuthorizedRevEvidenceRun,
     ) -> Result<CompletedRevAsrEvidence, ServerError>;
 }
 
-#[derive(Debug)]
-pub(crate) enum RevAsrEvidenceResolution {
-    Replayed(CompletedRevAsrEvidence),
-    Inferred {
-        evidence: CompletedRevAsrEvidence,
-        reason: RevAsrEvidenceMissReason,
-    },
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RevAsrEvidenceSource {
+    Replayed,
+    Inferred(RevAsrEvidenceMissReason),
 }
 
-pub(crate) async fn resolve_rev_asr_evidence<I: RevAsrEvidenceInference>(
+#[derive(Debug)]
+pub(crate) struct RevAsrEvidenceResolution {
+    evidence: CompletedRevAsrEvidence,
+    source: RevAsrEvidenceSource,
+    trace_seed: RevAsrEvidenceTraceSeed,
+}
+
+impl RevAsrEvidenceResolution {
+    fn cache_outcome(&self) -> RevAsrEvidenceCacheOutcome {
+        match self.source {
+            RevAsrEvidenceSource::Replayed => RevAsrEvidenceCacheOutcome::Replayed,
+            RevAsrEvidenceSource::Inferred(RevAsrEvidenceMissReason::NotFound) => {
+                RevAsrEvidenceCacheOutcome::InferredNotFound
+            }
+            RevAsrEvidenceSource::Inferred(RevAsrEvidenceMissReason::ForcedRefresh) => {
+                RevAsrEvidenceCacheOutcome::InferredForcedRefresh
+            }
+        }
+    }
+
+    pub(crate) fn trace(
+        &self,
+        projection_revision: RevAsrProjectionRevision,
+    ) -> RevAsrEvidenceTrace {
+        self.trace_seed.clone().finish(
+            self.cache_outcome(),
+            self.evidence.transcript_evidence.fidelity(),
+            projection_revision,
+        )
+    }
+
+    pub(crate) fn source(&self) -> RevAsrEvidenceSource {
+        self.source
+    }
+
+    pub(crate) fn into_evidence(self) -> CompletedRevAsrEvidence {
+        self.evidence
+    }
+
+    #[cfg(test)]
+    pub(crate) fn replayed_for_test(
+        request: &RevAsrEvidenceRequest,
+        evidence: CompletedRevAsrEvidence,
+    ) -> Self {
+        Self {
+            evidence,
+            source: RevAsrEvidenceSource::Replayed,
+            trace_seed: request.trace_seed(),
+        }
+    }
+}
+
+pub(crate) async fn resolve_rev_asr_evidence<I: RevAsrEvidenceInference + ?Sized>(
     request: &RevAsrEvidenceRequest,
     cache: &UtteranceCache,
     policy: CachePolicy,
     inference: &I,
 ) -> Result<RevAsrEvidenceResolution, RevAsrEvidenceResolutionError> {
+    let trace_seed = request.trace_seed();
     match request.lookup(cache, policy).await? {
-        RevAsrEvidenceLookup::Hit(evidence) => Ok(RevAsrEvidenceResolution::Replayed(evidence)),
+        RevAsrEvidenceLookup::Hit(evidence) => Ok(RevAsrEvidenceResolution {
+            evidence,
+            source: RevAsrEvidenceSource::Replayed,
+            trace_seed,
+        }),
         RevAsrEvidenceLookup::Miss(miss) => {
-            let authorization = miss.authorize();
-            let reason = authorization.reason;
-            let evidence = inference.infer(&authorization).await?;
-            let evidence = authorization.commit(cache, evidence).await?;
-            Ok(RevAsrEvidenceResolution::Inferred { evidence, reason })
+            let authorization = (*miss).authorize();
+            let (run, permit) = authorization.into_run();
+            let reason = permit.reason;
+            let evidence = inference.infer(run).await?;
+            let evidence = permit.commit(cache, evidence).await?;
+            Ok(RevAsrEvidenceResolution {
+                evidence,
+                source: RevAsrEvidenceSource::Inferred(reason),
+                trace_seed,
+            })
         }
     }
 }
@@ -337,8 +723,14 @@ pub(crate) enum RevAsrEvidenceCacheError {
     Json(#[from] serde_json::Error),
     #[error("invalid Rev.AI evidence request: {0}")]
     InvalidRequest(String),
+    #[error("Rev.AI provider media changed after preparation: {0}")]
+    ProviderMediaDrift(PathBuf),
+    #[error("Rev.AI provider-media recipe produced different bytes after preparation: {0}")]
+    ProviderPreparationDrift(PathBuf),
     #[error("invalid cached Rev.AI evidence: {0}")]
     InvalidEvidence(String),
+    #[error("required Rev.AI evidence is missing for cache key {0}")]
+    RequiredEvidenceMissing(String),
 }
 
 #[cfg(test)]
@@ -351,19 +743,23 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn sample_evidence() -> CompletedRevAsrEvidence {
-        CompletedRevAsrEvidence {
-            transcript: Transcript {
-                monologues: vec![Monologue {
-                    speaker: 0,
-                    elements: vec![Element {
-                        element_type: "text".to_owned(),
-                        value: "hello".to_owned(),
-                        ts: Some(0.1),
-                        end_ts: Some(0.5),
-                        confidence: Some(0.9),
-                    }],
+        let transcript = Transcript {
+            monologues: vec![Monologue {
+                speaker: 0,
+                elements: vec![Element {
+                    element_type: "text".to_owned(),
+                    value: "hello".to_owned(),
+                    ts: Some(0.1),
+                    end_ts: Some(0.5),
+                    confidence: Some(0.9),
                 }],
-            },
+            }],
+        };
+        CompletedRevAsrEvidence {
+            transcript_evidence: RevTranscriptEvidence::from_provider_json(
+                serde_json::to_string(&transcript).expect("fixture transcript JSON"),
+            )
+            .expect("fixture provider transcript"),
             resolved_language: LanguageCode3::eng(),
         }
     }
@@ -432,7 +828,7 @@ mod tests {
     impl RevAsrEvidenceInference for CountingRevService {
         async fn infer(
             &self,
-            _authorization: &RevAsrInferenceAuthorization,
+            _run: AuthorizedRevEvidenceRun,
         ) -> Result<CompletedRevAsrEvidence, ServerError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.delay_ms > 0 {
@@ -447,12 +843,16 @@ mod tests {
         let tempdir = tempfile::tempdir().expect("tempdir");
         let first = tempdir.path().join("first.wav");
         let renamed = tempdir.path().join("renamed.wav");
+        let renamed_mp3 = tempdir.path().join("renamed.mp3");
         tokio::fs::write(&first, b"provider media")
             .await
             .expect("write first");
         tokio::fs::write(&renamed, b"provider media")
             .await
             .expect("write renamed");
+        tokio::fs::write(&renamed_mp3, b"provider media")
+            .await
+            .expect("write renamed mp3");
         let revision = RevAsrModelRevision::current();
 
         let baseline = RevAsrEvidenceRequest::from_audio(
@@ -471,6 +871,14 @@ mod tests {
         )
         .await
         .expect("copied request");
+        let different_presentation = RevAsrEvidenceRequest::from_audio(
+            &renamed_mp3,
+            &LanguageSpec::Resolved(LanguageCode3::eng()),
+            NumSpeakers(2),
+            &revision,
+        )
+        .await
+        .expect("different presentation request");
         let auto_language = RevAsrEvidenceRequest::from_audio(
             &first,
             &LanguageSpec::Auto,
@@ -500,9 +908,186 @@ mod tests {
         .expect("changed-media request");
 
         assert_eq!(baseline.cache_key(), copied.cache_key());
+        assert_eq!(
+            baseline.cache_key().as_str(),
+            "c3590a1d2a28ea2f9bacb3b781bc798a8ba02c69483134f9f24227eb12f1ed23"
+        );
+        assert_ne!(baseline.cache_key(), different_presentation.cache_key());
         assert_ne!(baseline.cache_key(), auto_language.cache_key());
         assert_ne!(baseline.cache_key(), three_speakers.cache_key());
         assert_ne!(baseline.cache_key(), changed_media.cache_key());
+    }
+
+    #[tokio::test]
+    async fn storage_upgrade_preserves_request_key_and_replays_schema_two_evidence() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let audio = tempdir.path().join("audio.wav");
+        tokio::fs::write(&audio, b"provider media")
+            .await
+            .expect("write audio");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let request = RevAsrEvidenceRequest::from_audio(
+            &audio,
+            &LanguageSpec::Resolved(LanguageCode3::eng()),
+            NumSpeakers(2),
+            &RevAsrModelRevision::current(),
+        )
+        .await
+        .expect("request");
+
+        let key_material = RevAsrEvidenceKeyMaterial {
+            domain: "rev_asr_evidence",
+            request_identity_revision: REV_ASR_REQUEST_IDENTITY_REVISION,
+            provider_presentation: &request.provider_media.presentation,
+            requested_language: request.requested_language.to_string(),
+            expected_speakers: request.expected_speakers.0,
+            request_policy_revision: REV_ASR_REQUEST_POLICY_REVISION,
+            model_revision: request.model_revision.as_str(),
+        };
+        let key_json = serde_json::to_value(key_material).expect("key material JSON");
+        assert_eq!(key_json["schema_version"], 2);
+        assert!(key_json.get("request_identity_revision").is_none());
+
+        request
+            .store_unchecked_for_test(
+                &cache,
+                serde_json::json!({
+                    "schema_version": 2,
+                    "request_fingerprint": request.cache_key().as_str(),
+                    "evidence": {
+                        "transcript": {
+                            "monologues": [{
+                                "speaker": 0,
+                                "elements": [{
+                                    "type": "text",
+                                    "value": "legacy",
+                                    "ts": 0.1,
+                                    "end_ts": 0.5,
+                                    "confidence": 0.9
+                                }]
+                            }]
+                        },
+                        "resolved_language": "eng"
+                    }
+                }),
+            )
+            .await
+            .expect("seed schema-two evidence");
+        let service = CountingRevService {
+            calls: AtomicUsize::new(0),
+            delay_ms: 0,
+        };
+
+        let replay =
+            resolve_rev_asr_evidence(&request, &cache, CachePolicy::RequireCache, &service)
+                .await
+                .expect("schema-two evidence should remain replayable");
+        let trace = serde_json::to_value(replay.trace(RevAsrProjectionRevision::AsrResponseV1))
+            .expect("trace JSON");
+
+        assert_eq!(trace["cache_outcome"], "replayed");
+        assert_eq!(trace["transcript_fidelity"], "legacy_typed_projection");
+        assert_eq!(service.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn prepared_media_refuses_bytes_changed_before_authorized_submission() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let audio = tempdir.path().join("audio.mp3");
+        tokio::fs::write(&audio, b"prepared bytes")
+            .await
+            .expect("write audio");
+        let prepared = PreparedRevProviderMedia::from_source(&audio)
+            .await
+            .expect("prepare");
+        tokio::fs::write(&audio, b"changed after preparation")
+            .await
+            .expect("change audio");
+
+        assert!(matches!(
+            prepared.verify(),
+            Err(RevAsrEvidenceCacheError::ProviderMediaDrift(path)) if path == audio
+        ));
+    }
+
+    #[tokio::test]
+    async fn verified_media_has_stable_provider_visible_presentation() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let audio = tempdir.path().join("Original.WAV");
+        let bytes = b"provider media";
+        tokio::fs::write(&audio, bytes).await.expect("write audio");
+
+        let verified = PreparedRevProviderMedia::from_source(&audio)
+            .await
+            .expect("prepare")
+            .verify()
+            .expect("verify");
+        let digest = RevProviderMediaDigest::from_bytes(bytes);
+
+        assert_eq!(verified.bytes, bytes);
+        assert_eq!(verified.upload_file_name, "provider-media.wav");
+        assert_eq!(verified.upload_mime, "audio/mpeg");
+        assert_eq!(
+            verified.metadata,
+            format!("batchalign3_{}", &digest.0[..16])
+        );
+    }
+
+    #[tokio::test]
+    async fn evidence_trace_joins_media_request_cache_and_projection_identity() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let audio = tempdir.path().join("Original.WAV");
+        tokio::fs::write(&audio, b"provider media")
+            .await
+            .expect("write audio");
+        let request = RevAsrEvidenceRequest::from_audio(
+            &audio,
+            &LanguageSpec::Resolved(LanguageCode3::eng()),
+            NumSpeakers(2),
+            &RevAsrModelRevision::current(),
+        )
+        .await
+        .expect("request");
+
+        let resolution = RevAsrEvidenceResolution {
+            evidence: sample_evidence(),
+            source: RevAsrEvidenceSource::Inferred(RevAsrEvidenceMissReason::NotFound),
+            trace_seed: request.trace_seed(),
+        };
+        let value = serde_json::to_value(resolution.trace(RevAsrProjectionRevision::AsrResponseV1))
+            .expect("trace JSON");
+
+        assert_eq!(value["trace_schema_version"], 2);
+        assert_eq!(
+            value["preparation_recipe"],
+            "source_bytes_legacy_audio_mpeg_v1"
+        );
+        assert_eq!(value["source_media_blake3"], value["provider_media_blake3"]);
+        assert_eq!(value["upload_file_name"], "provider-media.wav");
+        assert_eq!(value["upload_mime"], "audio/mpeg");
+        assert!(
+            value["upload_metadata"]
+                .as_str()
+                .expect("metadata string")
+                .starts_with("batchalign3_")
+        );
+        assert_eq!(value["requested_language"], "eng");
+        assert_eq!(value["expected_speakers"], 2);
+        assert_eq!(value["cache_outcome"], "inferred_not_found");
+        assert_eq!(value["transcript_fidelity"], "exact_provider_json");
+        assert_eq!(value["raw_evidence_key"], request.cache_key().as_str());
+        assert_eq!(
+            value["projection_revision"],
+            "rev-transcript-to-asr-response-v1"
+        );
+        assert!(
+            !value
+                .to_string()
+                .contains(tempdir.path().to_string_lossy().as_ref()),
+            "trace identity should not leak a machine-local source path"
+        );
     }
 
     #[tokio::test]
@@ -531,10 +1116,8 @@ mod tests {
         let cold = resolve_rev_asr_evidence(&request, &cache, CachePolicy::UseCache, &service)
             .await
             .expect("cold");
-        let cold_evidence = match cold {
-            RevAsrEvidenceResolution::Inferred { evidence, .. } => evidence,
-            RevAsrEvidenceResolution::Replayed(_) => panic!("empty cache must infer"),
-        };
+        assert!(matches!(cold.source(), RevAsrEvidenceSource::Inferred(_)));
+        let cold_evidence = cold.into_evidence();
         let cold_response = crate::revai::rev_evidence_to_asr_response(&cold_evidence);
         drop(cache);
 
@@ -544,15 +1127,79 @@ mod tests {
         let warm = resolve_rev_asr_evidence(&request, &reopened, CachePolicy::UseCache, &service)
             .await
             .expect("warm");
-        let warm_evidence = match warm {
-            RevAsrEvidenceResolution::Replayed(evidence) => evidence,
-            RevAsrEvidenceResolution::Inferred { .. } => panic!("durable cache must replay"),
-        };
+        assert_eq!(warm.source(), RevAsrEvidenceSource::Replayed);
+        let warm_evidence = warm.into_evidence();
         let warm_response = crate::revai::rev_evidence_to_asr_response(&warm_evidence);
         assert_eq!(
             serde_json::to_value(cold_response).expect("cold response JSON"),
             serde_json::to_value(warm_response).expect("warm response JSON")
         );
+        assert_eq!(service.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn required_cache_refuses_cold_rev_service_call() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let audio = tempdir.path().join("audio.wav");
+        tokio::fs::write(&audio, b"provider media")
+            .await
+            .expect("write audio");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let request = RevAsrEvidenceRequest::from_audio(
+            &audio,
+            &LanguageSpec::Resolved(LanguageCode3::eng()),
+            NumSpeakers(2),
+            &RevAsrModelRevision::current(),
+        )
+        .await
+        .expect("request");
+        let service = CountingRevService {
+            calls: AtomicUsize::new(0),
+            delay_ms: 0,
+        };
+
+        let error = resolve_rev_asr_evidence(&request, &cache, CachePolicy::RequireCache, &service)
+            .await
+            .expect_err("a cold required-cache lookup must refuse Rev.AI inference");
+
+        assert!(error.to_string().contains("required Rev.AI evidence"));
+        assert_eq!(service.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn required_cache_replays_warm_rev_evidence() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let audio = tempdir.path().join("audio.wav");
+        tokio::fs::write(&audio, b"provider media")
+            .await
+            .expect("write audio");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let request = RevAsrEvidenceRequest::from_audio(
+            &audio,
+            &LanguageSpec::Resolved(LanguageCode3::eng()),
+            NumSpeakers(2),
+            &RevAsrModelRevision::current(),
+        )
+        .await
+        .expect("request");
+        let service = CountingRevService {
+            calls: AtomicUsize::new(0),
+            delay_ms: 0,
+        };
+        resolve_rev_asr_evidence(&request, &cache, CachePolicy::UseCache, &service)
+            .await
+            .expect("seed evidence");
+
+        let replay =
+            resolve_rev_asr_evidence(&request, &cache, CachePolicy::RequireCache, &service)
+                .await
+                .expect("required-cache replay");
+
+        assert_eq!(replay.source(), RevAsrEvidenceSource::Replayed);
         assert_eq!(service.calls.load(Ordering::SeqCst), 1);
     }
 
@@ -586,13 +1233,13 @@ mod tests {
         let first = first.expect("first resolution");
         let second = second.expect("second resolution");
         assert!(matches!(
-            (&first, &second),
+            (first.source(), second.source()),
             (
-                RevAsrEvidenceResolution::Inferred { .. },
-                RevAsrEvidenceResolution::Replayed(_)
+                RevAsrEvidenceSource::Inferred(_),
+                RevAsrEvidenceSource::Replayed
             ) | (
-                RevAsrEvidenceResolution::Replayed(_),
-                RevAsrEvidenceResolution::Inferred { .. }
+                RevAsrEvidenceSource::Replayed,
+                RevAsrEvidenceSource::Inferred(_)
             )
         ));
         assert_eq!(service.calls.load(Ordering::SeqCst), 1);
@@ -629,13 +1276,13 @@ mod tests {
         let second = second.expect("second refresh");
 
         assert!(matches!(
-            (&first, &second),
+            (first.source(), second.source()),
             (
-                RevAsrEvidenceResolution::Inferred { .. },
-                RevAsrEvidenceResolution::Replayed(_)
+                RevAsrEvidenceSource::Inferred(_),
+                RevAsrEvidenceSource::Replayed
             ) | (
-                RevAsrEvidenceResolution::Replayed(_),
-                RevAsrEvidenceResolution::Inferred { .. }
+                RevAsrEvidenceSource::Replayed,
+                RevAsrEvidenceSource::Inferred(_)
             )
         ));
         assert_eq!(service.calls.load(Ordering::SeqCst), 1);

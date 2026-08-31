@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::api::{DurationMs, DurationSeconds, LanguageCode3};
 
 use super::requests::{ProtocolErrorCodeV2, WhisperChunkSpanV2, WorkerRequestIdV2};
+use super::utseg_evidence::UtsegBoundaryModelEvidenceV2;
 
 /// One ASR result built from raw Whisper chunks.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
@@ -132,6 +133,9 @@ pub struct UtsegItemResultV2 {
     /// Raw constituency trees when inference succeeded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trees: Option<Vec<String>>,
+    /// Provenance-bearing classifier evidence parallel to the request words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boundary_model_evidence: Option<UtsegBoundaryModelEvidenceV2>,
     /// Optional per-item runtime error.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,

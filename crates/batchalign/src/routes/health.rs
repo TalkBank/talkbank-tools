@@ -67,6 +67,7 @@ pub(crate) async fn health(State(state): State<Arc<AppState>>) -> Json<HealthRes
         free_threaded: false, // Rust server dispatches to Python workers
         capabilities: state.workers.capabilities.clone(),
         loaded_pipelines: worker_summary,
+        worker_runtime_identities: state.workers.pool.observed_worker_runtimes(),
         media_roots: state
             .environment
             .config

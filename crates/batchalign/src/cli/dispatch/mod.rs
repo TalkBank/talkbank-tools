@@ -2,10 +2,9 @@
 //!
 //! Mirrors `dispatch.py` + `dispatch_server.py`.
 //!
-//! Explicit `--server` runs against an HTTP server unless the command class is
-//! configured to prefer a local daemon. Without a usable server target, local
-//! processing commands can auto-spawn a daemon or execute inline through the
-//! shared direct host.
+//! Explicit `--server` always selects that HTTP server. Without an explicit
+//! target, local processing commands can auto-spawn a daemon or execute inline
+//! through the shared direct host.
 
 mod helpers;
 mod paths;
@@ -32,7 +31,7 @@ use crate::cli::python::resolve_python_executable;
 use crate::cli::args::InputKind;
 use helpers::{DirectProgressTracker, file_error_details, finish_terminal_job};
 use paths::prepare_paths_submission;
-use single::dispatch_single_server;
+use single::{ServerTarget, dispatch_single_server};
 
 // ---------------------------------------------------------------------------
 // Top-level dispatch router
@@ -106,12 +105,11 @@ pub struct DispatchRequest<'a> {
 /// This is the main entry point for all CLI processing commands. It resolves
 /// where to send work using the following priority chain:
 ///
-/// 1. **Explicit `--server URL`** -- single-server dispatch via HTTP for
-///    command classes that are allowed to target a remote server directly.
+/// 1. **Explicit `--server URL`** -- authoritative single-server dispatch via
+///    HTTP. Loopback targets use shared-filesystem transport without changing
+///    the selected producer.
 /// 2. **Local daemon** -- when `auto_daemon` is enabled, the CLI reuses or
-///    starts a loopback daemon and routes eligible commands through it. Audio
-///    workloads such as `transcribe` and `benchmark` prefer this path even if
-///    `--server` was supplied.
+///    starts a loopback daemon and routes eligible commands through it.
 /// 3. **Already-running local server** -- if a loopback server is listening on
 ///    the configured port, reuse it without spawning a daemon.
 /// 4. **Direct local execution** -- local filesystem processing goes through
@@ -170,13 +168,12 @@ pub async fn dispatch(
         return Ok(());
     }
 
-    let prefer_local_daemon = command_prefers_local_daemon(command);
-
-    // 1. Explicit --server for command classes that can target a remote server
-    // directly without local-daemon routing.
-    if let Some(server) = server_arg
-        && !prefer_local_daemon
-    {
+    // 1. An explicit --server always identifies the execution host. Loopback
+    // targets can safely send filesystem paths; other targets use content and
+    // media-reference submission. Falling through to a healthy local daemon
+    // after the operator named another server makes the producer identity
+    // false and can send paid work to the wrong process.
+    if let Some(server) = server_arg {
         let client = BatchalignClient::new()?;
         let urls = client::parse_servers(server);
         if urls.is_empty() {
@@ -185,10 +182,10 @@ pub async fn dispatch(
         }
 
         if urls.len() == 1 {
+            let target = ServerTarget::parse_explicit(&urls[0], command)?;
             return dispatch_single_server(
                 &client,
-                &urls[0],
-                false,
+                &target,
                 command,
                 lang,
                 num_speakers,
@@ -222,9 +219,7 @@ pub async fn dispatch(
         cfg.memory_tier = Some(tier);
     }
 
-    // 2. Auto-daemon routing. When enabled, this is the preferred local path
-    // for both command families that require local audio access and for the
-    // general "no explicit server" case.
+    // 2. Auto-daemon routing applies only when no server was explicitly named.
     let local_daemon_url = if !no_server && cfg.auto_daemon {
         daemon::ensure_daemon(force_cpu, allow_mps, workers, timeout).await?
     } else {
@@ -232,18 +227,12 @@ pub async fn dispatch(
     };
 
     if let Some(local_daemon_url) = local_daemon_url.as_deref() {
-        if server_arg.is_some() && prefer_local_daemon {
-            eprintln!(
-                "warning: {} uses local audio, ignoring --server and using local daemon.",
-                command.as_wire_name()
-            );
-        }
         eprintln!("Submitting to local daemon at {local_daemon_url}\n");
         let client = BatchalignClient::new()?;
+        let target = ServerTarget::parse_shared_filesystem(local_daemon_url)?;
         return dispatch_single_server(
             &client,
-            local_daemon_url,
-            true,
+            &target,
             command,
             lang,
             num_speakers,
@@ -259,45 +248,7 @@ pub async fn dispatch(
         .await;
     }
 
-    // 3. Explicit --server for any command that still has a remote target after
-    // local-daemon routing. For local-daemon-preferred commands this is the
-    // fallback when auto-daemon is disabled or unavailable.
-    if let Some(server) = explicit_server_fallback(server_arg, local_daemon_url.as_deref()) {
-        let client = BatchalignClient::new()?;
-        let urls = client::parse_servers(server);
-        if urls.is_empty() {
-            eprintln!("error: no server URL provided");
-            return Ok(());
-        }
-
-        if urls.len() == 1 {
-            return dispatch_single_server(
-                &client,
-                &urls[0],
-                false,
-                command,
-                lang,
-                num_speakers,
-                input_kind,
-                inputs,
-                out_dir,
-                options.as_ref(),
-                lexicon,
-                before,
-                use_tui,
-                open_dashboard,
-            )
-            .await;
-        }
-
-        eprintln!(
-            "error: multi-server dispatch (--server URL1,URL2) is not available in this version.\n\
-             Use --server with a single URL instead."
-        );
-        return Ok(());
-    }
-
-    // 4. Auto-detect a loopback server that was started outside the daemon
+    // 3. Auto-detect a loopback server that was started outside the daemon
     // state-file flow (for example by launchd or a foreground serve command).
     // Prefer the port the server published over the one the config asked for.
     // Computed INSIDE the guard: `--no-server` and `--sequential` never contact
@@ -309,10 +260,10 @@ pub async fn dispatch(
     {
         eprintln!("Using local server at {local_url} ({health})\n");
         let client = BatchalignClient::new()?;
+        let target = ServerTarget::parse_shared_filesystem(&local_url)?;
         return dispatch_single_server(
             &client,
-            &local_url,
-            true,
+            &target,
             command,
             lang,
             num_speakers,
@@ -328,7 +279,7 @@ pub async fn dispatch(
         .await;
     }
 
-    // 5. If we reached here without --no-server or --sequential the user did
+    // 4. If we reached here without --no-server or --sequential the user did
     //    not explicitly request offline execution. Exit gracefully and create
     //    the output directory so tools that check for its existence still
     //    see a consistent post-run filesystem state.
@@ -360,28 +311,6 @@ pub async fn dispatch(
         sequential,
     )
     .await
-}
-
-fn command_prefers_local_daemon(command: ReleasedCommand) -> bool {
-    matches!(
-        command,
-        ReleasedCommand::Transcribe
-            | ReleasedCommand::TranscribeS
-            | ReleasedCommand::Benchmark
-            | ReleasedCommand::Avqi
-            | ReleasedCommand::Diarize
-    )
-}
-
-fn explicit_server_fallback<'a>(
-    server_arg: Option<&'a str>,
-    local_daemon_url: Option<&str>,
-) -> Option<&'a str> {
-    if local_daemon_url.is_some() {
-        None
-    } else {
-        server_arg
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -530,7 +459,7 @@ async fn dispatch_direct_mode(
     )
 }
 
-fn build_direct_pool_config(
+pub(crate) fn build_direct_pool_config(
     cfg: &ServerConfig,
     force_cpu: bool,
     allow_mps: bool,
@@ -677,29 +606,6 @@ mod tests {
         assert!(!released_command_uses_local_audio(
             ReleasedCommand::Morphotag
         ));
-    }
-
-    #[test]
-    fn transcribe_family_prefers_local_daemon() {
-        assert!(command_prefers_local_daemon(ReleasedCommand::Transcribe));
-        assert!(command_prefers_local_daemon(ReleasedCommand::TranscribeS));
-        assert!(command_prefers_local_daemon(ReleasedCommand::Benchmark));
-        assert!(command_prefers_local_daemon(ReleasedCommand::Avqi));
-        assert!(!command_prefers_local_daemon(ReleasedCommand::Align));
-        assert!(!command_prefers_local_daemon(ReleasedCommand::Compare));
-    }
-
-    #[test]
-    fn explicit_server_fallback_only_after_daemon_unavailable() {
-        assert_eq!(
-            explicit_server_fallback(Some("http://server-01:8001"), None),
-            Some("http://server-01:8001")
-        );
-        assert_eq!(
-            explicit_server_fallback(Some("http://server-01:8001"), Some("http://127.0.0.1:8000")),
-            None
-        );
-        assert_eq!(explicit_server_fallback(None, None), None);
     }
 
     /// `--sequential` effectively disables the memory gate (threshold = 1 MB).

@@ -188,8 +188,8 @@ fn rescued_end_ms(
 /// unchanged because the start time of the utterance is the more
 /// trustworthy of the two boundaries from `transcribe`.
 ///
-/// Returns one `DecisionRecord` per rescued utterance so the
-/// `%xalign`/`%xrev` decision tiers reflect the rescue.
+/// Returns one `DecisionRecord` per rescued utterance so durable evidence
+/// reflects the rescue.
 ///
 /// ## Why this is safe
 ///
@@ -267,9 +267,9 @@ pub fn rescue_narrow_bullets(chat_file: &mut ChatFile) -> Vec<DecisionRecord> {
                 tag = trigger.as_decision_tag(),
             ),
             // The rescue is a routine pre-pass correction, not a sign that
-            // something is broken in the user's input. Surface it via
-            // `%xalign` (audit trail) but do not trigger `%xrev` (human
-            // review): the FA result is still correct after the rescue.
+            // something is broken in the user's input. Retain it in evidence
+            // but do not request human review: the FA result is still correct
+            // after the rescue.
             false,
         ));
     }

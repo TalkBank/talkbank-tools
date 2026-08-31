@@ -66,7 +66,7 @@ pub enum MisalignmentClass {
 }
 
 impl MisalignmentClass {
-    /// Short label for `%xalign` tier output.
+    /// Stable label for tracing and structured decision evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::RealignmentSkipped => "realignment_skipped",

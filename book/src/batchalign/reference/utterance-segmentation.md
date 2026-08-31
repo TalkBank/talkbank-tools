@@ -1,7 +1,7 @@
 # Utterance Segmentation
 
 **Status:** Current
-**Last updated:** 2026-05-19 14:18 EDT
+**Last updated:** 2026-08-30 20:05 EDT
 
 Utterance segmentation splits continuous ASR output into individual utterances
 for CHAT transcription. This is a critical step, CHAT requires one utterance
@@ -31,8 +31,9 @@ batchalign3 has three utterance segmentation mechanisms:
 2. **Punctuation-based fallback**: Rust-side retokenization over typed ASR
    words. Used for unsupported languages and as cleanup after model-backed
    segmentation.
-3. **Stanza utterance segmentation (`utseg`)**: a separate text-task
-   refinement stage that runs on already-built CHAT text.
+3. **CHAT-text utterance segmentation (`utseg`)**: a second text-task pass over
+   already-built CHAT. It uses the configured TalkBank boundary model when one
+   exists; Stanza is an explicit fallback for unsupported languages.
 
 ```mermaid
 flowchart TD
@@ -45,7 +46,7 @@ flowchart TD
     punct["Rust punctuation retokenization\n(. ? ! +... etc.)"]
     utts["Pre-CHAT utterances"]
     chat["CHAT AST"]
-    stanza["Optional Stanza utseg\non built CHAT text"]
+    postchat["Second boundary-model pass\non built CHAT text"]
 
     asr --> revauto
     revauto -->|no or non-Rev engine| efflang
@@ -58,7 +59,7 @@ flowchart TD
     bert --> punct
     punct --> utts
     utts --> chat
-    chat --> stanza
+    chat --> postchat
 ```
 
 ## BERT Utterance Models
@@ -73,6 +74,55 @@ These models predict utterance-boundary actions as a token classification task.
 In BA3, Python model inference stays token-based and returns typed
 word-assignment groups to Rust; Rust then applies those assignments to the
 prepared ASR chunks without round-tripping through ad hoc sentence strings.
+
+The six semantic actions are ordinary, capitalized onset, period boundary,
+question boundary, exclamation boundary, and comma. Only the three boundary
+actions advance the assignment group. Current postprocessing suppresses the
+earlier action whenever two adjacent words both have any non-ordinary action;
+the retained evidence records raw and applied actions separately so this
+policy can be evaluated without rerunning the model.
+
+The distinction is material. A controlled local replay over 598 retained
+English source monologues and 15,141 words found 267 action differences between
+the current policy and a policy that suppresses only the earlier of two true
+sentence-end actions. Of those differences, 140 restored a sentence-end action
+and changed the utterance assignments. This is evidence that the legacy rule
+needs human-linked evaluation, not proof that all 140 restored boundaries are
+correct. This first census isolates model decoding over retained provider
+monologues; production preprocessing and speaker projection can change the
+exact model inputs. The production default remains unchanged. See the
+developer `utseg` reference for the reproducible, provider-free probe.
+
+Worker protocol V2 also carries the sum of the three sentence-end
+probabilities for each classified word at fixed micro precision, along with
+model ID and exact revision when available. A normalization omission and a
+short input that bypasses model inference are explicit states. Rust refuses
+the result unless assignments and evidence exactly parallel the dispatched
+words. `transcribe --debug-dir PATH` retains these decisions in separate
+versioned pre-CHAT and post-CHAT evidence files; see the transcribe guide.
+
+```mermaid
+flowchart LR
+    W["Dispatched words"] --> M["Boundary model"]
+    M --> R["Raw action + boundary probability"]
+    R --> P{"Selected normalization policy"}
+    P --> A["Applied action"]
+    A --> G["Assignment groups"]
+    R --> E["Per-word evidence"]
+    A --> E
+    G --> V{"Rust shape admission"}
+    E --> V
+    V -->|"lengths and assignments agree"| D["AdmittedUtsegPrediction"]
+    V -->|"mismatch"| F["Typed protocol failure"]
+    D --> S["Split prepared chunk or CHAT utterance"]
+    O["Normalization omission"] --> V
+    C["Model short-circuit"] --> V
+```
+
+These are text-model signals, not acoustic confidences. The model sees lexical
+context but does not receive pause duration, waveform energy, pitch,
+diarization overlap, or CHAT retrace structure. Those signals must be joined
+downstream under an explicitly tested policy.
 
 Both standalone `utseg` and `transcribe`'s pre-CHAT segmentation path resolve
 through the same utterance-model resolver, so `cmn` and `zho` both select
@@ -158,10 +208,32 @@ segmentation. This is handled automatically by the Stanza capability table
 (`batchalign/worker/_stanza_capabilities.py`), which reads Stanza's
 `resources.json` to discover per-language processor availability.
 
-This is a different mechanism from the pre-CHAT utterance models above, it
+This is a different mechanism from the pre-CHAT utterance models above: it
 operates on already-built CHAT text and can refine boundaries using syntactic
-structure. The user-facing surface for this path is the standalone `utseg`
-command; `transcribe` uses the pre-CHAT utterance models when available.
+structure. The user-facing surface is the standalone `utseg` command and
+transcribe's post-CHAT pass. With utterance segmentation enabled, production
+transcribe uses a closed two-pass plan: the language model first segments
+prepared timed ASR words, CHAT is built, and the model then refines the main
+tiers. Disabling utterance segmentation disables both passes. For a language
+with a configured TalkBank boundary model, that model remains the primary
+path; Stanza is an explicit fallback when no boundary model is configured.
+
+The passes are not independent. A pre-CHAT boundary changes the main-tier
+contexts presented after CHAT construction. Offline evaluation therefore
+distinguishes an actual one-pass topology from policy isolation that retains
+both passes while changing only the pre- or post-CHAT decoder policy. See the
+developer transcribe reference for the four typed replay choices.
+
+The second pass also has to project timing onto its new children. BA3 permits
+`%wor` partitioning only after equal policy-selected counts pass canonical
+lexical corroboration. When every retained child then supplies complete
+positive word timing, each new main-tier bullet is rederived as that child's
+word-timing hull. If complete per-child evidence is unavailable, BA3 preserves
+the original parent bullet on the last child only rather than manufacturing
+child spans. This timing projection is downstream of the boundary decision and
+must not be interpreted as evidence that the chosen segmentation is
+linguistically unique or optimal. See the `%wor` reference for the exact
+fallback conditions.
 
 ## Why Only 3 Languages Have Models
 
@@ -195,3 +267,6 @@ To add utterance segmentation for a new language:
 | `batchalign/models/utterance/infer.py` | BA2-style utterance model runtime |
 | `batchalign/worker/_model_loading/utterance.py` | Utterance model bootstrap |
 | `batchalign/inference/utseg.py` | Worker-side utseg dispatch (typed assignments or Stanza trees) |
+| `batchalign/models/utterance/evidence.py` | Closed model-action and per-word evidence states |
+| `crates/batchalign-types/src/worker_v2/utseg_evidence.rs` | Canonical Rust IPC evidence types |
+| `crates/batchalign/src/utseg_evidence.rs` | Versioned pre/post-CHAT experiment artifacts |

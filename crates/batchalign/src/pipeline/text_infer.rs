@@ -44,12 +44,13 @@ pub(crate) struct TextPipelineHooks<Item, State, Response> {
 /// `async` callable (stable `AsyncFnOnce` trait, Rust 2024), so native
 /// `async fn` inference routines can be passed without a boxed-future
 /// adapter at the call site.
-pub(crate) async fn run_text_pipeline<Item, State, Response, Infer>(
+pub(crate) async fn run_text_pipeline<Item, State, Response, Infer, Observe>(
     chat_text: &str,
     lang: &LanguageCode3,
     services: PipelineServices<'_>,
     hooks: TextPipelineHooks<Item, State, Response>,
     infer: Infer,
+    observe: Observe,
 ) -> Result<String, ServerError>
 where
     Infer: AsyncFnOnce(
@@ -57,6 +58,7 @@ where
         &[(usize, Item)],
         &LanguageCode3,
     ) -> Result<Vec<Result<Response, String>>, ServerError>,
+    Observe: FnOnce(&[(usize, Item)], &[Response]) -> Result<(), ServerError>,
 {
     let parser = crate::chat_parser();
     let (mut chat_file, parse_errors) = parse_lenient(&parser, chat_text);
@@ -89,6 +91,7 @@ where
     let item_results = infer(services.pool, &batch_items, lang).await?;
     let responses = crate::text_batch::unwrap_per_item_results(hooks.command, item_results)
         .map_err(|err| ServerError::Validation(err.to_string()))?;
+    observe(&batch_items, &responses)?;
     let mut state_map: HashMap<usize, State> = HashMap::new();
     (hooks.integrate)(&mut state_map, &batch_items, &responses);
 

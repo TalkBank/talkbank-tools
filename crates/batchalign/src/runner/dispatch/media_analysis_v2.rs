@@ -30,7 +30,8 @@ use crate::worker::opensmile_request_v2::{
 };
 use crate::worker::pool::WorkerPool;
 use crate::worker::speaker_request_v2::{
-    PreparedSpeakerRequestIdsV2, SpeakerBuildInputV2, build_speaker_request_v2,
+    PreparedSpeakerRequestIdsV2, SpeakerAudioBuildSourceV2, SpeakerBuildInputV2,
+    build_speaker_request_v2,
 };
 use crate::worker::speaker_result_v2::{normalize_speaker_evidence_v2, parse_speaker_result_v2};
 
@@ -559,7 +560,7 @@ async fn dispatch_diarize_attempt(
         artifacts.store(),
         SpeakerBuildInputV2 {
             ids: &PreparedSpeakerRequestIdsV2::fresh(),
-            audio_path,
+            audio: SpeakerAudioBuildSourceV2::File(audio_path),
             // V1 backend is fixed: pyannote is the only declared speaker
             // dependency (NeMo imports lazily and is not shipped). An
             // `--engine` seam waits on `EngineOverrides` growing a typed

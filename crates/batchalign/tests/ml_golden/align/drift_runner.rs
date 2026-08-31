@@ -5,7 +5,7 @@
 //!
 //! - Run `batchalign3 align` on one staged file (via [`run_one_file`]) and
 //!   classify the result as one of three [`FileOutcome`] variants.
-//! - Dispatch the four drift assertions against the post-run parsed CHAT via
+//! - Dispatch the structural timing assertion against the post-run parsed CHAT via
 //!   the shared helpers in [`crate::common::drift_assertions`].
 //! - Aggregate per-file outcomes into a single readable panic message (via
 //!   [`assert_all_files_pass`]), prepending a 1-line summary header.
@@ -27,18 +27,13 @@ use crate::common::drift_staging::{CorpusFileName, StagedDriftFile};
 use crate::common::regression_manifest::FixtureAssertion;
 use crate::ml_golden::align::helpers::align_options;
 
-/// Evaluate the four drift assertions against one parsed output CHAT. Returns
+/// Evaluate the structural drift assertion against one parsed output CHAT. Returns
 /// a list of failure messages (empty on pass).
 pub fn evaluate_all_drift_assertions(parsed: &ChatFile) -> Vec<String> {
-    [
-        FixtureAssertion::NoFaGroupInvalidAudioWindow,
-        FixtureAssertion::NoMonotonicityRescueEmitted,
-        FixtureAssertion::UtteranceBulletMonotonicityPreserved,
-        FixtureAssertion::NoSilentTimingStrip,
-    ]
-    .iter()
-    .filter_map(|a| evaluate_drift_assertion(parsed, a).err())
-    .collect()
+    [FixtureAssertion::UtteranceBulletMonotonicityPreserved]
+        .iter()
+        .filter_map(|a| evaluate_drift_assertion(parsed, a).err())
+        .collect()
 }
 
 /// Record of how one file fared, used to build a single, readable panic
@@ -48,8 +43,7 @@ pub fn evaluate_all_drift_assertions(parsed: &ChatFile) -> Vec<String> {
 pub enum FileOutcome {
     /// The align pipeline itself did not complete successfully (crashed,
     /// returned non-Completed, or produced the wrong number of outputs).
-    /// Treated as a `NoFaGroupInvalidAudioWindow`-class failure in the
-    /// report.
+    /// Reported directly rather than inferred from a dependent-tier marker.
     PipelineFailure {
         cha_name: CorpusFileName,
         message: String,
@@ -59,8 +53,8 @@ pub enum FileOutcome {
         cha_name: CorpusFileName,
         message: String,
     },
-    /// The pipeline completed AND the output parsed. The four drift
-    /// assertions were evaluated; `assertion_failures` is empty on pass and
+    /// The pipeline completed AND the output parsed. The structural drift
+    /// assertion was evaluated; `assertion_failures` is empty on pass and
     /// populated on failure.
     Evaluated {
         cha_name: CorpusFileName,
@@ -86,8 +80,8 @@ impl FileOutcome {
     }
 }
 
-/// Run `batchalign3 align` on one staged file and evaluate all four drift
-/// assertions against the output. Returns `None` when the file had to be
+/// Run `batchalign3 align` on one staged file and evaluate the structural
+/// timing assertion against the output. Returns `None` when the file had to be
 /// skipped (missing media): caller logs the skip and moves on.
 pub async fn run_one_file(
     jobs: &LiveDirectJobClient<'_>,
@@ -128,8 +122,7 @@ pub async fn run_one_file(
         return Some(FileOutcome::PipelineFailure {
             cha_name,
             message: format!(
-                "align pipeline returned non-Completed status {:?}, surfaces as \
-                 NoFaGroupInvalidAudioWindow-class failure (crash, InvalidAudioWindow, etc.)",
+                "align pipeline returned non-Completed status {:?} (crash, InvalidAudioWindow, etc.)",
                 info.status
             ),
         });

@@ -14,7 +14,15 @@ Usage::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, overload, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    NamedTuple,
+    Protocol,
+    TypeAlias,
+    overload,
+    runtime_checkable,
+)
 
 import numpy as np
 
@@ -161,8 +169,17 @@ class AudioFile(Protocol):
 WhisperFAResult = list[tuple[str, float]]
 """Whisper FA output: list of (token_text, timestamp_seconds)."""
 
-Wave2VecFAResult = list[tuple[str, tuple[int, int]]]
-"""Wave2Vec2 FA output: list of (word_text, (start_frame, end_frame))."""
+
+class Wave2VecWordAlignment(NamedTuple):
+    """One indexed word interval and its optional model alignment score."""
+
+    word: str
+    interval_ms: tuple[int, int]
+    model_score: float | None
+
+
+Wave2VecFAResult = list[Wave2VecWordAlignment]
+"""Wave2Vec2 FA output, preserving one slot and score per input word."""
 
 
 # ---------------------------------------------------------------------------

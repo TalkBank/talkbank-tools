@@ -1,8 +1,8 @@
 # Worker Protocol V2
 
 **Status:** Current
-**Last verified:** 2026-08-28 19:15 EDT
-**Last updated:** 2026-08-28 19:15 EDT
+**Last verified:** 2026-08-30 16:51 EDT
+**Last updated:** 2026-08-30 19:38 EDT
 
 This document is the implementation spec for the live typed worker boundary
 currently named `worker_v2`.
@@ -18,10 +18,63 @@ directory (`ipc-schema/worker_v2/`) and hand-written models
 (`batchalign/worker/_types_v2.py`) stay versioned together until V1 is removed
 as a whole.
 
+## Startup identity handshake
+
+The JSON ready envelope precedes V2 task dispatch and is a separate startup
+control boundary. Current stdio workers emit `ready`, `pid`, `transport`, and a
+schema-1 `runtime` object. Runtime evidence contains Python version plus full
+SHA-256 identities for the resolved interpreter, installed `batchalign`
+package tree, the exact loaded `batchalign_core` native extension, and sorted
+distribution inventory. It deliberately contains no local paths. The native
+extension digest is required because a distribution version and Python-source
+tree cannot distinguish two locally built `.so` or `.pyd` files containing
+different Rust code.
+
+Rust admits this through `WorkerRuntimeIdentity`; malformed schema revisions,
+empty Python versions, shortened digests, uppercase digests, and non-hex text
+cannot construct the typed identity. `ReadySignal.runtime` is required: a
+current stdio worker without content identity cannot cross the ready boundary.
+The handle and pool retain the identity for `/health` even while the worker is
+busy or after it exits. The first identity pins the server process. Any later
+worker whose identity differs is refused before job admission, so a health
+receipt identifies all local stdio work from that server rather than merely
+listing several possible producers. Synthetic worker fixtures must emit a
+valid identity instead of weakening the production schema for test
+convenience.
+
+```mermaid
+flowchart LR
+    P["Python computes package<br/>and source-tree digests"] --> J["Ready JSON with RuntimeIdentityV2"]
+    J --> V{"Rust validates closed schema<br/>and digest syntax"}
+    V -->|"invalid"| R["Refuse worker startup"]
+    V -->|"valid"| I["WorkerRuntimeIdentity"]
+    I --> S{"Server identity state"}
+    S -->|"unbound"| B["Pin first admitted identity"]
+    S -->|"same identity"| A["Admit replacement worker"]
+    S -->|"different identity"| X["Refuse mixed runtime"]
+    B --> H["Expose pinned receipt at /health"]
+    A --> H
+```
+
+The relevant files are `batchalign/worker/_runtime_identity.py`,
+`batchalign/worker/_protocol.py`,
+`crates/batchalign/src/worker/runtime_identity.rs`, and
+`crates/batchalign/src/worker/handle/protocol.rs`.
+
 The Python cutover is complete. Audio tasks and text-only NLP tasks
 (`morphotag`, `utseg`, `translate`, `coref`) now use typed V2 requests. Text
 commands preserve cross-file batching by freezing one prepared-text artifact per
 miss batch and sending one batched `execute_v2` request per task.
+
+Utseg item results may carry `boundary_model_evidence`. Its model ID is
+nonempty, its optional revision is nonempty when present, and its
+`word_evidence` vector is parallel to the request words. Each word is a
+discriminated classified, normalization-omission, or model-short-circuit
+state. Classified words carry closed raw/applied action enums and a validated
+integer probability in the inclusive range 0 through 1,000,000. Rust
+revalidates the complete shape against the dispatched request before an
+applicable segmentation response can exist; schema validity alone is not
+sufficient admission.
 
 Speaker results use a discriminated `SpeakerInferenceEvidenceV2` union:
 

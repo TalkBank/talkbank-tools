@@ -50,6 +50,7 @@ async fn handle_ws(mut socket: WebSocket, state: Arc<AppState>) {
         "free_threaded": false,
         "capabilities": state.workers.capabilities.clone(),
         "loaded_pipelines": worker_summary,
+        "worker_runtime_identities": state.workers.pool.observed_worker_runtimes(),
         "media_roots": state.environment.config.media_roots.clone(),
         "media_mapping_keys": state.environment.config.media_mappings.keys().collect::<Vec<_>>(),
         "workers_available": control_plane.workers_available,

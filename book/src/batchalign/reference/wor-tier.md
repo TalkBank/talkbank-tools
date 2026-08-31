@@ -1,7 +1,7 @@
 # %wor Tier Specification
 
 **Status:** Current
-**Last updated:** 2026-04-09 14:59 EDT
+**Last updated:** 2026-08-30 19:38 EDT
 
 How main tier words map to the %wor (word-level timing) dependent tier.
 
@@ -31,6 +31,12 @@ by these rules has no `%wor` slot and receives no timing bullet.
 
 There is no CLAN-level positional indexing into `%wor`; `%wor` indices carry
 no external semantics beyond tracking which word received which timing.
+
+Internally, current Batchalign alignment groups also retain stable AST-derived
+word identifiers. Those identifiers support evidence joins and experiments;
+they are not serialized as `%wor` content. This separation lets the public
+tier remain compatible and uncluttered without forcing research code to use
+display text or flat position as identity.
 
 ## What Text Appears in %wor
 
@@ -186,12 +192,32 @@ Example raw encoding:
 
 Words CAN lack timing bullets, this means timing is unknown, NOT an error.
 
+### What `%wor` cannot preserve
+
+A `%wor` bullet is only a start/end pair. It cannot say whether a boundary was
+measured by an engine, copied from an older transcript, derived from a neighbor,
+or adjusted by a repair pass. It also cannot carry an aligner's per-word model
+score. Consequently, reusing an existing `%wor` tier is observable as
+`wor_reuse`, but the provenance of the run that originally created its bullets
+cannot be reconstructed from CHAT alone.
+
+For research and adjudication runs, `align --debug-dir DIR` writes a versioned
+`<stem>_fa_evidence.json` sidecar. Schema version 2 contains stable word IDs,
+group cache keys and evidence sources, pre-injection timings, full start/end
+origin chains, Wave2Vec-family model scores where the engine supplies them,
+and the exact typed decisions that later clamped or removed timing.
+Nested input identities receive a short digest suffix after the basename so
+two corpus branches containing the same filename retain distinct sidecars.
+The score is model evidence, not a calibrated boundary-correctness probability.
+Version 2 does not yet contain final per-word post-processing results, so the
+sidecar and output CHAT are complementary rather than interchangeable.
+
 ## Tier-Level Structure
 
-A complete %wor tier has:
+A `%wor` tier has:
 
 ```text
-%wor:\t[- lang_code] word1 [bullet1] word2 [bullet2] ... terminator [utterance_bullet]
+%wor:\t[- lang_code] word1 [bullet1] word2 [bullet2] ... terminator
 ```
 
 | Component | Required | Notes |
@@ -200,7 +226,60 @@ A complete %wor tier has:
 | Words | Yes | Flat list of cleaned_text values |
 | Timing bullets | No | Per-word, optional |
 | Terminator | Yes | Same as main tier (`.`, `?`, `!`, `+...`, etc.) |
-| Utterance bullet | No | Span of entire utterance (first word start to last word end) |
+
+There is no tier-level `%wor` bullet. Chatter 0.17 removed that redundant
+location because the only timing observations owned by `%wor` are the inline
+word bullets. An utterance span belongs to the main tier; when it is safely
+derivable from complete word timing, it is the minimum-start/maximum-end hull
+of those inline bullets.
+
+### Main-tier bullets after utterance splitting
+
+When CHAT-text `utseg` splits an utterance that already has a `%wor` tier, BA3
+first asks Chatter to bind the pair under the named word-membership policy.
+Equal counts admit lexical corroboration; only canonical token-for-token
+correspondence admits partitioning. Thus, a same-count main-tier edit cannot
+silently give an old word's timing to a different child. If every retained
+child then has positive timing for every one of its corroborated `%wor` words,
+the split is in the complete per-child timing state: each child main tier
+receives the minimum-start/maximum-end hull of its own word bullets.
+
+If `%wor` is absent, count-drifted, lexically uncorroborated, empty for a
+retained child, or has even one untimed or non-positive word interval, BA3 does
+not mix exact child hulls with guessed spans. Count or lexical drift drops the
+stale `%wor` tier entirely. Incomplete timing after safe partitioning keeps the
+partitioned word bullets but selects the parent-only main-tier timing state:
+earlier children have no main-tier bullet and the original parent bullet, if
+present, stays on the last child.
+
+The implementation follows Chatter's explicit state transitions:
+`WorTimingBinding::CountMatched` →
+`WorTimingCorrespondence::Corroborated` →
+`WorTimingSequence::Complete`. Only the final state exposes a hull. Child
+`%wor` terminators are copied from their child main tiers after splitting, so
+an earlier child cannot incorrectly retain the parent's question mark or
+exclamation mark.
+
+```mermaid
+flowchart LR
+    M["Main-tier timing members"] --> B{"Bind to %wor slots"}
+    W["%wor timing slots"] --> B
+    B -->|"equal policy-selected count"| C["WorTimingBinding::CountMatched"]
+    B -->|"count drift"| D["Drop stale %wor"]
+    C --> K{"Canonical token correspondence"}
+    K -->|"token-for-token match"| R["WorTimingCorrespondence::Corroborated"]
+    K -->|"lexical drift"| D
+    R --> T{"Every retained child has<br/>complete positive timings"}
+    T -->|"yes"| Q["WorTimingSequence::Complete"]
+    T -->|"no"| P["ParentOnlyMainTiming"]
+    Q --> H["Complete child hulls"]
+    H --> O["Child main-tier bullets"]
+    P --> L["Only last child may retain parent bullet"]
+```
+
+This policy concerns timing projection after a boundary has already been
+chosen. It neither selects utterance boundaries nor improves the lexical or
+speaker evidence received from ASR and diarization.
 
 ## Generation Pipeline
 

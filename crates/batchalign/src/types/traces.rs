@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{DurationMs, DurationSeconds};
+use crate::chat_ops::fa::origin::{ClampBound, Origin};
 
 // ---------------------------------------------------------------------------
 // Top-level containers
@@ -175,12 +176,39 @@ pub struct UtteranceTrace {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 pub struct FaTimelineTrace {
+    /// Evidence schema revision. Version 1 records pre-injection timing,
+    /// confidence, and full boundary provenance. Version 2 additionally
+    /// records the typed post-injection decisions that altered or removed
+    /// timing; `post_injection_timings` remains reserved for a later complete
+    /// per-word outcome projection.
+    #[serde(default)]
+    pub evidence_schema_version: u32,
+    /// Forced-alignment engine selected for this run.
+    #[serde(default)]
+    pub engine: String,
+    /// Build/model revision used in cache identity for this run.
+    #[serde(default)]
+    pub engine_version: String,
     /// Utterance groups for batched FA.
     pub groups: Vec<FaGroupTrace>,
+    /// How each group obtained its timing evidence.
+    #[serde(default)]
+    pub evidence_sources: Vec<FaEvidenceSourceTrace>,
+    /// Content-addressed FA cache key for each group.
+    #[serde(default)]
+    pub cache_keys: Vec<String>,
     /// Pre-injection timings per group, per word (None = untimed).
     pub pre_injection_timings: Vec<Vec<Option<TimingTrace>>>,
     /// Post-injection timings after post-processing fixes.
     pub post_injection_timings: Vec<Vec<Option<TimingTrace>>>,
+    /// Typed decisions made after inference, including timing removal and
+    /// clamping that cannot be reconstructed from final CHAT alone.
+    #[serde(default)]
+    pub decisions: Vec<FaDecisionTrace>,
+    /// Structured numeric facts for every monotonicity decision. This is
+    /// deliberately separate from the human-readable decision reason.
+    #[serde(default)]
+    pub timing_decisions: Vec<FaTimingDecisionTrace>,
     /// Gap-healing policy, as the `Debug` spelling of `WordGapHealing`
     /// (`"Heal"` / `"PreserveMeasured"`). A string because this trace is a
     /// serialization boundary shared with the dashboard.
@@ -189,6 +217,146 @@ pub struct FaTimelineTrace {
     pub violations: Vec<ViolationTrace>,
     /// Engine fallback events that occurred while aligning this file.
     pub fallback_events: Vec<FaFallbackEventTrace>,
+}
+
+/// One typed pipeline decision retained in a forced-alignment evidence file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+pub struct FaDecisionTrace {
+    /// Index into `ChatFile.lines`, including headers.
+    pub line_idx: usize,
+    /// Speaker code on the affected utterance.
+    pub speaker: String,
+    /// Typed producer module rendered using its stable wire name.
+    pub module: String,
+    /// Typed strategy rendered using its stable wire name.
+    pub strategy: String,
+    /// Structured key/value explanation emitted by the decision point.
+    pub reason: String,
+    /// Whether the decision requires human review.
+    pub needs_review: bool,
+}
+
+impl From<batchalign_transform::decisions::DecisionRecord> for FaDecisionTrace {
+    fn from(record: batchalign_transform::decisions::DecisionRecord) -> Self {
+        Self {
+            line_idx: record.line_idx.raw(),
+            speaker: record.speaker,
+            module: record.strategy.module().as_str().to_owned(),
+            strategy: record.strategy.strategy_name().to_owned(),
+            reason: record.reason,
+            needs_review: record.needs_review,
+        }
+    }
+}
+
+/// Machine-readable numeric effect of one monotonicity decision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum FaTimingDecisionTrace {
+    /// A later utterance's start went backward in document order.
+    StartRegressionStripped {
+        /// Affected line index, including headers.
+        line_idx: usize,
+        /// Speaker on the affected utterance.
+        speaker: String,
+        /// Measured start that regressed.
+        start_ms: u64,
+        /// Greatest preceding start in document order.
+        previous_start_ms: u64,
+        /// Line that supplied `previous_start_ms`.
+        previous_line_idx: usize,
+        /// Speaker on the preceding line.
+        previous_speaker: String,
+    },
+    /// An earlier utterance could not be end-clamped without becoming empty.
+    ZeroDurationClampStripped {
+        /// Affected line index, including headers.
+        line_idx: usize,
+        /// Speaker on the affected utterance.
+        speaker: String,
+        /// Original start of the earlier utterance.
+        start_ms: u64,
+        /// Original end of the earlier utterance.
+        original_end_ms: u64,
+        /// Following start that made a positive clamp impossible.
+        next_start_ms: u64,
+        /// Following line that supplied `next_start_ms`.
+        next_line_idx: usize,
+        /// Speaker on the following line.
+        next_speaker: String,
+    },
+    /// An earlier utterance's end was clamped to the next start.
+    EndClamped {
+        /// Affected line index, including headers.
+        line_idx: usize,
+        /// Speaker on the affected utterance.
+        speaker: String,
+        /// End before clamping.
+        original_end_ms: u64,
+        /// Following start used as the new end.
+        clamped_to_ms: u64,
+        /// Following line that supplied the clamp boundary.
+        next_line_idx: usize,
+        /// Speaker on the following line.
+        next_speaker: String,
+    },
+}
+
+impl From<crate::chat_ops::fa::MonotonicityEffect> for FaTimingDecisionTrace {
+    fn from(effect: crate::chat_ops::fa::MonotonicityEffect) -> Self {
+        use crate::chat_ops::fa::MonotonicityEffect;
+        match effect {
+            MonotonicityEffect::StartRegressionStripped {
+                line_idx,
+                speaker,
+                start_ms,
+                previous_start_ms,
+                previous_line_idx,
+                previous_speaker,
+            } => Self::StartRegressionStripped {
+                line_idx,
+                speaker,
+                start_ms,
+                previous_start_ms,
+                previous_line_idx,
+                previous_speaker,
+            },
+            MonotonicityEffect::ZeroDurationClampStripped {
+                line_idx,
+                speaker,
+                start_ms,
+                original_end_ms,
+                next_start_ms,
+                next_line_idx,
+                next_speaker,
+            } => Self::ZeroDurationClampStripped {
+                line_idx,
+                speaker,
+                start_ms,
+                original_end_ms,
+                next_start_ms,
+                next_line_idx,
+                next_speaker,
+            },
+            MonotonicityEffect::EndClamped {
+                line_idx,
+                speaker,
+                original_end_ms,
+                clamped_to_ms,
+                next_line_idx,
+                next_speaker,
+            } => Self::EndClamped {
+                line_idx,
+                speaker,
+                original_end_ms,
+                clamped_to_ms,
+                next_line_idx,
+                next_speaker,
+            },
+        }
+    }
 }
 
 /// A single FA group (time-windowed batch of utterances).
@@ -203,6 +371,25 @@ pub struct FaGroupTrace {
     pub utterance_indices: Vec<usize>,
     /// Words in this group.
     pub words: Vec<String>,
+    /// Stable AST-derived identity corresponding one-to-one with `words`.
+    #[serde(default)]
+    pub word_ids: Vec<String>,
+}
+
+/// How one group's word timing evidence was obtained.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum FaEvidenceSourceTrace {
+    /// Reprojected from an existing healthy `%wor` tier; original provenance
+    /// is unavailable because CHAT bullets cannot store it.
+    WorReuse,
+    /// Replayed from the content-addressed FA cache.
+    Cache,
+    /// Reparsed locally from an immutable cached worker response.
+    RawEvidenceReplay,
+    /// Produced by a worker call during this run.
+    Inference,
 }
 
 /// One forced-alignment engine fallback that occurred for a single group.
@@ -231,6 +418,136 @@ pub struct TimingTrace {
     pub start_ms: i64,
     /// End time in ms.
     pub end_ms: i64,
+    /// Model-emitted alignment score, quantized to millionths. This is not a
+    /// calibrated probability of boundary accuracy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_score_millionths: Option<u32>,
+    /// Full provenance chain for the start boundary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_origin: Option<OriginTrace>,
+    /// Full provenance chain for the end boundary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_origin: Option<OriginTrace>,
+}
+
+impl TimingTrace {
+    /// Preserve all timing evidence that survives in `WordTiming` before CHAT
+    /// serialization lowers it to two integers.
+    pub fn from_word_timing(timing: &crate::chat_ops::fa::WordTiming) -> Self {
+        Self {
+            start_ms: timing.start_ms as i64,
+            end_ms: timing.end_ms as i64,
+            model_score_millionths: timing.model_score().map(|score| score.millionths()),
+            start_origin: Some(OriginTrace::from(timing.start_origin())),
+            end_origin: Some(OriginTrace::from(timing.end_origin())),
+        }
+    }
+}
+
+/// Serializable mirror of the complete forced-alignment origin chain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum OriginTrace {
+    /// A model measured this boundary.
+    EngineMeasured {
+        /// Engine identity carried by the measurement.
+        engine: String,
+    },
+    /// Timing was already present in the input CHAT.
+    TranscriptBullet,
+    /// A boundary was reduced to a typed bound.
+    ClampedTo {
+        /// Typed bound applied to the value.
+        bound: String,
+        /// Provenance before clamping.
+        was: Box<OriginTrace>,
+        /// Boundary before clamping.
+        original_ms: u64,
+        /// Distance beyond the bound.
+        overshoot_ms: u64,
+    },
+    /// A gap was distributed by word count.
+    EstimatedFromWordCount {
+        /// Gap distributed across the run.
+        gap_ms: u64,
+        /// Words preceding this position in the run.
+        words_before: usize,
+        /// Total words sharing the gap.
+        words_total: usize,
+    },
+    /// A boundary was moved to restore ordering.
+    RepairedForOrder {
+        /// Provenance before the ordering repair.
+        was: Box<OriginTrace>,
+        /// Boundary before the repair.
+        original_ms: u64,
+    },
+    /// A boundary was copied from a neighbor.
+    InheritedFromNeighbour {
+        /// Neighbor boundary that was copied.
+        from_ms: u64,
+    },
+    /// An envelope was built over multiple measured spans.
+    MergedFromParts {
+        /// Number of spans covered by the envelope.
+        parts: usize,
+    },
+    /// An onset from the next token supplied this end.
+    DerivedFromNextOnset,
+    /// A constant duration supplied this end.
+    FallbackDuration {
+        /// Constant duration supplied by the fallback.
+        assumed_ms: u64,
+    },
+}
+
+impl From<&Origin> for OriginTrace {
+    fn from(origin: &Origin) -> Self {
+        match origin {
+            Origin::EngineMeasured { engine } => Self::EngineMeasured {
+                engine: engine.to_string(),
+            },
+            Origin::TranscriptBullet => Self::TranscriptBullet,
+            Origin::ClampedTo {
+                bound,
+                was,
+                original,
+                overshoot,
+            } => Self::ClampedTo {
+                bound: match bound {
+                    ClampBound::RecordingEnd => "recording_end",
+                    ClampBound::UtteranceBullet => "utterance_bullet",
+                    ClampBound::NextOnset => "next_onset",
+                }
+                .to_owned(),
+                was: Box::new(Self::from(was.as_ref())),
+                original_ms: original.get(),
+                overshoot_ms: overshoot.0,
+            },
+            Origin::EstimatedFromWordCount {
+                gap,
+                words_before,
+                words_total,
+            } => Self::EstimatedFromWordCount {
+                gap_ms: gap.0,
+                words_before: *words_before,
+                words_total: *words_total,
+            },
+            Origin::RepairedForOrder { was, original } => Self::RepairedForOrder {
+                was: Box::new(Self::from(was.as_ref())),
+                original_ms: original.get(),
+            },
+            Origin::InheritedFromNeighbour { from } => Self::InheritedFromNeighbour {
+                from_ms: from.get(),
+            },
+            Origin::MergedFromParts { parts } => Self::MergedFromParts { parts: *parts },
+            Origin::DerivedFromNextOnset => Self::DerivedFromNextOnset,
+            Origin::FallbackDuration { assumed } => Self::FallbackDuration {
+                assumed_ms: assumed.0,
+            },
+        }
+    }
 }
 
 /// A validation violation detected during FA.
@@ -267,4 +584,46 @@ pub struct RetokenizationTrace {
     pub mapping: Vec<Vec<usize>>,
     /// Whether the fallback (length-proportional) mapping was used.
     pub used_fallback: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chat_ops::fa::origin::EngineId;
+    use crate::chat_ops::fa::{ModelAlignmentScore, WordTiming};
+    use crate::time::{FileMs, Ms};
+
+    #[test]
+    fn timing_trace_preserves_score_and_complete_origin_chain() {
+        let measured = Origin::EngineMeasured {
+            engine: EngineId::new("wav2vec_fa"),
+        };
+        let adjusted_start = Origin::ClampedTo {
+            bound: ClampBound::UtteranceBullet,
+            was: Box::new(measured.clone()),
+            original: FileMs::new(90),
+            overshoot: Ms(10),
+        };
+        let adjusted_end = Origin::RepairedForOrder {
+            was: Box::new(measured),
+            original: FileMs::new(220),
+        };
+        let score = ModelAlignmentScore::try_from_f64(0.812_345).expect("fixture score is valid");
+        let timing = WordTiming::new(100, 200, adjusted_start, adjusted_end)
+            .expect("fixture timing has positive extent")
+            .with_model_score(score);
+
+        let trace = TimingTrace::from_word_timing(&timing);
+        let json = serde_json::to_value(trace).expect("timing trace should serialize");
+
+        assert_eq!(json["start_ms"], 100);
+        assert_eq!(json["end_ms"], 200);
+        assert_eq!(json["model_score_millionths"], 812_345);
+        assert_eq!(json["start_origin"]["kind"], "clamped_to");
+        assert_eq!(json["start_origin"]["bound"], "utterance_bullet");
+        assert_eq!(json["start_origin"]["was"]["kind"], "engine_measured");
+        assert_eq!(json["start_origin"]["was"]["engine"], "wav2vec_fa");
+        assert_eq!(json["end_origin"]["kind"], "repaired_for_order");
+        assert_eq!(json["end_origin"]["was"]["kind"], "engine_measured");
+    }
 }

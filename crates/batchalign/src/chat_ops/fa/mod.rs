@@ -28,6 +28,7 @@ mod tests;
 use self::origin::Origin;
 use crate::types::engines::FaTimingResolution;
 use serde::{Deserialize, Serialize};
+use talkbank_model::alignment::CompleteWorTimingSlot;
 use talkbank_model::alignment::helpers::{TierDomain, WordItem, counts_for_tier, walk_words};
 use talkbank_model::model::{
     Bullet, ChatFile, DependentTier, Line, Utterance, UtteranceContent, Word, WordCategory,
@@ -43,22 +44,20 @@ pub use self::grouping::{
     estimate_untimed_boundaries, group_utterances,
 };
 pub use self::injection::inject_timings_for_utterance;
+pub(crate) use self::orchestrate::WrittenFaDecisions;
 pub use self::orchestrate::{
-    FaApplied, FaDecisions, FaOrdered, apply_fa_results, enforce_monotonicity,
-    has_reusable_wor_timing_for_utterance, refresh_existing_alignment,
+    FaApplied, FaDecisions, FaOrdered, MonotonicityEffect, MonotonicityResult, apply_fa_results,
+    enforce_monotonicity, has_reusable_wor_timing_for_utterance, refresh_existing_alignment,
     refresh_existing_alignment_for_utterance, refresh_reusable_utterances,
-    strip_e704_same_speaker_overlaps, strip_timing_from_content,
-    strip_wor_from_monotonicity_stripped_utterances, write_decision_tiers,
+    retain_decision_evidence, strip_e704_same_speaker_overlaps, strip_timing_from_content,
+    strip_wor_from_monotonicity_stripped_utterances,
 };
 pub use self::postprocess::postprocess_utterance_timings;
 pub use self::repair::{RepairDecision, RepairResult, RepairStats, repair_bullets};
 pub use self::rescue_narrow_bullets::rescue_narrow_bullets;
-// `ReviewLevel` comes straight from its owner. The local `review_tiers` module
-// was deleted on 2026-08-15: both FA paths now use
-// `batchalign_transform::decisions::inject_decision_tiers`, and the local copy
-// was not merely redundant but WRONG, pushing one `%xalign` per decision where
-// the shared one merges them, because CHAT E401 forbids duplicate dependent
-// tiers on an utterance.
+// `ReviewLevel` remains on the wire surface for stored-job compatibility. It
+// does not reach CHAT serialization; `retain_decision_evidence` always strips
+// the two abandoned review tiers and returns typed evidence.
 pub use self::utr::{
     CaMarkerPolicy, GlobalUtr, GroupingContext, TwoPassConfig, TwoPassOverlapUtr, UtrMatchMode,
     UtrStrategy, find_untimed_windows, select_strategy, utr_asr_cache_key,
@@ -129,6 +128,12 @@ impl TimeSpan {
 #[serde(try_from = "WordTimingWire", into = "WordTimingWire")]
 pub struct WordTiming {
     span: TimeSpan,
+    /// Optional score emitted by the alignment model for this word.
+    ///
+    /// This is deliberately not called a probability or accuracy confidence:
+    /// MMS_FA supplies a CTC path score, which still needs empirical
+    /// calibration against human boundary judgments.
+    model_score: Option<ModelAlignmentScore>,
     /// How the word's START was produced.
     start_origin: Origin,
     /// How the word's END was produced.
@@ -155,6 +160,8 @@ pub struct WordTiming {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct WordTimingWire {
     span: TimeSpan,
+    #[serde(default)]
+    model_score: Option<ModelAlignmentScore>,
     start_origin: Origin,
     end_origin: Origin,
 }
@@ -163,6 +170,7 @@ impl From<WordTiming> for WordTimingWire {
     fn from(timing: WordTiming) -> Self {
         Self {
             span: timing.span,
+            model_score: timing.model_score,
             start_origin: timing.start_origin,
             end_origin: timing.end_origin,
         }
@@ -179,6 +187,7 @@ impl TryFrom<WordTimingWire> for WordTiming {
             wire.start_origin,
             wire.end_origin,
         )
+        .map(|timing| timing.with_model_score_option(wire.model_score))
         .ok_or(DegenerateWordTiming {
             start_ms: wire.span.start_ms,
             end_ms: wire.span.end_ms,
@@ -202,9 +211,26 @@ impl WordTiming {
     ) -> Option<Self> {
         (end_ms > start_ms).then_some(Self {
             span: TimeSpan::new(start_ms, end_ms),
+            model_score: None,
             start_origin,
             end_origin,
         })
+    }
+
+    /// Attach the model's own alignment score to this otherwise valid timing.
+    pub fn with_model_score(mut self, score: ModelAlignmentScore) -> Self {
+        self.model_score = Some(score);
+        self
+    }
+
+    fn with_model_score_option(mut self, score: Option<ModelAlignmentScore>) -> Self {
+        self.model_score = score;
+        self
+    }
+
+    /// The aligner's score for this word, when its response shape supplies one.
+    pub const fn model_score(&self) -> Option<ModelAlignmentScore> {
+        self.model_score
     }
 
     /// How the word's start was produced.
@@ -235,6 +261,120 @@ impl WordTiming {
             start_ms: span.start_ms,
             end_ms: span.end_ms,
         })
+    }
+
+    /// A timing lifted from a lexically corroborated, complete `%wor` slot.
+    ///
+    /// Accepting the complete-state slot, rather than two raw integers, makes
+    /// this conversion infallible: Chatter has already proved that the
+    /// interval is present and positive and that it belongs to the matching
+    /// main-tier word.
+    pub fn from_complete_wor_slot(slot: &CompleteWorTimingSlot<'_>) -> Self {
+        let interval = slot.timing();
+        Self {
+            span: TimeSpan::new(interval.start().get(), interval.end().get()),
+            model_score: None,
+            start_origin: Origin::TranscriptBullet,
+            end_origin: Origin::TranscriptBullet,
+        }
+    }
+}
+
+/// A finite model-emitted forced-alignment score in the closed interval 0..=1.
+///
+/// Stored as millionths so timings retain `Eq` and cache comparisons remain
+/// deterministic. The quantization is far finer than the model evidence can
+/// justify; it is storage discipline, not an accuracy claim.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "u32", into = "u32")]
+pub struct ModelAlignmentScore(u32);
+
+impl ModelAlignmentScore {
+    const SCALE: f64 = 1_000_000.0;
+
+    /// Construct from a model score, rejecting non-finite or out-of-range data.
+    pub fn try_from_f64(score: f64) -> Result<Self, InvalidModelAlignmentScore> {
+        if !score.is_finite() || !(0.0..=1.0).contains(&score) {
+            return Err(InvalidModelAlignmentScore { score });
+        }
+        Ok(Self((score * Self::SCALE).round() as u32))
+    }
+
+    /// Stable integer representation used by evidence artifacts.
+    pub const fn millionths(self) -> u32 {
+        self.0
+    }
+
+    /// Floating representation for summaries and thresholds.
+    pub fn as_f64(self) -> f64 {
+        f64::from(self.0) / Self::SCALE
+    }
+
+    pub(crate) fn from_weighted_millionths(
+        weighted_millionths: u128,
+        duration_ms: u128,
+    ) -> Option<Self> {
+        if duration_ms == 0 {
+            return None;
+        }
+        let rounded = (weighted_millionths + duration_ms / 2) / duration_ms;
+        let millionths = u32::try_from(rounded).ok()?;
+        (millionths <= 1_000_000).then_some(Self(millionths))
+    }
+}
+
+impl TryFrom<u32> for ModelAlignmentScore {
+    type Error = InvalidStoredModelAlignmentScore;
+
+    fn try_from(millionths: u32) -> Result<Self, Self::Error> {
+        (millionths <= 1_000_000)
+            .then_some(Self(millionths))
+            .ok_or(InvalidStoredModelAlignmentScore { millionths })
+    }
+}
+
+impl From<ModelAlignmentScore> for u32 {
+    fn from(score: ModelAlignmentScore) -> Self {
+        score.millionths()
+    }
+}
+
+/// A worker supplied a value that cannot be an alignment score.
+#[derive(Debug, thiserror::Error)]
+#[error("model alignment score must be finite and between 0 and 1, got {score}")]
+pub struct InvalidModelAlignmentScore {
+    score: f64,
+}
+
+/// Persisted millionths that fall outside the model score's closed interval.
+#[derive(Debug, thiserror::Error)]
+#[error("stored model alignment score must be at most 1000000 millionths, got {millionths}")]
+pub struct InvalidStoredModelAlignmentScore {
+    millionths: u32,
+}
+
+#[cfg(test)]
+mod model_alignment_score_tests {
+    use super::ModelAlignmentScore;
+
+    #[test]
+    fn persisted_score_rejects_values_above_the_closed_interval() {
+        let error = serde_json::from_str::<ModelAlignmentScore>("1000001")
+            .expect_err("cached data must not bypass the score invariant");
+
+        assert!(error.to_string().contains("at most 1000000"));
+    }
+
+    #[test]
+    fn persisted_score_round_trips_at_both_interval_edges() {
+        for millionths in [0, 1_000_000] {
+            let score = ModelAlignmentScore::try_from(millionths).expect("valid edge");
+            let json = serde_json::to_string(&score).expect("serialize score");
+            assert_eq!(
+                serde_json::from_str::<ModelAlignmentScore>(&json).expect("deserialize score"),
+                score
+            );
+        }
     }
 }
 
@@ -915,7 +1055,7 @@ impl std::fmt::Display for AudioIdentity {
 
 /// Compute cache key for an FA result.
 ///
-/// Key = `BLAKE3("{audio_identity}|{start}|{end}|{text}|{healing_flag}|{engine}")`.
+/// Key = `BLAKE3("{audio_identity}|{start}|{end}|{text}|{healing_flag}|{engine}{schema}")`.
 pub fn cache_key(
     words: &[String],
     audio_identity: &AudioIdentity,
@@ -960,8 +1100,18 @@ pub fn cache_key(
         use crate::types::engines::EngineBackend;
         engine.wire_name()
     };
+    // Word-interval responses now preserve the model's own per-word score.
+    // Older cache entries deserialize (the field is optional for wire
+    // compatibility) but cannot supply that evidence, so they must not satisfy
+    // a new interval request. Onset-only Whisper has no corresponding score
+    // and keeps its established namespace rather than paying to recompute the
+    // same evidence.
+    let result_schema = match engine.timing_resolution() {
+        FaTimingResolution::WordIntervals => "|model_score_v1",
+        FaTimingResolution::TokenOnsets => "",
+    };
     let input = format!(
-        "{}|{start_ms}|{end_ms}|{text}|{healing_flag}|{engine_str}",
+        "{}|{start_ms}|{end_ms}|{text}|{healing_flag}|{engine_str}{result_schema}",
         audio_identity.0
     );
     crate::chat_ops::CacheKey::from_content(&input)

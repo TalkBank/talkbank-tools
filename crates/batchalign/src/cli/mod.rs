@@ -351,7 +351,7 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
         Commands::Worker(a) => worker_cmd::run(a, cli.global.verbose).await,
         Commands::Doctor(a) => doctor_cmd::run(a).await,
         Commands::Replay(a) => replay_cmd::run(a).await,
-        Commands::Eval(a) => eval_cmd::run(a),
+        Commands::Eval(a) => eval_cmd::run(a).await,
         Commands::Version => {
             eprintln!(
                 "batchalign3 {} (build {})",

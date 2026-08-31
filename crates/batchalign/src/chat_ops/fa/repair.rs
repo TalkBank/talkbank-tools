@@ -53,7 +53,7 @@ impl std::fmt::Display for RepairStats {
 /// A single decision record from the repair pass.
 ///
 /// Each record describes one action taken on one utterance, with enough
-/// detail for the `%xalign` tier and for the evaluation harness.
+/// detail for structured evidence and the evaluation harness.
 #[derive(Debug, Clone)]
 pub struct RepairDecision {
     /// Index into `chat_file.lines`.
@@ -65,9 +65,9 @@ pub struct RepairDecision {
     /// this struct is FA-specific, so the strategy is constrained to
     /// [`FaStrategy`] at the point of construction.
     pub strategy: batchalign_transform::decisions::FaStrategy,
-    /// Human-readable reason string for `%xalign`.
+    /// Human-readable reason string for evidence and tracing.
     pub reason: String,
-    /// Whether this decision is low-confidence (should get `%xrev: [?]`).
+    /// Whether this decision is low-confidence and needs human review.
     pub needs_review: bool,
 }
 

@@ -25,7 +25,8 @@ pub(crate) struct MorphotagRuntimeOptions {
     pub(crate) respect_pos_hints: bool,
     pub(crate) should_merge_abbrev: bool,
     /// Review-tier verbosity for the incremental morphotag path
-    /// (`%xalign` / `%xrev`). Defaults to `None` via [`MorphotagOptions`].
+    /// Legacy review-level request retained for stored-job compatibility.
+    /// No value emits CHAT decision tiers.
     ///
     /// [`MorphotagOptions`]: crate::options::MorphotagOptions
     pub(crate) review_level: crate::chat_ops::fa::ReviewLevel,

@@ -8,8 +8,8 @@ use batchalign_transform::coref::CorefRawResponse;
 use batchalign_types::worker::{BatchInferResponse, InferResponse};
 use batchalign_types::worker_v2::{
     CorefAnnotationV2, CorefChainRefV2, CorefItemResultV2, CorefResultV2, MorphosyntaxItemResultV2,
-    MorphosyntaxResultV2, TranslationItemResultV2, TranslationResultV2, UtsegItemResultV2,
-    UtsegResultV2,
+    MorphosyntaxResultV2, TranslationItemResultV2, TranslationResultV2,
+    UtsegBoundaryModelEvidenceV2, UtsegItemResultV2, UtsegResultV2,
 };
 use pyo3::prelude::*;
 
@@ -139,6 +139,30 @@ fn normalize_usize_list(
     }
 }
 
+/// Parse model boundary evidence through the canonical Rust wire type.
+///
+/// Deserializing the whole tagged union here keeps action vocabulary,
+/// omission state, and fixed-point score validation owned by one type rather
+/// than restating those checks in the bridge.
+fn normalize_utseg_boundary_model_evidence(
+    result: Option<&serde_json::Value>,
+) -> Result<Option<UtsegBoundaryModelEvidenceV2>, TextResultShapeError> {
+    let Some(obj) = response_object(result, "utseg")? else {
+        return Ok(None);
+    };
+    let Some(value) = obj.get("boundary_model_evidence") else {
+        return Ok(None);
+    };
+
+    serde_json::from_value(value.clone())
+        .map(Some)
+        .map_err(|error| {
+            TextResultShapeError(format!(
+                "utseg V2 field \"boundary_model_evidence\" was invalid: {error}"
+            ))
+        })
+}
+
 fn normalize_string_field(
     result: Option<&serde_json::Value>,
     field_name: &str,
@@ -233,6 +257,9 @@ pub(crate) fn normalize_utseg_result(
                         "utseg",
                     )?,
                     trees: normalize_string_list(infer_result.result.as_ref(), "trees", "utseg")?,
+                    boundary_model_evidence: normalize_utseg_boundary_model_evidence(
+                        infer_result.result.as_ref(),
+                    )?,
                     error: infer_result.error.clone(),
                 })
             })

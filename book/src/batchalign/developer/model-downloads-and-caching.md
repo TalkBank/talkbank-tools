@@ -1,7 +1,7 @@
 # Model Downloads and Caching (Developer Reference)
 
 **Status:** Current
-**Last updated:** 2026-05-23 21:39 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 This page documents how batchalign3 downloads, caches, and verifies ML
 models, the contributor-facing complement to the
@@ -160,54 +160,103 @@ must be opt-in via a code-path-specific flag, not a default.
 
 ## Pipeline-result caching (orthogonal to model caching)
 
-batchalign3 caches **per-utterance audio-task results** in a tiered cache
-so repeated `align` or `transcribe` runs do not redo expensive ASR / FA
-passes. This is unrelated to ML-model caching: result-cache invalidation
-follows the pipeline version, not the model file.
+batchalign3 caches **audio-task evidence** in a tiered cache so repeated
+`align` and selected `transcribe` stages do not repeat expensive inference.
+This is unrelated to ML-model caching: result evidence has semantic keys and
+revision identities of its own.
 
 | Layer | Storage | TTL | Location |
 |---|---|---|---|
 | Hot | `moka` in-memory | Per-process lifetime | RAM |
-| Cold | SQLite | Persistent | `~/.local/share/batchalign3/cache.db` (Linux), `~/Library/Application Support/batchalign3/cache.db` (macOS), `%LocalAppData%\batchalign3\cache.db` (Windows) |
+| Cold | SQLite | Persistent | `~/.cache/batchalign3/cache.db` (Linux), `~/Library/Caches/batchalign3/cache.db` (macOS), `%LocalAppData%\batchalign3\cache.db` (Windows) |
 
 Cached task kinds are enumerated in
-`crates/batchalign/src/chat_ops/cache_key.rs::CacheTaskName`. Cache keys
-include:
+`crates/batchalign/src/chat_ops/cache_key.rs::CacheTaskName`: forced alignment,
+normalized UTR ASR, raw Rev transcript evidence, raw speaker evidence, and
+derived speaker segments. Cache keys include the task's relevant combination
+of:
 
-- Pipeline version (bumped on algorithm changes, see change log below)
+- Evidence schema and algorithm/preparation revision
 - Language code
-- Engine version
+- Engine/model revision
 - Relevant per-task inputs
 
 Text NLP tasks (`morphotag`, `utseg`, `translate`, `coref`) are NOT
 cached, running them twice runs the model twice.
 
-### Cache-breaking changes log
+### Raw versus derived revisions
 
-When the morphosyntax pipeline changes in a way that produces
-different results for the same input, the cache namespace bumps via
-the `engine_version` + `ba_version` arguments that
-`crates/batchalign/src/cache/mod.rs` requires on every `put` /
-`put_batch` call (see lines 206-223). Old cached results miss
-automatically, no user action required.
+Raw paid-service evidence and locally derived projections have different
+identities. Changing a speaker normalization algorithm bumps only
+`SpeakerNormalizationRevision`; the retained provider response remains usable.
+Changing the provider request, prepared media bytes, backend/model revision, or
+raw schema changes the raw key. Rev evidence follows the same rule: preserve
+the provider-shaped transcript, then rerun local conversion independently.
 
-| Version | Date | Change | Impact |
-|---|---|---|---|
-| 1 | pre-2026 | Original Stanza-only pipeline | Baseline |
-| 2 | 2026-03-23 | Added PyCantonese POS override for Cantonese (`yue`) | All cached Cantonese %mor results invalidated. Re-running morphotag on Cantonese files produces corrected POS tags (佢哋→PRON instead of PROPN, etc.). Non-Cantonese cache entries unaffected but also invalidated (harmless, recomputed with same results). |
+Rev's provider-media boundary is explicitly typed. Production constructs
+`PreparedRevProviderMedia` from source bytes, recording their BLAKE3 digest,
+the revisioned preparation recipe, and a normalized upload filename. The raw
+request key also includes the multipart MIME and request-policy revision. On a
+typed cache miss, `RevAsrInferenceAuthorization` is consumed into exactly one
+`AuthorizedRevEvidenceRun` and one private commit permit. Immediately before
+upload, the run rereads the file and refuses `ProviderMediaDrift` if its bytes
+no longer match the keyed digest. Both language identification and
+transcription receive the same owned verified byte buffer and presentation.
+For auto language, those are two intentional Rev requests inside one typed
+evidence run; explicit-language transcription needs only the latter.
 
-When to bump `ba_version` (rolling the morphosyntax pipeline forward):
-- Adding or removing POS post-processing (e.g., PyCantonese override)
-- Changing UD→CHAT mapping rules in
-  `crates/batchalign-transform/src/morphosyntax/` (or the parallel
-  `crates/batchalign/src/chat_ops/nlp/mapping/`)
-- Changing Stanza model selection for a language
-- Fixing a bug that changes %mor / %gra output for existing inputs
+Request-identity revision 2 changes the earlier key because revision 1 did not
+fully identify the provider-visible multipart presentation. Storage schema 3
+is separate: the HTTP boundary reads transcript application-body bytes,
+requires strict UTF-8 JSON, and retains that exact sequence including unknown
+provider fields without changing a revision-2 request key. It never assigns
+exact fidelity after lossy or normalizing text decoding. Existing schema-2
+envelopes therefore remain replayable as `legacy_typed_projection`; new
+responses are `exact_provider_json`. `CachePolicy::RequireCache` fails closed
+on a true request miss and never turns a storage migration into a service call.
 
-When NOT to bump:
-- Adding a new language (new cache keys, no collision)
-- Changing cache storage implementation (keys unchanged)
-- Fixing a bug in cache lookup/storage logic (not content)
+The present recipe is `SourceBytesLegacyAudioMpegV1`: source bytes, normalized
+`provider-media.<extension>` filename, digest-derived metadata, and the
+historical `audio/mpeg` multipart MIME. Do not interpret that name as a quality
+endorsement. A future WAV, FLAC, MIME-correct, padding-retained, or other recipe
+must be a distinct enum variant with deterministic tests and a distinct key.
+
+`RevAsrEvidenceResolution::trace()` uses a private trace seed captured by the
+resolver from the exact request. Callers therefore cannot pair one request's
+media and cache identity with another resolution's cache outcome. The method
+adds the explicit downstream projection revision and produces schema-2
+`RevAsrEvidenceTrace`. `DebugDumper::dump_rev_evidence()` atomically persists
+it for Rev transcribe and Rev-backed UTR runs when `--debug-dir` is enabled,
+using the collision-resistant full-input identity. Serialization or
+durable-write failure is a file error, not a best-effort log message.
+
+The transcribe pipeline receives the Rev inference boundary as a
+`RevAsrEvidenceInference` capability. This is dependency injection without an
+authorization escape hatch: the trait method accepts only the consuming
+`AuthorizedRevEvidenceRun` created behind `resolve_rev_asr_evidence()`. A
+pipeline-level counting fake can consequently prove cold-versus-replay
+behavior through CHAT construction, while production still cannot submit a
+request directly from an untyped media path or Boolean cache miss.
+
+`RevAsrEvidenceTrace` distinguishes causal origin from semantic projection.
+Cold and replayed runs have different cache outcomes by design. Their typed
+semantic projection consists of the complete request trace seed, retained
+transcript fidelity, and named downstream projection revision. Tests compare
+that projection instead of deleting arbitrary JSON fields or incorrectly
+requiring the two causal records to be byte-identical.
+
+Transcribe names the ASR projection revision
+`rev-transcript-to-asr-response-v1`; UTR names its narrower timed-word
+projection `rev-transcript-to-utr-asr-response-v1`. Partial UTR windows use a
+stable raw-cache-key suffix so multiple evidence records cannot overwrite one
+another.
+
+`--require-media-cache` is the experiment guard. It selects
+`CachePolicy::RequireCache`; raw Rev/speaker misses fail before inference
+authorization, and unresolved FA groups cannot construct
+`FaInferenceAuthorization`. `--override-media-cache` is the opposite policy:
+it intentionally refreshes and replaces evidence. The CLI and HTTP admission
+reject a job that asks for both.
 
 ## Test strategy
 

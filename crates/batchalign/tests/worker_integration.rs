@@ -64,6 +64,24 @@ macro_rules! require_python {
 }
 
 #[cfg(unix)]
+fn synthetic_runtime_ready(pid: u32) -> String {
+    json!({
+        "ready": true,
+        "pid": pid,
+        "transport": "stdio",
+        "runtime": {
+            "schema_version": 1,
+            "python_version": "3.13.12",
+            "python_executable_sha256": "a".repeat(64),
+            "batchalign_package_tree_sha256": "b".repeat(64),
+            "batchalign_core_extension_sha256": "c".repeat(64),
+            "distribution_inventory_sha256": "d".repeat(64),
+        },
+    })
+    .to_string()
+}
+
+#[cfg(unix)]
 fn process_alive(pid: u32) -> bool {
     // SAFETY: kill(pid, 0) only checks process existence/permission.
     unsafe { libc::kill(pid as libc::pid_t, 0) == 0 }
@@ -143,14 +161,15 @@ async fn spawn_test_echo_worker() {
         ..Default::default()
     };
 
-    let lease = common::test_worker_pool::shared_test_worker_pool()
-        .checkout(&config)
-        .await
-        .expect("checkout failed");
+    let pool = common::test_worker_pool::shared_test_worker_pool();
+    let lease = pool.checkout(&config).await.expect("checkout failed");
     assert!(*lease.pid() > 0, "should have a valid pid");
     assert_eq!(lease.profile_label(), "profile:stanza");
     assert_eq!(lease.lang(), "eng");
     assert_eq!(lease.transport(), "stdio");
+    let runtime = lease.runtime_identity();
+    assert!(!runtime.python_version().is_empty());
+    assert_eq!(runtime.python_executable_sha256().as_str().len(), 64);
 }
 
 #[tokio::test]
@@ -327,6 +346,9 @@ async fn pool_dispatch_batch_infer_spawns_and_processes() {
     assert_eq!(summary.len(), 1);
     assert!(summary[0].starts_with("profile:stanza:eng:pid="));
     assert!(summary[0].contains(":transport=stdio"));
+    let runtimes = pool.observed_worker_runtimes();
+    assert_eq!(runtimes.len(), 1);
+    assert_eq!(runtimes[0].python_executable_sha256().as_str().len(), 64);
 
     pool.shutdown().await;
     assert_eq!(pool.worker_count().await, 0);
@@ -762,9 +784,12 @@ async fn spawn_tolerates_non_json_stdout_preamble_before_ready() {
     common::test_server_fixture::isolate_host_memory_ledger();
     let dir = tempfile::TempDir::new().expect("tempdir");
     let fake_python = dir.path().join("fake-python");
+    let ready = synthetic_runtime_ready(1234);
     std::fs::write(
         &fake_python,
-        "#!/bin/sh\nprintf 'Downloading: \"https://example.invalid/model.pt\" to /tmp/model.pt\\n'\nprintf '{\"ready\":true,\"pid\":1234,\"transport\":\"stdio\"}\\n'\nsleep 30\n",
+        format!(
+            "#!/bin/sh\nprintf 'Downloading: \"https://example.invalid/model.pt\" to /tmp/model.pt\\n'\nprintf '%s\\n' '{ready}'\nsleep 30\n"
+        ),
     )
     .expect("write fake python");
     let mut perms = std::fs::metadata(&fake_python)
@@ -840,9 +865,12 @@ async fn health_check_tolerates_non_protocol_stdout_between_requests() {
     common::test_server_fixture::isolate_host_memory_ledger();
     let dir = tempfile::TempDir::new().expect("tempdir");
     let fake_python = dir.path().join("fake-python");
+    let ready = synthetic_runtime_ready(1234);
     std::fs::write(
         &fake_python,
-        "#!/bin/sh\nprintf '{\"ready\":true,\"pid\":1234,\"transport\":\"stdio\"}\\n'\nIFS= read -r req || exit 1\nprintf 'torch: loading checkpoint shards\\n'\nprintf '{\"op\":\"health\",\"response\":{\"status\":\"ok\",\"command\":\"profile:stanza\",\"lang\":\"eng\",\"pid\":1234,\"uptime_s\":0}}\\n'\nIFS= read -r req || exit 0\nprintf '{\"op\":\"shutdown\"}\\n'\n",
+        format!(
+            "#!/bin/sh\nprintf '%s\\n' '{ready}'\nIFS= read -r req || exit 1\nprintf 'torch: loading checkpoint shards\\n'\nprintf '{{\"op\":\"health\",\"response\":{{\"status\":\"ok\",\"command\":\"profile:stanza\",\"lang\":\"eng\",\"pid\":1234,\"uptime_s\":0}}}}\\n'\nIFS= read -r req || exit 0\nprintf '{{\"op\":\"shutdown\"}}\\n'\n"
+        ),
     )
     .expect("write fake python");
     let mut perms = std::fs::metadata(&fake_python)

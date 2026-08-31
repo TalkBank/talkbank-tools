@@ -102,9 +102,10 @@ class _FakeWave2VecModel:
 class _Span:
     """Tiny span object matching torchaudio merge-token output."""
 
-    def __init__(self, start: int, end: int) -> None:
+    def __init__(self, start: int, end: int, score: float = 1.0) -> None:
         self.start = start
         self.end = end
+        self.score = score
 
 
 def _install_whisper_alignment_helpers(monkeypatch) -> None:
@@ -471,9 +472,16 @@ def test_infer_whisper_fa_decodes_tokens_from_alignment_heads(monkeypatch) -> No
 
 
 def test_infer_wave2vec_fa_converts_spans_to_milliseconds(monkeypatch) -> None:
-    """Wave2Vec FA should map merged alignment spans into word timings."""
+    """Wave2Vec FA should retain timings and duration-weighted model scores."""
 
-    _install_torchaudio_alignment_helpers(monkeypatch)
+    _install_torchaudio_alignment_helpers(
+        monkeypatch,
+        spans=[
+            _Span(10, 20, 0.5),
+            _Span(20, 30, 0.9),
+            _Span(30, 40, 0.8),
+        ],
+    )
 
     handle = SimpleNamespace(model=_FakeWave2VecModel(), sample_rate=1000)
 
@@ -483,7 +491,7 @@ def test_infer_wave2vec_fa_converts_spans_to_milliseconds(monkeypatch) -> None:
         ["hi", "a"],
     )
 
-    assert result == [("hi", (10, 30)), ("a", (30, 40))]
+    assert result == [("hi", (10, 30), 0.7), ("a", (30, 40), 0.8)]
 
 
 def test_infer_wave2vec_fa_strips_blank_mapped_chars_from_targets(monkeypatch) -> None:
@@ -511,7 +519,7 @@ def test_infer_wave2vec_fa_strips_blank_mapped_chars_from_targets(monkeypatch) -
     )
 
     assert captured["transcript"].tolist() == [[1, 2, 3, 4]]
-    assert result == [("a-b", (10, 30)), ("hi", (30, 50))]
+    assert result == [("a-b", (10, 30), 1.0), ("hi", (30, 50), 1.0)]
 
 
 def test_infer_wave2vec_fa_uses_wildcard_when_blank_sanitization_empties_word(
@@ -539,4 +547,4 @@ def test_infer_wave2vec_fa_uses_wildcard_when_blank_sanitization_empties_word(
     )
 
     assert captured["transcript"].tolist() == [[28, 1]]
-    assert result == [("-", (10, 20)), ("a", (20, 30))]
+    assert result == [("-", (10, 20), 1.0), ("a", (20, 30), 1.0)]

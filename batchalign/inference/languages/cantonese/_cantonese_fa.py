@@ -36,7 +36,7 @@ from ._common import EngineOverrides
 
 if TYPE_CHECKING:
     from batchalign.inference.audio import ASRAudioFile
-    from batchalign.inference.types import Wave2VecFAHandle
+    from batchalign.inference.types import Wave2VecFAHandle, Wave2VecFAResult
 
 L = logging.getLogger("batchalign.hk.fa")
 
@@ -64,7 +64,7 @@ class _Wave2VecFaRunner(Protocol):
         model: object,
         audio: object,
         words: list[str],
-    ) -> list[tuple[str, tuple[int, int]]]: ...
+    ) -> Wave2VecFAResult: ...
 
 
 # ---------------------------------------------------------------------------
@@ -91,9 +91,7 @@ class CantoneseFaHost:
     infer_wave2vec_fa: _Wave2VecFaRunner
     lang: LanguageCode = "yue"
 
-    def align_words(
-        self, audio: object, words: list[str]
-    ) -> list[tuple[str, tuple[int, int]]]:
+    def align_words(self, audio: object, words: list[str]) -> Wave2VecFAResult:
         """Romanize, then align, on audio the caller has already decoded.
 
         The one step both paths share. Everything above it differs: the batch
@@ -307,8 +305,14 @@ def infer_cantonese_fa(
 
             # --- build indexed timings ---
             indexed_timings: list[FaIndexedTiming | None] = [None] * len(item.words)
-            for i, (_, (start, end)) in enumerate(wave2vec_results[: len(item.words)]):
-                indexed_timings[i] = FaIndexedTiming(start_ms=start, end_ms=end)
+            for i, (_, (start, end), score) in enumerate(
+                wave2vec_results[: len(item.words)]
+            ):
+                indexed_timings[i] = FaIndexedTiming(
+                    start_ms=start,
+                    end_ms=end,
+                    confidence=score,
+                )
 
             results.append(
                 InferResponse(

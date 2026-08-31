@@ -286,78 +286,22 @@ pub fn apply_disfluency_replacements(utterances: &mut [Utterance], lang: &str) {
 /// single-character false starts are extremely common in Cantonese speech
 /// and would flood the output with false-positive retrace marks.
 pub fn apply_retrace_detection(utterances: &mut [Utterance], lang: &str) {
-    let min_ngram = if lang == "yue" || lang == "zho" { 2 } else { 1 };
-
     for utt in utterances.iter_mut() {
-        let content_len = content_word_count(&utt.words);
-        if content_len < 2 {
-            continue;
-        }
-
-        // N-gram comparison is case-insensitive so a sentence-initial "I"
-        // pairs with a mid-sentence "I" (and, defensively, a lowercased "i"
-        // from an inconsistent ASR). Word texts are never rewritten, CHAT
-        // output keeps the provider's casing.
-        let content_indices: Vec<usize> = utt
+        let word_texts: Vec<String> = utt
             .words
             .iter()
-            .enumerate()
-            .filter(|(_, w)| !is_punct_or_terminator(w.text.as_str()))
-            .map(|(idx, _)| idx)
+            .map(|word| word.text.as_str().to_owned())
             .collect();
-
-        let mut is_retrace = vec![false; content_indices.len()];
-
-        for n in min_ngram..content_indices.len() {
-            let mut begin = 0;
-            while begin + n < content_indices.len() {
-                let mut root = begin;
-                while root + 2 * n <= content_indices.len() {
-                    let next_matches = (0..n).all(|i| {
-                        utt.words[content_indices[begin + i]]
-                            .text
-                            .as_str()
-                            .eq_ignore_ascii_case(
-                                utt.words[content_indices[root + n + i]].text.as_str(),
-                            )
-                    });
-                    if next_matches {
-                        // BA2 parity gate (retrace.py:44): fillers participate
-                        // in the n-gram match above, but are never re-typed to
-                        // Retrace. Only non-filler tokens in the matched slice
-                        // get marked.
-                        for i in 0..n {
-                            let orig_idx = content_indices[begin + i];
-                            if !is_filler(utt.words[orig_idx].text.as_str()) {
-                                is_retrace[begin + i] = true;
-                            }
-                        }
-                        root += n;
-                    } else {
-                        break;
-                    }
-                }
-                begin += 1;
-            }
-        }
+        let analysis = super::analyze_exact_retraces(&word_texts, lang);
 
         // Apply: set kind=Retrace and strip punctuation on marked words.
-        for (content_pos, &orig_idx) in content_indices.iter().enumerate() {
-            if is_retrace[content_pos] {
-                utt.words[orig_idx].kind = WordKind::Retrace;
-                utt.words[orig_idx].text =
-                    AsrNormalizedText::new(strip_punct(utt.words[orig_idx].text.as_str()));
+        for (word_index, word) in utt.words.iter_mut().enumerate() {
+            if analysis.is_retraced_word(word_index) && !is_filler(word.text.as_str()) {
+                word.kind = WordKind::Retrace;
+                word.text = AsrNormalizedText::new(strip_punct(word.text.as_str()));
             }
         }
     }
-}
-
-/// Count non-punctuation words in an utterance.
-fn content_word_count(words: &[AsrWord]) -> usize {
-    words
-        .iter()
-        .filter(|w| !is_punct_or_terminator(w.text.as_str()))
-        .count()
 }
 
 /// Check if a word is punctuation or a sentence terminator.

@@ -28,25 +28,9 @@ pub enum CachePolicy {
     UseCache,
     /// Skip cache lookups (always recompute; still stores results for future use).
     SkipCache,
-}
-
-impl CachePolicy {
-    /// Returns `true` when cache lookups should be skipped.
-    pub fn should_skip(&self) -> bool {
-        matches!(self, Self::SkipCache)
-    }
-}
-
-impl From<bool> for CachePolicy {
-    /// Converts from the CLI `override_media_cache` flag, `true` means
-    /// skip cache.
-    fn from(override_media_cache: bool) -> Self {
-        if override_media_cache {
-            Self::SkipCache
-        } else {
-            Self::UseCache
-        }
-    }
+    /// Require reusable evidence. A miss is an error and cannot authorize
+    /// inference.
+    RequireCache,
 }
 
 /// Whether to generate the `%wor` (word-level timing) dependent tier.
@@ -195,6 +179,9 @@ pub enum CacheOverrides {
     All,
     /// Skip cache only for listed tasks (`--override-media-cache-tasks`).
     Tasks(BTreeSet<CacheTaskName>),
+    /// Require reusable evidence for every cache-backed task
+    /// (`--require-media-cache`).
+    RequireAll,
 }
 
 impl CacheOverrides {
@@ -203,6 +190,7 @@ impl CacheOverrides {
         match self {
             Self::None => CachePolicy::UseCache,
             Self::All => CachePolicy::SkipCache,
+            Self::RequireAll => CachePolicy::RequireCache,
             Self::Tasks(set) => {
                 if set.contains(&task) {
                     CachePolicy::SkipCache
@@ -241,11 +229,8 @@ pub struct MorphosyntaxParams<'a> {
     /// they disagree. Lemma and features from Stanza are preserved.
     /// Default `true`; opt out via `--no-pos-hints`.
     pub respect_pos_hints: bool,
-    /// Review-tier verbosity for the incremental morphotag decision tiers
-    /// (`%xalign` / `%xrev`). Defaults to [`ReviewLevel::None`] at every
-    /// construction site, so morphotag does not inject the experimental
-    /// provenance tiers into output CHAT unless a caller opts in. The
-    /// decision-recording code is retained either way.
+    /// Legacy review-tier request retained for wire compatibility. No value
+    /// emits `%xalign` or `%xrev`; structured evidence retains the decisions.
     ///
     /// [`ReviewLevel::None`]: crate::chat_ops::fa::ReviewLevel::None
     pub review_level: crate::chat_ops::fa::ReviewLevel,

@@ -5,17 +5,22 @@
 //! generation. When constructed without a path, all methods are zero-cost
 //! no-ops. This is the single testability seam for stage decomposition.
 
-use std::path::{Path, PathBuf};
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use crate::chat_ops::fa::utr::{AsrTimingToken, UtrResult};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use crate::api::DurationMs;
+use crate::revai::RevAsrEvidenceTrace;
 use crate::runner::dispatch::diarize_turns::{
     SpeakerTurnsSource, TurnsBuildError, format_turns_json,
 };
-use crate::types::traces::FaGroupTrace;
+use crate::transcribe::SpeakerEvidenceTrace;
+use crate::types::traces::{FaGroupTrace, FaTimelineTrace};
 use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 
 /// Pipeline debug artifact writer.
@@ -26,6 +31,39 @@ use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 /// no-ops.
 pub(crate) struct DebugDumper {
     dir: Option<PathBuf>,
+}
+
+/// Complete artifact bytes that can be atomically persisted.
+///
+/// Constructing this state before opening the destination prevents a
+/// serialization failure from truncating a prior evidence artifact.
+struct SerializedArtifact(Vec<u8>);
+
+impl SerializedArtifact {
+    fn json(value: &impl Serialize) -> Result<Self, serde_json::Error> {
+        serde_json::to_vec_pretty(value).map(Self)
+    }
+
+    fn text(value: String) -> Self {
+        Self(value.into_bytes())
+    }
+
+    fn persist(self, path: &Path) -> Result<(), std::io::Error> {
+        let parent = path.parent().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("artifact path has no parent: {}", path.display()),
+            )
+        })?;
+        let mut temp = tempfile::NamedTempFile::new_in(parent)?;
+        temp.write_all(&self.0)?;
+        temp.as_file().sync_all()?;
+        let persisted = temp.persist(path).map_err(|error| error.error)?;
+        persisted.sync_all()?;
+        #[cfg(unix)]
+        std::fs::File::open(parent)?.sync_all()?;
+        Ok(())
+    }
 }
 
 /// Observable result of requesting a same-job speaker-turn dump.
@@ -58,6 +96,93 @@ pub(crate) enum SpeakerTurnsDumpError {
         /// Intended artifact path.
         path: PathBuf,
         /// Underlying filesystem failure.
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+/// Observable result of requesting a durable forced-alignment evidence dump.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FaEvidenceDumpOutcome {
+    /// Debug artifact collection was not requested for this run.
+    Disabled,
+    /// The versioned evidence artifact was durably written at this path.
+    Written(PathBuf),
+}
+
+/// Failures while retaining forced-alignment timing evidence.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum FaEvidenceDumpError {
+    /// The configured debug directory could not be created.
+    #[error("failed to create FA evidence directory {}: {source}", path.display())]
+    CreateDirectory {
+        /// Directory requested by the job.
+        path: PathBuf,
+        /// Underlying filesystem failure.
+        #[source]
+        source: std::io::Error,
+    },
+    /// The typed evidence could not be serialized.
+    #[error("failed to serialize FA evidence: {0}")]
+    Serialize(#[from] serde_json::Error),
+    /// The completed artifact could not be written.
+    #[error("failed to write FA evidence {}: {source}", path.display())]
+    Write {
+        /// Intended artifact path.
+        path: PathBuf,
+        /// Underlying filesystem failure.
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+/// Observable result of requesting a durable Rev causal-evidence dump.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RevEvidenceDumpOutcome {
+    Disabled,
+    Written(PathBuf),
+}
+
+/// Failures while retaining the Rev request/cache/projection identity.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum RevEvidenceDumpError {
+    #[error("failed to create Rev evidence directory {}: {source}", path.display())]
+    CreateDirectory {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("failed to serialize Rev evidence trace: {0}")]
+    Serialize(#[from] serde_json::Error),
+    #[error("failed to write Rev evidence trace {}: {source}", path.display())]
+    Write {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+/// Observable result of requesting a durable speaker causal-evidence dump.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SpeakerEvidenceDumpOutcome {
+    Disabled,
+    Written(PathBuf),
+}
+
+/// Failures while retaining the speaker request/cache/projection identity.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum SpeakerEvidenceDumpError {
+    #[error("failed to create speaker evidence directory {}: {source}", path.display())]
+    CreateDirectory {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("failed to serialize speaker evidence trace: {0}")]
+    Serialize(#[from] serde_json::Error),
+    #[error("failed to write speaker evidence trace {}: {source}", path.display())]
+    Write {
+        path: PathBuf,
         #[source]
         source: std::io::Error,
     },
@@ -123,6 +248,21 @@ impl DebugDumper {
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
+    }
+
+    /// Collision-resistant stem for evidence that must survive corpus runs.
+    ///
+    /// Keep the familiar basename for a plain filename. When the submitted
+    /// identity includes a directory, append a digest of the complete identity
+    /// so two corpus branches containing `sample.cha` cannot silently overwrite
+    /// one another in a shared debug directory.
+    fn evidence_stem(filename: &str) -> String {
+        let stem = Self::stem(filename);
+        if Path::new(filename).components().count() <= 1 {
+            return stem.to_owned();
+        }
+        let digest = blake3::hash(filename.as_bytes()).to_hex();
+        format!("{stem}-{}", &digest[..12])
     }
 
     /// Dump CHAT text before UTR injection.
@@ -253,9 +393,98 @@ impl DebugDumper {
         }
     }
 
+    /// Durably retain the exact pre-injection FA evidence used by this run.
+    ///
+    /// Unlike the older best-effort dumps, an enabled request either writes a
+    /// complete versioned artifact or returns a typed error. This prevents a
+    /// research run from completing while silently losing the confidence and
+    /// provenance that motivated `--debug-dir`.
+    pub(crate) fn dump_fa_evidence(
+        &self,
+        filename: &str,
+        evidence: &FaTimelineTrace,
+    ) -> Result<FaEvidenceDumpOutcome, FaEvidenceDumpError> {
+        let Some(dir) = self.dir.as_deref() else {
+            return Ok(FaEvidenceDumpOutcome::Disabled);
+        };
+        std::fs::create_dir_all(dir).map_err(|source| FaEvidenceDumpError::CreateDirectory {
+            path: dir.to_owned(),
+            source,
+        })?;
+        let path = dir.join(format!(
+            "{}_fa_evidence.json",
+            Self::evidence_stem(filename)
+        ));
+        let artifact = SerializedArtifact::json(evidence)?;
+        artifact
+            .persist(&path)
+            .map_err(|source| FaEvidenceDumpError::Write {
+                path: path.clone(),
+                source,
+            })?;
+        info!(%filename, evidence = %path.display(), "FA evidence dumped");
+        Ok(FaEvidenceDumpOutcome::Written(path))
+    }
+
     // -------------------------------------------------------------------
     // Transcribe pipeline debug artifacts
     // -------------------------------------------------------------------
+
+    /// Durably retain the Rev media/request/cache/projection identity.
+    pub(crate) fn dump_rev_evidence(
+        &self,
+        filename: &str,
+        trace: &RevAsrEvidenceTrace,
+    ) -> Result<RevEvidenceDumpOutcome, RevEvidenceDumpError> {
+        let Some(dir) = self.dir.as_deref() else {
+            return Ok(RevEvidenceDumpOutcome::Disabled);
+        };
+        std::fs::create_dir_all(dir).map_err(|source| RevEvidenceDumpError::CreateDirectory {
+            path: dir.to_owned(),
+            source,
+        })?;
+        let path = dir.join(format!(
+            "{}_rev_evidence.json",
+            Self::evidence_stem(filename)
+        ));
+        SerializedArtifact::json(trace)?
+            .persist(&path)
+            .map_err(|source| RevEvidenceDumpError::Write {
+                path: path.clone(),
+                source,
+            })?;
+        info!(%filename, evidence = %path.display(), "Rev evidence trace dumped");
+        Ok(RevEvidenceDumpOutcome::Written(path))
+    }
+
+    /// Durably retain the speaker media/request/cache/projection identity.
+    pub(crate) fn dump_speaker_evidence(
+        &self,
+        filename: &str,
+        trace: &SpeakerEvidenceTrace,
+    ) -> Result<SpeakerEvidenceDumpOutcome, SpeakerEvidenceDumpError> {
+        let Some(dir) = self.dir.as_deref() else {
+            return Ok(SpeakerEvidenceDumpOutcome::Disabled);
+        };
+        std::fs::create_dir_all(dir).map_err(|source| {
+            SpeakerEvidenceDumpError::CreateDirectory {
+                path: dir.to_owned(),
+                source,
+            }
+        })?;
+        let path = dir.join(format!(
+            "{}_speaker_evidence.json",
+            Self::evidence_stem(filename)
+        ));
+        SerializedArtifact::json(trace)?
+            .persist(&path)
+            .map_err(|source| SpeakerEvidenceDumpError::Write {
+                path: path.clone(),
+                source,
+            })?;
+        info!(%filename, evidence = %path.display(), "Speaker evidence trace dumped");
+        Ok(SpeakerEvidenceDumpOutcome::Written(path))
+    }
 
     /// Dump raw ASR response JSON after ASR inference.
     pub(crate) fn dump_asr_response(&self, filename: &str, response: &impl serde::Serialize) {
@@ -295,12 +524,17 @@ impl DebugDumper {
             source,
         })?;
 
-        let text = format_turns_json(SpeakerTurnsSource::from_backend(backend), segments)?;
-        let path = dir.join(format!("{}.turns.json", Self::stem(filename)));
-        std::fs::write(&path, text).map_err(|source| SpeakerTurnsDumpError::Write {
-            path: path.clone(),
-            source,
-        })?;
+        let artifact = SerializedArtifact::text(format_turns_json(
+            SpeakerTurnsSource::from_backend(backend),
+            segments,
+        )?);
+        let path = dir.join(format!("{}.turns.json", Self::evidence_stem(filename)));
+        artifact
+            .persist(&path)
+            .map_err(|source| SpeakerTurnsDumpError::Write {
+                path: path.clone(),
+                source,
+            })?;
         info!(
             %filename,
             backend = ?backend,
@@ -363,6 +597,12 @@ impl DebugDumper {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::{LanguageCode3, LanguageSpec, NumSpeakers};
+    use crate::revai::{
+        CompletedRevAsrEvidence, RevAsrEvidenceRequest, RevAsrEvidenceResolution,
+        RevAsrModelRevision,
+    };
+    use crate::types::traces::{FaDecisionTrace, FaTimingDecisionTrace};
     use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 
     fn speaker_segment(speaker: &str, start_ms: u64, end_ms: u64) -> SpeakerSegmentV2 {
@@ -414,6 +654,194 @@ mod tests {
         assert_eq!(value["source"], "batchalign3:pyannote_ai:precision-2");
         assert_eq!(value["turns"][0]["track"], "PAR0");
         assert_eq!(value["turns"][1]["track"], "PAR1");
+    }
+
+    #[tokio::test]
+    async fn rev_evidence_dump_is_durable_joined_and_collision_resistant() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let audio = dir.path().join("sample.wav");
+        tokio::fs::write(&audio, b"provider media")
+            .await
+            .expect("write audio");
+        let request = RevAsrEvidenceRequest::from_audio(
+            &audio,
+            &LanguageSpec::Resolved(LanguageCode3::eng()),
+            NumSpeakers(2),
+            &RevAsrModelRevision::current(),
+        )
+        .await
+        .expect("request");
+        let resolution = RevAsrEvidenceResolution::replayed_for_test(
+            &request,
+            CompletedRevAsrEvidence {
+                transcript_evidence: crate::revai::RevTranscriptEvidence::from_legacy_transcript(
+                    serde_json::from_str(r#"{"monologues": []}"#).expect("valid empty transcript"),
+                ),
+                resolved_language: LanguageCode3::eng(),
+            },
+        );
+        let trace = resolution.trace(crate::revai::RevAsrProjectionRevision::AsrResponseV1);
+        let dumper = DebugDumper::new(Some(dir.path()));
+        let identity = "corpus-a/sample.wav";
+
+        let outcome = dumper
+            .dump_rev_evidence(identity, &trace)
+            .expect("requested Rev evidence should be durable");
+        let expected = dir.path().join(format!(
+            "{}_rev_evidence.json",
+            DebugDumper::evidence_stem(identity)
+        ));
+        assert_eq!(outcome, RevEvidenceDumpOutcome::Written(expected.clone()));
+
+        let value: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(expected).expect("read Rev evidence"))
+                .expect("parse Rev evidence");
+        assert_eq!(value["trace_schema_version"], 2);
+        assert_eq!(value["cache_outcome"], "replayed");
+        assert_eq!(value["transcript_fidelity"], "legacy_typed_projection");
+        assert_eq!(
+            value["projection_revision"],
+            "rev-transcript-to-asr-response-v1"
+        );
+        assert_eq!(value["raw_evidence_key"], request.cache_key().as_str());
+    }
+
+    #[test]
+    fn fa_evidence_dump_is_durable_and_versioned() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let dumper = DebugDumper::new(Some(dir.path()));
+        let evidence = FaTimelineTrace {
+            evidence_schema_version: 2,
+            engine: "wav2vec_fa".to_owned(),
+            engine_version: "test-build".to_owned(),
+            groups: Vec::new(),
+            evidence_sources: Vec::new(),
+            cache_keys: Vec::new(),
+            pre_injection_timings: Vec::new(),
+            post_injection_timings: Vec::new(),
+            decisions: vec![FaDecisionTrace {
+                line_idx: 7,
+                speaker: "PAR0".to_owned(),
+                module: "monotonicity".to_owned(),
+                strategy: "timing_stripped".to_owned(),
+                reason: "non_monotonic start_ms=900 previous_start_ms=1000".to_owned(),
+                needs_review: true,
+            }],
+            timing_decisions: vec![FaTimingDecisionTrace::StartRegressionStripped {
+                line_idx: 7,
+                speaker: "PAR0".to_owned(),
+                start_ms: 900,
+                previous_start_ms: 1_000,
+                previous_line_idx: 6,
+                previous_speaker: "PAR1".to_owned(),
+            }],
+            gap_healing: "Heal".to_owned(),
+            violations: Vec::new(),
+            fallback_events: Vec::new(),
+        };
+
+        let outcome = dumper
+            .dump_fa_evidence("sample.cha", &evidence)
+            .expect("requested evidence should be durable");
+        let expected_path = dir.path().join("sample_fa_evidence.json");
+        assert_eq!(
+            outcome,
+            FaEvidenceDumpOutcome::Written(expected_path.clone())
+        );
+        let value: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(expected_path).expect("read evidence"))
+                .expect("parse evidence");
+        assert_eq!(value["evidence_schema_version"], 2);
+        assert_eq!(value["engine"], "wav2vec_fa");
+        assert_eq!(value["decisions"][0]["line_idx"], 7);
+        assert_eq!(value["decisions"][0]["module"], "monotonicity");
+        assert_eq!(value["decisions"][0]["strategy"], "timing_stripped");
+        assert_eq!(
+            value["timing_decisions"][0]["kind"],
+            "start_regression_stripped"
+        );
+        assert_eq!(value["timing_decisions"][0]["start_ms"], 900);
+        assert_eq!(value["timing_decisions"][0]["previous_line_idx"], 6);
+        assert_eq!(value["timing_decisions"][0]["previous_speaker"], "PAR1");
+    }
+
+    #[test]
+    fn fa_evidence_paths_do_not_collide_for_equal_basenames() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let dumper = DebugDumper::new(Some(dir.path()));
+        let evidence = FaTimelineTrace {
+            evidence_schema_version: 1,
+            engine: "wav2vec_fa".to_owned(),
+            engine_version: "test-build".to_owned(),
+            groups: Vec::new(),
+            evidence_sources: Vec::new(),
+            cache_keys: Vec::new(),
+            pre_injection_timings: Vec::new(),
+            post_injection_timings: Vec::new(),
+            decisions: Vec::new(),
+            timing_decisions: Vec::new(),
+            gap_healing: "Heal".to_owned(),
+            violations: Vec::new(),
+            fallback_events: Vec::new(),
+        };
+
+        let first = dumper
+            .dump_fa_evidence("corpus-a/sample.cha", &evidence)
+            .expect("first evidence should be written");
+        let second = dumper
+            .dump_fa_evidence("corpus-b/sample.cha", &evidence)
+            .expect("second evidence should be written");
+
+        let (FaEvidenceDumpOutcome::Written(first), FaEvidenceDumpOutcome::Written(second)) =
+            (first, second)
+        else {
+            panic!("enabled evidence dumping must write both artifacts");
+        };
+        assert_ne!(first, second);
+        assert!(first.exists());
+        assert!(second.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fa_evidence_dump_replaces_a_destination_symlink_without_following_it() {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sentinel = dir.path().join("unrelated.json");
+        std::fs::write(&sentinel, "do not replace").expect("write sentinel");
+        let evidence_path = dir.path().join("sample_fa_evidence.json");
+        symlink(&sentinel, &evidence_path).expect("create destination symlink");
+        let dumper = DebugDumper::new(Some(dir.path()));
+        let evidence = FaTimelineTrace {
+            evidence_schema_version: 2,
+            engine: "wav2vec_fa".to_owned(),
+            engine_version: "test-build".to_owned(),
+            groups: Vec::new(),
+            evidence_sources: Vec::new(),
+            cache_keys: Vec::new(),
+            pre_injection_timings: Vec::new(),
+            post_injection_timings: Vec::new(),
+            decisions: Vec::new(),
+            timing_decisions: Vec::new(),
+            gap_healing: "Heal".to_owned(),
+            violations: Vec::new(),
+            fallback_events: Vec::new(),
+        };
+
+        dumper
+            .dump_fa_evidence("sample.cha", &evidence)
+            .expect("evidence write should replace the destination entry");
+
+        assert_eq!(
+            std::fs::read_to_string(&sentinel).expect("read sentinel"),
+            "do not replace"
+        );
+        assert!(!evidence_path.is_symlink());
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(evidence_path).expect("read evidence"))
+                .expect("parse evidence");
+        assert_eq!(written["evidence_schema_version"], 2);
     }
 
     #[test]

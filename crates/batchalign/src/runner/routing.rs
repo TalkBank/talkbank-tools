@@ -6,13 +6,12 @@
 //! called by `ExecutionEngine::dispatch_job` after all host-level concerns
 //! (memory reservation, preflight, pre-scaling) have been handled.
 
-use std::collections::{BTreeMap, HashMap};
-use std::path::PathBuf;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use tracing::{info, warn};
 
-use crate::api::{EngineVersion, NumWorkers, ReleasedCommand, RevAiJobId};
+use crate::api::{EngineVersion, NumWorkers, ReleasedCommand};
 use crate::cache::UtteranceCache;
 
 use crate::capability::resolve_worker_capability_snapshot;
@@ -49,7 +48,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         job,
         file_list,
         num_workers,
-        rev_job_ids,
     } = request;
     let job_id = &job.identity.job_id;
     let correlation_id = job.identity.correlation_id.clone();
@@ -141,16 +139,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             "Using server-side transcribe orchestrator"
         );
 
-        dispatch_transcribe_command(
-            &job,
-            host,
-            pool,
-            cache,
-            &engine_version,
-            &rev_job_ids,
-            num_workers,
-        )
-        .await;
+        dispatch_transcribe_command(&job, host, pool, cache, &engine_version, num_workers).await;
     } else if use_benchmark_infer {
         let engine_version = EngineVersion::from(
             engine_versions
@@ -167,16 +156,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             "Using server-side benchmark orchestrator"
         );
 
-        dispatch_benchmark_command(
-            &job,
-            host,
-            pool,
-            cache,
-            &engine_version,
-            &rev_job_ids,
-            num_workers,
-        )
-        .await;
+        dispatch_benchmark_command(&job, host, pool, cache, &engine_version, num_workers).await;
     } else if use_media_analysis_infer {
         let engine_version = EngineVersion::from(
             engine_versions
@@ -409,7 +389,6 @@ pub(super) async fn dispatch_job_with_execution_context(
                     pool,
                     cache,
                     &engine_version,
-                    &rev_job_ids,
                     num_workers,
                 )
                 .await;
@@ -480,7 +459,6 @@ async fn dispatch_forced_alignment_command(
     pool: &Arc<WorkerPool>,
     cache: &Arc<UtteranceCache>,
     engine_version: &EngineVersion,
-    rev_job_ids: &Arc<HashMap<PathBuf, RevAiJobId>>,
     num_workers: NumWorkers,
 ) {
     let Some(plan) = FaDispatchPlan::from_job(job, host.config()) else {
@@ -495,7 +473,6 @@ async fn dispatch_forced_alignment_command(
             pool: pool.clone(),
             cache: cache.clone(),
             engine_version: engine_version.clone(),
-            rev_job_ids: rev_job_ids.clone(),
             num_workers,
         },
         plan,
@@ -509,7 +486,6 @@ async fn dispatch_transcribe_command(
     pool: &Arc<WorkerPool>,
     cache: &Arc<UtteranceCache>,
     engine_version: &EngineVersion,
-    rev_job_ids: &Arc<HashMap<PathBuf, RevAiJobId>>,
     num_workers: NumWorkers,
 ) {
     let Some(plan) = TranscribeDispatchPlan::from_job(job, host.config()) else {
@@ -524,7 +500,6 @@ async fn dispatch_transcribe_command(
             pool: pool.clone(),
             cache: cache.clone(),
             engine_version: engine_version.clone(),
-            rev_job_ids: rev_job_ids.clone(),
             num_workers,
         },
         plan,
@@ -538,7 +513,6 @@ async fn dispatch_benchmark_command(
     pool: &Arc<WorkerPool>,
     cache: &Arc<UtteranceCache>,
     engine_version: &EngineVersion,
-    rev_job_ids: &Arc<HashMap<PathBuf, RevAiJobId>>,
     num_workers: NumWorkers,
 ) {
     let Some(plan) = BenchmarkDispatchPlan::from_job(job, host.config()) else {
@@ -553,7 +527,6 @@ async fn dispatch_benchmark_command(
             pool: pool.clone(),
             cache: cache.clone(),
             engine_version: engine_version.clone(),
-            rev_job_ids: rev_job_ids.clone(),
             num_workers,
         },
         plan,

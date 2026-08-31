@@ -119,7 +119,11 @@ fn build_media_header(desc: &TranscriptDescription) -> Result<Option<MediaHeader
     };
 
     let filename = MediaFilename::parse(&normalized_media_name)?;
-    Ok(Some(MediaHeader::new(filename, media_type)))
+    let mut header = MediaHeader::new(filename, media_type);
+    if let Some(status) = &desc.media_status {
+        header = header.with_status(status.clone());
+    }
+    Ok(Some(header))
 }
 
 fn normalize_media_name(raw: &str) -> String {

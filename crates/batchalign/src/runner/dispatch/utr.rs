@@ -44,8 +44,6 @@ pub(in crate::runner) struct UtrPassContext<'a> {
     pub engine: &'a UtrEngine,
     /// Overlap strategy for `+<` utterances.
     pub overlap_strategy: UtrOverlapStrategy,
-    /// Optional Rev.AI job ID produced by preflight submission.
-    pub rev_job_id: Option<&'a str>,
     /// Debug artifact writer for offline replay.
     pub dumper: &'a DebugDumper,
 }
@@ -66,17 +64,6 @@ impl<'a> UtrPassContext<'a> {
         }
         .recording()
         .await
-    }
-
-    /// Return the same context without a preflight job ID.
-    ///
-    /// Segment-level partial UTR extracts fresh temporary WAV files, so those
-    /// requests can never reuse a full-file Rev.AI preflight submission.
-    fn without_rev_job_id(self) -> Self {
-        Self {
-            rev_job_id: None,
-            ..self
-        }
     }
 }
 
@@ -236,33 +223,25 @@ pub(in crate::runner) async fn run_utr_pass(
                     end_ms,
                     context.lang,
                 );
-                let cached_seg = if context.cache_policy != CachePolicy::SkipCache {
-                    match context
-                        .services
-                        .cache
-                        .get(
-                            seg_cache_key.as_str(),
-                            CacheTaskName::UtrAsr.as_str(),
-                            context.services.engine_version,
+                let cached_seg = lookup_utr_asr_cache(
+                    context.services.cache,
+                    &seg_cache_key,
+                    context.services.engine_version,
+                    context.cache_policy,
+                )
+                .await?;
+
+                let seg_response = match cached_seg {
+                    UtrAsrCacheLookup::Hit(cached) => {
+                        info!(context.filename, start_ms, end_ms, "UTR segment cache hit");
+                        cached
+                    }
+                    UtrAsrCacheLookup::Miss(miss) => {
+                        let segment_path = match crate::ensure_wav::extract_audio_segment(
+                            context.audio_path,
+                            *window,
                         )
                         .await
-                    {
-                        Ok(Some(value)) => {
-                            info!(context.filename, start_ms, end_ms, "UTR segment cache hit");
-                            serde_json::from_value::<crate::transcribe::AsrResponse>(value).ok()
-                        }
-                        _ => None,
-                    }
-                } else {
-                    None
-                };
-
-                let seg_response = if let Some(cached) = cached_seg {
-                    cached
-                } else {
-                    let segment_path =
-                        match crate::ensure_wav::extract_audio_segment(context.audio_path, *window)
-                            .await
                         {
                             Ok(path) => path,
                             Err(error) => {
@@ -277,38 +256,38 @@ pub(in crate::runner) async fn run_utr_pass(
                             }
                         };
 
-                    match infer_utr_asr_response(&segment_path, context.without_rev_job_id()).await
-                    {
-                        Ok(response) => {
-                            let ba_version = env!("CARGO_PKG_VERSION");
-                            if let Ok(value) = serde_json::to_value(&response)
-                                && let Err(error) = context
-                                    .services
-                                    .cache
-                                    .put(
-                                        seg_cache_key.as_str(),
-                                        CacheTaskName::UtrAsr.as_str(),
-                                        context.services.engine_version,
-                                        ba_version,
-                                        &value,
-                                    )
-                                    .await
-                            {
+                        match miss.infer(&segment_path, context).await {
+                            Ok(response) => {
+                                let ba_version = env!("CARGO_PKG_VERSION");
+                                if let Ok(value) = serde_json::to_value(&response)
+                                    && let Err(error) = context
+                                        .services
+                                        .cache
+                                        .put(
+                                            seg_cache_key.as_str(),
+                                            CacheTaskName::UtrAsr.as_str(),
+                                            context.services.engine_version,
+                                            ba_version,
+                                            &value,
+                                        )
+                                        .await
+                                {
+                                    warn!(
+                                        context.filename,
+                                        error = %error,
+                                        "Failed to cache UTR segment (non-fatal)"
+                                    );
+                                }
+                                response
+                            }
+                            Err(error) => {
                                 warn!(
                                     context.filename,
                                     error = %error,
-                                    "Failed to cache UTR segment (non-fatal)"
+                                    "UTR segment ASR failed, falling back to full-file recovery"
                                 );
+                                return run_utr_pass_full(chat_file, context).await;
                             }
-                            response
-                        }
-                        Err(error) => {
-                            warn!(
-                                context.filename,
-                                error = %error,
-                                "UTR segment ASR failed, falling back to full-file recovery"
-                            );
-                            return run_utr_pass_full(chat_file, context).await;
                         }
                     }
                 };
@@ -510,25 +489,26 @@ async fn infer_utr_asr_response(
     match context.engine {
         UtrEngine::RevAi => {
             let lang = crate::api::LanguageSpec::Resolved(context.lang.clone());
-            let request = crate::revai::RevAsrEvidenceRequest::from_audio(
-                audio_path,
+            let provider_media = crate::revai::PreparedRevProviderMedia::from_source(audio_path)
+                .await
+                .map_err(|error| crate::error::ServerError::Persistence(error.to_string()))?;
+            let request = crate::revai::RevAsrEvidenceRequest::new(
+                provider_media,
                 &lang,
                 NumSpeakers(1),
                 &crate::revai::RevAsrModelRevision::current(),
             )
-            .await
             .map_err(|error| crate::error::ServerError::Persistence(error.to_string()))?;
-            let service = crate::revai::RevAsrService::new(
-                audio_path,
-                &lang,
-                NumSpeakers(1),
-                context.rev_job_id,
-            );
+            let service = crate::revai::RevAsrService::new();
+            let evidence_identity =
+                rev_utr_evidence_identity(context.filename, request.cache_key());
             resolve_rev_utr_asr_response(
                 &request,
                 context.services.cache,
                 context.cache_policy,
                 &service,
+                context.dumper,
+                &evidence_identity,
             )
             .await
         }
@@ -576,7 +556,22 @@ impl UtrAsrCacheMiss {
         audio_path: &Path,
         context: UtrPassContext<'_>,
     ) -> Result<crate::transcribe::AsrResponse, crate::error::ServerError> {
-        infer_utr_asr_response(audio_path, context).await
+        match (context.cache_policy, context.engine) {
+            // The normalized UTR entry is derived. Rev may rebuild it from the
+            // separately retained raw transcript, whose own required-cache
+            // gate still refuses a provider call on a raw miss.
+            (CachePolicy::RequireCache, UtrEngine::RevAi) => {
+                infer_utr_asr_response(audio_path, context).await
+            }
+            (CachePolicy::RequireCache, UtrEngine::Whisper | UtrEngine::HkTencent) => {
+                Err(crate::error::ServerError::Persistence(
+                    "required UTR ASR evidence is missing for an uncached local backend".to_owned(),
+                ))
+            }
+            (CachePolicy::UseCache | CachePolicy::SkipCache, _) => {
+                infer_utr_asr_response(audio_path, context).await
+            }
+        }
     }
 }
 
@@ -586,8 +581,9 @@ async fn lookup_utr_asr_cache(
     engine_version: &EngineVersion,
     policy: CachePolicy,
 ) -> Result<UtrAsrCacheLookup, crate::error::ServerError> {
-    if policy.should_skip() {
-        return Ok(UtrAsrCacheLookup::Miss(UtrAsrCacheMiss));
+    match policy {
+        CachePolicy::SkipCache => return Ok(UtrAsrCacheLookup::Miss(UtrAsrCacheMiss)),
+        CachePolicy::UseCache | CachePolicy::RequireCache => {}
     }
     let stored = cache
         .get(
@@ -613,6 +609,8 @@ async fn resolve_rev_utr_asr_response<I: crate::revai::RevAsrEvidenceInference>(
     cache: &UtteranceCache,
     policy: CachePolicy,
     inference: &I,
+    dumper: &DebugDumper,
+    evidence_identity: &str,
 ) -> Result<crate::transcribe::AsrResponse, crate::error::ServerError> {
     let resolution = crate::revai::resolve_rev_asr_evidence(request, cache, policy, inference)
         .await
@@ -622,11 +620,23 @@ async fn resolve_rev_utr_asr_response<I: crate::revai::RevAsrEvidenceInference>(
             }
             crate::revai::RevAsrEvidenceResolutionError::Inference(error) => error,
         })?;
-    let evidence = match resolution {
-        crate::revai::RevAsrEvidenceResolution::Replayed(evidence)
-        | crate::revai::RevAsrEvidenceResolution::Inferred { evidence, .. } => evidence,
-    };
+    if dumper.is_enabled() {
+        let trace = resolution.trace(crate::revai::RevAsrProjectionRevision::UtrAsrResponseV1);
+        dumper
+            .dump_rev_evidence(evidence_identity, &trace)
+            .map_err(|error| crate::error::ServerError::Persistence(error.to_string()))?;
+    }
+    let evidence = resolution.into_evidence();
     Ok(crate::revai::rev_evidence_to_utr_asr_response(&evidence))
+}
+
+fn rev_utr_evidence_identity(filename: &str, cache_key: &CacheKey) -> String {
+    let stem = Path::new(filename)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("unknown");
+    let key_prefix = cache_key.as_str().get(..12).unwrap_or(cache_key.as_str());
+    format!("{filename}/{stem}-utr-rev-{key_prefix}")
 }
 
 /// What a conversion kept, and what it discarded.
@@ -904,8 +914,8 @@ mod utr_evidence_cache_tests {
     use crate::chat_ops::{CacheKey, CacheTaskName};
     use crate::error::ServerError;
     use crate::revai::{
-        CompletedRevAsrEvidence, RevAsrEvidenceInference, RevAsrEvidenceRequest,
-        RevAsrInferenceAuthorization, RevAsrModelRevision,
+        AuthorizedRevEvidenceRun, CompletedRevAsrEvidence, RevAsrEvidenceInference,
+        RevAsrEvidenceRequest, RevAsrModelRevision,
     };
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -917,12 +927,13 @@ mod utr_evidence_cache_tests {
     impl RevAsrEvidenceInference for CountingRevService {
         async fn infer(
             &self,
-            _authorization: &RevAsrInferenceAuthorization,
+            _run: AuthorizedRevEvidenceRun,
         ) -> Result<CompletedRevAsrEvidence, ServerError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             Ok(CompletedRevAsrEvidence {
-                transcript: serde_json::from_str(
-                    r#"{
+                transcript_evidence: crate::revai::RevTranscriptEvidence::from_legacy_transcript(
+                    serde_json::from_str(
+                        r#"{
                         "monologues": [{
                             "speaker": 0,
                             "elements": [{
@@ -934,8 +945,9 @@ mod utr_evidence_cache_tests {
                             }]
                         }]
                     }"#,
-                )
-                .expect("valid Rev transcript"),
+                    )
+                    .expect("valid Rev transcript"),
+                ),
                 resolved_language: LanguageCode3::eng(),
             })
         }
@@ -963,25 +975,59 @@ mod utr_evidence_cache_tests {
         let service = CountingRevService {
             calls: AtomicUsize::new(0),
         };
+        let debug_dir = tempdir.path().join("debug");
+        let dumper = DebugDumper::new(Some(&debug_dir));
+        let evidence_identity = rev_utr_evidence_identity("sample.cha", request.cache_key());
 
-        let cold = resolve_rev_utr_asr_response(&request, &cache, CachePolicy::UseCache, &service)
-            .await
-            .expect("cold resolution");
+        let cold = resolve_rev_utr_asr_response(
+            &request,
+            &cache,
+            CachePolicy::UseCache,
+            &service,
+            &dumper,
+            &evidence_identity,
+        )
+        .await
+        .expect("cold resolution");
         drop(cache);
 
         let reopened = UtteranceCache::sqlite(Some(cache_dir))
             .await
             .expect("reopen");
-        let warm =
-            resolve_rev_utr_asr_response(&request, &reopened, CachePolicy::UseCache, &service)
-                .await
-                .expect("warm resolution");
+        let warm = resolve_rev_utr_asr_response(
+            &request,
+            &reopened,
+            CachePolicy::UseCache,
+            &service,
+            &dumper,
+            &evidence_identity,
+        )
+        .await
+        .expect("warm resolution");
 
         assert_eq!(
             serde_json::to_value(cold).expect("cold JSON"),
             serde_json::to_value(warm).expect("warm JSON")
         );
         assert_eq!(service.calls.load(Ordering::SeqCst), 1);
+        let trace_paths: Vec<_> = std::fs::read_dir(&debug_dir)
+            .expect("read debug dir")
+            .map(|entry| entry.expect("debug entry").path())
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.ends_with("_rev_evidence.json"))
+            })
+            .collect();
+        assert_eq!(trace_paths.len(), 1);
+        let trace: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&trace_paths[0]).expect("read trace"))
+                .expect("parse trace");
+        assert_eq!(trace["cache_outcome"], "replayed");
+        assert_eq!(
+            trace["projection_revision"],
+            "rev-transcript-to-utr-asr-response-v1"
+        );
     }
 
     #[tokio::test]
@@ -1007,5 +1053,21 @@ mod utr_evidence_cache_tests {
             .await
             .expect_err("corrupt cache must not become an inference-authorizing miss");
         assert!(matches!(error, ServerError::Persistence(_)));
+    }
+
+    #[tokio::test]
+    async fn required_utr_derived_cache_miss_can_reach_raw_evidence_resolution() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let key = CacheKey::from_content("required UTR cache test");
+        let engine = EngineVersion::from("test-engine-v1");
+
+        let lookup = lookup_utr_asr_cache(&cache, &key, &engine, CachePolicy::RequireCache)
+            .await
+            .expect("a derived miss must remain distinguishable from a raw evidence miss");
+
+        assert!(matches!(lookup, UtrAsrCacheLookup::Miss(_)));
     }
 }

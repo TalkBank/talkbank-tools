@@ -18,10 +18,12 @@ from batchalign.inference._domain_types import (
     SampleRate,
     TimestampMs,
 )
+from batchalign.inference.types import Wave2VecWordAlignment
 
 if TYPE_CHECKING:
     from batchalign.inference.types import (
         Wave2VecFAHandle,
+        Wave2VecFAResult,
         WhisperFAHandle,
     )
 
@@ -233,8 +235,13 @@ def infer_wave2vec_fa(
     handle: Wave2VecFAHandle,
     audio_chunk: torch.Tensor,
     words: list[str],
-) -> list[tuple[str, tuple[int, int]]]:
-    """Run Wave2Vec forced alignment. Returns [(word, (start_ms, end_ms)), ...]."""
+) -> Wave2VecFAResult:
+    """Run Wave2Vec FA, retaining indexed intervals and CTC path scores.
+
+    The score is the duration-weighted mean of the merged token scores for one
+    word, matching TorchAudio's multilingual forced-alignment tutorial. It is
+    model evidence, not a calibrated probability that the boundary is right.
+    """
     import torch
     import torchaudio.functional as AF
     from torchaudio.pipelines import MMS_FA as bundle
@@ -292,12 +299,16 @@ def infer_wave2vec_fa(
 
     word_spans = unflatten(merged_path, word_lengths)
     ratio = audio.size(0) / emission.size(1)
-    result: list[tuple[str, tuple[int, int]]] = [
-        (
-            word,
-            (
+    result: Wave2VecFAResult = [
+        Wave2VecWordAlignment(
+            word=word,
+            interval_ms=(
                 int(((spans[0].start * ratio) / handle.sample_rate) * 1000),
                 int(((spans[-1].end * ratio) / handle.sample_rate) * 1000),
+            ),
+            model_score=(
+                sum(span.score * (span.end - span.start) for span in spans)
+                / sum(span.end - span.start for span in spans)
             ),
         )
         # `strict` because `_build_target_tokens` appends exactly one entry to

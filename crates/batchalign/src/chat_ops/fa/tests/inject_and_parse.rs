@@ -112,6 +112,40 @@ fn test_fa_cache_key() {
 }
 
 #[test]
+fn word_interval_cache_key_retires_scoreless_entries_only() {
+    let words = vec!["hello".to_string(), "world".to_string()];
+    let identity = AudioIdentity::from_metadata("test.mp3", 1234, 5678);
+    let legacy_interval_key = crate::chat_ops::CacheKey::from_content(
+        "test.mp3|1234|5678|0|5000|hello world|no_pauses|wav2vec_fa",
+    );
+    let score_bearing_interval_key = cache_key(
+        &words,
+        &identity,
+        0,
+        5000,
+        WordGapHealing::PreserveMeasured,
+        crate::types::engines::FaEngineName::Wave2Vec,
+    );
+    assert_ne!(score_bearing_interval_key, legacy_interval_key);
+
+    // Whisper has no interval-model score to recover. Keep its established
+    // cache namespace so this evidence upgrade does not buy nothing at GPU
+    // cost for an onset-only response shape.
+    let legacy_whisper_key = crate::chat_ops::CacheKey::from_content(
+        "test.mp3|1234|5678|0|5000|hello world|preserve_measured|whisper_fa",
+    );
+    let current_whisper_key = cache_key(
+        &words,
+        &identity,
+        0,
+        5000,
+        WordGapHealing::PreserveMeasured,
+        crate::types::engines::FaEngineName::Whisper,
+    );
+    assert_eq!(current_whisper_key, legacy_whisper_key);
+}
+
+#[test]
 fn test_apply_fa_results() {
     let input = include_str!("../../../../../../test-fixtures/fa_hello_world_goodbye_timed.cha");
     let mut chat = parse_chat(input);
@@ -171,12 +205,23 @@ fn test_monotonicity_enforcement() {
 
     // Should produce a decision record for the stripped utterance
     assert_eq!(
-        decisions.len(),
+        decisions.records().len(),
         1,
         "should have 1 decision for stripped utterance"
     );
-    assert_eq!(decisions[0].strategy.strategy_name(), "timing_stripped");
-    assert!(decisions[0].needs_review);
+    assert_eq!(
+        decisions.records()[0].strategy.strategy_name(),
+        "timing_stripped"
+    );
+    assert!(decisions.records()[0].needs_review);
+    assert!(matches!(
+        decisions.effects(),
+        [MonotonicityEffect::StartRegressionStripped {
+            start_ms: 2_000,
+            previous_start_ms: 5_000,
+            ..
+        }]
+    ));
 }
 
 #[test]
@@ -223,6 +268,7 @@ fn test_monotonicity_clamps_overlapping_end_times() {
 
     // Should produce 2 end_clamped decisions (utt0→utt1, utt1→utt2)
     let clamp_decisions: Vec<_> = decisions
+        .records()
         .iter()
         .filter(|d| d.strategy.strategy_name() == "end_clamped")
         .collect();
@@ -231,15 +277,10 @@ fn test_monotonicity_clamps_overlapping_end_times() {
         2,
         "should have 2 end_clamped decisions"
     );
-    // `end_clamped` is routine housekeeping, a few-millisecond UTR overlap
-    // correction.  It must NOT set needs_review because that writes %xrev: [?],
-    // causing CLAN to flag a correctly-aligned utterance for human review.
-    // BA2 made these same adjustments silently.  Only `timing_stripped` (where
-    // the utterance lost all timing) deserves a human review flag.
-    //
-    // CURRENTLY RED: needs_review is true, writing %xrev on every trimmed utt.
-    // AFTER FIX: needs_review is false; %xalign is still written (audit log)
-    // but no %xrev appears.
+    // `end_clamped` is routine housekeeping, a small UTR overlap correction.
+    // It must not request human review. BA2 made these same adjustments
+    // silently; only `timing_stripped`, where the utterance lost all timing,
+    // deserves a review flag in structured evidence.
     assert!(
         !clamp_decisions[0].needs_review,
         "end_clamped must NOT need review; it is routine overlap correction, \
@@ -356,7 +397,7 @@ fn test_parse_fa_response_token_level_mismatch_does_not_skip_tokens() {
 #[test]
 fn test_parse_fa_response_indexed_word_level() {
     let json = r#"{"indexed_timings": [
-            {"start_ms": 100, "end_ms": 500},
+            {"start_ms": 100, "end_ms": 500, "confidence": 0.73},
             {"start_ms": 600, "end_ms": 1000}
         ]}"#;
     let words = make_fa_words(&["hello", "world"]);
@@ -364,8 +405,18 @@ fn test_parse_fa_response_indexed_word_level() {
     assert_eq!(timings.len(), 2);
     assert_eq!(timings[0].as_ref().unwrap().start_ms, 5100);
     assert_eq!(timings[0].as_ref().unwrap().end_ms, 5500);
+    assert_eq!(
+        timings[0]
+            .as_ref()
+            .unwrap()
+            .model_score()
+            .unwrap()
+            .millionths(),
+        730_000
+    );
     assert_eq!(timings[1].as_ref().unwrap().start_ms, 5600);
     assert_eq!(timings[1].as_ref().unwrap().end_ms, 6000);
+    assert!(timings[1].as_ref().unwrap().model_score().is_none());
 }
 
 #[test]

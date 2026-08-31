@@ -1,7 +1,7 @@
 # Summary
 
 **Status:** Current
-**Last updated:** 2026-05-22 09:30 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 [Introduction](introduction.md)
 [Install](install/index.md)
@@ -54,7 +54,7 @@
 - [Rev.AI Integration](batchalign/user-guide/rev-ai.md)
 - [Performance](batchalign/user-guide/performance.md)
 - [Processing Provenance](batchalign/user-guide/provenance.md)
-- [Review Tiers: %xalign and %xrev](batchalign/user-guide/review-tiers-guide.md)
+- [Decision Evidence and Legacy Review Tiers](batchalign/user-guide/review-tiers-guide.md)
 - [Worker Tuning](batchalign/user-guide/worker-tuning.md)
 - [Doctor: Diagnostics and Config Validation](batchalign/user-guide/doctor.md)
 - [Troubleshooting](batchalign/user-guide/troubleshooting.md)
@@ -181,7 +181,7 @@
 - [Rust Core (batchalign_core)](batchalign/developer/rust-core.md)
 - [Rust Workspace Map](batchalign/developer/rust-workspace-map.md)
 - [Workflow Contributor Guide](batchalign/developer/workflow-contributor-guide.md)
-- [Decision Provenance](batchalign/developer/decision-provenance.md)
+- [Decision Evidence](batchalign/developer/decision-provenance.md)
 - [Terminator Architecture](batchalign/developer/terminator-architecture.md)
 - [Overlap-Aware Alignment Improvements](batchalign/developer/backchannel-aware-alignment.md)
 - [Worker Protocol V2](batchalign/developer/worker-protocol-v2.md)

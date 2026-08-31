@@ -1,7 +1,7 @@
 # Caching
 
 **Status:** Current
-**Last updated:** 2026-08-28 19:15 EDT
+**Last updated:** 2026-08-30 20:05 EDT
 
 ## What gets cached
 
@@ -38,10 +38,13 @@ again. BA3 also retains backend-shaped evidence separately, so a changed
 local normalization algorithm can derive new turns without repeating
 inference.
 
-For Rev.AI transcription, BA3 stores the provider-shaped monologues and
-elements before converting them to BA3 tokens. A warm run therefore avoids
-both Rev submission and polling, and later post-processing experiments can
-replay the same raw transcript evidence locally.
+For Rev.AI transcription, BA3 reads the transcript endpoint as bytes, requires
+strict UTF-8 JSON, and stores that exact application response before converting
+its monologues and elements to BA3 tokens. It does not use lossy or
+encoding-normalizing text decoding. Unknown provider fields are retained for
+future projections. A warm run therefore avoids both Rev submission and
+polling, and later post-processing experiments can replay the same provider
+transcript evidence locally.
 
 ### Dedicated speaker evidence
 
@@ -86,6 +89,12 @@ Concurrent identical requests in one BA3 server are serialized: the first
 miss performs and commits inference, while followers wait and then replay the
 result.
 
+BA3 also rereads the source after a speaker-cache miss and verifies that its
+bytes still match the digest used for the cache decision. Speaker inference is
+prepared from that verified in-memory copy. If another process replaces the
+media between lookup and inference, the file fails instead of running a paid
+job under the wrong cache identity.
+
 ### Raw Rev.AI transcript evidence
 
 Normal `transcribe`, `benchmark`, and Rev-backed `align` UTR runs check durable
@@ -95,23 +104,104 @@ fails closed without a service call, and concurrent identical requests are
 coalesced. Concurrent identical forced refreshes also share the first fresh
 commit rather than each issuing a sequential paid call.
 
-The key includes the full bytes of the provider-visible inference media,
-requested language, expected speaker count, Rev request-policy revision,
-provider/model alias, and evidence schema. The stored envelope contains the
-resolved language plus Rev's raw monologues, elements, timings, confidence,
-and punctuation. It does not store credentials or temporary job IDs.
+The key includes the full bytes of the provider-visible inference media, media
+preparation recipe, normalized upload filename, multipart MIME type, requested
+language, expected speaker count, Rev request-policy revision, provider/model
+alias, and request-identity revision. The stored envelope contains the resolved
+language plus the exact admitted transcript response JSON bytes. It does not
+store credentials or temporary job IDs.
 
-The old batch pre-submission shortcut is disabled because it submitted paid
-jobs before a cache hit could be known. Cold misses currently fan out through
-BA3's normal per-file worker limit. Reintroducing wider parallel preflight is a
-performance follow-up; it must consume the same typed miss authorization and
-cannot restore the old unguarded optional-job-ID path.
+Before a paid call, BA3 rereads the prepared source and verifies that the exact
+bytes still have the digest used for the cache decision. If the file changed
+between preparation and submission, the run fails instead of uploading
+different bytes under the old key. The authorization is then consumed into one
+evidence-inference run plus a separate commit permit; the inference capability
+cannot be cloned into repeated runs. An auto-language run intentionally
+contains both Rev language identification and transcription requests.
+
+Request-identity revision 2 names this stronger provider presentation. Entries
+from revision 1 do not satisfy the new keys. Storage schema 3 adds exact JSON
+retention without changing the revision-2 request key: schema-2 entries remain
+replayable and are explicitly traced as `legacy_typed_projection`, while new
+provider responses are traced as `exact_provider_json`. Replay-only mode never
+turns either storage migration into a paid call.
+
+For controlled Rev transcribe and Rev-backed align experiments,
+`--debug-dir PATH` additionally writes versioned `*_rev_evidence.json` causal
+sidecars. Each records the keyed media and
+multipart presentation, request identity, `replayed` versus fresh-miss outcome,
+raw evidence key, transcript fidelity, and deterministic projection revision
+without exposing the credential or local source path.
+
+Dedicated-speaker transcribe runs likewise write
+`*_speaker_evidence.json`. This joins the source digest, request/model
+semantics, raw and derived cache identities, cache outcome, normalization
+revision, segment-projection revision, segment count, and a versioned digest
+of the exact normalized timing/label projection. The companion `.turns.json`
+holds those normalized segments in the canonical review format.
+
+BA3's regression suite exercises this at the complete Rust transcribe-pipeline
+boundary, not only at the cache row. It closes and reopens SQLite, replays the
+same retained Rev response, and requires identical final CHAT plus identical
+ASR-response debug output with no second inference call. The Rev causal
+sidecars intentionally differ in exactly one meaning: the cold run records a
+fresh missing-key inference and the warm run records replay. Their media,
+request, retained-evidence, and projection identities must remain equal.
+
+The old batch pre-submission shortcut has been removed because it submitted
+paid jobs before a cache hit could be known. Cold misses currently fan out
+through BA3's normal per-file worker limit. Reintroducing wider parallel
+submission is a performance follow-up; it must consume the same typed miss
+authorization and cannot restore the old unguarded optional-job-ID path.
 
 Other ASR engines remain uncached in ordinary `transcribe` runs. Align's UTR
 ASR also keeps its older normalized-result cache. If that derived entry is
 missing, Rev-backed UTR can re-project the durable raw transcript without a
 service call. A corrupt normalized UTR entry fails closed instead of silently
-falling through to inference. The legacy Rev pre-submission path is disabled.
+falling through to inference. The legacy Rev pre-submission path no longer
+exists.
+
+## How to guarantee cache-backed stages do not infer
+
+Use `--require-media-cache` for replay-only experiments:
+
+```bash
+batchalign3 --require-media-cache transcribe recordings/ -o output/ \
+  --asr-engine rev --diarization enabled
+
+batchalign3 --require-media-cache align corpus/ -o output/
+```
+
+For every cache-backed stage reached by the command, a reusable hit is
+required. Missing raw Rev or speaker evidence fails the file before an
+inference authorization can be constructed, so the miss cannot become a Rev
+or pyannoteAI call. Forced alignment likewise refuses to send missing groups
+to its worker. Existing clean `%wor` evidence can still satisfy an FA group.
+
+Raw and derived evidence remain separate. If normalized speaker turns are
+missing but the backend-shaped speaker response exists, BA3 derives and stores
+new turns locally. Rev-backed UTR can similarly rebuild its normalized UTR
+entry from retained raw Rev evidence; if the raw entry is also missing, the
+raw-evidence gate refuses the provider call.
+
+Forced alignment also keeps raw and derived layers. On a normal hit, BA3
+prefers the admitted worker response and reruns the current local timing
+projection; a historical derived timing vector is only the fallback when raw
+evidence is absent or refused. This means experiments with Rust-side timing
+interpretation can reuse model work automatically. `--override-media-cache`
+and `--override-media-cache-tasks forced_alignment` bypass both FA layers and
+therefore request fresh model inference.
+
+This flag is not a general offline, no-network, or zero-compute mode. Ordinary
+non-Rev ASR output is not cached, so Whisper, Tencent, Aliyun, FunAudio, or Qwen
+transcription can still run its configured inference path, including a network
+service where that backend uses one. Standalone `diarize`, OpenSMILE, and AVQI
+are also outside the analysis cache. The guarantee is specifically that a
+missing entry at a cache-backed boundary cannot authorize inference.
+
+`--require-media-cache` is mutually exclusive with
+`--override-media-cache` and `--override-media-cache-tasks`: one run cannot
+both require existing evidence and request fresh evidence.
 
 ## What invalidates the cache
 
@@ -127,8 +217,9 @@ falling through to inference. The legacy Rev pre-submission path is disabled.
 
 Cache keys hash the inputs relevant to each task. FA and UTR use the legacy
 path/mtime/size `AudioIdentity`; Rev and speaker evidence use a true digest of
-the inference-media bytes so copies and renames share results. Engine or model
-revision strings are stored alongside each entry.
+the inference-media bytes. Rev also keys provider-visible presentation, so
+copies and renames share results only when their normalized upload extensions
+match. Engine or model revision strings are stored alongside each entry.
 
 pyannoteAI currently exposes the `precision-2` model alias, but not an
 immutable backend build hash. BA3 scopes cloud evidence to that alias and its
@@ -155,10 +246,11 @@ replace the matching entries and are stored for future runs. With
 Rev ASR or `--speaker-engine pyannote-ai`, this can make new paid service calls
 even when reusable evidence exists.
 
-The narrower `--override-media-cache-tasks` flag currently accepts only
-`forced_alignment` and `utr_asr`. Use the global `--override-media-cache` when
-an experiment must refresh Rev or dedicated-speaker evidence. Selective names
-for the new evidence tasks are a future CLI extension.
+The narrower `--override-media-cache-tasks` flag accepts `forced_alignment`,
+`utr_asr`, `rev_asr_evidence`, and
+`speaker_diarization_raw_evidence`. This permits a controlled transcribe run to
+refresh Rev while replaying speaker evidence, or the reverse, instead of
+repeating both paid boundaries.
 
 Use this when you suspect cached results are wrong, or after manually
 updating model files outside of a normal batchalign upgrade.

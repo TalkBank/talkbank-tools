@@ -6,27 +6,18 @@
 //! invisible to the user in the output CHAT file.
 //!
 //! This module defines `DecisionRecord`, a structured representation of a
-//! machine decision that can be injected as `%xalign` / `%xrev` tiers so
-//! users can review what the pipeline did and why.
+//! machine decision retained in structured run evidence so users and tools
+//! can review what the pipeline did and why without cluttering CHAT output.
 //!
 //! # Architecture
 //!
 //! Each pipeline stage (FA, UTR, morphosyntax, utseg, etc.) collects
-//! `Vec<DecisionRecord>` during processing. The command orchestrator passes
-//! them to [`inject_decision_tiers()`] before serialization. The
-//! `--review-level` flag controls emission:
-//!
-//! - `None`, no decision tiers
-//! - `LowConfidence`, only decisions with `needs_review = true`
-//! - `All`: every decision
-//!
-//! The existing `%xalign` / `%xrev` tier format from `fa/review_tiers.rs`
-//! is reused: `DecisionRecord` is a generalization of `RepairDecision`.
+//! `Vec<DecisionRecord>` during processing. The command orchestrator retains
+//! those records in durable evidence and strips legacy `%xalign` / `%xrev`
+//! tiers before serialization. `ReviewLevel` remains on the compatibility
+//! wire surface for now, but no value authorizes CHAT-tier generation.
 
-use talkbank_model::Span;
-use talkbank_model::model::{
-    ChatFile, DependentTier, Line, NonEmptyString, UserDefinedDependentTier,
-};
+use talkbank_model::model::{ChatFile, DependentTier, Line};
 
 /// Which pipeline module made the decision.
 ///
@@ -51,7 +42,7 @@ pub enum DecisionModule {
 }
 
 impl DecisionModule {
-    /// Short label for `%xalign` tier output.
+    /// Stable label for tracing and structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Fa => "fa",
@@ -118,7 +109,7 @@ pub enum FaStrategy {
 }
 
 impl FaStrategy {
-    /// Stable wire/tracing label for `%xalign` output and structured tracing.
+    /// Stable wire/tracing label for structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::GapFilled => "gap_filled",
@@ -143,7 +134,7 @@ pub enum UtrStrategy {
 }
 
 impl UtrStrategy {
-    /// Stable wire/tracing label for `%xalign` output and structured tracing.
+    /// Stable wire/tracing label for structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::ZeroDurationSkipped => "zero_duration_skipped",
@@ -162,7 +153,7 @@ pub enum MonotonicityStrategy {
 }
 
 impl MonotonicityStrategy {
-    /// Stable wire/tracing label for `%xalign` output and structured tracing.
+    /// Stable wire/tracing label for structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::EndClamped => "end_clamped",
@@ -189,7 +180,7 @@ pub enum MorphosyntaxStrategy {
 }
 
 impl MorphosyntaxStrategy {
-    /// Stable wire/tracing label for `%xalign` output and structured tracing.
+    /// Stable wire/tracing label for structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::NotApplicable => "not_applicable",
@@ -212,7 +203,7 @@ pub enum UtsegStrategy {
 }
 
 impl UtsegStrategy {
-    /// Stable wire/tracing label for `%xalign` output and structured tracing.
+    /// Stable wire/tracing label for structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::NotApplicable => "not_applicable",
@@ -231,7 +222,7 @@ pub enum CorefStrategy {
 }
 
 impl CorefStrategy {
-    /// Stable wire/tracing label for `%xalign` output and structured tracing.
+    /// Stable wire/tracing label for structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::SentenceIndexOutOfBounds => "sentence_index_out_of_bounds",
@@ -274,10 +265,7 @@ impl DecisionStrategy {
         }
     }
 
-    /// Stable label for `%xalign` tier output and structured tracing.
-    ///
-    /// Matches the previous `&'static str` strategy literals (so existing
-    /// consumers that string-match the `%xalign` content keep working).
+    /// Stable label for structured tracing and persisted decision evidence.
     pub fn strategy_name(&self) -> &'static str {
         match self {
             Self::Fa(s) => s.as_str(),
@@ -322,7 +310,7 @@ impl LineIdx {
 ///
 /// Every silent clamp, skip, default, or normalization that changes the
 /// output should produce a `DecisionRecord`. These are collected during
-/// processing and optionally injected as `%xalign` tiers.
+/// processing and persisted as structured evidence.
 #[derive(Debug, Clone)]
 pub struct DecisionRecord {
     /// Index into `ChatFile.lines` (the affected utterance).
@@ -333,17 +321,17 @@ pub struct DecisionRecord {
     /// `strategy: &'static str` fields; use `strategy.module()` and
     /// `strategy.strategy_name()` to recover the old components.
     pub strategy: DecisionStrategy,
-    /// Structured key=value reason for `%xalign` content.
+    /// Structured key=value reason retained in evidence.
     ///
     /// Example: `"overlap=1200ms prev_end=5000 next_start=3800"`
     pub reason: String,
-    /// Whether a human should review this decision (`%xrev: [?]`).
+    /// Whether a human should review this decision.
     pub needs_review: bool,
 }
 
 impl DecisionRecord {
-    /// Format the `%xalign` tier content: `module:strategy reason_string`.
-    pub fn xalign_content(&self) -> String {
+    /// Format a stable human-readable evidence summary.
+    pub fn evidence_summary(&self) -> String {
         format!(
             "{}:{} {}",
             self.strategy.module().as_str(),
@@ -356,7 +344,7 @@ impl DecisionRecord {
     ///
     /// This is the single logging point, callers should NOT separately call
     /// `tracing::warn!` with the same information. The decision record is the
-    /// source of truth; tracing and `%xalign` tiers are derived outputs.
+    /// source of truth; tracing and durable evidence are derived outputs.
     pub fn trace(&self) {
         let module = self.strategy.module().as_str();
         let strategy = self.strategy.strategy_name();
@@ -406,93 +394,30 @@ impl DecisionRecord {
     }
 }
 
-/// Controls how many decision tiers are emitted.
+/// Legacy review-tier request retained for wire compatibility.
 ///
-/// Defaults to [`None`]: batchalign3 does NOT inject the experimental
-/// `%xalign` / `%xrev` provenance tiers into output CHAT unless a caller
-/// explicitly opts in (e.g. `align --review-level low-confidence|all`).
-/// The decision-recording machinery is fully retained; only the emission
-/// is off by default, so the feature can be re-enabled later. These tiers
-/// are unfinished alignment / morphotag review scaffolding that researchers
-/// otherwise had to strip out of every file by hand, so they are not
-/// written unless explicitly requested.
+/// Batchalign3 no longer injects `%xalign` or `%xrev` for any value. The enum
+/// remains deserializable so stored jobs and older clients do not fail merely
+/// because the presentation policy changed. Decisions themselves remain in
+/// structured evidence.
 ///
 /// [`None`]: ReviewLevel::None
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewLevel {
-    /// No review tiers at all (default).
+    /// Legacy default request value.
     #[default]
     None,
-    /// Only `%xrev: [?]` on low-confidence utterances.
+    /// Legacy low-confidence request value; emits no CHAT tiers.
     LowConfidence,
-    /// `%xalign` on every bulleted utterance + `%xrev: [?]` on low-confidence.
+    /// Legacy all-decisions request value; emits no CHAT tiers.
     All,
-}
-
-/// Inject `%xalign` and `%xrev` tiers from `DecisionRecord`s.
-///
-/// Generalizes `fa::review_tiers::inject_review_tiers` to accept any
-/// pipeline's decisions, not just FA repair decisions.
-pub fn inject_decision_tiers(
-    chat_file: &mut ChatFile,
-    decisions: &[DecisionRecord],
-    review_level: ReviewLevel,
-) {
-    if review_level == ReviewLevel::None || decisions.is_empty() {
-        return;
-    }
-
-    // Strip any existing %xalign / %xrev tiers from every utterance so that
-    // re-running a command (align, morphotag, etc.) on a file that already
-    // has decision tiers replaces them rather than appending a second set.
-    strip_decision_tiers(chat_file);
-
-    // Index decisions by line_idx.
-    let mut decision_map: std::collections::HashMap<usize, Vec<&DecisionRecord>> =
-        std::collections::HashMap::new();
-    for d in decisions {
-        decision_map.entry(d.line_idx.raw()).or_default().push(d);
-    }
-
-    for (line_idx, line) in chat_file.lines.as_mut_slice().iter_mut().enumerate() {
-        let Line::Utterance(utt) = line else {
-            continue;
-        };
-
-        if let Some(decisions_for_utt) = decision_map.get(&line_idx) {
-            // Merge all decisions for this utterance into a single %xalign tier.
-            // CHAT E401 forbids duplicate dependent tiers, one %xalign per
-            // utterance maximum, regardless of how many pipeline stages fired.
-            let merged_content: String = decisions_for_utt
-                .iter()
-                .map(|d| d.xalign_content())
-                .collect::<Vec<_>>()
-                .join("; ");
-            utt.dependent_tiers
-                .push(make_user_tier("xalign", &merged_content).into());
-
-            // One %xrev: [?] if ANY decision needs review.
-            let any_needs_review = decisions_for_utt.iter().any(|d| d.needs_review);
-            if any_needs_review {
-                utt.dependent_tiers
-                    .push(make_user_tier("xrev", "[?]").into());
-            }
-        } else if review_level == ReviewLevel::All {
-            // Informational: no decisions were made for this utterance.
-            if utt.main.content.bullet.is_some() {
-                utt.dependent_tiers
-                    .push(make_user_tier("xalign", "no_decisions").into());
-            }
-        }
-    }
 }
 
 /// Remove all `%xalign` and `%xrev` tiers from every utterance in the file.
 ///
-/// Called at the top of [`inject_decision_tiers`] and
-/// [`fa::review_tiers::inject_review_tiers`] so that re-running any pipeline
-/// command replaces existing tiers rather than accumulating duplicates.
+/// Called by every pipeline serialization path so legacy scaffolding cannot
+/// survive into new output.
 pub fn strip_decision_tiers(chat_file: &mut ChatFile) {
     for line in &mut chat_file.lines {
         let Line::Utterance(utt) = line else {
@@ -508,35 +433,6 @@ pub fn strip_decision_tiers(chat_file: &mut ChatFile) {
     }
 }
 
-/// Construct a SYNTHESIZED `DependentTier::UserDefined`.
-///
-/// # Why the span is `Span::DUMMY` and why that is honest here
-///
-/// `%xalign` and `%xrev` are tiers this pipeline WRITES. They correspond to no
-/// bytes in any source file, so there is no source location to record, and the
-/// dummy is a statement of that rather than a placeholder somebody should have
-/// filled in.
-///
-/// It was `Span::default()` until 2026-08-16. chatter is removing that `Default`
-/// precisely because `Span::default() == Span::DUMMY == {0,0}` is also a real
-/// insertion point, so the derive made a sentinel indistinguishable from a
-/// measurement and made the fabrication invisible at the call site. Naming
-/// `DUMMY` does not remove the ambiguity, which is chatter's to resolve if it
-/// ever matters; it does stop this call site from reaching it by accident.
-///
-/// # Safety (panic-freedom)
-///
-/// All call sites pass compile-time string literals that are visibly non-empty,
-/// so `NonEmptyString::new` cannot fail.
-#[allow(clippy::expect_used)]
-fn make_user_tier(label: &str, content: &str) -> DependentTier {
-    DependentTier::UserDefined(UserDefinedDependentTier {
-        label: NonEmptyString::new(label).expect("tier label must be non-empty"),
-        content: Some(NonEmptyString::new(content).expect("tier content must be non-empty")),
-        span: Span::DUMMY,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -549,7 +445,7 @@ mod tests {
     }
 
     #[test]
-    fn decision_record_xalign_content_format() {
+    fn decision_record_evidence_summary_format() {
         let d = DecisionRecord {
             line_idx: LineIdx::new(5),
             speaker: "CHI".into(),
@@ -558,115 +454,8 @@ mod tests {
             needs_review: false,
         };
         assert_eq!(
-            d.xalign_content(),
+            d.evidence_summary(),
             "monotonicity:end_clamped overlap=1200ms prev_end=5000 next_start=3800"
-        );
-    }
-
-    #[test]
-    fn inject_decision_tiers_produces_xalign() {
-        let chat_text = "\
-@UTF8
-@Begin
-@Languages:\teng
-@Participants:\tCHI Target_Child
-@ID:\teng|test|CHI|2;0.0||||Target_Child|||
-*CHI:\thello . \u{0015}1000_2000\u{0015}
-*CHI:\tworld . \u{0015}4000_5000\u{0015}
-@End
-";
-        let mut chat = parse_chat(chat_text);
-
-        let decisions = vec![DecisionRecord {
-            line_idx: LineIdx::new(5),
-            speaker: "CHI".into(),
-            strategy: DecisionStrategy::Monotonicity(MonotonicityStrategy::EndClamped),
-            reason: "overlap=500ms".into(),
-            needs_review: true,
-        }];
-
-        inject_decision_tiers(&mut chat, &decisions, ReviewLevel::LowConfidence);
-
-        let output = chat.to_chat_string();
-        assert!(
-            output.contains("%xalign:\tmonotonicity:end_clamped overlap=500ms"),
-            "output:\n{output}"
-        );
-        assert!(output.contains("%xrev:\t[?]"), "output:\n{output}");
-    }
-
-    #[test]
-    fn inject_decision_tiers_none_produces_nothing() {
-        let chat_text = "\
-@UTF8
-@Begin
-@Languages:\teng
-@Participants:\tCHI Target_Child
-@ID:\teng|test|CHI|2;0.0||||Target_Child|||
-*CHI:\thello . \u{0015}1000_2000\u{0015}
-@End
-";
-        let mut chat = parse_chat(chat_text);
-
-        let decisions = vec![DecisionRecord {
-            line_idx: LineIdx::new(5),
-            speaker: "CHI".into(),
-            // Arbitrary FA strategy: this test only checks the
-            // None-review-level gate, not the specific strategy.
-            strategy: DecisionStrategy::Fa(FaStrategy::TimingStripped),
-            reason: "test".into(),
-            needs_review: true,
-        }];
-
-        inject_decision_tiers(&mut chat, &decisions, ReviewLevel::None);
-
-        let output = chat.to_chat_string();
-        assert!(!output.contains("%xalign:"), "output:\n{output}");
-    }
-
-    /// The DEFAULT review level must emit no `%xalign`/`%xrev` tiers.
-    ///
-    /// batchalign3 does not inject the experimental alignment-provenance
-    /// tiers into output CHAT by default. Both the `align` (FA) path and
-    /// the incremental `morphotag` path funnel through
-    /// `inject_decision_tiers`, so coupling the enum default to
-    /// "no emission" here is the single contract that, once `None` is the
-    /// default, makes every `Default::default()` construction site
-    /// (AlignOptions, daemon/runner/store params) silently inherit the
-    /// off behavior. RED while the default is `LowConfidence`.
-    #[test]
-    fn inject_decision_tiers_default_level_emits_nothing() {
-        let chat_text = "\
-@UTF8
-@Begin
-@Languages:\teng
-@Participants:\tCHI Target_Child
-@ID:\teng|test|CHI|2;0.0||||Target_Child|||
-*CHI:\thello . \u{0015}1000_2000\u{0015}
-@End
-";
-        let mut chat = parse_chat(chat_text);
-
-        // A decision that WOULD emit %xalign (and %xrev, since it is flagged
-        // for review) at LowConfidence/All. Default level must suppress both.
-        let decisions = vec![DecisionRecord {
-            line_idx: LineIdx::new(5),
-            speaker: "CHI".into(),
-            strategy: DecisionStrategy::Fa(FaStrategy::GapFilled),
-            reason: "gap=500ms".into(),
-            needs_review: true,
-        }];
-
-        inject_decision_tiers(&mut chat, &decisions, ReviewLevel::default());
-
-        let output = chat.to_chat_string();
-        assert!(
-            !output.contains("%xalign:"),
-            "default review level must not emit %xalign:\n{output}"
-        );
-        assert!(
-            !output.contains("%xrev:"),
-            "default review level must not emit %xrev:\n{output}"
         );
     }
 
@@ -681,17 +470,14 @@ mod tests {
         };
         assert_eq!(decision.strategy.module(), DecisionModule::Fa);
         assert_eq!(decision.strategy.strategy_name(), "gap_filled");
-        assert_eq!(decision.xalign_content(), "fa:gap_filled gap=500ms");
+        assert_eq!(decision.evidence_summary(), "fa:gap_filled gap=500ms");
     }
 
-    /// Running `align` (or any other pipeline command) on a file that already
-    /// has `%xalign`/`%xrev` tiers must REPLACE those tiers, not accumulate
-    /// more.  Before the fix, `inject_decision_tiers` only pushed; it never
-    /// stripped existing tiers.  This produced two `%xalign` and two `%xrev`
-    /// lines after the second run.
+    /// Running a pipeline command removes legacy review scaffolding and does
+    /// not replace it with fresh CHAT tiers. The decisions remain available in
+    /// the structured run evidence tested by the orchestration layer.
     #[test]
-    fn inject_decision_tiers_replaces_not_accumulates() {
-        // Simulate a file that already has %xalign and %xrev from a previous run.
+    fn decision_tier_policy_strips_legacy_tiers() {
         let chat_text = "\
 @UTF8
 @Begin
@@ -705,147 +491,10 @@ mod tests {
 ";
         let mut chat = parse_chat(chat_text);
 
-        let decisions = vec![DecisionRecord {
-            line_idx: LineIdx::new(5),
-            speaker: "CHI".into(),
-            strategy: DecisionStrategy::Fa(FaStrategy::TimingStripped),
-            reason: "count=1".into(),
-            needs_review: true,
-        }];
-
-        inject_decision_tiers(&mut chat, &decisions, ReviewLevel::LowConfidence);
+        strip_decision_tiers(&mut chat);
 
         let output = chat.to_chat_string();
-        let xalign_count = output.matches("%xalign:").count();
-        let xrev_count = output.matches("%xrev:").count();
-
-        assert_eq!(
-            xalign_count, 1,
-            "should replace existing %xalign, not accumulate (got {xalign_count}):\n{output}"
-        );
-        assert_eq!(
-            xrev_count, 1,
-            "should replace existing %xrev, not accumulate (got {xrev_count}):\n{output}"
-        );
-        assert!(
-            !output.contains("old_decision"),
-            "old %xalign content should be gone:\n{output}"
-        );
-        assert!(
-            !output.contains("[ok]"),
-            "old %xrev content should be gone:\n{output}"
-        );
-        assert!(
-            output.contains("fa:timing_stripped"),
-            "new %xalign content should be present:\n{output}"
-        );
-    }
-
-    /// When two decisions target the same utterance (e.g. one FA decision and
-    /// one monotonicity decision), they must be merged into a single %xalign
-    /// tier.  CHAT E401 forbids duplicate dependent tiers on the same utterance.
-    #[test]
-    fn inject_decision_tiers_merges_multiple_decisions_for_same_utterance() {
-        let chat_text = "\
-@UTF8
-@Begin
-@Languages:\teng
-@Participants:\tCHI Target_Child
-@ID:\teng|test|CHI|2;0.0||||Target_Child|||
-*CHI:\thello world . \u{0015}1000_3000\u{0015}
-@End
-";
-        let mut chat = parse_chat(chat_text);
-
-        // Two decisions on the same utterance, one FA, one Monotonicity.
-        let decisions = vec![
-            DecisionRecord {
-                line_idx: LineIdx::new(5),
-                speaker: "CHI".into(),
-                strategy: DecisionStrategy::Fa(FaStrategy::WordsTimingDropped),
-                reason: "count=1 reason=clamped_to_utterance_boundary".into(),
-                needs_review: true,
-            },
-            DecisionRecord {
-                line_idx: LineIdx::new(5),
-                speaker: "CHI".into(),
-                strategy: DecisionStrategy::Monotonicity(MonotonicityStrategy::TimingStripped),
-                reason: "non_monotonic start_ms=47646 previous_start_ms=49506".into(),
-                needs_review: true,
-            },
-        ];
-
-        inject_decision_tiers(&mut chat, &decisions, ReviewLevel::LowConfidence);
-
-        let output = chat.to_chat_string();
-        let xalign_count = output.matches("%xalign:").count();
-        let xrev_count = output.matches("%xrev:").count();
-
-        assert_eq!(
-            xalign_count, 1,
-            "multiple decisions for same utterance must merge into one %xalign (got {xalign_count}):\n{output}"
-        );
-        assert_eq!(
-            xrev_count, 1,
-            "multiple decisions for same utterance must produce one %xrev (got {xrev_count}):\n{output}"
-        );
-        // Both decision contents must appear in the single tier.
-        assert!(
-            output.contains("fa:words_timing_dropped"),
-            "FA decision must be in merged %xalign:\n{output}"
-        );
-        assert!(
-            output.contains("monotonicity:timing_stripped"),
-            "Monotonicity decision must be in merged %xalign:\n{output}"
-        );
-    }
-
-    /// `line_idx` indexes `ChatFile.lines`, headers included, and a value from
-    /// the wrong index space is dropped in silence.
-    ///
-    /// Utterance 1 of this file is LINE 6, because five headers precede it.
-    /// Passing 1 makes the consumer look at `@Begin`, skip it as a
-    /// non-utterance, and discard the decision with no diagnostic.
-    /// `chat_ops::fa::orchestrate` did exactly that, because both spaces were
-    /// bare `usize`. `LineIdx` now makes that assignment fail to compile; this
-    /// test pins the consumer contract the newtype encodes, so the reason for
-    /// the type survives even if someone reaches for `LineIdx::new` on an
-    /// ordinal.
-    #[test]
-    fn line_idx_is_a_line_index_not_an_utterance_ordinal() {
-        let chat_text = "\
-@UTF8
-@Begin
-@Languages:\teng
-@Participants:\tCHI Target_Child
-@ID:\teng|test|CHI|2;0.0||||Target_Child|||
-*CHI:\thello . \u{0015}1000_2000\u{0015}
-*CHI:\tworld . \u{0015}4000_5000\u{0015}
-@End
-";
-        let record = |idx: usize| DecisionRecord {
-            line_idx: LineIdx::new(idx),
-            speaker: "CHI".into(),
-            strategy: DecisionStrategy::Fa(FaStrategy::WordsTimingDropped),
-            reason: "count=1 reason=clamped_to_utterance_boundary".into(),
-            needs_review: true,
-        };
-
-        // Line 6 is the second utterance: the tier lands.
-        let mut by_line = parse_chat(chat_text);
-        inject_decision_tiers(&mut by_line, &[record(6)], ReviewLevel::LowConfidence);
-        assert!(
-            by_line.to_chat_string().contains("%xalign:"),
-            "a real line index must produce the tier"
-        );
-
-        // Ordinal 1 is `@Begin`: nothing lands, and nothing complains. That
-        // silence is why the producer must convert rather than cast.
-        let mut by_ordinal = parse_chat(chat_text);
-        inject_decision_tiers(&mut by_ordinal, &[record(1)], ReviewLevel::LowConfidence);
-        assert!(
-            !by_ordinal.to_chat_string().contains("%xalign:"),
-            "an index pointing at a header must not silently attach anywhere else"
-        );
+        assert!(!output.contains("%xalign:"), "output:\n{output}");
+        assert!(!output.contains("%xrev:"), "output:\n{output}");
     }
 }

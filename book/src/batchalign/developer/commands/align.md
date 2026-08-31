@@ -1,7 +1,7 @@
 # align: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-21 15:15 EDT
+**Last updated:** 2026-08-30 19:59 EDT
 
 Implementation guide for the `align` command. For user-facing documentation,
 see [User Guide: align](../../user-guide/commands/align.md).
@@ -19,7 +19,9 @@ see [User Guide: align](../../user-guide/commands/align.md).
 | UTR dispatch | `crates/batchalign/src/runner/dispatch/utr.rs` | `resolve_strategy()`, language-aware strategy gate |
 | UTR library | `crates/batchalign/src/chat_ops/fa/utr.rs` | `run_utr_pass()`, `inject_utr_timing()`, partial-window logic |
 | FA library | `crates/batchalign/src/chat_ops/fa/` | Grouping, extraction, DP alignment, injection, postprocessing |
-| Worker IPC | `batchalign/inference/fa.py`: `batch_infer_fa()` | Loads Whisper/Wave2Vec, returns token timestamps |
+| Worker boundary | `batchalign/worker/_fa_v2.py` + `crates/batchalign-pyo3/src/worker_fa_exec.rs` | Rust owns request validation and V2 response shaping; Python hosts model callbacks |
+| Model callback | `batchalign/inference/fa.py` | Whisper token onsets or indexed Wave2Vec word intervals with optional model score |
+| Durable evidence | `crates/batchalign/src/types/traces.rs`, `runner/debug_dumper.rs` | Versioned, fail-closed FA evidence sidecar when `--debug-dir` is enabled |
 
 ---
 
@@ -27,8 +29,8 @@ see [User Guide: align](../../user-guide/commands/align.md).
 
 Files containing `@Options: NoAlign` are **returned completely unchanged**.
 The pipeline performs zero modifications: no timestamps are added, removed,
-or adjusted, no `%wor` tier is generated or updated, and no decision tiers
-(`%xalign`, `%xrev`) are written.
+or adjusted, no `%wor` tier is generated or updated, and no legacy decision
+tiers (`%xalign`, `%xrev`) are stripped.
 
 The rationale is that a researcher who sets `@Options: NoAlign` has explicitly
 opted this file out of all alignment processing.  Batchalign must respect that
@@ -42,7 +44,7 @@ re-run align, and re-add the option if still needed.
 
 Implementation: `run_fa_from_ast` checks `is_no_align(&chat_file)` immediately
 after parsing (before media resolution, pre-validation, and all FA logic) and
-returns `Ok(FaResult { chat_text: to_chat_string(&chat_file), ..empty })`.
+returns `FaResult::without_groups(...)`.
 
 ---
 
@@ -63,11 +65,20 @@ validate_to_level(chat, ValidationLevel::MainTiers)?;
 
 ## Cache key structure
 
-FA results are keyed by BLAKE3 hash over:
-- word sequence (normalized)
-- audio segment (file path + byte range)
-- FA engine name + version
-- language code
+FA group keys are BLAKE3 hashes over:
+
+- audio identity (resolved path, mtime, and size)
+- file-relative audio window (`start_ms`, `end_ms`)
+- normalized word sequence
+- typed FA engine
+- response-schema discriminator where required
+- for onset-only engines, the text/healing mode that affects parsed timings
+
+The cache backend namespaces that key by task (`forced_alignment`) and the
+worker-advertised engine version. Word-interval keys carry
+`model_score_v1`: this intentionally retires historical interval entries that
+deserialize correctly but predate score retention. Whisper has no interval
+score to recover and keeps its established cache namespace.
 
 UTR ASR results are cached separately per audio segment (file path + start_ms
 + end_ms). Segment cache hits avoid re-running ASR on already-processed
@@ -76,56 +87,105 @@ windows during the partial-window optimization.
 Cache implementation: `crates/batchalign/src/cache/` (hot: moka,
 cold: SQLite). Bypass with global `--override-media-cache`.
 
+`align` has two independently resolved cache tasks. `FaParams::cache_policy`
+governs `forced_alignment`; `FaDispatchPlan::utr_cache_policy` governs both
+the initial and fallback `utr_asr` passes. Do not collapse the latter into
+`FaParams`: selective refresh and replay experiments depend on changing one
+policy without changing the other. `--require-media-cache` resolves both to
+`RequireCache` and prevents either unresolved boundary from authorizing
+inference.
+
 ---
 
-## 3-tier reuse strategy
+## Four-state evidence resolution
 
 Each FA group is checked for reusability in priority order before inference:
 
-**Tier 1: Reuse from `%wor` tier**  
+**Tier 1: Reuse from `%wor` tier**
+
 If all utterances in a group have clean `%wor` timing from a previous run,
 those word timings are used directly without re-processing. This is the fastest
 path and requires no worker inference.
 
-**Tier 2: Cache hit**  
-If Tier 1 doesn't apply, check the shared result cache by the group's cache key.
-A cache hit means the exact same audio + word sequence was previously processed
-on this engine version, reuse the timings without worker dispatch.
+**Tier 2: Raw-evidence replay**
 
-**Tier 3: Cache miss**  
-Send the group to the FA worker for inference. After the worker returns timings,
-they are written back to the cache so subsequent jobs hitting the same content
-will use Tier 2.
+If Tier 1 doesn't apply, prefer the immutable worker-protocol response. BA3
+re-admits it against the current request facts, then runs the current Rust
+projection. This is the research path: local reconciliation can change without
+running the model again.
 
-This three-level hierarchy is logged during FA execution as `"FA partition
-(reused from %wor / cache hits / misses)"` so operators can track reuse efficiency.
+**Tier 3: Derived-timing compatibility fallback**
 
-Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:345-391`.
+When raw evidence is absent or refused, an admitted derived timing vector can
+still satisfy the group. Historical caches therefore remain useful, while a
+new raw entry cannot be masked by an older local projection.
+
+**Tier 4: Authorized inference**
+
+Only a miss at all three earlier states reaches the worker. `RequireCache`
+cannot construct the authorization value needed by the worker batch. A
+successful worker response is stored in both raw and derived layers.
+
+```mermaid
+flowchart TD
+    G["Current FA group<br/>audio window + words + engine"]
+    W{"Complete, corroborated<br/>%wor timing?"}
+    R{"Admitted raw worker<br/>evidence?"}
+    RP["Replay through current<br/>Rust timing projection"]
+    D{"Admitted derived<br/>timing vector?"}
+    P{"Cache policy permits<br/>inference?"}
+    A["Typed inference authorization"]
+    I["Worker inference"]
+    C["Commit raw evidence<br/>and derived timings"]
+    F["Fail closed:<br/>required evidence missing"]
+    O["Apply current CHAT/%wor logic"]
+
+    G --> W
+    W -->|yes| O
+    W -->|no| R
+    R -->|yes| RP --> O
+    R -->|absent or refused| D
+    D -->|yes| O
+    D -->|no| P
+    P -->|UseCache or SkipCache| A --> I --> C --> O
+    P -->|RequireCache| F
+```
+
+Implementation: `crates/batchalign/src/fa/mod.rs` and
+`crates/batchalign/src/fa/transport.rs`.
 
 ---
 
 ## Worker IPC: FA task (V2 protocol)
 
 ```text
-Client → Worker: execute_v2 request
+Client → Worker: execute_v2 request (abridged)
 {
   "task": "fa",
-  "prepared_audio": { path, start_ms, end_ms, sample_rate },
-  "prepared_text":  { words: [...], language: "eng" },
-  "engine": "wav2vec" | "whisper"
-}
-
-Worker → Client: execute_v2 response
-{
-  "tokens": [
-    { "word": "hello", "start_s": 0.12, "end_s": 0.45 },
-    ...
-  ]
+  "request": {
+    "backend": "wav2vec" | "whisper" | "wav2vec_canto",
+    "audio_ref_id": "...",
+    "payload_ref_id": "...",
+    "text_mode": "char_joined" | "space_joined" | "char_spaced"
+  },
+  "attachments": ["prepared audio", "prepared text payload"]
 }
 ```
 
-The Rust server converts seconds → milliseconds and runs Hirschberg DP
-alignment (`dp_align.rs`) to map FA tokens back to CHAT transcript words.
+Worker → Client is one of two typed results:
+
+- Wave2Vec/Cantonese: one indexed optional interval per requested word,
+  `{start_ms, end_ms, confidence?}`. Rust validates the count and applies the
+  intervals directly; there is no DP remapping.
+- Whisper: token text plus onset time. Rust uses DP alignment to reconcile
+  those returned tokens with CHAT words and derives word ends because the
+  engine did not measure them.
+
+The Python Wave2Vec callback duration-weights token-span scores into a word
+score before crossing the V2 boundary. Rust validates that optional score as a
+finite value in `0..=1`, stores it quantized to millionths, and keeps it
+separate from boundary provenance. The score is not treated as a calibrated
+probability.
 
 ---
 
@@ -200,7 +260,7 @@ overwrites the rescued range with the FA word span (tighter), so the rescue is
 self-healing and auditable.
 
 Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:247-267`. Decisions (which utterances
-were rescued) are recorded and later injected as `%xalign` tiers for audit trail.
+were rescued) are recorded in structured evidence rather than injected into CHAT.
 
 **Edge filler expansion** (enabled always)  
 UTR-assigned bullets may be too narrow to include trailing or leading fillers whose
@@ -221,11 +281,12 @@ See `crates/batchalign/src/chat_ops/fa/COMPOUND_FILLER_ALIGNMENT.md`.
 
 ---
 
-## Decision tier injection
+## Decision evidence and CHAT cleanup
 
-The align pipeline records all structural decisions (modifications to utterance
-bullets, %wor generation, monotonicity repairs, etc.) in `%xalign` and `%xrev`
-tiers for complete auditability.
+The align pipeline records structural decisions internally. It projects them
+into structured evidence and never generates `%xalign` or `%xrev`. The legacy
+`review_level` values remain accepted for wire compatibility but do not change
+this presentation policy.
 
 **Decision sources** (in order):
 1. **Narrow bullet rescue**: utterances whose bullets were pre-expanded before
@@ -234,11 +295,67 @@ tiers for complete auditability.
 3. **Experimental bullet repair**: only if `--bullet-repair` flag is enabled
 4. **Monotonicity enforcement**: start-time regressions stripped, end-time overlaps clamped
 
-All previous `%xalign`/`%xrev` tiers are stripped before injection (even on clean
-re-runs with no new decisions) to prevent stale decision duplication across reruns.
+All previous `%xalign`/`%xrev` tiers are stripped, including on clean re-runs
+with no new decisions.
 
 Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:506-537`. The injection layer is in
 `crates/batchalign-transform/src/decisions/`.
+
+### Durable alignment evidence
+
+CHAT decision tiers are no longer a projection surface. With `--debug-dir`,
+`FaResult::into_timeline_trace` produces the authoritative research record in
+`<stem>_fa_evidence.json` through `DebugDumper::dump_fa_evidence`. The dump is
+fail-closed when requested and includes:
+
+- schema version, engine, and worker-advertised engine version;
+- group windows, words, and stable word IDs;
+- per-group source (`wor_reuse`, `cache`, or `inference`) and cache key;
+- pre-injection valid timings, optional model score, and exhaustive origin
+  chains for both boundaries;
+- the exact typed decision records retained independently of CHAT output;
+- fallback events and post-validation violations.
+
+The indexed alignment algorithm temporarily needs separate vectors while
+cache hits and worker replies arrive out of order. Before `FaResult` can exist,
+`assemble_group_evidence` verifies that the group, source, cache-key, and
+pre-injection-timing populations have identical cardinality and consumes them
+into one `FaGroupEvidence` value per group. The result type stores only those
+paired values. `into_timeline_trace` may flatten them back into the established
+parallel JSON fields, but current BA3 code cannot construct a trace by pairing
+one group's timings with another group's provenance.
+
+`DebugDumper::evidence_stem` preserves the plain basename for a bare filename.
+For a nested submitted identity it appends twelve hex characters from a BLAKE3
+digest of the complete filename. This prevents equal basenames in different
+corpus branches from sharing one evidence path.
+Serialization completes before the destination is opened. The resulting bytes
+are synchronized and atomically replace the destination, followed by a
+directory synchronization on Unix. An interrupted write therefore cannot
+leave a truncated JSON artifact or follow a pre-existing destination symlink.
+
+Rev-backed UTR calls the same `dump_rev_evidence` boundary after raw evidence
+resolution and before timed-word projection. It selects
+`RevAsrProjectionRevision::UtrAsrResponseV1`; the closed revision type prevents
+a caller from inventing a label or attaching transcribe's ASR revision by
+string convention. `rev_utr_evidence_identity` combines the stable CHAT
+filename with the raw evidence-key prefix, preventing full-file and
+partial-window calls from overwriting each other while avoiding temporary
+segment paths as identities.
+
+Schema version 2 adds `decisions` to retain post-inference clamping, repair,
+and timing-removal outcomes. A typestate return from `retain_decision_evidence`
+is consumed into the evidence trace, so the JSON cannot be assembled from a
+different record set than the pipeline produced. The complete-`%wor` fast path
+and a grouping-empty path retain any decisions they make as well; zero fresh
+inference groups does not erase a monotonicity change or grouping refusal.
+`post_injection_timings`
+remains intentionally empty: the
+post-processing phase still lowers final `WordTiming` values into CHAT bullets
+before a group-shaped evidence record can retain them, particularly for split
+compound fillers. Do not describe v1 as a complete repair history. A later
+future schema must carry a typed identity mapping across that phase rather than
+re-reading bullets and falsely labeling them observations.
 
 ---
 

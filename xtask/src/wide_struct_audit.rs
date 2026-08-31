@@ -140,6 +140,16 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
                  the design",
     },
     WideStructAllowance {
+        path: "crates/batchalign/src/cli/args/commands.rs",
+        struct_name: "TranscribeReplayRunArgs",
+        max_fields: 11,
+        max_bool_fields: 4,
+        disposition: WideStructDisposition::BoundaryShim,
+        reason: "offline experiment CLI boundary: four independent switches plus explicit policy \
+                 and pass-topology enums; the mutually constrained segmentation states are \
+                 lowered immediately into TranscribeUtsegExecution typestate",
+    },
+    WideStructAllowance {
         path: "crates/batchalign/src/cli/args/global_opts.rs",
         struct_name: "GlobalOpts",
         max_fields: 17,
@@ -165,6 +175,15 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
         reason: "evaluation report aggregate row",
+    },
+    WideStructAllowance {
+        path: "crates/batchalign/src/cli/eval_cmd/transcribe_replay.rs",
+        struct_name: "ReplayRunReceipt",
+        max_fields: 12,
+        max_bool_fields: 3,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "versioned offline replay receipt that records executable, engine, policy \
+                 topology, presentation switches, and output identities for reproducibility",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/cli/tui/app.rs",
@@ -302,10 +321,12 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/batchalign/src/types/response.rs",
         struct_name: "HealthResponse",
-        max_fields: 32,
+        max_fields: 33,
         max_bool_fields: 1,
         disposition: WideStructDisposition::TransportRecord,
-        reason: "health/status API response aggregates many independent runtime metrics",
+        reason: "health/status API response aggregates independent runtime metrics; the newest \
+                 field is the content-addressed worker-runtime identity collection required to \
+                 prove which Python code actually executed",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/types/response.rs",
@@ -330,6 +351,15 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
         reason: "runtime scheduling record for one attempt",
+    },
+    WideStructAllowance {
+        path: "crates/batchalign/src/types/traces.rs",
+        struct_name: "FaTimelineTrace",
+        max_fields: 13,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "versioned forced-alignment evidence transport preserving independent grouping, \
+                 cache, timing, decision, violation, and fallback facts for offline analysis",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/worker/handle/config.rs",

@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -16,13 +16,66 @@ if TYPE_CHECKING:
     from batchalign.inference.types import ConstituencyTree, StanzaNLP
     from batchalign.models.utterance import BertUtteranceModel
 
+from batchalign.models.utterance.evidence import (
+    ClassifiedBoundaryEvidence,
+    ModelShortCircuit,
+    NormalizationOmission,
+    UtteranceBoundaryPrediction,
+)
 from batchalign.providers import (
     BatchInferRequest,
     BatchInferResponse,
     InferResponse,
 )
+from batchalign.worker._types import WorkerJSONValue
+from batchalign.worker._types_v2 import (
+    UtsegBoundaryModelEvidenceV2,
+    UtsegClassifiedBoundaryEvidenceV2,
+    UtsegItemResultV2,
+    UtsegModelShortCircuitV2,
+    UtsegNormalizationOmissionV2,
+    UtsegWordBoundaryEvidenceV2,
+)
 
 L = logging.getLogger("batchalign.worker")
+
+
+def _serialize_boundary_prediction(
+    prediction: UtteranceBoundaryPrediction,
+) -> dict[str, WorkerJSONValue]:
+    """Lower one typed model prediction into the canonical worker shape."""
+
+    wire_evidence: list[UtsegWordBoundaryEvidenceV2] = []
+    for item in prediction.word_evidence:
+        if isinstance(item, ClassifiedBoundaryEvidence):
+            wire_evidence.append(
+                UtsegClassifiedBoundaryEvidenceV2(
+                    raw_action=item.raw_action.value,
+                    applied_action=item.applied_action.value,
+                    boundary_probability_micros=item.boundary_probability.micros,
+                )
+            )
+        elif isinstance(item, NormalizationOmission):
+            wire_evidence.append(UtsegNormalizationOmissionV2())
+        elif isinstance(item, ModelShortCircuit):
+            wire_evidence.append(UtsegModelShortCircuitV2())
+        else:
+            assert_never(item)
+
+    result = UtsegItemResultV2(
+        assignments=list(prediction.assignments),
+        boundary_model_evidence=UtsegBoundaryModelEvidenceV2(
+            model_id=prediction.model_id,
+            model_revision=prediction.model_revision,
+            normalization_revision=prediction.normalization_revision,
+            adjacency_policy_revision=prediction.adjacency_policy_revision,
+            word_evidence=wire_evidence,
+        ),
+    )
+    return cast(
+        dict[str, WorkerJSONValue],
+        result.model_dump(mode="json", exclude_none=True),
+    )
 
 
 class UtsegModelNotFoundError(RuntimeError):
@@ -138,30 +191,23 @@ def batch_infer_utseg(
         InferResponse(result={"trees": []}, elapsed_s=0.0) for _ in range(n)
     ]
 
-    miss_indices: list[int] = []
+    valid_indices: list[int] = []
     for i, item in enumerate(items):
         if item is None:
             results[i] = InferResponse(error="Invalid batch item", elapsed_s=0.0)
             continue
-        if len(item.words) <= 1:
-            results[i] = InferResponse(
-                result={"assignments": [0] * len(item.words)},
-                elapsed_s=0.0,
-            )
-            continue
-        miss_indices.append(i)
-
-    if not miss_indices:
-        return BatchInferResponse(results=results)
+        valid_indices.append(i)
 
     if utterance_boundary_model is not None:
-        for idx in miss_indices:
+        for idx in valid_indices:
             item = items[idx]
             assert item is not None
             try:
-                assignments = utterance_boundary_model.predict_assignments(item.words)
+                prediction = utterance_boundary_model.predict_boundary_evidence(
+                    item.words
+                )
                 results[idx] = InferResponse(
-                    result={"assignments": assignments},
+                    result=_serialize_boundary_prediction(prediction),
                     elapsed_s=0.0,
                 )
             except (IndexError, AttributeError, TypeError, ValueError) as error:
@@ -169,7 +215,7 @@ def batch_infer_utseg(
                     "Utseg boundary-model infer failed for item %d: %s", idx, error
                 )
                 results[idx] = InferResponse(
-                    result={"assignments": [0] * len(item.words)},
+                    error=f"Utseg boundary-model inference failed: {error}",
                     elapsed_s=0.0,
                 )
         elapsed = time.monotonic() - t0
@@ -179,6 +225,21 @@ def batch_infer_utseg(
                 result=first.result, error=first.error, elapsed_s=elapsed
             )
         L.info("batch_infer utseg(boundary-model): %d items, %.3fs", n, elapsed)
+        return BatchInferResponse(results=results)
+
+    miss_indices: list[int] = []
+    for idx in valid_indices:
+        item = items[idx]
+        assert item is not None
+        if len(item.words) <= 1:
+            results[idx] = InferResponse(
+                result={"assignments": [0] * len(item.words)},
+                elapsed_s=0.0,
+            )
+        else:
+            miss_indices.append(idx)
+
+    if not miss_indices:
         return BatchInferResponse(results=results)
 
     if not req.allow_stanza_fallback:

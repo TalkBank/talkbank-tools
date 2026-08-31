@@ -146,6 +146,7 @@ pub(crate) fn build_empty_chat_text(opts: &TranscribeOptions) -> Result<String, 
         }],
         media_name: opts.media_name.clone(),
         media_type: Some("audio".to_string()),
+        media_status: Some(talkbank_model::model::MediaStatus::Unlinked),
         utterances: vec![],
         write_wor: opts.write_wor,
     };

@@ -41,6 +41,33 @@ fn compound_filler_extracted_as_separate_words_for_fa() {
 }
 
 #[test]
+fn compound_filler_merges_part_scores_by_aligned_duration() {
+    let low = ModelAlignmentScore::try_from_f64(0.4).unwrap();
+    let high = ModelAlignmentScore::try_from_f64(0.8).unwrap();
+    let timings = vec![
+        WordTiming::fixture(100, 200).map(|timing| timing.with_model_score(low)),
+        WordTiming::fixture(200, 500).map(|timing| timing.with_model_score(high)),
+    ];
+    let mut chat = parse_chat(&proof_chat("&-you_know ."));
+    let utterance = get_test_utterance(&mut chat, 0);
+    let mut offset = 0;
+
+    let injected = inject_timings_for_utterance(utterance, &timings, &mut offset);
+    let merged = injected.as_slice()[0].as_ref().expect("merged timing");
+
+    assert_eq!(offset, 2);
+    assert_eq!(merged.start_ms, 100);
+    assert_eq!(merged.end_ms, 500);
+    assert_eq!(
+        merged
+            .model_score()
+            .expect("duration-weighted score")
+            .millionths(),
+        700_000
+    );
+}
+
+#[test]
 fn test_fa_extraction_replaced_word_uses_original() {
     // "foo [: bar baz] qux ." → extraction should see [foo, qux], NOT [bar, baz, qux]
     let chat = parse_chat(&proof_chat("foo [: bar baz] qux ."));

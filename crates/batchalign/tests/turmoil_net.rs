@@ -198,16 +198,19 @@ fn serve_health_only(sim: &mut turmoil::Sim<'_>) {
 /// (JobRegistry, RuntimeSupervisor). Must outlive `sim.run()`, dropping
 /// it kills the actors.
 ///
-/// Concurrency used to be controlled by a retired runner's test-group. That
-/// runner is banned and uninstalled here, so serialize this binary yourself
-/// when it matters: `cargo test -p batchalign --test turmoil_net --
-/// --test-threads=1`.
+/// The owned guard makes the resource constraint part of the fixture state:
+/// callers cannot accidentally start dozens of real axum/SQLite/worker apps
+/// under a 256-descriptor process limit. Health-only simulations remain fully
+/// parallel.
 struct RealAppHandle {
+    _admission: std::sync::MutexGuard<'static, ()>,
     router: Option<Router>,
     _state: std::sync::Arc<batchalign::AppState>,
     _tmp: tempfile::TempDir,
     _runtime: tokio::runtime::Runtime,
 }
+
+static REAL_APP_ADMISSION: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 impl RealAppHandle {
     fn take_router(&mut self) -> Router {
@@ -220,6 +223,9 @@ impl RealAppHandle {
 /// background actors alive while turmoil owns the main thread.
 fn create_real_test_app(python_path: &str) -> RealAppHandle {
     use axum::extract::connect_info::MockConnectInfo;
+    let admission = REAL_APP_ADMISSION
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     // Turmoil tests build their own server outside the shared fixture;
     // opt into the same per-process host-memory ledger override so they
     // don't race with sessions from other test binaries.
@@ -271,6 +277,7 @@ fn create_real_test_app(python_path: &str) -> RealAppHandle {
     });
 
     RealAppHandle {
+        _admission: admission,
         router: Some(router),
         _state: state,
         _tmp: tmp,

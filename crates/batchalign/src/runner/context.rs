@@ -8,13 +8,12 @@
 //! - `ServerExecutionHost` / `DirectExecutionHost`, host-owned bundles
 //! - `QueuedJobOrchestrator`: host-owned re-queue policy trait
 
-use std::collections::{BTreeMap, HashMap};
-use std::path::PathBuf;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::api::{JobId, NumWorkers, RevAiJobId, UnixTimestamp};
+use crate::api::{JobId, NumWorkers, UnixTimestamp};
 use crate::cache::UtteranceCache;
 use crate::config::ServerConfig;
 use crate::host_facts::EffectiveConfig;
@@ -198,7 +197,6 @@ pub(super) struct JobDispatchRequest {
     pub(super) job: Arc<RunnerJobSnapshot>,
     pub(super) file_list: Vec<crate::store::PendingJobFile>,
     pub(super) num_workers: NumWorkers,
-    pub(super) rev_job_ids: Arc<HashMap<PathBuf, RevAiJobId>>,
 }
 
 /// Host-memory reservation failures separated from the rest of job execution.

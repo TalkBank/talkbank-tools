@@ -1,10 +1,9 @@
 //! Transcription dispatch and per-file transcribe pipeline.
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::api::{EngineVersion, NumWorkers, RevAiJobId};
+use crate::api::{EngineVersion, NumWorkers};
 use crate::cache::UtteranceCache;
 use crate::pipeline::PipelineServices;
 use crate::runner::DispatchHostContext;
@@ -39,8 +38,6 @@ pub(crate) struct TranscribeDispatchRuntime {
     pub cache: Arc<UtteranceCache>,
     /// Current engine version string for cache partitioning.
     pub engine_version: EngineVersion,
-    /// Optional preflight Rev.AI job ids keyed by original audio path.
-    pub rev_job_ids: Arc<HashMap<PathBuf, RevAiJobId>>,
     /// Maximum number of file tasks to run concurrently for this job.
     pub num_workers: NumWorkers,
 }
@@ -89,7 +86,6 @@ pub(crate) async fn dispatch_transcribe_infer(
         let engine_version = runtime.engine_version.clone();
         let mut opts = base_options.clone();
         let file = file.clone();
-        let rev_job_ids = runtime.rev_job_ids.clone();
         let filename = file.filename.clone();
 
         tasks.push(spawn_supervised_file_task(
@@ -104,7 +100,6 @@ pub(crate) async fn dispatch_transcribe_infer(
                     services,
                     &file,
                     &mut opts,
-                    rev_job_ids.as_ref(),
                     should_merge_abbrev,
                 )
                 .await
@@ -127,11 +122,10 @@ async fn prepare_transcribe_media_input(
     filesystem: &crate::store::RunnerFilesystemConfig,
     file_index: usize,
     filename: &str,
-    rev_job_ids: &HashMap<PathBuf, RevAiJobId>,
 ) -> Result<PreparedAsrMediaInput, crate::error::ServerError> {
     let original_audio_path = resolve_paths_mode_or_staging_input(filesystem, file_index, filename);
     let media_name = preserved_media_name_for_chat(&original_audio_path, &original_audio_path);
-    prepare_asr_media_input(original_audio_path, rev_job_ids, media_name, filename).await
+    prepare_asr_media_input(original_audio_path, media_name, filename).await
 }
 
 struct TranscribeAudioTask<'a> {
@@ -174,7 +168,6 @@ async fn process_one_transcribe_file(
     services: PipelineServices<'_>,
     file: &crate::store::PendingJobFile,
     opts: &mut TranscribeOptions,
-    rev_job_ids: &HashMap<PathBuf, RevAiJobId>,
     should_merge_abbrev: bool,
 ) -> FileTaskOutcome {
     let job_id = &job.identity.job_id;
@@ -193,9 +186,7 @@ async fn process_one_transcribe_file(
         .await;
 
     let prepared_media =
-        match prepare_transcribe_media_input(&job.filesystem, file_index, filename, rev_job_ids)
-            .await
-        {
+        match prepare_transcribe_media_input(&job.filesystem, file_index, filename).await {
             Ok(prepared) => prepared,
             Err(error) => {
                 let err_msg = error.to_string();
@@ -209,10 +200,8 @@ async fn process_one_transcribe_file(
         original_audio_path: _,
         inference_audio_path: audio_path,
         media_name,
-        rev_job_id,
     } = prepared_media;
 
-    opts.rev_job_id = rev_job_id;
     opts.media_name = media_name;
 
     if !audio_path.exists() {
@@ -415,24 +404,16 @@ mod tests {
             num_speakers: 1,
             with_utseg: true,
             with_morphosyntax: false,
-            override_media_cache: false,
+            cache_policies: crate::transcribe::TranscribeCachePolicies::uniform(
+                crate::params::CachePolicy::UseCache,
+            ),
             allow_stanza_fallback_utseg: false,
             write_wor: false,
             media_name: None,
-            rev_job_id: None,
             engine_extras: std::collections::BTreeMap::new(),
         };
 
-        process_one_transcribe_file(
-            &snapshot,
-            sink,
-            services,
-            &file,
-            &mut opts,
-            &HashMap::new(),
-            false,
-        )
-        .await;
+        process_one_transcribe_file(&snapshot, sink, services, &file, &mut opts, false).await;
 
         let attempts = db
             .load_attempts_for_job("job-transcribe")
@@ -495,33 +476,6 @@ mod tests {
             preserved_media_name_for_chat(&original_audio_path, &converted_audio_path).as_deref(),
             Some("interview"),
             "CHAT @Media should preserve the original media basename after conversion"
-        );
-    }
-
-    #[test]
-    fn prepare_asr_media_input_uses_original_media_for_rev_lookup_and_chat_header() {
-        let original_audio_path = PathBuf::from("/corpus/interview.mp4");
-        let inference_audio_path = PathBuf::from("/cache/asr_v2/interview.wav");
-        let mut rev_job_ids = HashMap::new();
-        rev_job_ids.insert(original_audio_path.clone(), RevAiJobId::from("rev-job-123"));
-
-        let prepared = PreparedAsrMediaInput {
-            original_audio_path: original_audio_path.clone(),
-            inference_audio_path,
-            media_name: preserved_media_name_for_chat(&original_audio_path, &original_audio_path),
-            rev_job_id: rev_job_ids.get(&original_audio_path).cloned(),
-        };
-
-        assert_eq!(prepared.original_audio_path, original_audio_path);
-        assert_eq!(
-            prepared.rev_job_id.as_deref(),
-            Some("rev-job-123"),
-            "Rev preflight lookup must use the original provider-visible media path"
-        );
-        assert_eq!(
-            prepared.media_name.as_deref(),
-            Some("interview"),
-            "CHAT @Media should use the original source media basename"
         );
     }
 }

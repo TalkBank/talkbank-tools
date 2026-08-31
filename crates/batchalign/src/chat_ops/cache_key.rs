@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 /// There is no constructor from arbitrary strings, the only way to create
 /// a `CacheKey` is via the task-specific `cache_key()` functions, which
 /// compute the hash internally.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(transparent)]
 pub struct CacheKey(String);
 
@@ -37,6 +37,26 @@ impl CacheKey {
     /// View the hex string.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for CacheKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        if value.len() == 64
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            Ok(Self(value))
+        } else {
+            Err(serde::de::Error::custom(
+                "cache key must be 64 lowercase hexadecimal characters",
+            ))
+        }
     }
 }
 
@@ -58,6 +78,9 @@ impl std::fmt::Display for CacheKey {
 pub enum CacheTaskName {
     /// Forced alignment (word timings). Wire name: `"forced_alignment"`.
     ForcedAlignment,
+    /// Immutable worker-protocol forced-alignment response, before local
+    /// timing reconciliation. Wire name: `"forced_alignment_raw_evidence"`.
+    ForcedAlignmentRawEvidence,
     /// UTR ASR result (full-file ASR for timing recovery). Wire name: `"utr_asr"`.
     UtrAsr,
     /// Immutable backend-shaped speaker evidence. Wire name:
@@ -72,17 +95,63 @@ pub enum CacheTaskName {
     RevAsrEvidence,
 }
 
+/// Classification of a user-supplied cache-override task name.
+///
+/// The CLI and server both receive the same strings, but need different
+/// warning mechanisms.  Keeping the classification here gives those two
+/// boundaries one exhaustive vocabulary without coupling the domain type to
+/// either `eprintln!` or `tracing`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CacheOverrideTaskName {
+    /// An audio task whose evidence can be cached and selectively refreshed.
+    Cacheable(CacheTaskName),
+    /// A known text-NLP task, which deliberately has no media cache.
+    TextNlpUnsupported,
+    /// A name outside the cache-override vocabulary.
+    Unknown,
+}
+
 impl CacheTaskName {
+    /// Cache tasks an operator may refresh independently.
+    ///
+    /// Derived speaker segments are intentionally absent: they are local
+    /// projections of raw evidence and refresh when that evidence does.
+    pub(crate) const OVERRIDE_SELECTABLE: [Self; 4] = [
+        Self::ForcedAlignment,
+        Self::UtrAsr,
+        Self::SpeakerDiarizationRawEvidence,
+        Self::RevAsrEvidence,
+    ];
+
     /// The wire string stored in the cache database.
     ///
     /// Changing any of these values invalidates existing cache entries.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::ForcedAlignment => "forced_alignment",
+            Self::ForcedAlignmentRawEvidence => "forced_alignment_raw_evidence",
             Self::UtrAsr => "utr_asr",
             Self::SpeakerDiarizationRawEvidence => "speaker_diarization_raw_evidence",
             Self::SpeakerDiarizationSegments => "speaker_diarization_segments",
             Self::RevAsrEvidence => "rev_asr_evidence",
+        }
+    }
+
+    /// Classify a cache-override wire name at either process boundary.
+    pub(crate) fn classify_override_name(name: &str) -> CacheOverrideTaskName {
+        let trimmed = name.trim();
+        if let Some(task) = Self::OVERRIDE_SELECTABLE
+            .iter()
+            .copied()
+            .find(|task| task.as_str() == trimmed)
+        {
+            return CacheOverrideTaskName::Cacheable(task);
+        }
+        match trimmed {
+            "morphosyntax" | "utterance_segmentation" | "translation" => {
+                CacheOverrideTaskName::TextNlpUnsupported
+            }
+            _ => CacheOverrideTaskName::Unknown,
         }
     }
 }
@@ -102,6 +171,28 @@ mod tests {
         let key = CacheKey::from_content("hello|eng|mwt");
         assert_eq!(key.as_str().len(), 64);
         assert!(key.as_str().chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn override_task_name_classification_has_one_closed_vocabulary() {
+        for task in CacheTaskName::OVERRIDE_SELECTABLE {
+            assert_eq!(
+                CacheTaskName::classify_override_name(task.as_str()),
+                CacheOverrideTaskName::Cacheable(task)
+            );
+        }
+        assert_eq!(
+            CacheTaskName::classify_override_name(" rev_asr_evidence "),
+            CacheOverrideTaskName::Cacheable(CacheTaskName::RevAsrEvidence)
+        );
+        assert_eq!(
+            CacheTaskName::classify_override_name("translation"),
+            CacheOverrideTaskName::TextNlpUnsupported
+        );
+        assert_eq!(
+            CacheTaskName::classify_override_name("speaker_diarization_segments"),
+            CacheOverrideTaskName::Unknown
+        );
     }
 
     #[test]
@@ -133,8 +224,23 @@ mod tests {
     }
 
     #[test]
+    fn cache_key_deserialization_refuses_values_outside_its_documented_shape() {
+        for json in [
+            r#""short""#,
+            r#""AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA""#,
+            r#""gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg""#,
+        ] {
+            assert!(serde_json::from_str::<CacheKey>(json).is_err());
+        }
+    }
+
+    #[test]
     fn cache_task_name_wire_strings_are_stable() {
         assert_eq!(CacheTaskName::ForcedAlignment.as_str(), "forced_alignment");
+        assert_eq!(
+            CacheTaskName::ForcedAlignmentRawEvidence.as_str(),
+            "forced_alignment_raw_evidence"
+        );
         assert_eq!(CacheTaskName::UtrAsr.as_str(), "utr_asr");
         assert_eq!(
             CacheTaskName::SpeakerDiarizationRawEvidence.as_str(),
@@ -151,6 +257,7 @@ mod tests {
     fn cache_task_name_display_matches_as_str() {
         for variant in [
             CacheTaskName::ForcedAlignment,
+            CacheTaskName::ForcedAlignmentRawEvidence,
             CacheTaskName::UtrAsr,
             CacheTaskName::SpeakerDiarizationRawEvidence,
             CacheTaskName::SpeakerDiarizationSegments,

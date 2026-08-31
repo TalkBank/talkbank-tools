@@ -31,6 +31,7 @@ pub(crate) mod provider_credentials;
 pub mod python;
 pub mod registry;
 pub mod request_builder_v2;
+pub mod runtime_identity;
 pub mod speaker_request_v2;
 pub mod speaker_result_v2;
 pub(crate) mod target;

@@ -4,6 +4,7 @@
 //! enum variant for type-safe job submission.
 
 use crate::chat_ops::CacheTaskName;
+use crate::chat_ops::cache_key::CacheOverrideTaskName;
 use crate::chat_ops::fa::CaMarkerPolicy as AppCaMarkerPolicy;
 use crate::options::{
     AlignOptions, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions, CompareOptions,
@@ -81,17 +82,16 @@ fn resolve_review_level(
 /// backward-compatible CLI scripting but resolve to `None` with a
 /// warning.
 fn parse_cache_task(name: &str) -> Option<CacheTaskName> {
-    match name.trim() {
-        "utr_asr" => Some(CacheTaskName::UtrAsr),
-        "forced_alignment" => Some(CacheTaskName::ForcedAlignment),
-        "morphosyntax" | "utterance_segmentation" | "translation" => {
+    match CacheTaskName::classify_override_name(name) {
+        CacheOverrideTaskName::Cacheable(task) => Some(task),
+        CacheOverrideTaskName::TextNlpUnsupported => {
             eprintln!(
                 "warning: --override-media-cache-tasks {name} ignored \
                  (batchalign3 does not cache text NLP)"
             );
             None
         }
-        _ => {
+        CacheOverrideTaskName::Unknown => {
             eprintln!("warning: unknown cache task name '{name}', ignoring");
             None
         }
@@ -100,14 +100,17 @@ fn parse_cache_task(name: &str) -> Option<CacheTaskName> {
 
 /// Resolve the cache override policy from CLI flags.
 pub fn resolve_cache_overrides(global: &GlobalOpts) -> CacheOverrides {
-    if !global.override_media_cache_tasks.is_empty() {
+    if global.media_cache.require_media_cache {
+        CacheOverrides::RequireAll
+    } else if !global.media_cache.override_media_cache_tasks.is_empty() {
         let tasks = global
+            .media_cache
             .override_media_cache_tasks
             .iter()
             .filter_map(|s| parse_cache_task(s))
             .collect();
         CacheOverrides::Tasks(tasks)
-    } else if global.override_media_cache {
+    } else if global.media_cache.override_media_cache {
         CacheOverrides::All
     } else {
         CacheOverrides::None
@@ -134,10 +137,11 @@ fn canonicalize_debug_dir(p: &std::path::Path) -> std::path::PathBuf {
 /// Returns `None` for non-processing commands (serve, jobs, version, etc.).
 pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<CommandOptions> {
     let common = CommonOptions {
-        override_media_cache: global.override_media_cache,
+        override_media_cache: global.media_cache.override_media_cache,
+        require_media_cache: global.media_cache.require_media_cache,
         engine_overrides: parse_engine_overrides(&global.engine_overrides),
         debug_dir: global.debug_dir.as_deref().map(canonicalize_debug_dir),
-        override_media_cache_tasks: global.override_media_cache_tasks.clone(),
+        override_media_cache_tasks: global.media_cache.override_media_cache_tasks.clone(),
         ..Default::default()
     };
 

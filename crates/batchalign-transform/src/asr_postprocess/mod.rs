@@ -34,6 +34,7 @@ mod num2text;
 mod ordinal_year_eng;
 mod prepare;
 pub mod registry;
+mod retrace;
 mod snapshot;
 #[cfg(test)]
 mod tests;
@@ -57,6 +58,7 @@ pub use utterance::{
 use expand::expand_numbers_in_words;
 use prepare::trim_word_boundaries;
 pub use prepare::{prepare_words_pre_expansion, prepare_words_pre_expansion_with_snapshot};
+pub use retrace::{ExactRetraceAnalysis, analyze_exact_retraces};
 
 // ---------------------------------------------------------------------------
 // Types

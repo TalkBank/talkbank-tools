@@ -261,6 +261,7 @@ fn snapshot_health_response() {
         free_threaded: true,
         capabilities: vec!["align".into(), "morphotag".into(), "transcribe".into()],
         loaded_pipelines: vec!["morphotag:eng:1".into()],
+        worker_runtime_identities: vec![],
         media_roots: vec!["/data/media".into()],
         media_mapping_keys: vec!["childes-data".into()],
         workers_available: 3,

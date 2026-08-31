@@ -154,6 +154,7 @@ async fn run_translate_impl(
             apply: apply_translate_results,
         },
         infer_batch,
+        |_, _| Ok(()),
     )
     .await
 }

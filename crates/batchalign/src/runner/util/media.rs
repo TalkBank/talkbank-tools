@@ -1,28 +1,15 @@
 //! Media resolution, preflight validation, and output path handling.
 
 use std::collections::HashMap;
+#[cfg(test)]
 use std::path::{Path, PathBuf};
 
-use crate::api::ReleasedCommand;
-use crate::options::CommandOptions;
-use crate::store::{PendingJobFile, RunnerJobSnapshot};
+use crate::store::PendingJobFile;
 use batchalign_types::paths::ClientPath;
 
 use crate::media::MediaExtensions;
 use crate::media::probe::MediaProbe;
 use tracing::warn;
-
-/// Check if a job should use the legacy untyped Rev.AI preflight submission.
-///
-/// Disabled for every command: it crossed a paid boundary before the durable
-/// evidence cache could prove a miss. A future parallel preflight must carry
-/// the same typed miss authorization as per-file Rev inference.
-pub(in crate::runner) fn should_preflight(
-    _command: ReleasedCommand,
-    _typed_options: Option<&CommandOptions>,
-) -> bool {
-    false
-}
 
 /// Pre-validate media files before dispatch.
 ///
@@ -91,77 +78,6 @@ pub(in crate::runner) async fn preflight_validate_media(
     failures
 }
 
-/// Collect the original media paths that should be pre-submitted to Rev.AI for
-/// one job.
-///
-/// The returned paths must be the original provider-visible files, not
-/// temporary WAV conversions, because preflight submission happens before the
-/// per-file processing pipeline starts.
-pub(in crate::runner) async fn collect_preflight_audio_paths(
-    command: ReleasedCommand,
-    job: &RunnerJobSnapshot,
-    file_list: &[PendingJobFile],
-) -> Vec<PathBuf> {
-    match command {
-        ReleasedCommand::Align => collect_align_preflight_audio_paths(job, file_list).await,
-        _ => file_list
-            .iter()
-            .filter(|file| !file.has_chat)
-            .filter_map(|file| {
-                if job.filesystem.paths_mode && file.file_index < job.filesystem.source_paths.len()
-                {
-                    Some(
-                        job.filesystem.source_paths[file.file_index]
-                            .assume_shared_filesystem()
-                            .as_path()
-                            .to_owned(),
-                    )
-                } else {
-                    None
-                }
-            })
-            .collect(),
-    }
-}
-
-/// Collect align-job media paths for Rev.AI preflight.
-///
-/// Align jobs usually begin from CHAT files, so preflight must resolve the
-/// sibling media path first. This helper currently supports the local
-/// `paths_mode` shape, which is where Rev.AI preflight provides the main
-/// throughput win for large corpora.
-async fn collect_align_preflight_audio_paths(
-    job: &RunnerJobSnapshot,
-    file_list: &[PendingJobFile],
-) -> Vec<PathBuf> {
-    if !job.filesystem.paths_mode {
-        return Vec::new();
-    }
-
-    let mut paths = Vec::new();
-    for file in file_list {
-        let Some(client_path) = job.filesystem.source_paths.get(file.file_index) else {
-            continue;
-        };
-        let server_path = client_path.assume_shared_filesystem();
-        if let Some(audio_path) = resolve_audio_for_chat(server_path.as_path()).await {
-            paths.push(audio_path);
-        }
-    }
-    paths
-}
-
-/// The audio file for a CHAT file sitting beside it.
-///
-/// Kept because preflight still calls it; the `_with_media_dir` variant beside
-/// it is gone, because the FA pipeline's rungs became `MediaSearch` places and
-/// nothing else wanted the two-directory form. This is now a single call to the
-/// verb rather than its own extension loop.
-pub(in crate::runner) async fn resolve_audio_for_chat(chat_path: &Path) -> Option<PathBuf> {
-    let stem = chat_path.file_stem()?.to_str()?;
-    MediaExtensions::find_in(chat_path.parent()?, stem).await
-}
-
 /// Compute audio identity for cache keying.
 ///
 /// Returns an [`AudioIdentity`] built from the file's resolved path,
@@ -216,44 +132,4 @@ pub(in crate::runner) fn apply_result_filename(
         .parent()
         .map(|p| p.join(result_name))
         .unwrap_or_else(|| result_name.into())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::should_preflight;
-    use crate::api::ReleasedCommand;
-    use crate::options::{
-        AsrEngineName, BenchmarkOptions, CommandOptions, CommonOptions, TranscribeOptions,
-    };
-
-    #[test]
-    fn transcribe_asr_override_disables_rev_preflight() {
-        let mut common = CommonOptions::default();
-        common.engine_overrides.asr = Some(AsrEngineName::HkTencent);
-        let opts = CommandOptions::Transcribe(TranscribeOptions {
-            common,
-            asr_engine: AsrEngineName::RevAi,
-            diarize: false,
-            wor: false.into(),
-            merge_abbrev: false.into(),
-            batch_size: 8,
-            utseg_fallback: false.into(),
-        });
-
-        assert!(!should_preflight(ReleasedCommand::Transcribe, Some(&opts)));
-    }
-
-    #[test]
-    fn benchmark_asr_override_disables_rev_preflight() {
-        let mut common = CommonOptions::default();
-        common.engine_overrides.asr = Some(AsrEngineName::HkAliyun);
-        let opts = CommandOptions::Benchmark(BenchmarkOptions {
-            common,
-            asr_engine: AsrEngineName::RevAi,
-            wor: true.into(),
-            merge_abbrev: false.into(),
-        });
-
-        assert!(!should_preflight(ReleasedCommand::Benchmark, Some(&opts)));
-    }
 }

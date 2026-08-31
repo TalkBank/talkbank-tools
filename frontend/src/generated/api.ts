@@ -717,6 +717,12 @@ export interface components {
              */
             worker_crashes?: number;
             /**
+             * @description Distinct content-addressed Python runtimes observed since server start.
+             *     Paths are deliberately absent; hashes identify executable bytes,
+             *     Batchalign package bytes, and the installed distribution inventory.
+             */
+            worker_runtime_identities?: components["schemas"]["WorkerRuntimeIdentity"][];
+            /**
              * Format: int64
              * @description Backward-compat alias for `job_slots_available`.  Older clients read
              *     this field; newer clients prefer `job_slots_available`.
@@ -1078,6 +1084,8 @@ export interface components {
          *     with a server root path to produce a [`ServerPath`] for I/O.
          */
         RepoRelativePath: string;
+        /** @description A validated lowercase SHA-256 digest. */
+        Sha256Digest: string;
         /**
          * @description Response body for mutating operations that return a status confirmation
          *     (e.g. cancel, delete, restart).
@@ -1102,6 +1110,16 @@ export interface components {
          * @description Unix timestamp as fractional seconds since epoch.
          */
         UnixTimestamp: number;
+        /** @description Runtime identity proven by the current ready-handshake schema. */
+        WorkerRuntimeIdentity: {
+            batchalign_core_extension_sha256: components["schemas"]["Sha256Digest"];
+            batchalign_package_tree_sha256: components["schemas"]["Sha256Digest"];
+            distribution_inventory_sha256: components["schemas"]["Sha256Digest"];
+            python_executable_sha256: components["schemas"]["Sha256Digest"];
+            python_version: string;
+            /** Format: int32 */
+            schema_version: number;
+        };
     };
     responses: never;
     parameters: never;

@@ -43,7 +43,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from batchalign.inference.languages.cantonese._cantonese_fa import CantoneseFaHost
-    from batchalign.inference.types import Wave2VecFAHandle, WhisperFAHandle
+    from batchalign.inference.types import (
+        Wave2VecFAHandle,
+        Wave2VecFAResult,
+        WhisperFAHandle,
+    )
 
 # Serialize all FA inference calls within a single worker process.
 #
@@ -70,13 +74,11 @@ class ForcedAlignmentExecutionHostV2:
     """Injected FA execution hooks for the live V2 path."""
 
     whisper_runner: Callable[[np.ndarray, str], list[tuple[str, float]]] | None = None
-    wave2vec_runner: (
-        Callable[[np.ndarray, list[str]], list[tuple[str, tuple[int, int]]]] | None
-    ) = None
+    wave2vec_runner: Callable[[np.ndarray, list[str]], Wave2VecFAResult] | None = None
     canto_runner: (
         Callable[
             [np.ndarray, PreparedFaPayloadV2, ForcedAlignmentRequestV2],
-            list[tuple[str, tuple[int, int]]],
+            Wave2VecFAResult,
         ]
         | None
     ) = None
@@ -119,7 +121,7 @@ def build_default_fa_execution_host_v2(
         def _run_wave2vec(
             audio: np.ndarray,
             words: list[str],
-        ) -> list[tuple[str, tuple[int, int]]]:
+        ) -> Wave2VecFAResult:
             return infer_wave2vec_fa(wave2vec_model, _as_tensor(audio), words)
 
         wave2vec_runner = _run_wave2vec
@@ -131,7 +133,7 @@ def build_default_fa_execution_host_v2(
             audio: np.ndarray,
             payload: PreparedFaPayloadV2,
             _request: ForcedAlignmentRequestV2,
-        ) -> list[tuple[str, tuple[int, int]]]:
+        ) -> Wave2VecFAResult:
             return canto_host.align_words(_as_tensor(audio), payload.words)
 
         canto_runner = _run_canto

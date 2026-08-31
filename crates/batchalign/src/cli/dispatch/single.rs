@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::ReleasedCommand;
 use crate::api::JobSubmission;
 use crate::options::CommandOptions;
-use crate::released_command_supports_paths_mode;
+use crate::{released_command_supports_paths_mode, released_command_uses_local_audio};
 
 use crate::cli::client::{BatchalignClient, server_label};
 use crate::cli::discover::{build_server_names, copy_nonmatching, infer_base_dir};
@@ -14,11 +14,107 @@ use crate::cli::error::CliError;
 use crate::cli::progress::BatchProgress;
 use crate::cli::tui::TuiProgress;
 
-/// Check if a server URL points to the local machine.
+/// How the client may transfer job inputs to one selected server.
 ///
-/// Returns `true` for localhost and 127.0.0.1 (the auto-daemon addresses).
-/// Used to decide between paths mode (shared filesystem, for local daemons)
-/// and content mode (HTTP upload, for explicit remote `--server`).
+/// The private representation prevents call sites from passing an unexplained
+/// boolean. An explicit loopback URL is still an explicit producer choice, but
+/// it shares this machine's filesystem and therefore gets the same efficient,
+/// lossless path transport as an auto-discovered local daemon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ServerTransport(ServerTransportKind);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ServerTransportKind {
+    SharedFilesystem,
+    Content,
+}
+
+impl ServerTransport {
+    fn uses_paths_for(self, command: ReleasedCommand) -> bool {
+        self.0 == ServerTransportKind::SharedFilesystem
+            && released_command_supports_paths_mode(command)
+    }
+}
+
+/// One validated explicit server paired with a transport that can carry the
+/// selected command's inputs.
+///
+/// Construction refuses the currently impossible state "remote server plus
+/// client-local audio". Once BA3 gains media-body upload, that operation gets
+/// a new transport variant rather than weakening this proof.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ServerTarget {
+    url: String,
+    transport: ServerTransport,
+}
+
+impl ServerTarget {
+    fn parse_origin(url: &str) -> Result<bool, CliError> {
+        let parsed = reqwest::Url::parse(url)
+            .map_err(|error| CliError::InvalidArgument(format!("invalid --server URL: {error}")))?;
+        if !matches!(parsed.scheme(), "http" | "https")
+            || parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || parsed.path() != "/"
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+        {
+            return Err(CliError::InvalidArgument(
+                "--server must be an HTTP(S) origin without credentials, path, query, or fragment"
+                    .into(),
+            ));
+        }
+
+        Ok(parsed.host_str().is_some_and(|host| {
+            let unbracketed = host.trim_start_matches('[').trim_end_matches(']');
+            unbracketed.eq_ignore_ascii_case("localhost")
+                || unbracketed
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|address| address.is_loopback())
+        }))
+    }
+
+    /// Pair an operator-selected origin with the only transport it can use.
+    pub(super) fn parse_explicit(url: &str, command: ReleasedCommand) -> Result<Self, CliError> {
+        let loopback = Self::parse_origin(url)?;
+        let transport = if loopback {
+            ServerTransport(ServerTransportKind::SharedFilesystem)
+        } else if released_command_uses_local_audio(command) {
+            return Err(CliError::InvalidArgument(format!(
+                "cannot send local audio to non-loopback server {url}; remote media upload is not implemented"
+            )));
+        } else {
+            ServerTransport(ServerTransportKind::Content)
+        };
+        Ok(Self {
+            url: url.to_owned(),
+            transport,
+        })
+    }
+
+    /// Admit a daemon URL only after proving that it names this host.
+    pub(super) fn parse_shared_filesystem(url: &str) -> Result<Self, CliError> {
+        if !Self::parse_origin(url)? {
+            return Err(CliError::InvalidArgument(format!(
+                "shared-filesystem server must use a loopback origin, got {url}"
+            )));
+        }
+        Ok(Self {
+            url: url.to_owned(),
+            transport: ServerTransport(ServerTransportKind::SharedFilesystem),
+        })
+    }
+
+    pub(super) fn url(&self) -> &str {
+        &self.url
+    }
+
+    fn uses_paths_for(&self, command: ReleasedCommand) -> bool {
+        self.transport.uses_paths_for(command)
+    }
+}
+
 /// Map a `TuiCancelSignal` from the rendering thread into a wire-format
 /// `CancellationRequest`. Captures source=Tui, the host machine name and
 /// caller PID, plus the in-flight filename the TUI snapshot recorded at
@@ -45,24 +141,6 @@ fn build_tui_cancel_provenance(
     }
 }
 
-fn is_local_server(url: &str) -> bool {
-    let after_scheme = url
-        .trim_start_matches("http://")
-        .trim_start_matches("https://");
-
-    // Handle IPv6 bracket notation: [::1]:8001
-    let host = if after_scheme.starts_with('[') {
-        after_scheme
-            .find(']')
-            .map(|i| &after_scheme[..=i])
-            .unwrap_or(after_scheme)
-    } else {
-        after_scheme.split(':').next().unwrap_or("")
-    };
-
-    matches!(host, "localhost" | "127.0.0.1" | "::1" | "[::1]")
-}
-
 use super::helpers::{
     classify_files, filter_files_for_command, inject_lexicon, maybe_open_dashboard,
     poll_and_write_incrementally,
@@ -75,8 +153,7 @@ use crate::cli::args::InputKind;
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn dispatch_single_server(
     client: &BatchalignClient,
-    server_url: &str,
-    allow_paths_mode: bool,
+    target: &ServerTarget,
     command: ReleasedCommand,
     lang: &str,
     num_speakers: u32,
@@ -89,6 +166,7 @@ pub(super) async fn dispatch_single_server(
     use_tui: bool,
     open_dashboard: bool,
 ) -> Result<(), CliError> {
+    let server_url = target.url();
     // Health check
     let health = match client.health_check(server_url).await {
         Ok(h) => h,
@@ -106,12 +184,10 @@ pub(super) async fn dispatch_single_server(
         });
     }
 
-    // Paths mode is only valid when client and server share a filesystem and
-    // the caller explicitly opted into local-daemon/shared-filesystem routing.
-    // Explicit `--server` stays on content mode even if it points at localhost.
-    let server_is_local = is_local_server(server_url);
-    let use_paths_mode =
-        allow_paths_mode && released_command_supports_paths_mode(command) && server_is_local;
+    // The transport state records whether the selected server shares this
+    // filesystem. Command metadata then decides whether that command supports
+    // path submissions. Producer selection was already resolved by dispatch.
+    let use_paths_mode = target.uses_paths_for(command);
 
     let (submission, effective_out, result_map, paths_mode) = if use_paths_mode {
         let Some(prepared) = prepare_paths_submission(
@@ -293,52 +369,44 @@ pub(super) async fn dispatch_single_server(
 
 #[cfg(test)]
 mod tests {
-    use super::is_local_server;
+    use super::{ServerTarget, ServerTransportKind};
     use crate::ReleasedCommand;
-    use crate::released_command_supports_paths_mode;
 
-    /// Commands whose descriptors are expected to stay on content mode.
-    /// Kept as a tiny allowlist so a new command that forgets to pick a
-    /// paths-mode-capable I/O profile trips an explicit review.
-    ///
-    /// Currently empty: all released commands use `PathsModeAudio` or
-    /// `PathsModeText` in `io_profile_for()`. `Opensmile` was previously
-    /// listed here based on the stale `opensmile.rs` macro definition,
-    /// but the authoritative `command_model/catalog.rs` correctly maps it
-    /// to `PathsModeAudio` (it processes audio files).
-    const CONTENT_ONLY_COMMANDS: &[ReleasedCommand] = &[];
-
-    fn expected_supports_paths_mode(command: ReleasedCommand) -> bool {
-        !CONTENT_ONLY_COMMANDS.contains(&command)
+    #[test]
+    fn explicit_loopback_server_constructs_shared_filesystem_transport() {
+        assert_eq!(
+            ServerTarget::parse_explicit("http://127.0.0.1:8002", ReleasedCommand::Transcribe)
+                .unwrap()
+                .transport
+                .0,
+            ServerTransportKind::SharedFilesystem
+        );
     }
 
     #[test]
-    fn localhost_is_local() {
-        assert!(is_local_server("http://localhost:8001"));
-        assert!(is_local_server("http://127.0.0.1:8001"));
-        assert!(is_local_server("http://[::1]:8001"));
+    fn explicit_remote_text_server_constructs_content_transport() {
+        assert_eq!(
+            ServerTarget::parse_explicit("https://worker.example.org", ReleasedCommand::Morphotag)
+                .unwrap()
+                .transport
+                .0,
+            ServerTransportKind::Content
+        );
     }
 
     #[test]
-    fn remote_hosts_are_not_local() {
-        assert!(!is_local_server("http://server-01:8001"));
-        assert!(!is_local_server("http://worker-machine:8001"));
-        assert!(!is_local_server("http://192.168.1.100:8001"));
-        assert!(!is_local_server("http://talkbank.org:8001"));
+    fn explicit_server_url_with_userinfo_is_refused_not_misclassified() {
+        assert!(
+            ServerTarget::parse_explicit(
+                "http://localhost:8001@worker.example.org",
+                ReleasedCommand::Morphotag
+            )
+            .is_err()
+        );
     }
 
-    /// Every released command must advertise the expected paths-mode
-    /// eligibility. Driven off `ReleasedCommand::ALL` so a new variant
-    /// forces an explicit decision via `CONTENT_ONLY_COMMANDS` rather
-    /// than silently inheriting the default.
     #[test]
-    fn every_released_command_advertises_expected_paths_mode_eligibility() {
-        for command in ReleasedCommand::ALL {
-            assert_eq!(
-                released_command_supports_paths_mode(command),
-                expected_supports_paths_mode(command),
-                "{command:?} paths-mode eligibility diverged from the allowlist"
-            );
-        }
+    fn shared_filesystem_target_refuses_a_remote_origin() {
+        assert!(ServerTarget::parse_shared_filesystem("https://worker.example.org").is_err());
     }
 }

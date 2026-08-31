@@ -11,6 +11,17 @@ from transformers import AutoTokenizer, BertForTokenClassification
 from batchalign.inference._domain_types import LanguageCode
 from batchalign.models.resolve import resolve
 from batchalign.models.utterance.dataset import BOUNDARIES
+from batchalign.models.utterance.evidence import (
+    BoundaryAction,
+    BoundaryAdjacencyPolicy,
+    BoundaryProbability,
+    ClassifiedBoundaryEvidence,
+    ModelShortCircuit,
+    NormalizationOmission,
+    NormalizedBoundaryEvidence,
+    UtteranceBoundaryPrediction,
+    apply_boundary_adjacency_policy,
+)
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 _STRIP_PUNCT_RE = re.compile(r"[.?!,]")
@@ -138,6 +149,10 @@ class BertUtteranceModel:
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = BertForTokenClassification.from_pretrained(model_name).to(DEVICE)
         self.model.eval()
+        raw_revision = getattr(self.model.config, "_commit_hash", None)
+        self.model_revision = (
+            raw_revision if isinstance(raw_revision, str) and raw_revision else None
+        )
 
     def predict_actions(self, words: Sequence[str]) -> list[int]:
         """Predict BA2-style token actions for one pretokenized word sequence.
@@ -147,34 +162,66 @@ class BertUtteranceModel:
         long inputs get classified across multiple overlapping windows
         with logit averaging at overlap positions before argmax.
         """
+        return [
+            action.label_index
+            for action in self.predict_boundary_evidence(words).applied_actions
+        ]
+
+    def predict_boundary_evidence(
+        self, words: Sequence[str]
+    ) -> UtteranceBoundaryPrediction:
+        """Return a complete typed prediction parallel to original words."""
+
         normalized_words, original_indices = _normalize_utterance_word_mapping(words)
         if len(normalized_words) <= 1:
-            return [0] * len(words)
+            normalized_index_set = set(original_indices)
+            return UtteranceBoundaryPrediction(
+                model_id=self.model_name,
+                model_revision=self.model_revision,
+                word_evidence=tuple(
+                    ModelShortCircuit()
+                    if original_index in normalized_index_set
+                    else NormalizationOmission()
+                    for original_index in range(len(words))
+                ),
+            )
 
-        raw_actions = self._predict_word_actions(normalized_words)
+        normalized_evidence = self._predict_normalized_evidence(normalized_words)
 
-        # Existing post-processing: drop the earlier of any two adjacent
-        # boundaries. Preserved verbatim from the prior implementation.
-        actions = raw_actions[:]
-        for word_idx, action in enumerate(raw_actions[:-1]):
-            if action > 0 and raw_actions[word_idx + 1] > 0:
-                actions[word_idx] = 0
+        # Existing post-processing drops the earlier of two adjacent non-zero
+        # labels. Evidence retains both the raw decision and applied result so
+        # this legacy policy can be evaluated independently of the model.
+        applied_actions = apply_boundary_adjacency_policy(
+            normalized_evidence,
+            BoundaryAdjacencyPolicy.SUPPRESS_EARLIER_ADJACENT_NONORDINARY_V1,
+        )
 
-        expanded_actions = [0] * len(words)
-        for normalized_index, original_index in enumerate(original_indices):
-            expanded_actions[original_index] = actions[normalized_index]
-        return expanded_actions
+        normalized_by_original_index = {
+            original_index: ClassifiedBoundaryEvidence(
+                raw_action=normalized_evidence[normalized_index].raw_action,
+                applied_action=applied_actions[normalized_index],
+                boundary_probability=normalized_evidence[
+                    normalized_index
+                ].boundary_probability,
+            )
+            for normalized_index, original_index in enumerate(original_indices)
+        }
+        return UtteranceBoundaryPrediction(
+            model_id=self.model_name,
+            model_revision=self.model_revision,
+            word_evidence=tuple(
+                normalized_by_original_index.get(
+                    original_index, NormalizationOmission()
+                )
+                for original_index in range(len(words))
+            ),
+        )
 
-    def _predict_word_actions(self, normalized_words: list[str]) -> list[int]:
-        """Return one action per normalized word.
+    def _predict_normalized_evidence(
+        self, normalized_words: list[str]
+    ) -> list[NormalizedBoundaryEvidence]:
+        """Return typed raw evidence for every normalized input word."""
 
-        For yue input, splits at sentence-final particles before
-        classification (matches BertCantoneseUtteranceModel's particle
-        pre-chunking). For all other languages, classifies the input as
-        a single sequence. Either way, the per-sequence path uses
-        sliding-window inference with logit averaging when the input
-        exceeds the model's position-embedding ceiling.
-        """
         if self.lang == "yue":
             ranges = _split_yue_at_particles(normalized_words)
             if len(ranges) > 1:
@@ -186,19 +233,20 @@ class BertUtteranceModel:
                 # the training distribution. Forcing chunk-boundary
                 # splits is a separate refinement we can layer on
                 # later if empirical evidence justifies it.
-                actions: list[int] = []
+                evidence: list[NormalizedBoundaryEvidence] = []
                 for start, end in ranges:
                     chunk_words = normalized_words[start:end]
-                    actions.extend(self._classify_chunk(chunk_words))
-                return actions
+                    evidence.extend(self._classify_chunk_evidence(chunk_words))
+                return evidence
             # Single chunk (no particles found, or all chunked into
             # one): fall through to the standard path.
-        return self._classify_chunk(normalized_words)
+        return self._classify_chunk_evidence(normalized_words)
 
-    def _classify_chunk(self, normalized_words: list[str]) -> list[int]:
-        """Classify a single chunk: tokenize, sliding-window inference,
-        per-word action reduction.
-        """
+    def _classify_chunk_evidence(
+        self, normalized_words: list[str]
+    ) -> list[NormalizedBoundaryEvidence]:
+        """Classify one normalized chunk and retain boundary probabilities."""
+
         # Tokenize without special tokens so we can manage [CLS]/[SEP]
         # per window. word_ids(0) returns one entry per WordPiece token.
         full_encoding = self.tokenizer(
@@ -287,25 +335,44 @@ class BertUtteranceModel:
         # Map per-token actions back to per-word actions, taking the
         # action of the first WordPiece token of each word. Matches the
         # prior implementation's per-word reduction.
-        raw_actions: list[int] = [0] * n_words
+        raw_actions = [BoundaryAction.ORDINARY] * n_words
+        boundary_probabilities = [BoundaryProbability.from_float(0.0)] * n_words
         previous_word_idx: int | None = None
         for token_idx, word_idx in enumerate(full_word_ids):
             if word_idx is None or word_idx == previous_word_idx:
                 continue
             previous_word_idx = word_idx
-            raw_actions[word_idx] = token_actions[token_idx]
+            raw_actions[word_idx] = BoundaryAction.from_label_index(
+                token_actions[token_idx]
+            )
+            probabilities = torch.softmax(averaged[token_idx], dim=0)
+            boundary_probability = float(probabilities[BOUNDARIES].sum().item())
+            boundary_probabilities[word_idx] = BoundaryProbability.from_float(
+                boundary_probability
+            )
 
-        return raw_actions
+        return [
+            NormalizedBoundaryEvidence(
+                raw_action=raw_action,
+                boundary_probability=boundary_probability,
+            )
+            for raw_action, boundary_probability in zip(
+                raw_actions, boundary_probabilities, strict=True
+            )
+        ]
 
     def predict_assignments(self, words: Sequence[str]) -> list[int]:
         """Predict typed utterance-group assignments for one word sequence."""
-        if len(words) <= 1:
-            return [0] * len(words)
-        actions = self.predict_actions(words)
-        assignments: list[int] = []
-        current_group = 0
-        for action in actions:
-            assignments.append(current_group)
-            if action in BOUNDARIES:
-                current_group += 1
-        return assignments
+        return list(self.predict_boundary_evidence(words).assignments)
+
+
+__all__ = [
+    "BertUtteranceModel",
+    "BoundaryAction",
+    "ClassifiedBoundaryEvidence",
+    "ModelShortCircuit",
+    "NormalizationOmission",
+    "UtteranceBoundaryPrediction",
+    "normalize_utterance_words",
+    "resolve_utterance_model",
+]

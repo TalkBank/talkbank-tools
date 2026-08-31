@@ -40,11 +40,15 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use talkbank_model::Span;
 use talkbank_model::alignment::helpers::TierDomain;
+use talkbank_model::alignment::{
+    WorTimingBinding, WorTimingCorrespondence, WorTimingSequence, assess_wor_timing_sequence,
+    bind_wor_timing, corroborate_wor_timing,
+};
 use talkbank_model::model::ChatFileLines;
 use talkbank_model::model::dependent_tier::wor::WorItem;
 use talkbank_model::model::{
-    ChatFile, DependentTier, Line, MainTier, Retrace, Terminator, Utterance, UtteranceContent,
-    WorTier,
+    Bullet, ChatFile, DependentTier, Line, MainTier, Retrace, Terminator, Utterance,
+    UtteranceContent, WorTier,
 };
 
 use crate::extract;
@@ -141,7 +145,7 @@ pub enum UtsegNotApplicableReason {
 }
 
 impl UtsegNotApplicableReason {
-    /// Short label for `%xalign` tier output.
+    /// Stable label for tracing and structured decision evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::SingleWord => "single_word",
@@ -164,9 +168,8 @@ pub struct UtsegMisalignmentDiagnostic {
 
 impl UtsegOutcome {
     /// Convert into a [`DecisionRecord`](crate::decisions::DecisionRecord)
-    /// for surfacing via the `%xalign` tier. Aligned outcomes return
-    /// `None` for the same reason as `MorOutcome`: happy-path
-    /// utterances shouldn't flood the reporting tier.
+    /// for tracing and structured evidence. Aligned outcomes return `None`:
+    /// happy-path utterances should not flood the reporting surface.
     pub fn to_decision_record(&self, line_idx: usize) -> Option<crate::decisions::DecisionRecord> {
         use crate::decisions::{DecisionRecord, DecisionStrategy, UtsegStrategy};
         match &self.kind {
@@ -504,26 +507,51 @@ fn policy_for_tier(tier: &DependentTier) -> TierSplitPolicy {
 /// Build a per-child `%wor` from the parent tier by walking main-tier words
 /// in lockstep with `%wor` Word-items.
 ///
-/// Returns `None` if positional counts mismatch (stale `%wor` from prior
-/// edits, or main-tier token policy drift). On `None`, the caller drops the
-/// tier from all children, matching the existing stale-`%wor`-is-fine
-/// behavior, never raising a validation error.
+/// Returns `None` unless chatter proves both equal policy-selected counts and
+/// canonical lexical correspondence. On `None`, the caller drops the tier
+/// from all children, matching the existing stale-`%wor`-is-fine behavior,
+/// never raising a validation error.
 ///
 /// `main_word_groups` is the per-main-tier-word child-group assignment, in
 /// main-tier word order, restricted to `%wor`-eligible words (the same
 /// filtering `TierDomain::Wor` uses: untranscribed, fragments, and nonwords
 /// are excluded; fillers are included).
 fn partition_wor_tier(
+    main: &MainTier,
     parent: &WorTier,
     main_word_groups: &[usize],
     num_groups: usize,
-) -> Option<Vec<WorTier>> {
-    let parent_word_count = parent.word_count();
-    if parent_word_count != main_word_groups.len() {
+) -> Option<PartitionedWorTiers> {
+    let count_matched = match bind_wor_timing(main, Some(parent)) {
+        WorTimingBinding::CountMatched(count_matched) => count_matched,
+        WorTimingBinding::Drifted(drift) => {
+            tracing::debug!(
+                parent_wor_words = drift.wor_count().get(),
+                main_eligible_words = drift.main_count().get(),
+                "%wor count mismatch on split, dropping tier (stale %wor expected after prior edits)"
+            );
+            return None;
+        }
+        WorTimingBinding::Missing(_) => {
+            tracing::debug!("%wor binding unexpectedly reported a missing tier during split");
+            return None;
+        }
+    };
+    let corroborated = match corroborate_wor_timing(count_matched) {
+        WorTimingCorrespondence::Corroborated(corroborated) => corroborated,
+        WorTimingCorrespondence::Uncorroborated(uncorroborated) => {
+            tracing::debug!(
+                lexical_mismatches = uncorroborated.mismatches().len(),
+                "%wor lexical mismatch on split, dropping stale timing tier"
+            );
+            return None;
+        }
+    };
+    if corroborated.slots().len() != main_word_groups.len() {
         tracing::debug!(
-            parent_wor_words = parent_word_count,
-            main_eligible_words = main_word_groups.len(),
-            "%wor count mismatch on split, dropping tier (stale %wor expected after prior edits)"
+            chatter_projection_words = corroborated.slots().len(),
+            batchalign_projection_words = main_word_groups.len(),
+            "%wor membership implementations disagree on split, dropping timing tier"
         );
         return None;
     }
@@ -553,18 +581,101 @@ fn partition_wor_tier(
     // Build a WorTier for each child. Children with empty item lists get an
     // empty WorTier; the caller filters those out (we don't emit empty
     // `%wor:` tiers).
-    Some(
+    Some(PartitionedWorTiers(
         per_child
             .into_iter()
-            .map(|items| WorTier {
-                language_code: parent.language_code.clone(),
-                items,
-                terminator: parent.terminator.clone(),
-                bullet: parent.bullet.clone(),
-                span: Span::DUMMY,
+            .map(|items| {
+                WorTier::new(items)
+                    .with_language_code(parent.language_code.clone())
+                    .with_span(Span::DUMMY)
             })
             .collect(),
-    )
+    ))
+}
+
+/// Per-child `%wor` tiers admitted by count and lexical corroboration.
+///
+/// The inner vector stays private so split code cannot accidentally treat an
+/// uncorroborated positional partition as reusable timing evidence.
+struct PartitionedWorTiers(Vec<WorTier>);
+
+impl PartitionedWorTiers {
+    fn get(&self, group_idx: usize) -> Option<&WorTier> {
+        self.0.get(group_idx)
+    }
+}
+
+/// Complete child timing rederived from the partitioned `%wor` evidence.
+///
+/// Construction is private to [`split_main_timing_evidence`], which produces
+/// exactly one bullet for every kept child or refuses this state entirely.
+struct CompletePerChildMainTiming {
+    bullets: Vec<Bullet>,
+}
+
+/// The conservative fallback when complete word timing is unavailable.
+struct ParentOnlyMainTiming {
+    bullet: Option<Bullet>,
+}
+
+/// Mutually exclusive timing evidence available after an utterance split.
+enum SplitMainTimingEvidence {
+    CompletePerChild(CompletePerChildMainTiming),
+    ParentOnly(ParentOnlyMainTiming),
+}
+
+/// Derive one enclosing hull only when every `%wor` word is timed.
+///
+/// A partial tier cannot claim the full child span, so one missing word bullet
+/// makes this return `None` and selects the parent-only fallback for the whole
+/// split. Min/max is intentional: it encloses all admitted word spans even if
+/// their serialized order contains a local timing inversion.
+fn complete_wor_timing_hull(main: &MainTier, wor: &WorTier) -> Option<Bullet> {
+    let count_matched = match bind_wor_timing(main, Some(wor)) {
+        WorTimingBinding::CountMatched(count_matched) => count_matched,
+        WorTimingBinding::Missing(_) | WorTimingBinding::Drifted(_) => return None,
+    };
+    let corroborated = match corroborate_wor_timing(count_matched) {
+        WorTimingCorrespondence::Corroborated(corroborated) => corroborated,
+        WorTimingCorrespondence::Uncorroborated(_) => return None,
+    };
+    let complete = match assess_wor_timing_sequence(corroborated) {
+        WorTimingSequence::Complete(complete) => complete,
+        WorTimingSequence::Empty(_) | WorTimingSequence::Rejected(_) => return None,
+    };
+    let hull = complete.hull();
+    Some(Bullet::new(hull.start().get(), hull.end().get()))
+}
+
+fn split_main_timing_evidence(
+    partitioned_wor: Option<&PartitionedWorTiers>,
+    children: &[(usize, Utterance)],
+    parent_bullet: Option<Bullet>,
+) -> SplitMainTimingEvidence {
+    let Some(per_group) = partitioned_wor else {
+        return SplitMainTimingEvidence::ParentOnly(ParentOnlyMainTiming {
+            bullet: parent_bullet,
+        });
+    };
+    let Some(bullets) = children
+        .iter()
+        .map(|(group_idx, child)| {
+            per_group
+                .get(*group_idx)
+                .and_then(|wor| complete_wor_timing_hull(&child.main, wor))
+        })
+        .collect::<Option<Vec<_>>>()
+    else {
+        return SplitMainTimingEvidence::ParentOnly(ParentOnlyMainTiming {
+            bullet: parent_bullet,
+        });
+    };
+    if bullets.is_empty() {
+        return SplitMainTimingEvidence::ParentOnly(ParentOnlyMainTiming {
+            bullet: parent_bullet,
+        });
+    }
+    SplitMainTimingEvidence::CompletePerChild(CompletePerChildMainTiming { bullets })
 }
 
 /// The retrace this content node is, in EITHER spelling, or `None`.
@@ -725,11 +836,10 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     }
 
     let speaker = &utt.main.speaker;
-    // Capture the parent's main-tier bullet before consuming `utt`. We
-    // re-attach it to the LAST child below so the original utterance's
-    // end-of-span timing anchor is preserved across the split, without
-    // this, every split utterance loses its `_NNN` bullet and any
-    // `@Media` linkage assertion the file relied on.
+    // Capture the parent's main-tier bullet before consuming `utt`. Complete
+    // partitioned `%wor` evidence supersedes it with one exact hull per child;
+    // otherwise the conservative fallback keeps this parent span on the last
+    // child only.
     let parent_bullet = utt.main.content.bullet.clone();
 
     // Capture the rest of the parent's main-tier metadata so each child
@@ -743,11 +853,11 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     let parent_main_span = utt.main.span;
     let parent_speaker_span = utt.main.speaker_span;
 
-    // Compute per-child %wor item lists if the parent has a Wor tier and
-    // counts align with main-tier wor-eligible words. None means either
-    // no Wor tier was present or counts mismatched (graceful drop).
+    // Compute per-child %wor item lists only when the parent tier is count-
+    // matched and lexically corroborated against the typed main tier. None
+    // means absent or stale evidence (graceful drop).
     let num_groups = max_group + 1;
-    let partitioned_wor: Option<Vec<WorTier>> = utt
+    let partitioned_wor = utt
         .dependent_tiers
         .iter()
         // A search for one tier, not a policy over all of them, so the
@@ -760,10 +870,12 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
             let DependentTier::Wor(wor) = &tier.tier else {
                 return None;
             };
-            let main_groups = wor_eligible_word_groups(content_items, &content_item_group);
-            Some(partition_wor_tier(wor, &main_groups, num_groups))
+            Some(wor)
         })
-        .flatten();
+        .and_then(|wor| {
+            let main_groups = wor_eligible_word_groups(content_items, &content_item_group);
+            partition_wor_tier(&utt.main, wor, &main_groups, num_groups)
+        });
 
     // Track (original_group_idx, utterance) so we can later look up the
     // partitioned %wor for each kept child even after empty/all-separator
@@ -815,35 +927,13 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
         return vec![utt];
     }
 
+    let main_timing = split_main_timing_evidence(partitioned_wor.as_ref(), &result, parent_bullet);
+
     // Per-tier policy. Walk the parent's dependent tiers once, dispatching
     // each to its policy. `partitioned_wor` (if Some) is the precomputed
     // per-group payload; AttachFirst tiers go to result[0]; Drop tiers
     // produce no output.
     let parent_dep_tiers = utt.dependent_tiers.clone();
-    let mut wor_index: Option<usize> = None;
-    for (i, tier) in parent_dep_tiers.iter().enumerate() {
-        if matches!(tier.tier, DependentTier::Wor(_)) {
-            wor_index = Some(i);
-            break;
-        }
-    }
-
-    // Attach partitioned %wor to each child whose group has any items.
-    if let Some(wor_idx) = wor_index
-        && let Some(per_group) = partitioned_wor
-    {
-        let _ = wor_idx; // kept for symmetry / future re-ordering needs
-        for (group_idx, child) in result.iter_mut() {
-            if let Some(child_wor) = per_group.get(*group_idx)
-                && !child_wor.items.is_empty()
-            {
-                child
-                    .dependent_tiers
-                    .push(DependentTier::Wor(child_wor.clone()).into());
-            }
-        }
-    }
-
     if let Some((_, first_child)) = result.first_mut() {
         for tier in &parent_dep_tiers {
             if matches!(policy_for_tier(&tier.tier), TierSplitPolicy::AttachFirst) {
@@ -875,14 +965,38 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
         }
     }
 
-    // Re-attach the parent's main-tier bullet to the LAST child. The parent's
-    // end_ms correctly describes the last child's end timestamp; we make no
-    // fabricated claim about non-last children. F2 (proportional UTR hints
-    // across all children) is a future refinement.
-    if let Some(bullet) = parent_bullet
-        && let Some((_, last)) = result.last_mut()
-    {
-        last.main.content.bullet = Some(bullet);
+    // Attach partitioned %wor after child main-tier terminators are final, so
+    // the dependent tier cannot retain the parent's terminator on an earlier
+    // child or retain the default period on the last child.
+    if let Some(per_group) = partitioned_wor {
+        for (group_idx, child) in result.iter_mut() {
+            if let Some(child_wor) = per_group.get(*group_idx)
+                && !child_wor.items.is_empty()
+            {
+                let child_wor = child_wor
+                    .clone()
+                    .with_terminator(child.main.content.terminator.clone());
+                child
+                    .dependent_tiers
+                    .push(DependentTier::Wor(child_wor).into());
+            }
+        }
+    }
+
+    match main_timing {
+        SplitMainTimingEvidence::CompletePerChild(CompletePerChildMainTiming { bullets }) => {
+            debug_assert_eq!(bullets.len(), result.len());
+            for ((_, child), bullet) in result.iter_mut().zip(bullets) {
+                child.main.content.bullet = Some(bullet);
+            }
+        }
+        SplitMainTimingEvidence::ParentOnly(ParentOnlyMainTiming { bullet }) => {
+            if let Some(bullet) = bullet
+                && let Some((_, last)) = result.last_mut()
+            {
+                last.main.content.bullet = Some(bullet);
+            }
+        }
     }
 
     result.into_iter().map(|(_, u)| u).collect()
@@ -1274,6 +1388,106 @@ mod tests {
         );
     }
 
+    /// A partitioned `%wor` tier describes its child main tier, including the
+    /// terminator. Earlier children use the splitter's period; only the final
+    /// child inherits the parent's question mark.
+    #[test]
+    fn utseg_split_keeps_child_wor_terminators_in_sync_with_main_tiers() {
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
+            @Participants:\tCHI Child\n\
+            @ID:\teng|test|CHI|||||Child|||\n\
+            *CHI:\tI eat the cookies ?\n\
+            %wor:\tI eat the cookies ?\n\
+            @End\n";
+        let chat = parse_chat(chat_text);
+        let parent = get_utterance(&chat, 0).clone();
+
+        let result = split_utterance(parent, &[0, 0, 1, 1]);
+        assert_eq!(result.len(), 2);
+
+        for (i, child) in result.iter().enumerate() {
+            let child_wor = child
+                .dependent_tiers
+                .iter()
+                .find_map(|tier| match &tier.tier {
+                    DependentTier::Wor(wor) => Some(wor),
+                    _ => None,
+                })
+                .expect("each child must retain its corroborated %wor partition");
+            assert_eq!(
+                child_wor.terminator, child.main.content.terminator,
+                "child {i} main and %wor terminators must describe the same utterance"
+            );
+        }
+    }
+
+    /// When a complete `%wor` tier is partitioned, its word bullets are
+    /// stronger timing evidence than the enclosing parent main-tier bullet.
+    /// Every child must receive the exact hull of its own timed words.
+    #[test]
+    fn utseg_split_derives_each_child_main_bullet_from_partitioned_wor() {
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
+            @Participants:\tPAR Participant\n\
+            @ID:\teng|test|PAR|||||Participant|||\n\
+            *PAR:\tDepartment store almost anniversary . \u{15}24000_30000\u{15}\n\
+            %wor:\tDepartment \u{15}24275_24945\u{15} store \u{15}24945_25265\u{15} \
+            almost \u{15}25265_25585\u{15} anniversary \u{15}27455_28145\u{15} .\n\
+            @End\n";
+        let chat = parse_chat(chat_text);
+        let parent = get_utterance(&chat, 0).clone();
+
+        let result = split_utterance(parent, &[0, 0, 1, 1]);
+
+        assert_eq!(result.len(), 2);
+        let first = result[0]
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("complete child %wor timing must produce a main bullet");
+        assert_eq!(first.timing.start_ms, 24_275);
+        assert_eq!(first.timing.end_ms, 25_265);
+        let second = result[1]
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("complete child %wor timing must produce a main bullet");
+        assert_eq!(second.timing.start_ms, 25_265);
+        assert_eq!(second.timing.end_ms, 28_145);
+    }
+
+    /// A single missing `%wor` timing keeps the split out of the complete
+    /// per-child state. Do not mix exact child hulls with guessed spans.
+    #[test]
+    fn utseg_split_uses_parent_only_when_partitioned_wor_timing_is_incomplete() {
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
+            @Participants:\tPAR Participant\n\
+            @ID:\teng|test|PAR|||||Participant|||\n\
+            *PAR:\tDepartment store almost anniversary . \u{15}24000_30000\u{15}\n\
+            %wor:\tDepartment \u{15}24275_24945\u{15} store \u{15}24945_25265\u{15} \
+            almost anniversary \u{15}27455_28145\u{15} .\n\
+            @End\n";
+        let chat = parse_chat(chat_text);
+        let parent = get_utterance(&chat, 0).clone();
+
+        let result = split_utterance(parent, &[0, 0, 1, 1]);
+
+        assert_eq!(result.len(), 2);
+        assert!(
+            result[0].main.content.bullet.is_none(),
+            "partial timing must not create a first-child hull"
+        );
+        let fallback = result[1]
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("parent-only fallback must preserve the enclosing anchor");
+        assert_eq!(fallback.timing.start_ms, 24_000);
+        assert_eq!(fallback.timing.end_ms, 30_000);
+    }
+
     /// %wor partitioning falls back to dropping the tier when item counts
     /// don't match main-tier eligible-word counts (stale %wor). No panic,
     /// no validation error: silent drop matches the rename's intent that
@@ -1303,6 +1517,48 @@ mod tests {
                 "child {i} should not carry %wor when parent counts mismatched (graceful drop)"
             );
         }
+    }
+
+    /// Equal word counts are not enough to prove that a `%wor` tier still
+    /// describes its main tier. A same-count edit must invalidate the timing
+    /// evidence rather than assigning another word's times to a child.
+    #[test]
+    fn utseg_split_drops_wor_on_lexical_mismatch() {
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
+            @Participants:\tCHI Child\n\
+            @ID:\teng|test|CHI|||||Child|||\n\
+            *CHI:\tI eat the cookies . \u{15}0_4000\u{15}\n\
+            %wor:\tI \u{15}0_500\u{15} eat \u{15}500_1500\u{15} a \u{15}1500_2200\u{15} \
+            cookie \u{15}2200_4000\u{15} .\n\
+            @End\n";
+        let chat = parse_chat(chat_text);
+        let parent = get_utterance(&chat, 0).clone();
+
+        let result = split_utterance(parent, &[0, 0, 1, 1]);
+        assert_eq!(result.len(), 2);
+
+        for (i, child) in result.iter().enumerate() {
+            let has_wor = child
+                .dependent_tiers
+                .iter()
+                .any(|tier| matches!(tier.tier, DependentTier::Wor(_)));
+            assert!(
+                !has_wor,
+                "child {i} must not inherit timing from a lexically stale %wor tier"
+            );
+        }
+        assert!(
+            result[0].main.content.bullet.is_none(),
+            "stale word timing cannot establish a first-child hull"
+        );
+        let fallback = result[1]
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .expect("the last child must preserve the parent timing fallback");
+        assert_eq!(fallback.timing.start_ms, 0);
+        assert_eq!(fallback.timing.end_ms, 4_000);
     }
 
     /// %mor and %gra are dropped on split. Their analysis depends on

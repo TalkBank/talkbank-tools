@@ -7,7 +7,52 @@ use talkbank_model::model::{Bullet, Utterance, Word};
 
 use super::origin::Origin;
 
-use super::WordTiming;
+use super::{ModelAlignmentScore, WordTiming};
+
+/// Whether every part of a merged CHAT word supplied a model score.
+///
+/// A plain `(sum, count)` can accidentally average only the scored subset.
+/// Once one part is missing, this state cannot return to `Complete`, so a
+/// compound score exists only when it honestly describes every aligned part.
+enum MergedScore {
+    Complete {
+        weighted_millionths: u128,
+        duration_ms: u128,
+    },
+    Missing,
+}
+
+impl MergedScore {
+    fn add(self, timing: &WordTiming) -> Self {
+        match (self, timing.model_score()) {
+            (
+                Self::Complete {
+                    weighted_millionths,
+                    duration_ms,
+                },
+                Some(score),
+            ) => {
+                let duration = u128::from(timing.duration_ms());
+                Self::Complete {
+                    weighted_millionths: weighted_millionths
+                        + u128::from(score.millionths()) * duration,
+                    duration_ms: duration_ms + duration,
+                }
+            }
+            _ => Self::Missing,
+        }
+    }
+
+    fn finish(self) -> Option<ModelAlignmentScore> {
+        match self {
+            Self::Complete {
+                weighted_millionths,
+                duration_ms,
+            } => ModelAlignmentScore::from_weighted_millionths(weighted_millionths, duration_ms),
+            Self::Missing => None,
+        }
+    }
+}
 
 /// Read cursor into a flat array of word timings for an FA group.
 ///
@@ -165,11 +210,18 @@ fn inject_timing_on_word(word: &mut Word, cursor: &mut TimingCursor<'_>) -> Opti
     let mut min_start: Option<u64> = None;
     let mut max_end: Option<u64> = None;
     let mut merged = 0usize;
+    let mut merged_score = MergedScore::Complete {
+        weighted_millionths: 0,
+        duration_ms: 0,
+    };
     for _ in 0..parts {
         if let Some(t) = cursor.take() {
             min_start = Some(min_start.map_or(t.start_ms, |s: u64| s.min(t.start_ms)));
             max_end = Some(max_end.map_or(t.end_ms, |e: u64| e.max(t.end_ms)));
             merged += 1;
+            merged_score = merged_score.add(t);
+        } else {
+            merged_score = MergedScore::Missing;
         }
     }
     let (start, end) = (min_start?, max_end?);
@@ -180,6 +232,10 @@ fn inject_timing_on_word(word: &mut Word, cursor: &mut TimingCursor<'_>) -> Opti
         Origin::MergedFromParts { parts: merged },
         Origin::MergedFromParts { parts: merged },
     )
+    .map(|timing| match merged_score.finish() {
+        Some(score) => timing.with_model_score(score),
+        None => timing,
+    })
 }
 
 /// Return the number of FA words this CHAT word was split into during extraction.

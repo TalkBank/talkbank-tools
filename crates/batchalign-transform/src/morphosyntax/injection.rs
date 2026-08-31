@@ -450,8 +450,8 @@ pub fn inject_results(
                 ) {
                     // File-level absorption: convert the typed diagnostic
                     // to a MorOutcome::MisalignmentBug, emit its
-                    // DecisionRecord, continue. The diagnostic is loud
-                    // because it surfaces through `%xalign`; never silent.
+                    // DecisionRecord, trace it, and continue. The diagnostic
+                    // is loud rather than silently absorbed.
                     let enriched =
                         enrich_diagnostic(diag, &tokens, RetokenizationContext::StanzaRetokenize);
                     let outcome = MorOutcome {
@@ -462,7 +462,7 @@ pub fn inject_results(
                     if let Some(mut record) = outcome.to_decision_record() {
                         // Retokenization-path failures share the
                         // MisalignmentBug outcome class but have their
-                        // own strategy label for %xalign output.
+                        // own stable strategy label in evidence.
                         record.strategy = DecisionStrategy::Morphosyntax(
                             MorphosyntaxStrategy::RetokenizationFailed,
                         );

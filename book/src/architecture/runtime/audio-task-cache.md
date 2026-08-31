@@ -1,7 +1,7 @@
 # Audio-Task Cache
 
 **Status:** Current
-**Last updated:** 2026-08-28 19:15 EDT
+**Last updated:** 2026-08-30 19:59 EDT
 
 Batchalign caches **audio-task results** (forced alignment, UTR ASR, raw Rev
 transcript evidence, dedicated transcribe speaker evidence, and media
@@ -71,9 +71,49 @@ every real scenario in the second bucket.
    on a corpus where only a few files changed gives near-100% hit
    rate for unchanged audio.
 
+## Forced-alignment evidence and projection
+
+Forced alignment has two cache layers for each semantic group key. They serve
+different purposes and are deliberately not interchangeable:
+
+- `forced_alignment_raw_evidence` stores the admitted worker-protocol response,
+  including requested/effective engine and fallback route. It is immutable
+  model evidence.
+- `forced_alignment` stores the locally projected `WordTiming` vector. It is a
+  faster compatibility fallback, not the source of truth when raw evidence is
+  available.
+
+Normal reads prefer raw evidence and run it through the current Rust timing
+projection. This makes changes to containment, token/word reconciliation,
+score handling, or evidence summaries testable without repeating model
+inference. If raw evidence is absent or corrupt, BA3 may admit the derived
+vector instead. Only a miss at both layers can become an inference request, and
+`--require-media-cache` prevents that miss from obtaining dispatch authority.
+
+```mermaid
+stateDiagram-v2
+    [*] --> CurrentGroup
+    CurrentGroup --> WorReuse: complete corroborated %wor
+    CurrentGroup --> RawCandidate: otherwise
+    RawCandidate --> RawReplay: admitted
+    RawCandidate --> DerivedCandidate: absent or refused
+    DerivedCandidate --> DerivedReuse: admitted
+    DerivedCandidate --> CacheMiss: absent or refused
+    CacheMiss --> AuthorizedInference: UseCache / SkipCache
+    CacheMiss --> Refused: RequireCache
+    AuthorizedInference --> RawCommitted: successful worker evidence
+    RawCommitted --> DerivedCommitted: current projection
+    WorReuse --> CurrentChatLogic
+    RawReplay --> CurrentChatLogic
+    DerivedReuse --> CurrentChatLogic
+    DerivedCommitted --> CurrentChatLogic
+    Refused --> [*]
+    CurrentChatLogic --> [*]
+```
+
 ## Tiered Cache Architecture
 
-`crates/batchalign/src/cache/` stores per-utterance audio results so
+`crates/batchalign/src/cache/` stores keyed audio-task results so
 that re-processing a corpus skips utterances whose results are
 already known.
 
@@ -360,17 +400,33 @@ flowchart LR
     lookup -->|missing| miss[SpeakerEvidenceMiss]
     lookup -->|corrupt/invalid| fail[Fail closed; no service call]
     miss --> auth[SpeakerInferenceAuthorization]
-    auth --> service[SpeakerEvidenceInference]
+    auth --> split[Consume authorization]
+    split --> run[AuthorizedSpeakerEvidenceRun]
+    split --> permit[SpeakerEvidenceCommitPermit]
+    run -->|consumed| service[SpeakerEvidenceInference]
     service --> validate[Validate returned segments]
-    validate --> commit[Required durable commit]
+    validate --> permit
+    permit --> commit[Required durable commit]
     commit --> fresh[ValidatedSpeakerEvidence]
 ```
 
-The fields of `SpeakerEvidenceMiss`, `SpeakerInferenceAuthorization`, and
-`SpeakerEvidenceModelRevision` are private. Raw V2 worker inference is private
-behind `SpeakerWorkerInference`. Consequently, the production transcribe
-pipeline cannot construct permission to call the service without consuming a
-real miss (or an explicit forced-refresh miss).
+The fields of `SpeakerEvidenceMiss`, `SpeakerInferenceAuthorization`,
+`AuthorizedSpeakerEvidenceRun`, `SpeakerEvidenceCommitPermit`, and
+`SpeakerEvidenceModelRevision` are private. Consuming an authorization splits
+it into exactly one run capability and one commit permit. The raw V2 worker
+trait accepts the run by value, so an adapter cannot use one cache miss for two
+paid calls. Raw V2 worker inference is also private behind
+`SpeakerWorkerInference`. Consequently, the production transcribe pipeline
+cannot construct permission to call the service without consuming a real miss
+(or an explicit forced-refresh miss), and it cannot reuse that permission.
+
+The run does not borrow a separately assembled worker request. It owns the
+source path and digest, backend, and expected-speaker count copied from the
+cache request. After authorization, the resolver rereads and verifies the
+source bytes. Only the resulting `VerifiedSpeakerEvidenceRun` can cross the
+worker trait. Rust transcodes those owned bytes through a private temporary
+source, so mutation or replacement of the original path cannot make inference
+consume bytes different from those used for the cache decision.
 
 The process-local per-key lease spans lookup, inference, validation, and
 commit. Concurrent identical requests cannot both observe a miss: followers
@@ -410,6 +466,24 @@ projection or ASR post-processing can therefore replay raw Rev evidence
 without another provider call. Validation rejects negative speaker indices,
 non-finite/negative timings, reversed intervals, and out-of-range confidence.
 Corruption and commit failures are fatal, not misses.
+
+```mermaid
+flowchart LR
+    R["RevAsrEvidenceRequest"] --> L["Acquire per-key inference lease"]
+    L --> K{"Validated durable lookup"}
+    K -->|"hit"| C["CompletedRevAsrEvidence"]
+    K -->|"missing"| M["RevAsrEvidenceMiss"]
+    K -->|"corrupt"| F["Fail closed"]
+    M --> A["RevAsrInferenceAuthorization"]
+    A --> P["Language ID / submit / poll"]
+    P --> V{"Validate provider evidence"}
+    V -->|"invalid"| F
+    V -->|"valid"| D["Required durable commit"]
+    D -->|"commit failure"| F
+    D -->|"committed"| C
+    C --> O["Deterministic local projection"]
+    O --> T["ASR or UTR timed words"]
+```
 
 Rev-backed `align` UTR uses the same resolver before projecting timed words.
 Its older normalized `utr_asr` entry remains a faster derived-result cache, but

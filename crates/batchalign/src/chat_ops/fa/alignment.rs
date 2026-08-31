@@ -5,7 +5,7 @@ use crate::chat_ops::nlp::{FaIndexedTiming, FaRawResponse, FaRawToken};
 use super::coordinates::{Clamped, FaWindow, Ms, OutsideWindow, RecordedInstant, WindowMs};
 use super::origin::EngineId;
 use super::timing::{SpanFault, SpanRejections, WordSpan};
-use super::{FaWord, LAST_WORD_FALLBACK_MS, WordTiming};
+use super::{FaWord, LAST_WORD_FALLBACK_MS, ModelAlignmentScore, WordTiming};
 
 /// Typed error returned by [`parse_fa_response`].
 ///
@@ -116,6 +116,11 @@ fn apply_indexed_timings(
         let Some(timing) = maybe_timing else {
             continue;
         };
+        let model_score = timing.confidence.and_then(|score| {
+            ModelAlignmentScore::try_from_f64(score)
+                .map_err(|_| discarded.record_invalid_model_score())
+                .ok()
+        });
         // A word-interval engine reports both ends, so this is the model's own
         // answer, in the coordinates of the audio it was handed. Both ends must
         // land inside that audio: half a span is not a span, so one end outside
@@ -140,6 +145,10 @@ fn apply_indexed_timings(
                         span.start().origin().clone(),
                         span.end().origin().clone(),
                     )
+                    .map(|timing| match model_score {
+                        Some(score) => timing.with_model_score(score),
+                        None => timing,
+                    })
                 }
                 Err(fault) => discarded.record_span_fault(fault),
             },
@@ -169,6 +178,11 @@ struct DiscardedTimings {
     /// what the engine said, and an operator reading one line wants all of them
     /// together.
     assumed_then_clamped: usize,
+    /// Model scores that were non-finite or outside the promised 0..=1 range.
+    ///
+    /// The interval remains usable: corrupt optional metadata is removed
+    /// rather than laundering it or discarding the independent measurement.
+    invalid_model_score: usize,
 }
 
 impl DiscardedTimings {
@@ -193,11 +207,15 @@ impl DiscardedTimings {
         }
     }
 
+    fn record_invalid_model_score(&mut self) {
+        self.invalid_model_score += 1;
+    }
+
     fn warn_if_any(&self, total: usize, engine: &EngineId, window: &FaWindow) {
         // One total decides whether anything is worth saying; the fields then
         // say what. Enumerating the ways "nothing happened" can be true is how
         // a new counter gets forgotten.
-        let notable = self.rejected.total() + self.assumed_then_clamped;
+        let notable = self.rejected.total() + self.assumed_then_clamped + self.invalid_model_score;
         if notable == 0 {
             return;
         }
@@ -218,6 +236,7 @@ impl DiscardedTimings {
             outside_window = self.rejected.outside_window,
             worst_overshoot_ms = self.rejected.worst_overshoot.0,
             assumed_then_clamped = self.assumed_then_clamped,
+            invalid_model_score = self.invalid_model_score,
             window_len_ms = window.len().0,
             total,
             %engine,

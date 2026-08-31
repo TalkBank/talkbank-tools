@@ -475,6 +475,13 @@ fn stage_postvalidate<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) 
 
 fn stage_serialize<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> StageFuture<'a> {
     Box::pin(async move {
+        {
+            let chat_file = ctx.chat_file.as_mut().ok_or_else(|| {
+                ServerError::Validation("Parsed chat missing before morphotag serialize".into())
+            })?;
+            batchalign_transform::decisions::strip_decision_tiers(chat_file);
+        }
+
         // CA pass-through: serialize as-is, no provenance, no
         // placeholder sweep. `is_no_align` is intentionally NOT
         // consulted; see `is_no_align` field doc. Unsupported-primary-
@@ -796,5 +803,37 @@ mod tests {
             output.contains("@Options:\tNoAlign"),
             "NoAlign directive must be preserved verbatim",
         );
+    }
+
+    #[tokio::test]
+    async fn ca_pass_through_strips_legacy_decision_tiers() {
+        let chat = "@UTF8\n\
+                    @PID:\t11312/c-test\n\
+                    @Begin\n\
+                    @Languages:\teng\n\
+                    @Participants:\tCHI Target_Child\n\
+                    @ID:\teng|test|CHI||female|||Target_Child|||\n\
+                    @Options:\tCA\n\
+                    *CHI:\thello .\n\
+                    %xalign:\tlegacy\n\
+                    %xrev:\t[?]\n\
+                    @End\n";
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let pool = WorkerPool::new(PoolConfig::default());
+        let engine_version = EngineVersion::from("test-morphotag");
+        let services = PipelineServices::new(&pool, &cache, &engine_version);
+
+        let lang = crate::api::LanguageCode3::eng();
+        let mwt = MwtDict::default();
+        let params = test_params(&lang, &mwt);
+        let output = run_morphosyntax_pipeline(chat, services, &params)
+            .await
+            .expect("CA input should remain a successful pass-through");
+
+        assert!(!output.contains("%xalign:"), "output: {output}");
+        assert!(!output.contains("%xrev:"), "output: {output}");
     }
 }

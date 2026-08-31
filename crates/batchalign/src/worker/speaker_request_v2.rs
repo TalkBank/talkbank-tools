@@ -56,16 +56,28 @@ impl PreparedSpeakerRequestIdsV2 {
 }
 
 /// Input bundle for the live speaker V2 request builder.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SpeakerBuildInputV2<'a> {
     /// Stable ids for the request and prepared audio.
     pub ids: &'a PreparedSpeakerRequestIdsV2,
-    /// Audio file to diarize.
-    pub audio_path: &'a Path,
+    /// Source admitted for canonical speaker-audio preparation.
+    pub audio: SpeakerAudioBuildSourceV2<'a>,
     /// Concrete V2 speaker backend selected by Rust.
     pub backend: SpeakerBackendV2,
     /// Expected number of speakers when known.
     pub expected_speakers: Option<NumSpeakers>,
+}
+
+/// Provenance state of media crossing the speaker request-builder boundary.
+#[derive(Debug)]
+pub enum SpeakerAudioBuildSourceV2<'a> {
+    /// Ordinary internal call whose source is still a filesystem path.
+    File(&'a Path),
+    /// In-memory source bytes whose provenance is owned by the caller.
+    ///
+    /// Ownership crosses this boundary so long recordings are not copied a
+    /// second time before canonical audio preparation.
+    Bytes(Vec<u8>),
 }
 
 /// Errors produced while building a live V2 speaker request.
@@ -85,13 +97,23 @@ pub async fn build_speaker_request_v2(
     store: &PreparedArtifactStoreV2,
     input: SpeakerBuildInputV2<'_>,
 ) -> Result<ExecuteRequestV2, SpeakerRequestBuildErrorV2> {
-    if input.audio_path.as_os_str().is_empty() {
+    if matches!(&input.audio, SpeakerAudioBuildSourceV2::File(path) if path.as_os_str().is_empty())
+    {
         return Err(SpeakerRequestBuildErrorV2::MissingAudioPath);
     }
 
-    let audio_attachment = store
-        .prepare_audio_file_f32le(&input.ids.audio_ref_id, input.audio_path)
-        .await?;
+    let audio_attachment = match input.audio {
+        SpeakerAudioBuildSourceV2::File(path) => {
+            store
+                .prepare_audio_file_f32le(&input.ids.audio_ref_id, path)
+                .await?
+        }
+        SpeakerAudioBuildSourceV2::Bytes(bytes) => {
+            store
+                .prepare_audio_bytes_f32le(&input.ids.audio_ref_id, bytes)
+                .await?
+        }
+    };
 
     Ok(ExecuteRequestV2 {
         request_id: input.ids.request_id.clone(),
@@ -133,7 +155,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn builds_prepared_audio_speaker_request() {
+    async fn builds_speaker_request_from_verified_source_bytes() {
         use std::path::Path;
 
         let tempdir = tempfile::tempdir().expect("tempdir should exist");
@@ -170,12 +192,13 @@ mod tests {
             eprintln!("skipping: could not generate test wav");
             return;
         }
+        let media_bytes = std::fs::read(&media_path).expect("read generated media");
 
         let request = build_speaker_request_v2(
             &store,
             SpeakerBuildInputV2 {
                 ids: &ids,
-                audio_path: &media_path,
+                audio: SpeakerAudioBuildSourceV2::Bytes(media_bytes),
                 backend: SpeakerBackendV2::Pyannote,
                 expected_speakers: Some(NumSpeakers(2)),
             },

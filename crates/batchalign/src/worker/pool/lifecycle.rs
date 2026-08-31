@@ -15,7 +15,7 @@ use super::idle_eviction;
 use super::memory_gate;
 use super::permit::{PermitRejected, SpawnPermitGuard};
 use super::rss_observer;
-use super::{GroupsMap, WorkerGroup, WorkerKey, WorkerPool};
+use super::{GroupsMap, WorkerGroup, WorkerKey, WorkerPool, WorkerRejectionKind};
 
 /// Reason a `try_claim_spawn_slot` call was rejected. Distinguishes
 /// the admission stages so callers can treat them differently
@@ -80,6 +80,7 @@ impl WorkerPool {
         let cancel = self.cancel.clone();
         let health_interval = Duration::from_secs(self.config.health_check_interval_s);
         let pool_config = self.config.clone();
+        let observed_worker_runtimes = self.observed_worker_runtimes.clone();
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(health_interval);
@@ -92,7 +93,12 @@ impl WorkerPool {
                         break;
                     }
                     _ = interval.tick() => {
-                        run_health_check(&groups, &pool_config).await;
+                        run_health_check(
+                            &groups,
+                            &pool_config,
+                            &observed_worker_runtimes,
+                        )
+                        .await;
                         // Reap orphaned workers left behind by previous server
                         // crashes (SIGKILL, OOM). This is cheap (reads a small
                         // directory) and catches orphans that would otherwise
@@ -178,9 +184,8 @@ impl WorkerPool {
         if let Err(saturated) = cpu_gate::check_cpu_saturation_with_state(pool_state, cpu_threshold)
         {
             let count = self
-                .cpu_saturation_rejections_total
-                .fetch_add(1, Ordering::Relaxed)
-                + 1;
+                .rejection_counters
+                .record(WorkerRejectionKind::CpuSaturation);
             if should_log_saturation(count) {
                 warn!(
                     loadavg_1m = saturated.loadavg_1m,
@@ -233,9 +238,8 @@ impl WorkerPool {
             memory_gate::check_memory_saturation_with_state(pool_state, mem_threshold, estimate_mb)
         {
             let count = self
-                .memory_constrained_rejections_total
-                .fetch_add(1, Ordering::Relaxed)
-                + 1;
+                .rejection_counters
+                .record(WorkerRejectionKind::MemoryConstrained);
             if should_log_saturation(count) {
                 let estimate_source_label = match estimate_source {
                     rss_observer::EstimateSource::Reservation => "reservation",
@@ -262,7 +266,9 @@ impl WorkerPool {
         // and the caller must wait on `spawn_permits.acquire()` rather
         // than re-probe.
         let guard = SpawnPermitGuard::try_acquire(&self.spawn_permits).map_err(|e| {
-            let count = self.permit_rejections_total.fetch_add(1, Ordering::Relaxed) + 1;
+            let count = self
+                .rejection_counters
+                .record(WorkerRejectionKind::GlobalPermit);
             if should_log_saturation(count) {
                 warn!(
                     permits_available = self.spawn_permits.available_permits(),
@@ -285,7 +291,8 @@ impl WorkerPool {
                 // Per-key cap saturated. Bump the per-key counter;
                 // the guard drops at function exit, refunding the
                 // global permit so other groups can use it.
-                self.spawn_rejections_total.fetch_add(1, Ordering::Relaxed);
+                self.rejection_counters
+                    .record(WorkerRejectionKind::PerKeyCap);
                 return Err(AdmissionRejection::PerKeyCap);
             }
 
@@ -325,6 +332,10 @@ impl WorkerPool {
         // and refunds the permit alongside the per-key fetch_sub.
         match WorkerHandle::spawn(self.worker_config(key)).await {
             Ok(mut handle) => {
+                if let Err(error) = self.admit_worker_runtime(&handle) {
+                    group.total.fetch_sub(1, Ordering::Relaxed);
+                    return Err(error);
+                }
                 // Lazily detect capabilities from the first spawned worker.
                 // This is a single IPC round-trip on an already-running worker.
                 if self.lazy_capabilities.get().is_none()
@@ -347,8 +358,8 @@ impl WorkerPool {
                 group.total.fetch_sub(1, Ordering::Relaxed);
                 // guard drops here at function exit, refunding the permit.
                 if matches!(e, WorkerError::MemoryGuard(_)) {
-                    self.memory_gate_rejections_total
-                        .fetch_add(1, Ordering::Relaxed);
+                    self.rejection_counters
+                        .record(WorkerRejectionKind::MemoryGuard);
                 }
                 Err(e)
             }
@@ -381,7 +392,11 @@ fn worker_config_for_key(pool_config: &super::PoolConfig, key: &WorkerKey) -> Wo
 /// pressure-driven via [`pressure_evict_idle_workers_if_needed`];
 /// dead workers are removed from the idle queue by the liveness
 /// loop and `total` is decremented.
-pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super::PoolConfig) {
+pub(super) async fn run_health_check(
+    groups_ref: &GroupsMap,
+    pool_config: &super::PoolConfig,
+    observed_worker_runtimes: &crate::worker::runtime_identity::ObservedWorkerRuntimes,
+) {
     pressure_evict_idle_workers_if_needed(groups_ref).await;
 
     // Snapshot group Arcs so we don't hold the groups lock across awaits.
@@ -481,6 +496,15 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
 
             match WorkerHandle::spawn(config).await {
                 Ok(handle) => {
+                    if let Err(error) = observed_worker_runtimes.admit(handle.runtime_identity()) {
+                        tracing::error!(
+                            %error,
+                            target = %key.target.label(),
+                            lang = %key.language,
+                            "Refusing health-check replacement from a different worker runtime"
+                        );
+                        continue;
+                    }
                     let pid = handle.pid();
                     group.total.fetch_add(1, Ordering::Relaxed);
                     super::lock_recovered(&group.idle).push_back(handle);

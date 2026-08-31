@@ -1,7 +1,16 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-07-30 06:40 EDT
+**Last updated:** 2026-08-30 20:05 EDT
+
+## Release boundary
+
+This page describes the current source tree, not whichever build happens to be
+running on a particular host. Treat `/health` runtime identities and the
+reported build hash as the authority for a live server. A health response is
+evidence about that executable and its admitted Python workers; it is never
+evidence that an unverified checkout, wheel, or documentation tree was
+deployed.
 
 ## Overview
 
@@ -11,7 +20,134 @@ same `FileStatus` records, use the same error classification, and persist
 to the same SQLite store. Fixing observability in the runner fixes it for
 all modes.
 
-## What Is Observable (shipped)
+The current experiment architecture has two deliberately distinct entry
+lanes. Live execution resolves raw paid-service evidence before projecting it.
+Offline transcribe replay admits fingerprinted *projected* artifacts; it does
+not mislabel an older `_asr_response.json` as raw Rev evidence.
+
+```mermaid
+flowchart TB
+    subgraph LIVE["Live paid-evidence lane"]
+        M["Inference media"] --> Q["Typed Rev and speaker requests"]
+        Q --> C{"Validated durable cache lookup"}
+        C -->|"hit"| E["Completed raw evidence"]
+        C -->|"miss"| A["Single-use inference authorization"]
+        C -->|"corrupt"| F["Fail closed"]
+        A --> S["Provider or model service"]
+        S --> V["Validate + required durable commit"]
+        V --> E
+        V -->|"invalid or commit failure"| F
+        E --> P["Deterministic ASR / speaker projection"]
+        E --> CE["Causal Rev / speaker evidence sidecars"]
+        P --> PA["Projected ASR + exact turns artifacts<br/>(when debug evidence is enabled)"]
+    end
+
+    subgraph REPLAY["Fingerprint-admitted offline lane"]
+        PA --> MF["Immutable replay manifest"]
+        MF --> AD{"Verify media and artifact digests"}
+        AD -->|"valid"| LR["AdmittedLegacyTranscribeReplay"]
+        AD -->|"drift or malformed"| RF["Refuse batch before output or model load"]
+    end
+
+    P --> LP["Local speaker projection + two-pass utseg + CHAT construction"]
+    LR --> LP
+    LP --> UTE["Pre-CHAT and post-CHAT decision evidence"]
+    LP --> CHAT["Final CHAT + replay receipt"]
+```
+
+The layers answer different questions: raw caches prevent duplicate paid work;
+causal sidecars prove what request and cache resolution produced a result;
+projected artifacts support the present offline replay boundary; segmentation
+evidence supports decoder-policy analysis; and final CHAT is the user-visible
+product. None can silently stand in for another.
+
+## Current source-tree behavior
+
+### Rev paid-boundary identity
+
+The current source tree makes the media identity used for a raw Rev cache
+decision the same identity used at upload. `PreparedRevProviderMedia` records a
+BLAKE3 digest, revisioned preparation recipe, and normalized upload filename.
+`RevAsrEvidenceRequest` combines those with multipart MIME, language, expected
+speaker count, request-policy revision, model alias, and request-identity
+revision.
+
+A cache miss is not merely a Boolean. It owns an inference lease and becomes a
+single-use `RevAsrInferenceAuthorization`; consuming that authorization yields
+one `AuthorizedRevEvidenceRun` and one private evidence-commit permit. The run
+rereads and verifies the bytes before either Rev language ID or Rev
+transcription can see them. Auto language legitimately makes both requests
+inside that one run. A changed file fails as `ProviderMediaDrift`. The
+old parallel pre-submission module and its optional provider-job-ID plumbing
+have been removed, so no second path can submit before cache authorization.
+
+For Rev transcribe and Rev-backed align UTR runs, `--debug-dir` now exports
+that identity as a versioned, fail-closed `*_rev_evidence.json` causal record.
+It joins source and prepared digests, recipe, exact multipart presentation,
+request/model revisions, raw evidence key, cache outcome, transcript fidelity,
+and ASR projection revision. It deliberately omits credentials and
+machine-local source paths. UTR records carry their own named projection
+revision and a stable
+raw-key-derived logical identity, so multiple partial windows cannot overwrite
+each other.
+
+Dedicated speaker inference uses the same single-use shape. A validated
+speaker-cache miss becomes `SpeakerInferenceAuthorization`; consuming it yields
+one privately constructible `AuthorizedSpeakerEvidenceRun` plus one durable
+commit permit. The resolver rereads the source and proves its digest before
+constructing `VerifiedSpeakerEvidenceRun`; `SpeakerEvidenceInference` accepts
+that verified run by value and Rust prepares worker PCM from its owned bytes.
+This makes both the no-duplicate-paid-call rule and request/upload identity
+part of the Rust API rather than adapter conventions, while the commit permit
+retains the request identity and single-flight lease until validated evidence
+is durable.
+
+With `--debug-dir`, the same resolver-bound trace seed becomes a versioned
+`*_speaker_evidence.json` causal receipt. It records the source digest,
+preparation revision, backend, expected-speaker count, model revision, raw and
+derived cache identities, normalization revision, cache outcome, and named
+segment-projection revision. It also carries the segment count and a
+versioned BLAKE3 digest over the validated segment timing and speaker labels,
+so the causal receipt identifies the exact semantic projection rather than
+only the cache slot that supplied it. It contains no source path. The companion
+`<stem>.turns.json` remains the exact normalized segment set used for CHAT
+projection. Both writes are fail-closed when requested, so causal identity and
+the consumed turns cannot silently disappear from an experiment run.
+
+The trace type separates semantic projection from causal origin. A cold run and
+durable replay should have the same media/request identity, transcript
+fidelity, named projection revision, and exact projected-segment digest, but
+they must not claim the same cache outcome. The full transcribe regression compares that typed semantic projection
+and requires byte-identical final CHAT and ASR debug output, while separately
+requiring `inferred_not_found` then `replayed`. This avoids both extremes of
+ignoring provenance and normalizing debug JSON with an untyped field-deletion
+hack.
+
+### Utterance-boundary decision evidence
+
+Utterance segmentation has two observably different locations in transcribe.
+Supported languages run a boundary model over timed, speaker-projected chunks
+before CHAT construction; the optional `utseg` stage can run again over CHAT
+main-tier words. `UtsegEvidencePhase::{PreChat, PostChat}` keeps those states
+distinct, and the debug directory uses separate filenames for them.
+
+Python's typed evidence preserves raw and applied semantic actions plus a
+fixed-point sentence-end probability for every classified word. Omitted and
+short-circuited words are explicit variants. The worker result carries model
+ID, optional exact revision, and a vector parallel to the request words. Rust
+admits the result into one of three source states only after checking payload
+exclusivity and all vector lengths: boundary model with evidence, direct
+assignments without evidence, or constituency projection. Only admitted
+predictions can be applied.
+
+An enabled `UtsegEvidenceSink` serializes a complete schema-2 trace before
+opening its destination, writes through a same-directory temporary file,
+fsyncs file and directory, and publishes atomically. It returns a typed error
+instead of allowing a research run to succeed after losing requested evidence.
+The trace keeps exact input words and assignments together with the source and
+model evidence. This permits policy replay and confidence analysis without
+another model invocation, while keeping the final CHAT free of dependent-tier
+debug clutter.
 
 ### Submit-path retries
 
@@ -199,6 +335,67 @@ second orchestration system.
 When the server restarts mid-job, persisted rows can move through
 `Running → Interrupted → Queued` during recovery. That state machine is the
 observable source of truth for whether work should resume.
+
+### Content-addressed Python worker identity
+
+`GET /health.worker_runtime_identities` reports the one Python runtime pinned
+by this server process. A current stdio worker computes the identity once
+before its ready signal and reports:
+
+- Python semantic version;
+- SHA-256 of the resolved Python executable bytes;
+- SHA-256 of the executable `batchalign` package tree (relative names and file
+  bytes, excluding bytecode caches, hidden/generated files, and the package's
+  test subtree);
+- SHA-256 of the exact loaded `batchalign_core` native extension bytes; and
+- SHA-256 of the sorted installed-distribution name/version inventory.
+
+The ready envelope contains no executable, environment, or package paths. Rust
+parses it into `WorkerRuntimeIdentity`, whose private representation can exist
+only after schema-version, nonempty-version, and lowercase full-digest checks.
+The pool pins the first admitted identity rather than deriving identity from
+the instantaneous idle-worker list, so the evidence remains visible while a
+worker is checked out and after a crash. A later worker with a different
+identity is destroyed before it can receive a job and produces a terminal
+`RuntimeIdentityMismatch`; the server cannot silently mix code identities.
+The websocket health snapshot carries the same field. Consequently the array
+has exactly zero or one element, never a history of incompatible workers.
+
+Package-tree admission is a typed operation rather than an open-ended `rglob`
+inside the digest loop. Each admitted `RuntimePackageFile` owns both its
+filesystem path and relative digest identity. Parallel-test scratch is outside
+that type, so xdist can create or remove test files without changing or
+crashing the worker identity handshake. If an admitted runtime file itself
+vanishes while being read, observation fails with a controlled
+`RuntimeIdentityError`; it does not publish a digest over a partial tree.
+Changing an admitted runtime source or native/data file still changes the
+identity. A regression test covers both halves of this policy.
+
+The PyO3 extension has a separate admitted state, `LoadedNativeExtension`.
+Construction requires the loaded module's `__file__` to name an existing file
+with one of Python's recognized native-extension suffixes. A worker therefore
+cannot become ready with only a package-version proxy for its Rust execution
+path, and it cannot substitute an arbitrary file for the extension receipt.
+
+An empty list has a precise meaning: this server has not yet observed a local
+Python worker. It is normal before the first Python-hosted task, and a
+Rust-owned Rev.AI-only workload may never start a Python worker. The current
+stdio ready schema requires the identity, so a spawned local worker cannot
+silently turn “identity missing” into an apparently complete health snapshot.
+External TCP workers have their own registry and transport boundary and are not
+represented as local stdio runtimes.
+
+Implementation boundaries:
+
+- Python observation and process-local freeze:
+  `batchalign/worker/_runtime_identity.py`;
+- ready emission: `batchalign/worker/_protocol.py`;
+- validating Rust wire type:
+  `crates/batchalign/src/worker/runtime_identity.rs`;
+- ready retention: `worker/handle/{protocol,mod,lifecycle}.rs`;
+- server-lifetime registry: `worker/pool/mod.rs`; and
+- HTTP/websocket projection: `routes/health.rs`, `types/response.rs`, and
+  `websocket.rs`.
 
 ### Worker crash diagnostics
 

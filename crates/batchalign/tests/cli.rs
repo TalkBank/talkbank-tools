@@ -708,7 +708,7 @@ async fn cli_align_real_server_live_fa_succeeds() {
 }
 
 #[test]
-fn cli_transcribe_explicit_server_falls_back_to_local_daemon() {
+fn cli_transcribe_explicit_server_never_falls_back_to_local_daemon() {
     let Some(python_path) = resolve_python() else {
         eprintln!("SKIP: Python 3.12 with batchalign not available");
         return;
@@ -752,33 +752,55 @@ fn cli_transcribe_explicit_server_falls_back_to_local_daemon() {
     eprintln!("CLI stdout: {stdout}");
     eprintln!("CLI stderr: {stderr}");
     assert!(
-        cli_result.status.success(),
-        "CLI should succeed. stdout: {stdout}\nstderr: {stderr}"
+        !cli_result.status.success(),
+        "an unreachable explicit server must fail. stdout: {stdout}\nstderr: {stderr}"
     );
     assert!(
-        stderr.contains(
-            "warning: transcribe uses local audio, ignoring --server and using local daemon."
-        ),
-        "CLI should explain the fallback. stderr: {stderr}"
-    );
-    assert!(
-        stderr.contains(&format!(
+        !stderr.contains(&format!(
             "Submitting to local daemon at http://127.0.0.1:{port}"
         )),
-        "CLI should reuse the local daemon. stderr: {stderr}"
+        "the healthy local daemon must not override --server. stderr: {stderr}"
     );
     assert!(
-        stderr.contains("All done! 1 file(s) written"),
-        "CLI should report a completed write. stderr: {stderr}"
+        !out_dir.join("sample.cha").is_file(),
+        "no transcript may be attributed to an explicit server that was never reached"
     );
+}
+
+/// Audio commands cannot target a non-loopback server until the CLI has a
+/// real media-body upload transport. Refusal must happen before HTTP so a
+/// same-named recording on that server cannot be mistaken for this input.
+#[test]
+fn cli_transcribe_explicit_remote_server_refuses_unshippable_audio() {
+    let harness = CliHarness::new();
+    let input = harness.home_dir().join("sample.wav");
+    let output = harness.home_dir().join("output");
+    write_silent_wav(&input);
+
+    let result = harness
+        .cmd()
+        .args([
+            "transcribe",
+            input.to_str().unwrap(),
+            "-o",
+            output.to_str().unwrap(),
+            "--server",
+            "https://worker.example.org",
+        ])
+        .timeout(std::time::Duration::from_secs(3))
+        .output()
+        .expect("spawn CLI");
+
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(!result.status.success(), "remote audio must be refused");
     assert!(
-        out_dir.join("sample.cha").is_file(),
-        "fallback run should write a CHAT transcript"
+        stderr.contains("cannot send local audio to non-loopback server"),
+        "refusal must name the unsupported transport before HTTP. stderr: {stderr}"
     );
 }
 
 #[test]
-fn cli_align_explicit_server_uses_remote_content_mode() {
+fn cli_align_explicit_loopback_uses_shared_paths_mode() {
     let Some(python_path) = resolve_python() else {
         eprintln!("SKIP: Python 3.12 with batchalign not available");
         return;
@@ -835,15 +857,17 @@ fn cli_align_explicit_server_uses_remote_content_mode() {
     eprintln!("CLI stderr: {stderr}");
     assert!(
         cli_result.status.success(),
-        "align should succeed against the explicit content-mode test server. stdout: {stdout}\nstderr: {stderr}"
+        "align should succeed against the explicit loopback test server. stdout: {stdout}\nstderr: {stderr}"
     );
     assert!(
-        stderr.contains(&format!("Submitting to http://127.0.0.1:{port}")),
-        "align should use the explicit remote server path. stderr: {stderr}"
+        stderr.contains(&format!(
+            "Submitting shared-filesystem job to http://127.0.0.1:{port}"
+        )),
+        "an explicit loopback server should use shared paths. stderr: {stderr}"
     );
     assert!(
         !stderr.contains("ignoring --server and using local daemon"),
-        "align should stay on the explicit remote content path. stderr: {stderr}"
+        "align should stay on the explicit server path. stderr: {stderr}"
     );
     assert!(
         out_dir.join("sample.cha").is_file(),
@@ -853,7 +877,7 @@ fn cli_align_explicit_server_uses_remote_content_mode() {
         std::fs::read_to_string(out_dir.join("sample.cha")).expect("read aligned output");
     assert!(
         output_chat.contains("*PAR:\thello world ."),
-        "align content-mode test output should preserve the uploaded CHAT content. output:\n{output_chat}"
+        "align shared-path output should preserve the source CHAT content. output:\n{output_chat}"
     );
 }
 
@@ -1021,9 +1045,10 @@ fn cli_transcribe_in_place_mp4_populates_injected_media_cache_live() {
     );
 }
 
-/// Explicit `--server` compare jobs should stay on the remote content-mode path.
+/// An explicit loopback compare server should keep the named producer while
+/// using the shared filesystem.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn cli_compare_explicit_server_uses_remote_content_mode() {
+async fn cli_compare_explicit_loopback_uses_shared_paths_mode() {
     let Some(_python_path) = resolve_python() else {
         eprintln!("SKIP: Python 3 with batchalign not available");
         return;
@@ -1061,11 +1086,11 @@ async fn cli_compare_explicit_server_uses_remote_content_mode() {
     eprintln!("CLI stderr: {stderr}");
     assert!(
         cli_result.status.success(),
-        "compare should succeed against the explicit content-mode test server. stdout: {stdout}\nstderr: {stderr}"
+        "compare should succeed against the explicit loopback test server. stdout: {stdout}\nstderr: {stderr}"
     );
     assert!(
-        stderr.contains(&format!("Submitting to {server_url}")),
-        "compare should use the explicit remote server path. stderr: {stderr}"
+        stderr.contains(&format!("Submitting shared-filesystem job to {server_url}")),
+        "compare should use shared paths on the explicit loopback server. stderr: {stderr}"
     );
     assert!(
         !stderr.contains("Submitting to local daemon"),

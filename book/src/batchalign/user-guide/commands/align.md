@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-08-06 16:10 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -99,8 +99,11 @@ flowchart TD
 
     cache_check[Cache lookup: BLAKE3 keys]
     cache_check --> worker_infer[execute_v2(task="fa") misses → Python FA worker\nprepared audio + prepared text]
-    worker_infer --> dp_align_fa[DP-align model output → transcript words]
-    dp_align_fa --> inject_fa[Inject word-level timings into AST]
+    worker_infer --> response_shape{Worker response shape?}
+    response_shape -->|Wave2Vec / Cantonese indexed intervals| indexed_fa[Validate one timing per requested word]
+    response_shape -->|Whisper token onsets| dp_align_fa[DP-align returned tokens → transcript words]
+    indexed_fa --> inject_fa[Inject word-level timings into AST]
+    dp_align_fa --> inject_fa
 
     inject_fa --> retry_check{FA\nsucceeded?}
     retry_check -->|Yes| wor_check
@@ -299,11 +302,11 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--fa-engine {wav2vec,whisper,cantonese}` | `wav2vec` (reports word start and end; see §"Forced alignment reference") | Forced-alignment model. `cantonese` is the jyutping-preprocessing engine, formerly reachable only as `wav2vec_fa_canto` through the flag below. |
 | `--fa-engine-custom NAME` |: | **Deprecated alias for `--fa-engine`**, still honoured, hidden from `--help`. |
 | `--wor` / `--nowor` | `--wor` | Include or suppress the `%wor` word-timing tier |
-| `--pauses` | off | Group words into pause-separated chunks (Whisper FA only) |
+| `--pauses` | off | Preserve each engine-reported word end instead of healing small plausible gaps. For Whisper, it also selects the historical character-spaced text mode. |
 | `--merge-abbrev` | off | Merge abbreviations in the output CHAT |
 | `--before PATH` |: | Previous version of the file for incremental alignment (skip unchanged utterances) |
 | `--bullet-repair` | off | Post-FA bullet repair for timing violations (experimental) |
-| `--review-level {none,low-confidence,all}` | `none` | `%xalign`/`%xrev` review tier verbosity. Off by default; pass `low-confidence` or `all` to emit review tiers. |
+| `--review-level {none,low-confidence,all}` | `none` | Legacy compatibility option. All values now leave CHAT free of `%xalign`/`%xrev`; omit it in new scripts. |
 
 ---
 
@@ -313,6 +316,39 @@ is more conservative about turning real pauses/fillers into dominant words.
 - Utterance-level bullet times (`·start_end·`) updated (see below for how)
 - Existing `%mor` and `%gra` tiers are preserved and untouched
 - The audio file is read but never modified
+
+### Research evidence without CHAT clutter
+
+`%wor` deliberately stores only display words and timing bullets. It cannot
+represent model score, cache/reuse source, or the provenance chain of a timing
+that was clamped, derived, or repaired. For an alignment experiment, pass
+`--debug-dir DIR`; a successful run then writes
+`DIR/<stem>_fa_evidence.json` alongside the ordinary debug artifacts.
+For a bare input filename, `<stem>` is the familiar file stem. If the submitted
+filename contains directories, Batchalign appends a short digest of that full
+identity so equal basenames from different corpus branches cannot overwrite
+one another.
+
+Evidence schema version 2 records the selected engine and build/model version,
+the cache key and evidence source for every group (`wor_reuse`, `cache`, or
+`inference`), stable word identifiers, pre-injection timings, Wave2Vec-family
+model scores when available, complete start/end provenance chains, and every
+typed decision that later clamped or removed timing. Those decisions remain in
+the JSON while CHAT output contains no review-tier projection. A model
+score is evidence emitted by the aligner, **not** a calibrated probability
+that a boundary is correct. Schema version 2 does not yet record the final
+per-word timings after post-processing; use the resulting CHAT for those final
+bullets and do not infer a complete repair history from the sidecar.
+
+An enabled evidence dump is fail-closed: if Batchalign cannot create or write
+the requested sidecar, the job reports a persistence error instead of silently
+finishing without the research artifact.
+
+When untimed utterance recovery uses Rev, the same debug directory also gets
+one or more `*_rev_evidence.json` sidecars. They record the exact prepared
+media, provider presentation, raw cache key/outcome, request identity, and
+named UTR projection revision. A partial-window run keys each filename by its
+raw evidence identity so several windows cannot overwrite one another.
 
 ### How utterance bullet times are set
 

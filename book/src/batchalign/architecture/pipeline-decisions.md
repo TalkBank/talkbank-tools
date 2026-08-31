@@ -1,14 +1,19 @@
 # NLP Pipeline Decision Architecture
 
 **Status:** Current
-**Last updated:** 2026-06-15 13:21 EDT
+**Last updated:** 2026-08-30 20:05 EDT
 
 This chapter documents how batchalign3's four NLP pipelines (morphotag,
 utseg, coref, forced alignment) represent per-utterance decisions, how
-those decisions flow through a shared reporting surface, and how the
-eval harness reads them back post-hoc. Every pipeline now emits typed
-outcomes, a single place to add a new variant, compile-time errors for
-typos, and loud typed diagnostics when invariants break. For the
+those decisions can flow through a shared reporting vocabulary, and how the
+eval harness reads output back post-hoc. Every pipeline has typed outcomes,
+a single place to add a new variant, compile-time errors for typos, and loud
+typed diagnostics when invariants break. Durable decision persistence is
+complete for forced alignment. Transcribe can also retain both of its
+utterance-segmentation passes as schema-versioned debug evidence; standalone
+utseg, morphotag, and coref do not yet have equivalent production sinks. The
+[Decision Evidence](../developer/decision-provenance.md) chapter records that
+boundary precisely. For the
 morphotag-specific deep-dive into the 1-to-1 invariant that motivated
 this architecture, see
 [`Morphotag Reconciliation Invariants`](morphotag-invariants.md).
@@ -23,12 +28,13 @@ losing a clitic. When one of those invariants is expressed as a raw
 skips a bad case, a single upstream regression can strip annotations
 across thousands of utterances without any operator-visible signal.
 
-The architecture below exists to make that class of failure impossible
-to absorb silently. Each pipeline emits typed outcomes; every
-non-happy-path outcome surfaces through a shared `DecisionRecord`
-surface that serializes into the `%xalign` tier and structured
-tracing; count mismatches at invariant boundaries return typed
-diagnostics carrying enough context to triage without re-running.
+The architecture below exists to make that class of failure harder to absorb
+silently. Each pipeline defines typed outcomes and can convert anomalies into a
+shared `DecisionRecord`. Forced alignment retains those records in structured
+evidence; morphotag traces anomaly records but does not yet persist its
+collection; utseg and coref do not yet have complete production sinks. Count
+mismatches at invariant boundaries return typed diagnostics carrying enough
+context to triage without re-running.
 
 Four pipelines participate, each with its own natural shape:
 
@@ -39,8 +45,10 @@ flowchart LR
         MD --> MI["inject_results<br/>(talkbank-transform/morphosyntax/injection.rs)"]
     end
     subgraph Utseg
-        UP["collect_utseg_payloads<br/>(talkbank-transform/utseg.rs)"] --> UD["Stanza constituency worker"]
-        UD --> UI["apply_utseg_results<br/>(talkbank-transform/utseg.rs)"]
+        UP["collect_utseg_payloads<br/>(talkbank-transform/utseg.rs)"] --> UD["TalkBank boundary model<br/>or opt-in Stanza fallback"]
+        UD --> UA["Admit source, cardinality,<br/>policy, and assignments"]
+        UA --> UI["apply_utseg_results<br/>(talkbank-transform/utseg.rs)"]
+        UA --> UE["Optional atomic evidence sink<br/>(transcribe pre/post CHAT)"]
     end
     subgraph Coref
         CP["collect_coref_payloads<br/>(talkbank-transform/coref.rs)"] --> CD["Stanza coref worker"]
@@ -52,18 +60,13 @@ flowchart LR
     end
 ```
 
-Each pipeline's invariant is different, but all four now emit typed
-outcomes that flow through one shared reporting surface,
-[`DecisionRecord`](#the-decisionrecord-surface), which serializes into
-the `%xalign` tier and structured tracing output.
+Each pipeline's invariant is different, but all four define typed outcomes that
+can map to one reporting vocabulary, [`DecisionRecord`](#the-decisionrecord-surface).
+Only FA currently carries that vocabulary through a durable evidence sink.
 
-> **Emission is opt-in.** Decisions are always recorded and traced, but
-> serialization into the `%xalign` / `%xrev` tiers is gated by the run's
-> `ReviewLevel`, which **defaults to `None`** (no tiers written). Both
-> `align` and `morphotag` opt in with `--review-level low-confidence|all`
-> (or the equivalent `review_level` job option); for `morphotag` the tiers
-> only land on the incremental path. Structured tracing fires regardless of
-> review level. See the
+> **No CHAT projection.** Decisions are recorded and traced, but current BA3
+> never serializes them into `%xalign` or `%xrev`. Legacy `ReviewLevel` values
+> remain accepted only for compatibility. See the
 > [Review Tiers guide](../user-guide/review-tiers-guide.md).
 
 ## Per-task outcome vocabulary
@@ -167,6 +170,52 @@ previously single-word utterances were silently dropped from the batch
 (they trivially segment to one segment, so dispatch is wasteful). The
 typed outcome records that as a deliberate decision rather than silence.
 
+The production boundary model carries a richer, independently replayable state
+than the transform outcome alone. Rust refuses to construct an admitted
+prediction unless the response payload is exclusive, all vectors match the
+request, the worker's applied actions follow its declared adjacency policy,
+and assignments can be rederived from those actions.
+
+```mermaid
+classDiagram
+    class AdmittedUtsegPrediction {
+        <<enumeration>>
+        BoundaryModelWorkerDeclared
+        BoundaryModelLocallyReapplied
+        UnobservedAssignments
+        Constituency
+    }
+    class UtsegBoundaryModelEvidenceV2 {
+        +model_id: String
+        +model_revision: Option~String~
+        +normalization_revision
+        +adjacency_policy_revision
+        +word_evidence: Vec
+        +validate_assignments()
+        +reapply_adjacency_policy()
+    }
+    class UtsegWordBoundaryEvidenceV2 {
+        <<enumeration>>
+        Classified(raw, applied, probability)
+        NormalizationOmission
+        ModelShortCircuit
+    }
+    class LocalUtsegDecisionReceipt {
+        +worker_policy
+        +local_policy
+        +worker_assignments
+        +suppressed_split_indices
+    }
+    AdmittedUtsegPrediction *-- UtsegBoundaryModelEvidenceV2
+    UtsegBoundaryModelEvidenceV2 *-- UtsegWordBoundaryEvidenceV2
+    AdmittedUtsegPrediction *-- LocalUtsegDecisionReceipt
+```
+
+The raw action and fixed-point boundary probability are model evidence. The
+applied action is policy output. A locally replayed policy receives its own
+receipt, including exact-retrace protections, so an experiment never presents
+a heuristic decision as a fresh model prediction.
+
 ### Coreference
 
 Coref has a different shape because it is document-level and sparse:
@@ -237,10 +286,9 @@ for the single-import bring-in of the FA decision vocabulary.
 
 ## The DecisionRecord surface
 
-Every non-`Aligned` outcome across all four pipelines converges on one
-type: `DecisionRecord`. This is what gets serialized into the
-`%xalign` tier (user-visible review surface) and emitted via `tracing`
-(developer-visible audit stream).
+An anomaly outcome can converge on one type, `DecisionRecord`. FA retains and
+traces it; morphotag traces anomaly records; the remaining production sinks are
+not complete. No command serializes it into CHAT.
 
 ```mermaid
 classDiagram
@@ -250,7 +298,7 @@ classDiagram
         +strategy: DecisionStrategy
         +reason: String
         +needs_review: bool
-        +xalign_content() String
+        +evidence_summary() String
         +trace() void
     }
     class DecisionStrategy {
@@ -328,9 +376,9 @@ Why this shape:
   the outer `DecisionStrategy` discriminator distinguishes them. Same
   for `InjectionFailed` (Morphosyntax and Coref) and
   `NotApplicable` / `MisalignmentBug` (Morphosyntax and Utseg).
-- **Wire format unchanged.** `DecisionRecord::xalign_content()` still
-  emits `"{module}:{strategy} {reason}"`, so existing `%xalign`
-  consumers keep working without migration.
+- **Stable display format retained.** `DecisionRecord::evidence_summary()`
+  formats `"{module}:{strategy} {reason}"` for evidence/reporting consumers;
+  it no longer implies CHAT-tier generation.
 
 ## Outcome → DecisionRecord lifecycle
 
@@ -347,7 +395,7 @@ sequenceDiagram
     participant I as "morphosyntax/inject.rs"
     participant O as "MorOutcome"
     participant D as "DecisionRecord"
-    participant T as "%xalign tier"
+    participant T as "Structured tracing"
 
     U->>E: walk_words(Some(Mor))
     E-->>P: N alignable words
@@ -363,13 +411,18 @@ sequenceDiagram
         end
     end
     O->>D: to_decision_record() (None for Aligned)
-    D->>T: inject_decision_tiers(&[record], review_level)
+    D->>T: trace anomaly record
 ```
 
 Aligned outcomes produce `None` from `to_decision_record()`: the happy
-path does not flood the `%xalign` tier. NotApplicable and
-MisalignmentBug both produce records, with `needs_review=false` and
+path does not add a decision record. NotApplicable and MisalignmentBug both
+produce records, with `needs_review=false` and
 `true` respectively.
+
+This diagram ends at tracing on purpose. Morphotag's `InjectionResult` carries
+the records, but the command currently discards that collection after
+injection. It must gain a typed command result before this diagram may grow a
+durable-evidence participant.
 
 ## Eval harness observation model
 
@@ -430,24 +483,24 @@ Core outcome types:
 
 - `crates/batchalign-transform/src/morphosyntax/outcome.rs`: `MorOutcome`,
   `MisalignmentDiagnostic`, `classify_not_applicable`
-- `crates/batchalign/src/utseg.rs`: `UtsegOutcome`,
+- `crates/batchalign-transform/src/utseg.rs`: `UtsegOutcome`,
   `validate_utseg_response`
-- `crates/batchalign/src/coref.rs`: `CorefOutcome`,
+- `crates/batchalign-transform/src/coref.rs`: `CorefOutcome`,
   `apply_coref_results_with_outcomes`
-- `crates/batchalign/src/fa/outcome.rs`: FA decision
+- `crates/batchalign/src/chat_ops/fa/outcome.rs`: FA decision
   vocabulary (re-exports)
-- `crates/batchalign/src/fa/alignment.rs`: `FaAlignmentError`
+- `crates/batchalign/src/chat_ops/fa/alignment.rs`: `FaAlignmentError`
   (typed error for FA response parsing)
-- `crates/batchalign/src/decisions.rs`: `DecisionRecord`,
+- `crates/batchalign-transform/src/decisions.rs`: `DecisionRecord`,
   `DecisionStrategy`, all per-module strategy enums
 
 Invariant enforcement:
 
-- `crates/batchalign/src/inject.rs`,
+- `crates/batchalign-transform/src/inject.rs`,
   `inject_morphosyntax` (returns `Result<(), MisalignmentDiagnostic>`)
 - `batchalign/inference/morphosyntax.py`,
   realignment-skipped WARN at the Python boundary
-- `talkbank-tools/../chatter/crates/talkbank-model/src/alignment/helpers/count.rs`
+- `chatter/crates/talkbank-model/src/alignment/helpers/count.rs`
  , `MorAlignableWordCount` / `MorItemCount` newtypes and
   `count_tier_positions` walker
 
@@ -468,10 +521,10 @@ Deep-dive pages:
  , the 1-to-1 invariant in full: what `counts_for_tier` defines as
   alignable, and why the three stages produce it by construction.
 
-## How to investigate a `%xalign: misalignment_bug`
+## How to investigate a morphotag misalignment decision
 
-When a user reports a morphotag output with `%xalign:
-morphosyntax:misalignment_bug`, the flow for a developer is:
+When logs report `module=morphosyntax strategy=misalignment_bug`, use this
+flow:
 
 1. **Read the `suspected_class` field** in the `reason`. Five values
    (`RealignmentSkipped`, `MwtReassemblyBug`, `TerminatorFilterBug`,
@@ -483,14 +536,11 @@ morphosyntax:misalignment_bug`, the flow for a developer is:
 3. **Check the Python worker log** for a realignment-skipped WARN for
    the same file/language, if present, the dispatch-side context
    wasn't set and the `RealignmentSkipped` class is concrete.
-4. **Rerun with review tiers enabled** to see the `%xalign` tier on
-   every utterance (aligned or not), giving a positional sense of
-   where the mismatch occurs in the document. Review tiers are off by
-   default; rerun `morphotag --review-level all --before <prior>` (the
-   `%xalign` decisions land on the incremental path).
+4. **Use the typed line index and speaker** in the trace to locate the
+   utterance. `--review-level` is a legacy compatibility option and does not
+   create a CHAT diagnostic tier.
 
 If the repro is reliable, add a failing regression test in
 `batchalign` using `chatter trim` to produce a minimal
-fixture from the affected real file. The `%xalign` tier's typed
-strategy name maps directly to the enum variant for pattern matching
-in the assertion.
+fixture from the affected real file. The trace's typed strategy name maps
+directly to the enum variant for pattern matching in the assertion.

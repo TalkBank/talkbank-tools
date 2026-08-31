@@ -242,6 +242,51 @@ impl PreparedArtifactStoreV2 {
         .map_err(io::Error::other)?
     }
 
+    /// Convert verified in-memory media bytes into mono 16 kHz float32 PCM.
+    ///
+    /// This variant is for cache-authorized provider evidence. The caller has
+    /// already proved the bytes against the cache identity, so materializing a
+    /// private temporary source prevents a mutable external path from changing
+    /// between authorization and ffmpeg's read.
+    pub async fn prepare_audio_bytes_f32le(
+        &self,
+        id: &WorkerArtifactIdV2,
+        source_bytes: Vec<u8>,
+    ) -> Result<PreparedAudioRefV2, PreparedArtifactErrorV2> {
+        let root = self.root.clone();
+        let id = id.clone();
+
+        tokio::task::spawn_blocking(move || {
+            fs::create_dir_all(root.join(AUDIO_DIR_NAME))?;
+            let mut source = tempfile::Builder::new()
+                .prefix("verified-source-")
+                .suffix(".media")
+                .tempfile_in(&root)?;
+            source.write_all(&source_bytes)?;
+            source.flush()?;
+
+            let output_path = root.join(AUDIO_DIR_NAME).join(format!("{id}.pcm"));
+            let produced =
+                Transcode::whole(source.path(), PcmEncoding::F32LeRaw).produce(&output_path)?;
+            let byte_len = produced.byte_len;
+            let sample_bytes = std::mem::size_of::<f32>() as u64;
+            let frame_count = byte_len / sample_bytes;
+
+            Ok(PreparedAudioRefV2 {
+                id,
+                path: WorkerArtifactPathV2(output_path.to_string_lossy().into_owned()),
+                encoding: PreparedAudioEncodingV2::PcmF32le,
+                channels: ChannelCountV2(produced.channels),
+                sample_rate_hz: SampleRateHzV2(produced.sample_rate_hz),
+                frame_count: FrameCountV2(frame_count),
+                byte_offset: ByteOffsetV2(0),
+                byte_len: ByteLengthV2(byte_len),
+            })
+        })
+        .await
+        .map_err(io::Error::other)?
+    }
+
     /// Return the canonical audio path for one artifact id.
     fn audio_path_for(&self, id: &WorkerArtifactIdV2) -> PathBuf {
         self.root.join(AUDIO_DIR_NAME).join(format!("{id}.pcm"))

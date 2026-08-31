@@ -3,10 +3,10 @@
 use std::path::Path;
 
 use super::types::{AsrResponse, AsrWorkerMode, NonRevAsrBackend};
-use super::{SpeakerEvidenceInference, SpeakerInferenceAuthorization};
+use super::{SpeakerEvidenceInference, VerifiedSpeakerEvidenceRun};
 use crate::api::{LanguageCode3, LanguageSpec, NumSpeakers, WorkerLanguage};
 use crate::error::ServerError;
-use crate::types::worker_v2::{SpeakerBackendV2, SpeakerInferenceEvidenceV2};
+use crate::types::worker_v2::SpeakerInferenceEvidenceV2;
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::asr_request_v2::{
     AsrBuildInputV2, AsrInputSourceV2, PreparedAsrRequestIdsV2, build_asr_request_v2,
@@ -14,7 +14,8 @@ use crate::worker::asr_request_v2::{
 use crate::worker::asr_result_v2::parse_asr_response_v2;
 use crate::worker::pool::WorkerPool;
 use crate::worker::speaker_request_v2::{
-    PreparedSpeakerRequestIdsV2, SpeakerBuildInputV2, build_speaker_request_v2,
+    PreparedSpeakerRequestIdsV2, SpeakerAudioBuildSourceV2, SpeakerBuildInputV2,
+    build_speaker_request_v2,
 };
 use crate::worker::speaker_result_v2::parse_speaker_result_v2;
 
@@ -39,18 +40,6 @@ pub(crate) struct AsrInferParams<'a> {
     /// function sees what the user actually requested, the `backend`
     /// enum only encodes WHICH engine, not its configuration.
     pub extras: &'a std::collections::BTreeMap<String, String>,
-}
-
-/// Parameters for dedicated speaker-diarization inference.
-pub(crate) struct SpeakerInferParams<'a> {
-    /// Audio file to diarize.
-    pub audio_path: &'a Path,
-    /// Language specification for worker dispatch. May be `Auto`.
-    pub lang: &'a LanguageSpec,
-    /// Expected number of speakers when known.
-    pub expected_speakers: NumSpeakers,
-    /// Dedicated diarization backend chosen by Rust.
-    pub backend: SpeakerBackendV2,
 }
 
 /// Compute the worker-runtime language and an "expected response
@@ -243,9 +232,10 @@ async fn infer_asr_via_worker_v2(
 /// single audio file.
 async fn infer_speaker(
     pool: &WorkerPool,
-    params: &SpeakerInferParams<'_>,
-    _authorization: &SpeakerInferenceAuthorization,
+    worker_lang: &WorkerLanguage,
+    run: VerifiedSpeakerEvidenceRun,
 ) -> Result<SpeakerInferenceEvidenceV2, ServerError> {
+    let (source_bytes, backend, expected_speakers) = run.into_worker_input();
     let artifacts = PreparedArtifactRuntimeV2::new("speaker_v2").map_err(|error| {
         ServerError::Validation(format!(
             "failed to create speaker V2 artifact runtime: {error}"
@@ -255,9 +245,9 @@ async fn infer_speaker(
         artifacts.store(),
         SpeakerBuildInputV2 {
             ids: &PreparedSpeakerRequestIdsV2::fresh(),
-            audio_path: params.audio_path,
-            backend: params.backend,
-            expected_speakers: Some(params.expected_speakers),
+            audio: SpeakerAudioBuildSourceV2::Bytes(source_bytes),
+            backend,
+            expected_speakers: Some(expected_speakers),
         },
     )
     .await
@@ -267,20 +257,8 @@ async fn infer_speaker(
         ))
     })?;
 
-    // Speaker diarization runs after ASR has resolved the language
-    // `params.lang` should always be `Resolved(_)` by the time we reach
-    // here. No silent eng fallback: surface a typed validation error if
-    // the invariant is broken.
-    let pool_lang = params.lang.as_resolved().cloned().ok_or_else(|| {
-        ServerError::Validation(format!(
-            "speaker diarization received unresolved language `{}`. ASR must \
-             resolve the language before speaker dispatch runs; this is a \
-             pipeline-ordering bug.",
-            params.lang,
-        ))
-    })?;
     let response = pool
-        .dispatch_execute_v2(&pool_lang, &request)
+        .dispatch_execute_v2(worker_lang, &request)
         .await
         .map_err(ServerError::Worker)?;
 
@@ -294,12 +272,12 @@ async fn infer_speaker(
 /// Production implementation of the typed speaker-evidence service boundary.
 pub(crate) struct SpeakerWorkerInference<'a> {
     pool: &'a WorkerPool,
-    params: SpeakerInferParams<'a>,
+    worker_lang: WorkerLanguage,
 }
 
 impl<'a> SpeakerWorkerInference<'a> {
-    pub(crate) fn new(pool: &'a WorkerPool, params: SpeakerInferParams<'a>) -> Self {
-        Self { pool, params }
+    pub(crate) fn new(pool: &'a WorkerPool, worker_lang: WorkerLanguage) -> Self {
+        Self { pool, worker_lang }
     }
 }
 
@@ -307,9 +285,9 @@ impl<'a> SpeakerWorkerInference<'a> {
 impl SpeakerEvidenceInference for SpeakerWorkerInference<'_> {
     async fn infer(
         &self,
-        authorization: &SpeakerInferenceAuthorization,
+        run: VerifiedSpeakerEvidenceRun,
     ) -> Result<SpeakerInferenceEvidenceV2, ServerError> {
-        infer_speaker(self.pool, &self.params, authorization).await
+        infer_speaker(self.pool, &self.worker_lang, run).await
     }
 }
 

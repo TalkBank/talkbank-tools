@@ -75,6 +75,141 @@ pub struct Transcript {
     pub monologues: Vec<Monologue>,
 }
 
+/// Fidelity of the provider transcript retained as reusable evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum RevTranscriptFidelity {
+    /// Exact JSON response bytes returned by the transcript endpoint.
+    ExactProviderJson,
+    /// Typed projection migrated from the earlier cache schema.
+    LegacyTypedProjection,
+}
+
+/// A parsed Rev transcript inseparably paired with the evidence retained for
+/// future projections.
+///
+/// The private representation prevents a caller from pairing raw JSON from one
+/// response with a parsed transcript from another. Provider construction parses
+/// once at the HTTP boundary. Cache deserialization repeats that validation
+/// before the value can re-enter the pipeline.
+#[derive(Debug, Clone)]
+pub(crate) struct RevTranscriptEvidence {
+    retained: RetainedRevTranscript,
+    transcript: Transcript,
+}
+
+#[derive(Debug, Clone)]
+enum RetainedRevTranscript {
+    ExactProviderJson(String),
+    LegacyTypedProjection,
+}
+
+impl RevTranscriptEvidence {
+    pub(crate) fn from_provider_json(raw_json: String) -> Result<Self, serde_json::Error> {
+        let transcript = serde_json::from_str(&raw_json)?;
+        Ok(Self {
+            retained: RetainedRevTranscript::ExactProviderJson(raw_json),
+            transcript,
+        })
+    }
+
+    pub(crate) fn from_legacy_transcript(transcript: Transcript) -> Self {
+        Self {
+            retained: RetainedRevTranscript::LegacyTypedProjection,
+            transcript,
+        }
+    }
+
+    pub(crate) fn transcript(&self) -> &Transcript {
+        &self.transcript
+    }
+
+    pub(crate) fn fidelity(&self) -> RevTranscriptFidelity {
+        match self.retained {
+            RetainedRevTranscript::ExactProviderJson(_) => RevTranscriptFidelity::ExactProviderJson,
+            RetainedRevTranscript::LegacyTypedProjection => {
+                RevTranscriptFidelity::LegacyTypedProjection
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn exact_provider_json(&self) -> Option<&str> {
+        match &self.retained {
+            RetainedRevTranscript::ExactProviderJson(raw_json) => Some(raw_json),
+            RetainedRevTranscript::LegacyTypedProjection => None,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(tag = "fidelity", rename_all = "snake_case")]
+enum RevTranscriptEvidenceRef<'a> {
+    ExactProviderJson { raw_json: &'a str },
+    LegacyTypedProjection { transcript: &'a Transcript },
+}
+
+impl Serialize for RevTranscriptEvidence {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match &self.retained {
+            RetainedRevTranscript::ExactProviderJson(raw_json) => {
+                RevTranscriptEvidenceRef::ExactProviderJson { raw_json }.serialize(serializer)
+            }
+            RetainedRevTranscript::LegacyTypedProjection => {
+                RevTranscriptEvidenceRef::LegacyTypedProjection {
+                    transcript: &self.transcript,
+                }
+                .serialize(serializer)
+            }
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "fidelity", rename_all = "snake_case")]
+enum RevTranscriptEvidenceWire {
+    ExactProviderJson { raw_json: String },
+    LegacyTypedProjection { transcript: Transcript },
+}
+
+impl<'de> Deserialize<'de> for RevTranscriptEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match RevTranscriptEvidenceWire::deserialize(deserializer)? {
+            RevTranscriptEvidenceWire::ExactProviderJson { raw_json } => {
+                Self::from_provider_json(raw_json).map_err(serde::de::Error::custom)
+            }
+            RevTranscriptEvidenceWire::LegacyTypedProjection { transcript } => {
+                Ok(Self::from_legacy_transcript(transcript))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod transcript_evidence_tests {
+    use super::*;
+
+    #[test]
+    fn exact_provider_json_retains_unknown_fields_across_cache_serialization() {
+        let raw_json = r#"{"monologues":[],"provider_extension":{"future":true}}"#.to_owned();
+        let evidence = RevTranscriptEvidence::from_provider_json(raw_json.clone())
+            .expect("provider response should parse");
+
+        let stored = serde_json::to_value(&evidence).expect("cache serialization");
+        let replayed: RevTranscriptEvidence =
+            serde_json::from_value(stored).expect("cache deserialization");
+
+        assert_eq!(replayed.exact_provider_json(), Some(raw_json.as_str()));
+        assert_eq!(replayed.transcript().monologues.len(), 0);
+    }
+}
+
 /// Submission options for `POST /speechtotext/v1/jobs`.
 #[derive(Debug, Clone, Serialize)]
 pub struct SubmitOptions {

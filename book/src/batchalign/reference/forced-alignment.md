@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-08-06 16:10 EDT
+**Last updated:** 2026-08-30 19:59 EDT
 
 ## Overview
 
@@ -457,8 +457,13 @@ propagate upward as a file-level failure.
 ```mermaid
 flowchart TD
     group(["FA group\n(audio window + words)"])
-    cache{"FA result\nalready cached?"}
-    cached_timings["Reuse cached timings\n(no worker call)"]
+    wor{"Reusable corroborated\n%wor timing?"}
+    raw{"Raw FA evidence\nadmitted?"}
+    replay["Replay raw response through\ncurrent Rust projection"]
+    derived{"Derived timing vector\nadmitted?"}
+    cached_timings["Reuse derived timings\n(compatibility fallback)"]
+    policy{"Cache policy permits\ninference?"}
+    required_fail["RequireCache failure\n(no dispatch authority)"]
     build["build_forced_alignment_request_v2()\n(worker/request_builder_v2.rs)"]
     empty{"EmptyAudioSegment?\n(0 PCM frames after ffmpeg)"}
     skip_empty["WARN: group past end of file\nLeave words unaligned\n→ continue to next group"]
@@ -471,9 +476,15 @@ flowchart TD
     runtime_fail["RuntimeFailure: \ndata-driven model error\nLeave words unaligned\n+ WARN in server log"]
     other["Other error: \ninfrastructure failure\n→ propagate to file loop"]
 
-    group --> cache
-    cache -->|"hit"| cached_timings --> ok
-    cache -->|"miss"| build --> empty
+    group --> wor
+    wor -->|"yes"| ok
+    wor -->|"no"| raw
+    raw -->|"yes"| replay --> ok
+    raw -->|"absent/refused"| derived
+    derived -->|"yes"| cached_timings --> ok
+    derived -->|"no"| policy
+    policy -->|"UseCache/SkipCache"| build --> empty
+    policy -->|"RequireCache"| required_fail
     empty -->|"yes"| skip_empty
     empty -->|"no"| dispatch --> parse
     parse -->|"OK"| ok
@@ -630,16 +641,13 @@ WARN fa_transport: Whisper FA fallback also failed with model RuntimeFailure;
 #### Monotonicity warnings
 
 After all groups are resolved, `enforce_monotonicity()` makes two passes over
-the utterance list.  Each stripping or clamping decision is always recorded
-and emits a `WARN` log line; whether it *also* lands as a `%xalign` decision
-tier in the output CHAT depends on the run's review level, which defaults to
-`none` (no tiers written; see
-[Review Tiers](../user-guide/review-tiers-guide.md)). The `%xrev` column
-below applies when review tiers are enabled (`--review-level low-confidence`
-or `all`). The two decision types have **different severity and different
-`%xrev` behavior**:
+the utterance list. Each stripping or clamping decision is always recorded in
+structured evidence and emits a `WARN` log line. BA3 does not project these
+records into `%xalign` or `%xrev` (see
+[Decision evidence](../user-guide/review-tiers-guide.md)). The two decision
+types have different severity and review priority:
 
-| Decision | Cause | `%xrev` written? | Action needed? |
+| Decision | Cause | Needs review? | Action needed? |
 |----------|-------|:---:|---|
 | `end_clamped` | Utterance N's end overlapped N+1's start by a few ms, trimmed to avoid CLAN player seek regression | **No** | No, routine housekeeping, BA2 made these silently |
 | `start_stripped` | Utterance start precedes previous accepted start, full timing removed | **Yes** | Review utterance; may indicate transcript/audio reordering |
@@ -665,7 +673,7 @@ observability but does not flag them for human review.
 timestamp precedes the previous accepted start, which means time went backwards
 in the file. This happens when text and audio order diverge (overlapping speech,
 post-hoc transcript restructuring). The utterance's timing is completely removed
-and `%xrev: [?]` is written to prompt manual review.
+and its structured decision record has `needs_review=true`.
 
 These warnings are **not errors**: they indicate normal behavior on overlapping
 or densely-annotated speech.  High volumes of `start_stripped` warnings on a
@@ -818,7 +826,8 @@ Today the implemented fast paths are:
   check fails (e.g. a user edited a few utterances), detect which utterances
   still have clean `%wor`, refresh those, and only send stale FA groups through
   workers. Groups where all utterances are reusable are preserved without cache
-  lookup or worker call (3-tier partition: reused → cached → miss).
+  lookup or worker call. Remaining groups resolve through raw-evidence replay,
+  a derived-timing compatibility fallback, or an authorized inference miss.
 - skip UTR when every utterance already has timing
 - use a unique exact-subsequence UTR match when the transcript and ASR word
   streams line up without ambiguity
@@ -947,7 +956,14 @@ regardless of which mode was used initially.
 
 ### FA cache
 
-FA caches raw model responses per-group. The key is
+FA keeps two per-group layers under the same semantic group key:
+
+- an immutable worker-protocol response, preferred on reads and replayed
+  through the current Rust timing projection;
+- a derived `WordTiming` vector, retained as a compatibility fallback when raw
+  evidence is absent or refused.
+
+The key is
 `BLAKE3("{audio identity}|{start}|{end}|{words}|{gap healing}|{engine}")`, so a
 different engine, a different audio window, or a different gap-healing policy
 cannot collide. The `--override-media-cache` flag bypasses this cache.
@@ -969,15 +985,16 @@ a content hash. If you move or rename the audio file, the cache will miss even i
 content is identical. Conversely, overwriting a file in place with different content
 will miss only if the modification time or size changes (which the OS updates on write).
 
-### Why fallback traces may appear empty on a successful rerun
+### Why fallback traces survive raw-evidence replay
 
-The new fallback telemetry is attached to the **actual worker inference pass**.
-If the FA cache already contains timings for the relevant group, the rerun may
-succeed without dispatching Wave2Vec at all, so no fallback event will be
-recorded for that run.
+Raw FA evidence records the requested engine, effective engine, and fallback
+reason together. A normal cache hit therefore reconstructs the fallback trace
+without dispatching Wave2Vec again. A historical derived-only cache hit cannot
+reconstruct a fallback event, because that older value contains timings but no
+route evidence.
 
-When you need to confirm that a real worker pass hit the fallback path, bypass
-FA cache for that run:
+When you specifically need to reproduce a **new live worker pass**, bypass both
+FA cache layers for that run:
 
 ```bash
 batchalign3 align \
@@ -1117,9 +1134,9 @@ prevent output from being written.  Only file-level errors prevent output.
 | `crates/batchalign/src/chat_ops/fa/mod.rs` | `FA cache batch lookup failed` | SQLite cache read error (non-fatal; misses treated as cache misses) | Check disk space and cache file permissions |
 | `crates/batchalign/src/chat_ops/fa/mod.rs` | `Failed to deserialize cached FA timings` | Cache entry written by a different schema version | Wipe FA cache: `rm ~/Library/Caches/batchalign3/cache.db*` |
 | `fa/mod.rs` | `Failed to cache FA result` | SQLite cache write error (non-fatal; inference result still used) | Check disk space |
-| `fa/mod.rs` | `Post-validation warnings` | CHAT structural issues after injection | Review `%xalign` decision tiers in output |
-| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped"` | Utterance end time trimmed to avoid CLAN seek regression; routine UTR overlap correction | No, no `%xrev` written; BA2 made these silently |
-| `fa/orchestrate.rs` | `monotonicity: strategy="start_stripped"` | Utterance start precedes previous accepted start, full timing stripped | Review utterance, `%xrev: [?]` written; may indicate text/audio reordering |
+| `fa/mod.rs` | `Post-validation warnings` | CHAT structural issues after injection | Review structured decision evidence and output |
+| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped"` | Utterance end time trimmed to avoid CLAN seek regression; routine UTR overlap correction | No; BA2 made these silently |
+| `fa/orchestrate.rs` | `monotonicity: strategy="start_stripped"` | Utterance start precedes previous accepted start, full timing stripped | Review utterance; structured decision has `needs_review=true` |
 | `fa_pipeline` | `FA failed with untimed utterances; attempting fallback UTR` | FA error on file that still has untimed utterances | Informational; fallback UTR retry follows |
 | `fa_pipeline` | `Fallback UTR recovered timing` | Fallback UTR succeeded before retry | Informational; timing injected, FA retry queued |
 
@@ -1261,8 +1278,8 @@ force-aligned, `enforce_monotonicity()` (at
 utterances in text order, tracking the last accepted start
 timestamp. Any utterance whose start precedes the previous accepted
 start has its timing stripped entirely, utterance bullet, inline
-word bullets, and the `%wor` tier are all removed (the
-`start_stripped` decision in the `%xalign` decision tier; see the
+word bullets, and the `%wor` tier are all removed (the structured
+`start_stripped` decision records the event; see the
 [Monotonicity warnings table](#monotonicity-warnings)). The
 utterance is left as plain untimed text, identical to how it would
 look before alignment.

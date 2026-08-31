@@ -1,7 +1,7 @@
 # NLP Engine Text Input Expectations
 
 **Status:** Current
-**Last updated:** 2026-05-20 20:24 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 Comprehensive reference for what text format each NLP engine/tool in batchalign3
 expects as input, what preprocessing is applied, and what would break if raw
@@ -107,7 +107,8 @@ timed word elements.
 
 **Preprocessing by Rust:** The Rust `batchalign::revai` module
 (`crates/batchalign/src/revai/`) handles:
-- Audio file upload via `submit_local_file()` with retry logic
+- Byte-owned multipart upload from a verified `PreparedRevProviderMedia`
+  artifact, with retry logic
 - Language specification (ISO 639-1 code or `"auto"` for auto-detection)
 - Speaker count hint for diarization
 - `skip_postprocessing` option

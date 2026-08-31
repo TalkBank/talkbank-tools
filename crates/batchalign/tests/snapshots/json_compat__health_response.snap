@@ -15,6 +15,7 @@ expression: health
   "loaded_pipelines": [
     "morphotag:eng:1"
   ],
+  "worker_runtime_identities": [],
   "media_roots": [
     "/data/media"
   ],

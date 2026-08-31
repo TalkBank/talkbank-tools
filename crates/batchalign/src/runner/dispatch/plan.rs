@@ -14,7 +14,7 @@ use crate::host_policy::HostExecutionPolicy;
 use crate::params::{CacheOverrides, CachePolicy};
 use crate::runner::dispatch::kernel_plan::CommandKernelPlan;
 use crate::store::RunnerJobSnapshot;
-use crate::transcribe::{AsrBackend, TranscribeOptions};
+use crate::transcribe::{AsrBackend, TranscribeCachePolicies, TranscribeOptions};
 use crate::types::worker_v2::SpeakerBackendV2;
 
 use super::options::{
@@ -53,9 +53,8 @@ pub(crate) struct BatchedInferDispatchPlan {
     /// Apply transcriber `$POS` hints as a post-pass on %mor (default on;
     /// CLI exposes `--no-pos-hints` to opt out).
     pub respect_pos_hints: bool,
-    /// Review-tier verbosity for the incremental morphotag decision tiers
-    /// (`%xalign` / `%xrev`). Defaults to `None`; opt in via the
-    /// `review_level` field of the submitted `MorphotagOptions`.
+    /// Legacy review-level request retained for stored-job compatibility.
+    /// No value emits CHAT decision tiers.
     pub review_level: crate::chat_ops::fa::ReviewLevel,
 }
 
@@ -105,20 +104,24 @@ pub(crate) struct FaDispatchPlan {
     pub kernel_plan: CommandKernelPlan,
     /// Fully extracted FA option bundle.
     pub options: FaDispatchParams,
+    /// Cache policy for the UTR ASR pre-pass and fallback paths.
+    ///
+    /// UTR and forced alignment are independently addressable cache tasks.
+    /// Keeping this policy out of `FaParams` prevents an FA refresh request
+    /// from changing UTR behavior, or vice versa.
+    pub utr_cache_policy: CachePolicy,
 }
 
 impl FaDispatchPlan {
     /// Build the FA option plan from the persisted job snapshot.
     pub(crate) fn from_job(job: &RunnerJobSnapshot, config: &ServerConfig) -> Option<Self> {
         let overrides = resolve_cache_overrides(job);
-        let cache_policy = if job.dispatch.options.common().override_media_cache {
-            CachePolicy::SkipCache
-        } else {
-            overrides.policy_for(CacheTaskName::ForcedAlignment)
-        };
-        extract_fa_dispatch_params(&job.dispatch.options, cache_policy).map(|options| Self {
+        let fa_cache_policy = overrides.policy_for(CacheTaskName::ForcedAlignment);
+        let utr_cache_policy = overrides.policy_for(CacheTaskName::UtrAsr);
+        extract_fa_dispatch_params(&job.dispatch.options, fa_cache_policy).map(|options| Self {
             kernel_plan: kernel_plan_for_job(job, config),
             options,
+            utr_cache_policy,
         })
     }
 }
@@ -143,17 +146,22 @@ pub(crate) struct TranscribeDispatchPlan {
 impl TranscribeDispatchPlan {
     /// Build the transcribe plan from the persisted job snapshot.
     pub(crate) fn from_job(job: &RunnerJobSnapshot, config: &ServerConfig) -> Option<Self> {
+        let overrides = resolve_cache_overrides(job);
+        let cache_policies = TranscribeCachePolicies {
+            rev_asr: overrides.policy_for(CacheTaskName::RevAsrEvidence),
+            speaker: overrides.policy_for(CacheTaskName::SpeakerDiarizationRawEvidence),
+        };
         let TranscribeDispatchParams {
             asr_engine,
             speaker_engine,
             diarize,
             merge_abbrev,
-            override_media_cache,
+            cache_policies,
             wor_tier,
             allow_stanza_fallback_utseg,
             batch_size: _,
             engine_extras,
-        } = extract_transcribe_dispatch_params(&job.dispatch.options)?;
+        } = extract_transcribe_dispatch_params(&job.dispatch.options, cache_policies)?;
         let with_utseg = runtime_flag(job, "utseg", true);
         let with_morphosyntax = runtime_flag(job, "morphosyntax", false);
         let speaker_backend = diarize.then(|| resolve_speaker_backend(speaker_engine));
@@ -168,11 +176,10 @@ impl TranscribeDispatchPlan {
                 num_speakers: job.dispatch.num_speakers.0 as usize,
                 with_utseg,
                 with_morphosyntax,
-                override_media_cache,
+                cache_policies,
                 allow_stanza_fallback_utseg,
                 write_wor: wor_tier.should_write(),
                 media_name: None,
-                rev_job_id: None,
                 engine_extras,
             },
             should_merge_abbrev: merge_abbrev.should_merge(),
@@ -196,13 +203,14 @@ pub(crate) struct BenchmarkDispatchPlan {
 impl BenchmarkDispatchPlan {
     /// Build the benchmark plan from the persisted job snapshot.
     pub(crate) fn from_job(job: &RunnerJobSnapshot, config: &ServerConfig) -> Option<Self> {
+        let cache_policy = resolve_cache_overrides(job).policy_for(CacheTaskName::RevAsrEvidence);
         let BenchmarkDispatchParams {
             asr_engine,
             wor_tier,
             merge_abbrev,
-            override_media_cache,
+            cache_policy,
             engine_extras,
-        } = extract_benchmark_dispatch_params(&job.dispatch.options)?;
+        } = extract_benchmark_dispatch_params(&job.dispatch.options, cache_policy)?;
 
         Some(Self {
             kernel_plan: kernel_plan_for_job(job, config),
@@ -214,11 +222,10 @@ impl BenchmarkDispatchPlan {
                 num_speakers: job.dispatch.num_speakers.0 as usize,
                 with_utseg: false,
                 with_morphosyntax: false,
-                override_media_cache,
+                cache_policies: TranscribeCachePolicies::uniform(cache_policy),
                 allow_stanza_fallback_utseg: false,
                 write_wor: wor_tier.should_write(),
                 media_name: None,
-                rev_job_id: None,
                 engine_extras,
             },
             mwt: MwtDict::default(),
@@ -291,7 +298,9 @@ impl MediaAnalysisDispatchPlan {
 /// from `CommonOptions` and produces a typed `CacheOverrides` value.
 fn resolve_cache_overrides(job: &RunnerJobSnapshot) -> CacheOverrides {
     let common = job.dispatch.options.common();
-    if !common.override_media_cache_tasks.is_empty() {
+    if common.require_media_cache {
+        CacheOverrides::RequireAll
+    } else if !common.override_media_cache_tasks.is_empty() {
         let tasks = common
             .override_media_cache_tasks
             .iter()
@@ -320,17 +329,18 @@ fn kernel_plan_for_job(job: &RunnerJobSnapshot, config: &ServerConfig) -> Comman
 /// with a single warning. Unrecognized names also resolve to `None`,
 /// silently (CLI clap validation already rejects truly unknown input).
 fn parse_cache_task_name(name: &str) -> Option<CacheTaskName> {
-    match name.trim() {
-        "utr_asr" => Some(CacheTaskName::UtrAsr),
-        "forced_alignment" => Some(CacheTaskName::ForcedAlignment),
-        "morphosyntax" | "utterance_segmentation" | "translation" => {
+    use crate::chat_ops::cache_key::CacheOverrideTaskName;
+
+    match CacheTaskName::classify_override_name(name) {
+        CacheOverrideTaskName::Cacheable(task) => Some(task),
+        CacheOverrideTaskName::TextNlpUnsupported => {
             tracing::warn!(
                 task = name,
                 "--override-media-cache-tasks ignored for text-NLP task (batchalign3 does not cache text NLP)"
             );
             None
         }
-        _ => None,
+        CacheOverrideTaskName::Unknown => None,
     }
 }
 
@@ -363,8 +373,8 @@ mod tests {
     use crate::api::{JobId, LanguageCode3, NumSpeakers, ReleasedCommand};
     use crate::config::ServerConfig;
     use crate::options::{
-        AsrEngineName, BenchmarkOptions, CommandOptions, CommonOptions, MorphotagOptions,
-        OpensmileOptions, TranscribeOptions as TranscribeCommand,
+        AlignOptions, AsrEngineName, BenchmarkOptions, CommandOptions, CommonOptions,
+        MorphotagOptions, OpensmileOptions, TranscribeOptions as TranscribeCommand,
     };
     use crate::store::{
         RunnerDispatchConfig, RunnerFilesystemConfig, RunnerJobIdentity, RunnerJobSnapshot,
@@ -480,7 +490,10 @@ mod tests {
         assert_eq!(plan.base_options.num_speakers, 3);
         assert!(!plan.base_options.with_utseg);
         assert!(plan.base_options.with_morphosyntax);
-        assert!(plan.base_options.override_media_cache);
+        assert_eq!(
+            plan.base_options.cache_policies,
+            TranscribeCachePolicies::uniform(crate::params::CachePolicy::SkipCache)
+        );
         assert!(plan.should_merge_abbrev);
     }
 
@@ -516,8 +529,127 @@ mod tests {
         assert_eq!(plan.base_options.num_speakers, 3);
         assert!(plan.base_options.with_utseg);
         assert!(!plan.base_options.with_morphosyntax);
-        assert!(!plan.base_options.override_media_cache);
+        assert_eq!(
+            plan.base_options.cache_policies,
+            TranscribeCachePolicies::uniform(crate::params::CachePolicy::UseCache)
+        );
         assert!(!plan.should_merge_abbrev);
+    }
+
+    #[test]
+    fn transcribe_plan_preserves_required_cache_policy() {
+        let snapshot = make_snapshot(
+            ReleasedCommand::Transcribe,
+            CommandOptions::Transcribe(TranscribeCommand {
+                common: CommonOptions {
+                    require_media_cache: true,
+                    ..Default::default()
+                },
+                asr_engine: AsrEngineName::RevAi,
+                diarize: true,
+                wor: false.into(),
+                merge_abbrev: false.into(),
+                batch_size: 8,
+                utseg_fallback: false.into(),
+            }),
+            BTreeMap::new(),
+        );
+
+        let plan = TranscribeDispatchPlan::from_job(&snapshot, &ServerConfig::default())
+            .expect("transcribe plan");
+
+        assert_eq!(
+            plan.base_options.cache_policies,
+            TranscribeCachePolicies::uniform(crate::params::CachePolicy::RequireCache)
+        );
+    }
+
+    #[test]
+    fn transcribe_plan_can_refresh_rev_without_refreshing_speaker_evidence() {
+        let snapshot = make_snapshot(
+            ReleasedCommand::TranscribeS,
+            CommandOptions::TranscribeS(TranscribeCommand {
+                common: CommonOptions {
+                    override_media_cache_tasks: vec!["rev_asr_evidence".to_owned()],
+                    ..Default::default()
+                },
+                asr_engine: AsrEngineName::RevAi,
+                diarize: true,
+                wor: false.into(),
+                merge_abbrev: false.into(),
+                batch_size: 8,
+                utseg_fallback: false.into(),
+            }),
+            BTreeMap::new(),
+        );
+
+        let plan = TranscribeDispatchPlan::from_job(&snapshot, &ServerConfig::default())
+            .expect("transcribe plan");
+
+        assert_eq!(
+            plan.base_options.cache_policies.rev_asr,
+            crate::params::CachePolicy::SkipCache
+        );
+        assert_eq!(
+            plan.base_options.cache_policies.speaker,
+            crate::params::CachePolicy::UseCache
+        );
+    }
+
+    #[test]
+    fn transcribe_plan_can_refresh_speaker_without_refreshing_rev_evidence() {
+        let snapshot = make_snapshot(
+            ReleasedCommand::TranscribeS,
+            CommandOptions::TranscribeS(TranscribeCommand {
+                common: CommonOptions {
+                    override_media_cache_tasks: vec!["speaker_diarization_raw_evidence".to_owned()],
+                    ..Default::default()
+                },
+                asr_engine: AsrEngineName::RevAi,
+                diarize: true,
+                wor: false.into(),
+                merge_abbrev: false.into(),
+                batch_size: 8,
+                utseg_fallback: false.into(),
+            }),
+            BTreeMap::new(),
+        );
+
+        let plan = TranscribeDispatchPlan::from_job(&snapshot, &ServerConfig::default())
+            .expect("transcribe plan");
+
+        assert_eq!(
+            plan.base_options.cache_policies.rev_asr,
+            crate::params::CachePolicy::UseCache
+        );
+        assert_eq!(
+            plan.base_options.cache_policies.speaker,
+            crate::params::CachePolicy::SkipCache
+        );
+    }
+
+    #[test]
+    fn align_plan_keeps_fa_and_utr_cache_policies_distinct() {
+        let snapshot = make_snapshot(
+            ReleasedCommand::Align,
+            CommandOptions::Align(AlignOptions {
+                common: CommonOptions {
+                    override_media_cache_tasks: vec!["utr_asr".to_owned()],
+                    ..Default::default()
+                },
+                ..AlignOptions::default()
+            }),
+            BTreeMap::new(),
+        );
+
+        let plan =
+            FaDispatchPlan::from_job(&snapshot, &ServerConfig::default()).expect("align plan");
+
+        assert_eq!(
+            plan.options.fa_params.cache_policy,
+            crate::params::CachePolicy::UseCache
+        );
+        assert_eq!(plan.utr_cache_policy, crate::params::CachePolicy::SkipCache);
     }
 
     #[test]

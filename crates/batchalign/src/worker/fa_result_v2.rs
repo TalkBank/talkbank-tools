@@ -215,7 +215,9 @@ mod tests {
         )
         .expect("V2 indexed timing result should parse");
 
-        assert_eq!(timings[0].as_ref().expect("timing").start_ms, 525);
+        let first = timings[0].as_ref().expect("timing");
+        assert_eq!(first.start_ms, 525);
+        assert_eq!(first.model_score().expect("score").millionths(), 900_000);
         assert!(timings[1].is_none());
     }
 

@@ -37,15 +37,6 @@ impl RevAiLanguageHint {
     pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
-
-    /// Rev.AI's own auto-detection, used when no language is resolved.
-    ///
-    /// A named constructor because the inner `String` is private: the client
-    /// used to build this value inline, which only worked while the type and
-    /// its caller shared a module.
-    pub(crate) fn auto() -> Self {
-        Self("auto".to_string())
-    }
 }
 
 /// Try to convert an ISO 639-3 language code to a Rev.AI language hint.

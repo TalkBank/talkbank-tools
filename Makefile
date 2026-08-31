@@ -255,7 +255,7 @@ batchalign-ci-python: batchalign-python-prepare
 
 batchalign-runtime-check:
 	@echo "==> Verifying imported runtime constants..."
-	python3 scripts/check_runtime_drift.py
+	uv run --no-sync python scripts/check_runtime_drift.py
 
 batchalign-dashboard-api-check:
 	@echo "==> Verifying imported dashboard API artifacts..."

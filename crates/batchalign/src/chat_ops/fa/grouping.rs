@@ -73,7 +73,7 @@ const TRAILING_GAP_EXTENSION_MS: u64 = 1500;
 pub struct Grouping {
     /// Windows to send to the aligner.
     pub groups: Vec<FaGroup>,
-    /// Utterances left unaligned, one record each, for `%xalign`.
+    /// Utterances left unaligned, one record each, for durable evidence.
     pub refusals: Vec<DecisionRecord>,
     /// How many estimated windows overshot the recording and were cut to it.
     ///

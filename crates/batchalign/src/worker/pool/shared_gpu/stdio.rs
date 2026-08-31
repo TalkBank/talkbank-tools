@@ -107,6 +107,9 @@ impl SharedGpuWorker {
         // Decompose the handle into its parts. We use into_parts() to bypass
         // the Drop impl (which would kill the child process).
         let parts = handle.into_parts();
+        // The pool records this identity before converting the handle. Move it
+        // out explicitly so `ManuallyDrop` ownership remains complete.
+        let _runtime = parts.runtime;
 
         let stdin = tokio::sync::Mutex::new(parts.stdin);
         let child = tokio::sync::Mutex::new(Some(parts.child));

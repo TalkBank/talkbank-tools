@@ -150,6 +150,15 @@ struct FixtureBridge {
 
 static FIXTURE: LazyLock<Arc<FixtureBridge>> = LazyLock::new(start_fixture_thread);
 
+/// A default Rust test binary may start one test thread per core. Each
+/// isolated axum/SQLite session owns several descriptors, while macOS commonly
+/// gives the process only 256. Carrying an owned permit in `TestServerSession`
+/// preserves useful parallelism without allowing an unrepresentable
+/// descriptor state.
+const MAX_CONCURRENT_TEST_SERVERS: usize = 8;
+static SESSION_ADMISSION: LazyLock<Arc<tokio::sync::Semaphore>> =
+    LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_TEST_SERVERS)));
+
 /// Number of times the shared backend has invoked `prepare_workers`.
 /// Smoke tests assert this stays at 1 across multiple acquires.
 pub fn times_prepared() -> usize {
@@ -164,6 +173,8 @@ pub struct TestServerSession {
     state_dir: PathBuf,
     client: reqwest::Client,
     bridge: Arc<FixtureBridge>,
+    /// Proof that this live session fits the process descriptor budget.
+    admission: Option<tokio::sync::OwnedSemaphorePermit>,
     /// `Some(id)` while the session owns its [`ActiveSession`] in the
     /// fixture thread; `None` after `close()` or after Drop fires (the
     /// flag suppresses double-release).
@@ -210,8 +221,12 @@ impl Drop for TestServerSession {
         let Some(id) = self.release.take() else {
             return;
         };
+        let admission = self.admission.take();
         let bridge = self.bridge.clone();
-        thread::spawn(move || release_session_sync(&bridge, id));
+        thread::spawn(move || {
+            release_session_sync(&bridge, id);
+            drop(admission);
+        });
     }
 }
 
@@ -232,6 +247,7 @@ pub async fn acquire_test_server_session_with_config(
 }
 
 async fn acquire_session_inner(config_override: Option<ServerConfig>) -> Option<TestServerSession> {
+    let admission = SESSION_ADMISSION.clone().acquire_owned().await.ok()?;
     let bridge = FIXTURE.clone();
     let (reply_tx, reply_rx) = oneshot::channel();
     if bridge
@@ -265,6 +281,7 @@ async fn acquire_session_inner(config_override: Option<ServerConfig>) -> Option<
         state_dir: snapshot.state_dir,
         client: reqwest::Client::new(),
         bridge,
+        admission: Some(admission),
         release: Some(id),
     })
 }

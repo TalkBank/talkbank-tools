@@ -26,6 +26,7 @@ use crate::options::{
     OpensmileOptions, TranscribeOptions, UtrEngine, UtrOverlapStrategy,
 };
 use crate::params::{CachePolicy, FaParams, MergeAbbrevPolicy, WorTierPolicy};
+use crate::transcribe::TranscribeCachePolicies;
 
 // ---------------------------------------------------------------------------
 // Align
@@ -116,7 +117,7 @@ pub(crate) struct TranscribeDispatchParams {
     pub wor_tier: WorTierPolicy,
     pub batch_size: i32,
     pub merge_abbrev: MergeAbbrevPolicy,
-    pub override_media_cache: bool,
+    pub cache_policies: TranscribeCachePolicies,
     /// Operator opt-in to the legacy Stanza constituency-parser
     /// fallback for utseg when no language-specific TalkBank BERT
     /// utseg model is configured. Surfaced as
@@ -139,6 +140,7 @@ pub(crate) struct TranscribeDispatchParams {
 /// command.
 pub(crate) fn extract_transcribe_dispatch_params(
     options: &CommandOptions,
+    cache_policies: TranscribeCachePolicies,
 ) -> Option<TranscribeDispatchParams> {
     match options {
         CommandOptions::Transcribe(t) | CommandOptions::TranscribeS(t) => {
@@ -149,7 +151,7 @@ pub(crate) fn extract_transcribe_dispatch_params(
                 wor_tier: t.wor,
                 batch_size: t.batch_size,
                 merge_abbrev: t.merge_abbrev,
-                override_media_cache: t.common.override_media_cache,
+                cache_policies,
                 allow_stanza_fallback_utseg: t.utseg_fallback.is_allowed(),
                 engine_extras: t.common.engine_overrides.extras.clone(),
             })
@@ -202,7 +204,7 @@ pub(crate) struct BenchmarkDispatchParams {
     pub asr_engine: AsrEngineName,
     pub wor_tier: WorTierPolicy,
     pub merge_abbrev: MergeAbbrevPolicy,
-    pub override_media_cache: bool,
+    pub cache_policy: CachePolicy,
     /// Per-engine configuration extras (see
     /// [`TranscribeDispatchParams::engine_extras`] for the rationale
     /// benchmark reuses the transcribe pipeline so the same knobs apply).
@@ -212,13 +214,14 @@ pub(crate) struct BenchmarkDispatchParams {
 /// Extract benchmark dispatch parameters from [`CommandOptions`].
 pub(crate) fn extract_benchmark_dispatch_params(
     options: &CommandOptions,
+    cache_policy: CachePolicy,
 ) -> Option<BenchmarkDispatchParams> {
     match options {
         CommandOptions::Benchmark(b) => Some(BenchmarkDispatchParams {
             asr_engine: b.effective_asr_engine(),
             wor_tier: b.wor,
             merge_abbrev: b.merge_abbrev,
-            override_media_cache: b.common.override_media_cache,
+            cache_policy,
             engine_extras: b.common.engine_overrides.extras.clone(),
         }),
         _ => None,
@@ -460,13 +463,20 @@ mod tests {
             batch_size: 32,
             utseg_fallback: false.into(),
         });
-        let params = extract_transcribe_dispatch_params(&opts).unwrap();
+        let params = extract_transcribe_dispatch_params(
+            &opts,
+            TranscribeCachePolicies::uniform(CachePolicy::SkipCache),
+        )
+        .unwrap();
         assert_eq!(params.asr_engine, AsrEngineName::WhisperX);
         assert!(!params.diarize);
         assert!(params.wor_tier.should_write());
         assert!(params.merge_abbrev.should_merge());
         assert_eq!(params.batch_size, 32);
-        assert!(params.override_media_cache);
+        assert_eq!(
+            params.cache_policies,
+            TranscribeCachePolicies::uniform(CachePolicy::SkipCache)
+        );
     }
 
     #[test]
@@ -480,13 +490,20 @@ mod tests {
             batch_size: 8,
             utseg_fallback: false.into(),
         });
-        let params = extract_transcribe_dispatch_params(&opts).unwrap();
+        let params = extract_transcribe_dispatch_params(
+            &opts,
+            TranscribeCachePolicies::uniform(CachePolicy::UseCache),
+        )
+        .unwrap();
         assert_eq!(params.asr_engine, AsrEngineName::RevAi);
         assert!(params.diarize);
         assert!(!params.wor_tier.should_write());
         assert!(!params.merge_abbrev.should_merge());
         assert_eq!(params.batch_size, 8);
-        assert!(!params.override_media_cache);
+        assert_eq!(
+            params.cache_policies,
+            TranscribeCachePolicies::uniform(CachePolicy::UseCache)
+        );
     }
 
     #[test]
@@ -503,7 +520,11 @@ mod tests {
             utseg_fallback: false.into(),
         });
 
-        let params = extract_transcribe_dispatch_params(&opts).unwrap();
+        let params = extract_transcribe_dispatch_params(
+            &opts,
+            TranscribeCachePolicies::uniform(CachePolicy::UseCache),
+        )
+        .unwrap();
         assert_eq!(params.asr_engine, AsrEngineName::HkTencent);
     }
 
@@ -557,11 +578,11 @@ mod tests {
             wor: true.into(),
             merge_abbrev: true.into(),
         });
-        let params = extract_benchmark_dispatch_params(&opts).unwrap();
+        let params = extract_benchmark_dispatch_params(&opts, CachePolicy::SkipCache).unwrap();
         assert_eq!(params.asr_engine, AsrEngineName::WhisperOai);
         assert!(params.wor_tier.should_write());
         assert!(params.merge_abbrev.should_merge());
-        assert!(params.override_media_cache);
+        assert_eq!(params.cache_policy, CachePolicy::SkipCache);
     }
 
     #[test]
@@ -575,7 +596,7 @@ mod tests {
             merge_abbrev: false.into(),
         });
 
-        let params = extract_benchmark_dispatch_params(&opts).unwrap();
+        let params = extract_benchmark_dispatch_params(&opts, CachePolicy::UseCache).unwrap();
         assert_eq!(params.asr_engine, AsrEngineName::HkAliyun);
     }
 
@@ -612,9 +633,15 @@ mod tests {
             bullet_repair: false,
             review_level: Default::default(),
         });
-        assert!(extract_transcribe_dispatch_params(&align).is_none());
+        assert!(
+            extract_transcribe_dispatch_params(
+                &align,
+                TranscribeCachePolicies::uniform(CachePolicy::UseCache)
+            )
+            .is_none()
+        );
         assert!(extract_morphotag_dispatch_params(&align).is_none());
-        assert!(extract_benchmark_dispatch_params(&align).is_none());
+        assert!(extract_benchmark_dispatch_params(&align, CachePolicy::UseCache).is_none());
         assert!(extract_opensmile_dispatch_params(&align).is_none());
 
         let transcribe = CommandOptions::Transcribe(TranscribeOptions {

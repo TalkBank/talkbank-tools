@@ -385,6 +385,11 @@ pub struct HealthResponse {
     /// `capabilities`, only commands whose workers have been spawned.
     #[serde(default)]
     pub loaded_pipelines: Vec<String>,
+    /// Distinct content-addressed Python runtimes observed since server start.
+    /// Paths are deliberately absent; hashes identify executable bytes,
+    /// Batchalign package bytes, and the installed distribution inventory.
+    #[serde(default)]
+    pub worker_runtime_identities: Vec<crate::worker::runtime_identity::WorkerRuntimeIdentity>,
     /// Filesystem directories the server searches for media files (audio/video).
     /// Configured via `server.yaml` `media_roots`.
     #[serde(default)]

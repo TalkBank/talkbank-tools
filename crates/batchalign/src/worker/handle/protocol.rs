@@ -33,6 +33,7 @@ pub(super) struct ReadySignal {
     pub ready: bool,
     pub pid: u32,
     pub transport: Option<String>,
+    pub runtime: crate::worker::runtime_identity::WorkerRuntimeIdentity,
 }
 
 /// TCP ready signal from stderr: `{"ready": true, "pid": N, "transport": "tcp", "port": P}`.

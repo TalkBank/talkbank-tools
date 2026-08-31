@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from batchalign.inference._domain_types import TcpPort
 
 from batchalign.worker._protocol_ops import dispatch_protocol_message
+from batchalign.worker._runtime_identity import observe_worker_runtime
 from batchalign.worker._types import WorkerJSONValue
 
 logger = logging.getLogger(__name__)
@@ -182,7 +183,14 @@ def _print_ready() -> None:
     redirected to stderr: see ``write_progress_event`` for the rationale.
     """
     global _handshake_complete
-    _write_json({"ready": True, "pid": os.getpid(), "transport": "stdio"})
+    _write_json(
+        {
+            "ready": True,
+            "pid": os.getpid(),
+            "transport": "stdio",
+            "runtime": observe_worker_runtime().json_value(),
+        }
+    )
     _handshake_complete = True
 
 

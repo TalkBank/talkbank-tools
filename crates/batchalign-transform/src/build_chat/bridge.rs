@@ -145,6 +145,7 @@ pub fn transcript_from_asr_utterances(
         participants,
         media_name: media_name.map(String::from),
         media_type: Some("audio".to_string()),
+        media_status: None,
         utterances: utterance_descs,
         write_wor,
     })

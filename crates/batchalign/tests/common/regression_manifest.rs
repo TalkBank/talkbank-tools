@@ -334,19 +334,6 @@ pub enum FixtureAssertion {
     /// This is a boundary contract on emitted CHAT rather than a semantic AST
     /// invariant, so the runner checks the final header line directly.
     MediaHeaderMatchesInputBasename,
-    /// Passes iff no FA group had `start_ms >= end_ms` at build time.
-    /// Detects the MICASE 8-failure class: a pre-FA build-time check rejected
-    /// the utterance group's audio window as empty or inverted and the job
-    /// should have failed early (or emitted an invalid-window marker in the
-    /// output) instead of silently producing aligned CHAT.
-    NoFaGroupInvalidAudioWindow,
-    /// Passes iff the output CHAT has NO `%xalign: monotonicity:*` lines.
-    /// Detects the samtale-style silent rescue: when the aligner's output
-    /// would have been non-monotonic, the old pipeline would emit a patched
-    /// `%xalign` tier with a `monotonicity:` marker instead of failing. Once
-    /// the rescue layer is deleted, this becomes a load-bearing negative
-    /// assertion that no rescue fired.
-    NoMonotonicityRescueEmitted,
     /// Passes iff for every pair of adjacent non-overlap utterances
     /// `u_i`, `u_{i+1}`, we have `u_i.start_ms < u_{i+1}.start_ms`.
     ///
@@ -360,12 +347,6 @@ pub enum FixtureAssertion {
         /// as a whole-percent value in `[0, 100]`.
         threshold_percent: MinUtrCoveragePercent,
     },
-    /// Passes iff no utterance was silently returned with no bullet AND an
-    /// `%xrev: [?]` flag (i.e. no timing_stripped path fired): an utterance
-    /// that lost its timing must not also carry the rescue-review marker,
-    /// because that pairing signals the silent timing-strip rescue that this
-    /// assertion is designed to detect.
-    NoSilentTimingStrip,
 }
 
 impl FixtureAssertion {
@@ -394,11 +375,8 @@ impl FixtureAssertion {
             Self::NoWorTiersPresent => None,
             Self::MinDistinctMainTierSpeakerCount { .. } => None,
             Self::MediaHeaderMatchesInputBasename => None,
-            Self::NoFaGroupInvalidAudioWindow => None,
-            Self::NoMonotonicityRescueEmitted => None,
             Self::UtteranceBulletMonotonicityPreserved => None,
             Self::MinUtrCoveragePercent { .. } => None,
-            Self::NoSilentTimingStrip => None,
         }
     }
 }

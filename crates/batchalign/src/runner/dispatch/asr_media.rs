@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::api::RevAiJobId;
 use crate::error::ServerError;
 
 pub(crate) fn resolve_paths_mode_or_staging_input(
@@ -28,7 +26,6 @@ pub(crate) struct PreparedAsrMediaInput {
     pub original_audio_path: PathBuf,
     pub inference_audio_path: PathBuf,
     pub media_name: Option<String>,
-    pub rev_job_id: Option<RevAiJobId>,
 }
 
 pub(crate) fn preserved_media_name_for_chat(
@@ -45,7 +42,6 @@ pub(crate) fn preserved_media_name_for_chat(
 
 pub(crate) async fn prepare_asr_media_input(
     original_audio_path: PathBuf,
-    rev_job_ids: &HashMap<PathBuf, RevAiJobId>,
     media_name: Option<String>,
     context_label: &str,
 ) -> Result<PreparedAsrMediaInput, ServerError> {
@@ -76,7 +72,6 @@ pub(crate) async fn prepare_asr_media_input(
         })?;
 
     Ok(PreparedAsrMediaInput {
-        rev_job_id: rev_job_ids.get(&original_audio_path).cloned(),
         original_audio_path,
         inference_audio_path,
         media_name,
@@ -105,7 +100,6 @@ mod tests {
 
         let err = super::prepare_asr_media_input(
             audio.clone(),
-            &std::collections::HashMap::new(),
             Some("interview,part2".to_string()),
             "test job",
         )

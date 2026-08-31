@@ -43,7 +43,9 @@ pub(crate) fn classify_worker_error(error: &WorkerError) -> FailureCategory {
         // 3-attempt retries of a deterministic Stanza catalog miss
         // produced multi-GB log explosions because each attempt dumped a
         // full Python traceback before the worker exited.
-        WorkerError::Bootstrap(_) => FailureCategory::WorkerBootstrap,
+        WorkerError::Bootstrap(_) | WorkerError::RuntimeIdentityMismatch => {
+            FailureCategory::WorkerBootstrap
+        }
         WorkerError::MemoryGuard(_) => FailureCategory::MemoryPressure,
         // Deliberately NOT `Cancelled`, which means "cancelled intentionally"
         // by an operator and is a TERMINAL user-intent state. The server

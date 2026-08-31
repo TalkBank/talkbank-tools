@@ -14,6 +14,13 @@ from batchalign.inference.utseg import (
     batch_infer_utseg,
     compute_assignments,
 )
+from batchalign.models.utterance.evidence import (
+    BoundaryAction,
+    BoundaryProbability,
+    ClassifiedBoundaryEvidence,
+    ModelShortCircuit,
+    UtteranceBoundaryPrediction,
+)
 from batchalign.providers import BatchInferRequest
 
 
@@ -352,9 +359,38 @@ class TestBatchInferUtseg:
 
     def test_uses_boundary_model_assignments_when_available(self) -> None:
         class _FakeBoundaryModel:
-            def predict_assignments(self, words: list[str]) -> list[int]:
+            def predict_boundary_evidence(
+                self, words: list[str]
+            ) -> UtteranceBoundaryPrediction:
                 assert words == ["On", "television", "Have", "you"]
-                return [0, 0, 1, 1]
+                low = BoundaryProbability.from_float(0.1)
+                high = BoundaryProbability.from_float(0.9)
+                return UtteranceBoundaryPrediction(
+                    model_id="test-boundary-model",
+                    model_revision="test-revision",
+                    word_evidence=(
+                        ClassifiedBoundaryEvidence(
+                            raw_action=BoundaryAction.ORDINARY,
+                            applied_action=BoundaryAction.ORDINARY,
+                            boundary_probability=low,
+                        ),
+                        ClassifiedBoundaryEvidence(
+                            raw_action=BoundaryAction.PERIOD_BOUNDARY,
+                            applied_action=BoundaryAction.PERIOD_BOUNDARY,
+                            boundary_probability=high,
+                        ),
+                        ClassifiedBoundaryEvidence(
+                            raw_action=BoundaryAction.ORDINARY,
+                            applied_action=BoundaryAction.ORDINARY,
+                            boundary_probability=low,
+                        ),
+                        ClassifiedBoundaryEvidence(
+                            raw_action=BoundaryAction.ORDINARY,
+                            applied_action=BoundaryAction.ORDINARY,
+                            boundary_probability=low,
+                        ),
+                    ),
+                )
 
         response = batch_infer_utseg(
             BatchInferRequest(
@@ -373,13 +409,52 @@ class TestBatchInferUtseg:
             utterance_boundary_model=_FakeBoundaryModel(),
         )
 
-        assert response.results[0].result == {"assignments": [0, 0, 1, 1]}
+        assert response.results[0].result == {
+            "assignments": [0, 0, 1, 1],
+            "boundary_model_evidence": {
+                "model_id": "test-boundary-model",
+                "model_revision": "test-revision",
+                "normalization_revision": "lower-strip-ascii-punctuation-v1",
+                "adjacency_policy_revision": "suppress-earlier-adjacent-nonordinary-v1",
+                "word_evidence": [
+                    {
+                        "kind": "classified",
+                        "raw_action": "ordinary",
+                        "applied_action": "ordinary",
+                        "boundary_probability_micros": 100_000,
+                    },
+                    {
+                        "kind": "classified",
+                        "raw_action": "period_boundary",
+                        "applied_action": "period_boundary",
+                        "boundary_probability_micros": 900_000,
+                    },
+                    {
+                        "kind": "classified",
+                        "raw_action": "ordinary",
+                        "applied_action": "ordinary",
+                        "boundary_probability_micros": 100_000,
+                    },
+                    {
+                        "kind": "classified",
+                        "raw_action": "ordinary",
+                        "applied_action": "ordinary",
+                        "boundary_probability_micros": 100_000,
+                    },
+                ],
+            },
+        }
 
-    def test_boundary_model_short_circuits_single_word_items(self) -> None:
+    def test_boundary_model_exposes_single_word_short_circuit_evidence(self) -> None:
         class _FakeBoundaryModel:
-            def predict_assignments(self, words: list[str]) -> list[int]:
-                raise AssertionError(
-                    f"single-word item should not reach model: {words}"
+            def predict_boundary_evidence(
+                self, words: list[str]
+            ) -> UtteranceBoundaryPrediction:
+                assert words == ["hello"]
+                return UtteranceBoundaryPrediction(
+                    model_id="test-boundary-model",
+                    model_revision="test-revision",
+                    word_evidence=(ModelShortCircuit(),),
                 )
 
         response = batch_infer_utseg(
@@ -394,7 +469,39 @@ class TestBatchInferUtseg:
             utterance_boundary_model=_FakeBoundaryModel(),
         )
 
-        assert response.results[0].result == {"assignments": [0]}
+        assert response.results[0].result == {
+            "assignments": [0],
+            "boundary_model_evidence": {
+                "model_id": "test-boundary-model",
+                "model_revision": "test-revision",
+                "normalization_revision": "lower-strip-ascii-punctuation-v1",
+                "adjacency_policy_revision": "suppress-earlier-adjacent-nonordinary-v1",
+                "word_evidence": [{"kind": "model_short_circuit"}],
+            },
+        }
+
+    def test_boundary_model_failure_is_not_silently_changed_to_keep(self) -> None:
+        class _FailingBoundaryModel:
+            def predict_boundary_evidence(
+                self, words: list[str]
+            ) -> UtteranceBoundaryPrediction:
+                raise ValueError(f"deliberate model failure for {words!r}")
+
+        response = batch_infer_utseg(
+            BatchInferRequest(
+                task="utseg",
+                lang="eng",
+                items=[{"words": ["hello", "there"], "text": "hello there"}],
+            ),
+            lambda langs: (_ for _ in ()).throw(
+                AssertionError(f"unexpected Stanza load: {langs}")
+            ),
+            utterance_boundary_model=_FailingBoundaryModel(),
+        )
+
+        assert response.results[0].result is None
+        assert response.results[0].error is not None
+        assert "deliberate model failure" in response.results[0].error
 
 
 class TestUtsegTreeHelpers:

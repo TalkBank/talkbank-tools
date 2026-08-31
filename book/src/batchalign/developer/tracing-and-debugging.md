@@ -1,7 +1,7 @@
 # Tracing and Debugging
 
 **Status:** Current
-**Last updated:** 2026-08-06 16:10 EDT
+**Last updated:** 2026-08-30 19:40 EDT
 
 This document describes the tracing and debugging strategy across the
 batchalign3 stack: Rust (batchalign-core PyO3 bridge), Rust (CLI and server
@@ -234,8 +234,20 @@ Worker stderr will show `DEBUG`-level messages from `batchalign.worker` and
 ## Debug Artifact Pipeline (`--debug-dir`)
 
 The `--debug-dir PATH` flag (or `BATCHALIGN_DEBUG_DIR` env var) writes
-structured CHAT/JSON artifacts at each pipeline stage. All commands support it.
-When `--debug-dir` is not set, all dump operations are zero-cost no-ops.
+structured CHAT/JSON artifacts at pipeline stages that are currently wired.
+`align` and `transcribe` have those producers; accepting the global option on
+another command is not a promise that the command emits artifacts. When
+`--debug-dir` is not set, all dump operations are zero-cost no-ops.
+
+The directory is interpreted by the **server process**. The CLI converts a
+relative value to an absolute client path before submission, which is correct
+for direct mode, a loopback server, or an explicitly shared filesystem. It is
+not a remote artifact-transfer protocol: on a different host the same absolute
+path may be absent, unwritable, or name unrelated storage. For a remote server,
+pass an absolute path that is meaningful on that server and retrieve it through
+normal host access. A future server-owned artifact store should replace this
+cross-host path convention; current behavior must not be described as copying
+debug files back to the client.
 
 ```bash
 # Alignment with debug artifacts
@@ -279,20 +291,29 @@ flowchart TB
     subgraph "Align Pipeline (fa_pipeline.rs)"
         FA_DISPATCH["dispatch_fa_infer()"] --> FA_CTX["FaFileContext { dumper }"]
         FA_CTX --> FA1["dump_utr_input()"]
-        FA1 --> FA2["dump_utr_tokens()"]
+        FA1 --> FAR["Rev UTR → dump_rev_evidence()<br>(one per raw evidence key)"]
+        FAR --> FA2["dump_utr_tokens()"]
         FA2 --> FA3["dump_utr_output()"]
         FA3 --> FA4["dump_fa_grouping()"]
         FA4 --> FA5["dump_fa_group_result() x N"]
-        FA5 --> FA6["dump_fa_output()"]
+        FA5 --> FAE["dump_fa_evidence()\n(versioned, fail-closed)"]
+        FAE --> FA6["dump_fa_output()"]
     end
 
     subgraph "Transcribe Pipeline (pipeline/transcribe.rs)"
         TX_DISPATCH["dispatch_transcribe_infer()"] --> TX_CTX["TranscribePipelineContext { dumper }"]
-        TX_CTX --> TX1["stage_asr_infer → dump_asr_response()"]
-        TX1 --> TX2["stage_build_chat → dump_post_asr_chat()"]
-        TX2 --> TX3["stage_run_utseg → dump_pre_utseg_chat()"]
-        TX3 --> TX4["stage_run_utseg → dump_post_utseg_chat()"]
-        TX4 --> TX5["stage_run_morphosyntax → dump_pre_morphosyntax_chat()"]
+        TX_CTX --> TX0["Rev stage_asr_infer → dump_rev_evidence()<br>(versioned, fail-closed)"]
+        TX0 --> TX1["stage_asr_infer → dump_asr_response()"]
+        TX1 --> TXS0["stage_speaker_diarization<br/>(when dedicated backend is needed)"]
+        TXS0 --> TXS1["dump_speaker_evidence()<br>(versioned, fail-closed)"]
+        TXS1 --> TXS2["dump_speaker_turns()<br>(exact consumed turns, fail-closed)"]
+        TXS2 --> TX2["stage_asr_postprocess<br/>speaker projection + pre-CHAT utseg"]
+        TX2 --> TXP["UtsegEvidenceSink.write(pre_chat)<br/>(model-backed path, fail-closed)"]
+        TXP --> TX3["stage_build_chat → dump_post_asr_chat()"]
+        TX3 --> TX4["stage_run_utseg → dump_pre_utseg_chat()"]
+        TX4 --> TXE["UtsegEvidenceSink.write(post_chat)<br/>(fail-closed)"]
+        TXE --> TX5["stage_run_utseg → dump_post_utseg_chat()"]
+        TX5 --> TX6["stage_run_morphosyntax → dump_pre_morphosyntax_chat()"]
     end
 ```
 
@@ -303,10 +324,17 @@ For a transcribe job on `sample.wav` with `--debug-dir /tmp/debug`:
 ```text
 /tmp/debug/
   # Transcribe pipeline artifacts
+  sample_rev_evidence.json       # Rev media/request/cache/projection causal record
+  sample_speaker_evidence.json   # Speaker request/cache/projection causal record
+  sample.turns.json              # Exact normalized dedicated-speaker segments
   sample_asr_response.json       # Raw ASR tokens + timestamps from Whisper/Rev.AI
+  sample_pre_chat_utseg_evidence.json
+                                 # Exact words, assignments, model, policy evidence
   sample_post_asr.cha            # CHAT after assembly (before utseg)
-  sample_pre_utseg.cha           # CHAT entering utterance segmentation
-  sample_post_utseg.cha          # CHAT after utterance segmentation
+  sample_pre_utseg.cha           # CHAT entering the post-CHAT utseg pass
+  sample_post_chat_utseg_evidence.json
+                                 # Post-CHAT words, assignments, model, policy evidence
+  sample_post_utseg.cha          # CHAT after the post-CHAT utseg pass
   sample_pre_morphosyntax.cha    # CHAT entering morphosyntax
 
   # Align pipeline artifacts (for a file sample.cha)
@@ -314,12 +342,31 @@ For a transcribe job on `sample.wav` with `--debug-dir /tmp/debug`:
   sample_utr_tokens.json         # ASR timing tokens fed to UTR
   sample_utr_output.cha          # CHAT after UTR injection
   sample_utr_result.json         # UTR injection statistics
+  *-utr-rev-*_rev_evidence.json  # Rev UTR media/request/cache/projection records
   sample_fa_input.cha            # CHAT before FA (after UTR)
   sample_fa_grouping.json        # FA group plan (time windows, words)
   sample_fa_group_0.json         # Per-group words + timings
   sample_fa_group_1.json
+  sample_fa_evidence.json        # Versioned score/provenance/decision evidence
   sample_fa_output.cha           # Final aligned CHAT
 ```
+
+`sample_fa_evidence.json` differs from the older best-effort stage dumps: if
+artifact collection was requested and this versioned evidence cannot be
+serialized or written, the align job fails with a persistence error. Schema
+version 2 records group identity/source/cache keys and pre-injection timing,
+model score, complete boundary provenance, and the exact typed decisions that
+later altered or removed timing. Decisions remain in the sidecar while CHAT
+contains no review-tier projection. The `post_injection_timings` field is
+intentionally empty until the complete typed per-word post-processing identity
+path is connected.
+
+The fail-closed FA evidence and same-job speaker-turn artifacts are fully
+materialized before a temporary file is opened, synchronized, and atomically
+renamed into place. On Unix, the containing directory is synchronized too.
+When the submitted filename includes directories, the evidence filename adds
+a short digest of that full identity after `sample`; this keeps equal basenames
+from distinct corpus branches separate.
 
 ### Always-on error logging (no `--debug-dir` needed)
 
@@ -417,19 +464,41 @@ For experiment-grade control, `--override-media-cache-tasks` bypasses cache only
 specific NLP tasks:
 
 ```bash
-# Skip UTR ASR cache but keep morphosyntax and FA caches
+# Skip UTR ASR cache but keep the FA cache
 batchalign3 align input/ output/ --override-media-cache-tasks utr_asr
 
-# Skip multiple tasks (comma-separated)
-batchalign3 morphotag input/ output/ --override-media-cache-tasks morphosyntax,translation
+# Skip both cache-backed align tasks
+batchalign3 align input/ output/ \
+  --override-media-cache-tasks utr_asr,forced_alignment
+
+# Refresh Rev words while reusing paid pyannote evidence
+batchalign3 transcribe input/ output/ --diarization enabled \
+  --override-media-cache-tasks rev_asr_evidence
+
+# Refresh pyannote evidence while reusing Rev words
+batchalign3 transcribe input/ output/ --diarization enabled \
+  --override-media-cache-tasks speaker_diarization_raw_evidence
 ```
 
-Valid task names: `morphosyntax`, `utr_asr`, `forced_alignment`,
-`utterance_segmentation`, `translation`.
+The cache-backed task names currently exposed by this selective CLI are
+`utr_asr`, `forced_alignment`, `rev_asr_evidence`, and
+`speaker_diarization_raw_evidence`. Legacy text-task names are accepted with a
+warning but do nothing because morphosyntax, utterance segmentation, and
+translation are not cached.
 
 The existing `--override-media-cache` continues to skip all cache domains.
 Internally, `CacheOverrides::Tasks(BTreeSet<CacheTaskName>)` resolves per-task
-at each cache call site via `policy_for(CacheTaskName)`.
+via `policy_for(CacheTaskName)`. The typed `FaDispatchPlan` deliberately keeps
+FA and UTR policies in distinct fields; both the initial UTR pass and the retry
+fallback consume the UTR field rather than borrowing the FA policy. Transcribe
+likewise carries a named `TranscribeCachePolicies` record, so Rev and speaker
+refresh authority cannot be swapped or coupled through one generic policy.
+
+For replay-only experiments, `--require-media-cache` resolves every
+cache-backed task to `CachePolicy::RequireCache`. Missing evidence becomes an
+error before an inference capability is constructed. Clap and HTTP admission
+both reject combinations with either refresh flag, so a job cannot carry
+contradictory replay and refresh instructions.
 
 ## Stanza Anomaly Detection
 

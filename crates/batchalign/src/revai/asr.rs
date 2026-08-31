@@ -5,8 +5,6 @@
 //! should stay in Python are the ones that genuinely require Python-hosted
 //! model libraries.
 
-use std::path::Path;
-
 use crate::revai::{RevAiClient, SubmitOptions, Transcript, TranscriptResult};
 use batchalign_transform::asr_postprocess::{
     AsrElement, AsrElementKind, AsrMonologue, AsrOutput, AsrRawText, AsrTimestampSecs, SpeakerIndex,
@@ -18,8 +16,8 @@ use crate::error::ServerError;
 use crate::transcribe::{AsrResponse, AsrToken};
 
 use super::{
-    CompletedRevAsrEvidence, RevAsrEvidenceInference, RevAsrInferenceAuthorization,
-    load_revai_api_key,
+    AuthorizedRevEvidenceRun, CompletedRevAsrEvidence, RevAsrEvidenceInference,
+    VerifiedRevProviderMedia, load_revai_api_key,
 };
 use crate::types::revai_language::RevAiLanguageHint;
 
@@ -30,26 +28,29 @@ use crate::types::revai_language::RevAiLanguageHint;
 /// auto-detects the spoken language, and reads the detected language from
 /// the completed job to populate `AsrResponse.lang`.
 async fn infer_revai_evidence(
-    audio_path: &Path,
-    lang: &LanguageSpec,
-    num_speakers: NumSpeakers,
-    rev_job_id: Option<&str>,
-    _authorization: &RevAsrInferenceAuthorization,
+    run: AuthorizedRevEvidenceRun,
 ) -> Result<CompletedRevAsrEvidence, ServerError> {
     let api_key =
         load_revai_api_key().map_err(|error| ServerError::Validation(error.to_string()))?;
-    let audio_path = audio_path.to_path_buf();
-    let lang = lang.clone();
-    let rev_job_id = rev_job_id.map(str::to_string);
-
     tokio::task::spawn_blocking(move || {
+        let media = run
+            .provider_media
+            .verify()
+            .map_err(|error| ServerError::Persistence(error.to_string()))?;
+        let lang = run.requested_language;
+        let num_speakers = run.expected_speakers;
         // When auto-detecting, run Rev.AI Language Identification first.
         // This is a separate API (~5-30s) that identifies the spoken language
         // from audio features: far more accurate than text-based trigram
         // detection, especially for code-switched bilingual audio.
         let effective_lang = if matches!(lang, LanguageSpec::Auto) {
             let client = RevAiClient::new(api_key.as_str());
-            match client.identify_language_blocking(&audio_path, 30) {
+            match client.identify_language_bytes_blocking(
+                &media.bytes,
+                &media.upload_file_name,
+                media.upload_mime,
+                30,
+            ) {
                 Ok(langid_result) => {
                     let detected = &langid_result.top_language;
                     info!(
@@ -81,14 +82,9 @@ async fn infer_revai_evidence(
             lang.clone()
         };
 
-        let result = fetch_revai_transcript(
-            &api_key,
-            &audio_path,
-            &effective_lang,
-            num_speakers,
-            rev_job_id.as_deref(),
-        )
-        .map_err(|error| ServerError::Validation(error.to_string()))?;
+        let result = fetch_revai_transcript(&api_key, &media, &effective_lang, num_speakers)
+            .map_err(|error| ServerError::Validation(error.to_string()))?;
+        let (transcript_evidence, detected_language) = result.into_parts();
 
         // Resolve the language. No silent fallback to English, if Language
         // ID didn't return anything usable and the user didn't supply
@@ -99,8 +95,7 @@ async fn infer_revai_evidence(
             // Auto: user asked Rev.AI to detect. PerFile: transcribe path
             // shouldn't see this: submission validation rejects it. Either
             // way the only honest source here is Rev.AI's `detected_language`.
-            LanguageSpec::Auto | LanguageSpec::PerFile => result
-                .detected_language
+            LanguageSpec::Auto | LanguageSpec::PerFile => detected_language
                 .as_deref()
                 .filter(|d| !d.is_empty() && *d != "auto")
                 .and_then(revai_code_to_iso639_3)
@@ -115,7 +110,7 @@ async fn infer_revai_evidence(
         };
 
         Ok(CompletedRevAsrEvidence {
-            transcript: result.transcript,
+            transcript_evidence,
             resolved_language: resolved_lang,
         })
     })
@@ -125,52 +120,32 @@ async fn infer_revai_evidence(
 
 /// Production Rev.AI boundary carrying all inputs authorized by an evidence
 /// cache miss or explicit refresh.
-pub(crate) struct RevAsrService<'a> {
-    audio_path: &'a Path,
-    lang: &'a LanguageSpec,
-    num_speakers: NumSpeakers,
-    rev_job_id: Option<&'a str>,
-}
+pub(crate) struct RevAsrService;
 
-impl<'a> RevAsrService<'a> {
-    pub(crate) fn new(
-        audio_path: &'a Path,
-        lang: &'a LanguageSpec,
-        num_speakers: NumSpeakers,
-        rev_job_id: Option<&'a str>,
-    ) -> Self {
-        Self {
-            audio_path,
-            lang,
-            num_speakers,
-            rev_job_id,
-        }
+impl RevAsrService {
+    pub(crate) fn new() -> Self {
+        Self
     }
 }
 
 #[async_trait::async_trait]
-impl RevAsrEvidenceInference for RevAsrService<'_> {
+impl RevAsrEvidenceInference for RevAsrService {
     async fn infer(
         &self,
-        authorization: &RevAsrInferenceAuthorization,
+        run: AuthorizedRevEvidenceRun,
     ) -> Result<CompletedRevAsrEvidence, ServerError> {
-        infer_revai_evidence(
-            self.audio_path,
-            self.lang,
-            self.num_speakers,
-            self.rev_job_id,
-            authorization,
-        )
-        .await
+        infer_revai_evidence(run).await
     }
 }
 
 pub(crate) fn rev_evidence_to_asr_response(evidence: &CompletedRevAsrEvidence) -> AsrResponse {
-    transcript_to_asr_response(&evidence.transcript, &evidence.resolved_language)
+    transcript_to_asr_response(
+        evidence.transcript_evidence.transcript(),
+        &evidence.resolved_language,
+    )
 }
 
-/// Fetch a Rev.AI transcript either by polling an existing submitted job or by
-/// submitting one local audio file and waiting for completion.
+/// Submit the verified provider-media artifact and wait for its transcript.
 ///
 /// When `lang` is `LanguageSpec::Auto`, sends `language: "auto"` to Rev.AI.
 /// In auto mode, `speakers_count` and `skip_postprocessing` are not sent
@@ -186,22 +161,16 @@ pub(crate) fn rev_evidence_to_asr_response(evidence: &CompletedRevAsrEvidence) -
 ///   CHAT records spoken form, so we skip ITN wherever the flag is available.
 ///   For other languages the flag is a no-op per Rev.AI docs, so we omit it.
 ///
-/// Current production resolves the durable evidence cache first and normally
-/// reaches this function without a job ID. The optional ID remains for the
-/// disabled legacy preflight path; when present, it polls that already-created
-/// job. Direct submission uses the same request-policy helpers as preflight.
+/// Production can reach this paid boundary only after the durable evidence
+/// cache authorizes a miss or an explicit refresh. The verified artifact keeps
+/// the bytes hashed for that decision identical to the bytes uploaded here.
 pub(super) fn fetch_revai_transcript(
     api_key: &super::RevAiApiKey,
-    audio_path: &Path,
+    media: &VerifiedRevProviderMedia,
     lang: &LanguageSpec,
     num_speakers: NumSpeakers,
-    rev_job_id: Option<&str>,
 ) -> crate::revai::Result<TranscriptResult> {
     let client = RevAiClient::new(api_key.as_str());
-    if let Some(job_id) = rev_job_id {
-        return client.poll_and_download(job_id, 5, 30);
-    }
-
     let lang_hint_str = match lang.as_resolved() {
         Some(code) => RevAiLanguageHint::from(code).as_str().to_string(),
         None => "auto".to_string(),
@@ -220,19 +189,32 @@ pub(super) fn fetch_revai_transcript(
     let skip_postprocessing = if is_auto {
         None
     } else {
-        super::preflight::skip_postprocessing_hint(lang_hint_str.as_str())
+        skip_postprocessing_hint(lang_hint_str.as_str())
     };
 
-    let metadata = audio_path
-        .file_stem()
-        .map(|stem| format!("batchalign3_{}", stem.to_string_lossy()));
     let options = SubmitOptions {
         language: lang_hint_str,
         speakers_count,
         skip_postprocessing,
-        metadata,
+        metadata: Some(media.metadata.clone()),
     };
-    client.transcribe_blocking(audio_path, &options, 30)
+    client.transcribe_bytes_blocking(
+        &media.bytes,
+        &media.upload_file_name,
+        media.upload_mime,
+        &options,
+        30,
+    )
+}
+
+/// Rev.AI's inverse text normalization turns spoken forms into written forms.
+/// CHAT records spoken form, so English and Spanish explicitly skip it. The
+/// option is omitted for languages where Rev.AI does not support the setting.
+fn skip_postprocessing_hint(language: &str) -> Option<bool> {
+    match language {
+        "en" | "es" => Some(true),
+        _ => None,
+    }
 }
 
 /// Map a Rev.AI ISO 639-1 language code back to an ISO 639-3 code.
@@ -498,5 +480,13 @@ mod tests {
     fn revai_code_rejects_unknown() {
         assert_eq!(revai_code_to_iso639_3("xx"), None);
         assert_eq!(revai_code_to_iso639_3(""), None);
+    }
+
+    #[test]
+    fn skip_postprocessing_is_enabled_only_where_rev_supports_it() {
+        assert_eq!(skip_postprocessing_hint("en"), Some(true));
+        assert_eq!(skip_postprocessing_hint("es"), Some(true));
+        assert_eq!(skip_postprocessing_hint("cmn"), None);
+        assert_eq!(skip_postprocessing_hint("auto"), None);
     }
 }

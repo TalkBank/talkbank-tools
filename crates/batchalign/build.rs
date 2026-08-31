@@ -39,6 +39,27 @@ fn main() {
     for path in git_state_paths() {
         println!("cargo:rerun-if-changed={path}");
     }
+
+    // Emitting any rerun-if-changed directive disables Cargo's default
+    // package-wide source watch. The git-only list above therefore made
+    // BUILD_HASH stale across ordinary unstaged edits: Cargo rebuilt and
+    // relinked the binary, but reused the old build-script output. Watch every
+    // workspace input that can change this executable without changing the
+    // index. Python worker identity is observed separately at runtime.
+    for path in [
+        "src",
+        "Cargo.toml",
+        "../batchalign-types/src",
+        "../batchalign-types/Cargo.toml",
+        "../batchalign-transform/src",
+        "../batchalign-transform/Cargo.toml",
+        "../batchalign-fa-core/src",
+        "../batchalign-fa-core/Cargo.toml",
+        "../../Cargo.toml",
+        "../../Cargo.lock",
+    ] {
+        println!("cargo:rerun-if-changed={path}");
+    }
 }
 
 fn git_state_paths() -> Vec<String> {

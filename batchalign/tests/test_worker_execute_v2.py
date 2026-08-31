@@ -1118,6 +1118,86 @@ def test_routes_utseg_execute_v2_request_with_assignments(tmp_path: Path) -> Non
     assert response.result.items[0].assignments == [0, 1]
 
 
+def test_routes_utseg_execute_v2_request_with_boundary_evidence(tmp_path: Path) -> None:
+    """The real PyO3 boundary must preserve typed per-word model evidence."""
+
+    payload_path = tmp_path / "utseg-batch-boundary-evidence.json"
+    _write_json_payload(
+        payload_path,
+        {
+            "items": [
+                {
+                    "words": ["hello", "!!!", "world"],
+                    "text": "hello !!! world",
+                }
+            ]
+        },
+    )
+    evidence = {
+        "model_id": "talkbank/CHATUtterance-en",
+        "model_revision": "0123456789abcdef",
+        "normalization_revision": "lower-strip-ascii-punctuation-v1",
+        "adjacency_policy_revision": "suppress-earlier-adjacent-nonordinary-v1",
+        "word_evidence": [
+            {
+                "kind": "classified",
+                "raw_action": "period_boundary",
+                "applied_action": "period_boundary",
+                "boundary_probability_micros": 812_345,
+            },
+            {"kind": "normalization_omission"},
+            {
+                "kind": "classified",
+                "raw_action": "ordinary",
+                "applied_action": "ordinary",
+                "boundary_probability_micros": 123_456,
+            },
+        ],
+    }
+
+    response = execute_request_v2(
+        request=ExecuteRequestV2(
+            request_id="req-execute-v2-utseg-boundary-evidence-1",
+            task=InferenceTaskV2.UTSEG,
+            payload=UtsegRequestV2(
+                lang="eng",
+                payload_ref_id="text-ref-utseg-boundary-evidence-1",
+                item_count=1,
+            ),
+            attachments=[
+                PreparedTextRefV2(
+                    id="text-ref-utseg-boundary-evidence-1",
+                    path=str(payload_path),
+                    encoding=PreparedTextEncodingV2.UTF8_JSON,
+                    byte_offset=0,
+                    byte_len=payload_path.stat().st_size,
+                )
+            ],
+        ),
+        host=WorkerExecutionHostV2(
+            text=TextExecutionHostV2(
+                utseg_runner=lambda _req: BatchInferResponse(
+                    results=[
+                        InferResponse(
+                            result={
+                                "assignments": [0, 1, 1],
+                                "boundary_model_evidence": evidence,
+                            },
+                            elapsed_s=0.0,
+                        )
+                    ]
+                )
+            ),
+        ),
+    )
+
+    assert isinstance(response.outcome, ExecuteSuccessV2)
+    assert isinstance(response.result, UtsegResultV2)
+    boundary_model_evidence = response.result.items[0].boundary_model_evidence
+    assert boundary_model_evidence is not None
+    assert boundary_model_evidence.model_dump(mode="json") == evidence
+
+
 def test_invalid_utseg_host_output_becomes_runtime_failure(tmp_path: Path) -> None:
     """Malformed utseg host output should be classified as runtime failure."""
 

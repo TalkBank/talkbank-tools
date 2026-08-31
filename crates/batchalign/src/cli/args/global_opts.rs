@@ -60,9 +60,9 @@ pub struct GlobalOpts {
     #[arg(long = "no-server", global = true)]
     pub no_server: bool,
 
-    /// Bypass the media analysis cache.
-    #[arg(long, global = true)]
-    pub override_media_cache: bool,
+    /// Media-evidence cache controls admitted as one CLI boundary.
+    #[command(flatten)]
+    pub media_cache: MediaCacheOpts,
 
     /// Use full-screen TUI dashboard instead of progress bars (default for
     /// interactive terminals). Pass --no-tui to use simple progress bars.
@@ -91,14 +91,6 @@ pub struct GlobalOpts {
     #[arg(long, env = "BATCHALIGN_DEBUG_DIR", value_name = "PATH", global = true)]
     pub debug_dir: Option<std::path::PathBuf>,
 
-    /// Bypass cache only for specific tasks (comma-separated).
-    /// Honored for audio tasks: `forced_alignment`, `utr_asr`.
-    /// Batchalign3 does not cache text-NLP tasks, so
-    /// `morphosyntax`/`utterance_segmentation`/`translation` are
-    /// accepted but are no-ops.
-    #[arg(long, value_name = "TASKS", global = true, value_delimiter = ',')]
-    pub override_media_cache_tasks: Vec<String>,
-
     /// Engine overrides as JSON (e.g. '{"asr": "tencent", "fa": "cantonese_fa"}').
     #[arg(
         long,
@@ -120,6 +112,46 @@ pub struct GlobalOpts {
     /// behavior on large machines.
     #[arg(long, global = true, value_name = "TIER")]
     pub memory_tier: Option<crate::types::runtime::MemoryTierKind>,
+}
+
+/// Mutually constrained media-evidence cache flags at the Clap boundary.
+///
+/// Keeping these inputs together prevents unrelated global-option growth and
+/// gives later admission code one owner for their relationship. The wire
+/// compatibility flags remain separate because existing scripts use them.
+#[derive(Args, Debug, Clone, Default)]
+pub struct MediaCacheOpts {
+    /// Bypass the media analysis cache.
+    #[arg(
+        long,
+        global = true,
+        conflicts_with_all = ["require_media_cache", "override_media_cache_tasks"]
+    )]
+    pub override_media_cache: bool,
+
+    /// Refuse cache-backed media inference unless reusable evidence already
+    /// exists. At those cache-backed boundaries, a miss cannot trigger
+    /// inference.
+    #[arg(
+        long,
+        global = true,
+        conflicts_with_all = ["override_media_cache", "override_media_cache_tasks"]
+    )]
+    pub require_media_cache: bool,
+
+    /// Bypass cache only for specific tasks (comma-separated).
+    /// Honored for audio tasks: `forced_alignment`, `utr_asr`.
+    /// Batchalign3 does not cache text-NLP tasks, so
+    /// `morphosyntax`/`utterance_segmentation`/`translation` are
+    /// accepted but are no-ops.
+    #[arg(
+        long,
+        value_name = "TASKS",
+        global = true,
+        value_delimiter = ',',
+        conflicts_with_all = ["override_media_cache", "require_media_cache"]
+    )]
+    pub override_media_cache_tasks: Vec<String>,
 }
 
 impl GlobalOpts {

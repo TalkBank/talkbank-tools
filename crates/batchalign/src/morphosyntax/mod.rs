@@ -132,6 +132,7 @@ pub(crate) async fn process_morphosyntax_incremental(
     let parser = crate::chat_parser();
     let (before_file, _) = parse_lenient(&parser, before_text);
     let (mut after_file, parse_errors) = parse_lenient(&parser, after_text);
+    batchalign_transform::decisions::strip_decision_tiers(&mut after_file);
 
     if !parse_errors.is_empty() {
         warn!(
@@ -314,18 +315,7 @@ pub(crate) async fn process_morphosyntax_incremental(
                     params.tokenization_mode,
                     params.mwt,
                 ) {
-                    Ok(injection_result) => {
-                        if !injection_result.decisions.is_empty() {
-                            // Review-tier verbosity is caller-controlled and
-                            // defaults to None (no %xalign/%xrev emitted). It was
-                            // a hardcoded LowConfidence here, which made the tiers
-                            // leak into morphotag output regardless of any default.
-                            batchalign_transform::decisions::inject_decision_tiers(
-                                &mut after_file,
-                                &injection_result.decisions,
-                                params.review_level,
-                            );
-                        }
+                    Ok(_injection_result) => {
                         // Secondary L2 dispatch for @s words.
                         if !l2_deferred.is_empty() {
                             dispatch_secondary_l2(

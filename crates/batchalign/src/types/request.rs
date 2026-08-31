@@ -107,6 +107,8 @@ impl JobSubmission {
             )));
         }
 
+        self.validate_cache_policy()?;
+
         // Validate the (command, lang) pairing is a legal one. Morphotag,
         // translate, and coref MUST submit `LanguageSpec::PerFile`; every
         // other processing command MUST NOT. This boundary check keeps
@@ -138,6 +140,41 @@ impl JobSubmission {
                     "paths_mode is mutually exclusive with files/media_files".into(),
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// Reject cache flag combinations that would ask one task to both reuse
+    /// and replace evidence. CLI parsing already prevents these shapes; this
+    /// check protects direct HTTP clients at the same admission boundary.
+    fn validate_cache_policy(&self) -> Result<(), ValidationError> {
+        use crate::chat_ops::CacheTaskName;
+        use crate::chat_ops::cache_key::CacheOverrideTaskName;
+
+        let common = self.options.common();
+        if common.require_media_cache
+            && (common.override_media_cache || !common.override_media_cache_tasks.is_empty())
+        {
+            return Err(ValidationError(
+                "require_media_cache is mutually exclusive with media-cache refresh options"
+                    .to_owned(),
+            ));
+        }
+        if common.override_media_cache && !common.override_media_cache_tasks.is_empty() {
+            return Err(ValidationError(
+                "override_media_cache is mutually exclusive with override_media_cache_tasks"
+                    .to_owned(),
+            ));
+        }
+        if let Some(unknown) = common.override_media_cache_tasks.iter().find(|name| {
+            matches!(
+                CacheTaskName::classify_override_name(name),
+                CacheOverrideTaskName::Unknown
+            )
+        }) {
+            return Err(ValidationError(format!(
+                "unknown media-cache override task {unknown:?}"
+            )));
         }
         Ok(())
     }
@@ -638,6 +675,39 @@ mod tests {
         submission
             .validate()
             .expect("eng + Rev.AI must remain valid; deny-list must not over-reject");
+    }
+
+    #[test]
+    fn submission_rejects_required_cache_combined_with_refresh() {
+        let mut submission = transcribe_submission("eng", AsrEngineName::RevAi);
+        let common = match &mut submission.options {
+            CommandOptions::Transcribe(options) => &mut options.common,
+            _ => panic!("helper must build transcribe options"),
+        };
+        common.require_media_cache = true;
+        common.override_media_cache = true;
+
+        let error = submission
+            .validate()
+            .expect_err("one job cannot both require and refresh media evidence");
+
+        assert!(error.to_string().contains("mutually exclusive"));
+    }
+
+    #[test]
+    fn submission_rejects_unknown_selective_cache_task() {
+        let mut submission = transcribe_submission("eng", AsrEngineName::RevAi);
+        let common = match &mut submission.options {
+            CommandOptions::Transcribe(options) => &mut options.common,
+            _ => panic!("helper must build transcribe options"),
+        };
+        common.override_media_cache_tasks = vec!["rev_asr_evidnce".to_owned()];
+
+        let error = submission
+            .validate()
+            .expect_err("an unknown experiment cache domain must fail closed");
+
+        assert!(error.to_string().contains("rev_asr_evidnce"));
     }
 
     /// Whisper is a fallback alternative for languages where the stock

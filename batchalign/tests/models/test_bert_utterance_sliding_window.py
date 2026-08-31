@@ -25,7 +25,12 @@ from types import SimpleNamespace
 
 import torch
 
-from batchalign.models.utterance.infer import BertUtteranceModel
+from batchalign.models.utterance.infer import (
+    BertUtteranceModel,
+    BoundaryAction,
+    ClassifiedBoundaryEvidence,
+    NormalizationOmission,
+)
 
 # ---------------------------------------------------------------------------
 # Fake tokenizer + model that mimic the HF contract
@@ -145,6 +150,22 @@ class _FakeModel:
         return SimpleNamespace(logits=logits)
 
 
+class _AdjacentBoundaryModel(_FakeModel):
+    """Return adjacent raw boundaries so model evidence exposes reduction."""
+
+    def __call__(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+    ) -> SimpleNamespace:
+        output = super().__call__(input_ids, attention_mask)
+        output.logits[:, :, :] = 0.0
+        output.logits[:, :, 0] = 2.0
+        output.logits[:, 1, 2] = 6.0
+        output.logits[:, 2, 3] = 5.0
+        return output
+
+
 def _make_test_model(
     *,
     tokens_per_word: int = 1,
@@ -156,6 +177,7 @@ def _make_test_model(
     """
     instance = BertUtteranceModel.__new__(BertUtteranceModel)
     instance.model_name = "test-fake"
+    instance.model_revision = "test-revision"
     instance.tokenizer = _FakeTokenizer(tokens_per_word=tokens_per_word)
     instance.model = _FakeModel(
         max_position_embeddings=max_position_embeddings,
@@ -234,3 +256,27 @@ class TestRegressionOnExistingBehavior:
         actions = model.predict_actions(["Hello", "World", "yes"])
         assert len(actions) == 3
         assert all(a == 0 for a in actions)
+
+
+class TestBoundaryEvidence:
+    """Model output carries a complete typed account of every input word."""
+
+    def test_prediction_retains_raw_applied_and_omitted_word_states(self) -> None:
+        model = _make_test_model()
+        model.model = _AdjacentBoundaryModel()
+
+        prediction = model.predict_boundary_evidence(["one", "two", "!!!", "three"])
+
+        assert prediction.assignments == (0, 0, 1, 1)
+        assert len(prediction.word_evidence) == 4
+        first, second, omitted, last = prediction.word_evidence
+        assert isinstance(first, ClassifiedBoundaryEvidence)
+        assert first.raw_action is BoundaryAction.PERIOD_BOUNDARY
+        assert first.applied_action is BoundaryAction.ORDINARY
+        assert first.boundary_probability.micros > 900_000
+        assert isinstance(second, ClassifiedBoundaryEvidence)
+        assert second.raw_action is BoundaryAction.QUESTION_BOUNDARY
+        assert second.applied_action is BoundaryAction.QUESTION_BOUNDARY
+        assert isinstance(omitted, NormalizationOmission)
+        assert isinstance(last, ClassifiedBoundaryEvidence)
+        assert last.boundary_probability.micros < 500_000

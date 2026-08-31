@@ -9,21 +9,25 @@ from typing import TYPE_CHECKING, Any
 from torch.utils.data import dataset
 from transformers import AutoTokenizer
 
+from batchalign.models.utterance.evidence import BoundaryAction
+
 if TYPE_CHECKING:
     import torch
 
 # Token labels for utterance boundary classification.
 TOKENS: dict[str, int] = {
-    "U": 0,  # normal word
-    "OC": 1,  # first letter capitalized (sentence onset)
-    "E.": 2,  # period (sentence boundary)
-    "E?": 3,  # question mark
-    "E!": 4,  # exclamation mark
-    "E,": 5,  # comma
+    "U": BoundaryAction.ORDINARY.label_index,
+    "OC": BoundaryAction.CAPITALIZED_ONSET.label_index,
+    "E.": BoundaryAction.PERIOD_BOUNDARY.label_index,
+    "E?": BoundaryAction.QUESTION_BOUNDARY.label_index,
+    "E!": BoundaryAction.EXCLAMATION_BOUNDARY.label_index,
+    "E,": BoundaryAction.COMMA.label_index,
 }
 
 # Label indices that represent sentence boundaries.
-BOUNDARIES: list[int] = [2, 3, 4]
+BOUNDARIES: list[int] = [
+    action.label_index for action in BoundaryAction if action.is_boundary
+]
 
 
 class UtteranceBoundaryDataset(dataset.Dataset):  # type: ignore[misc]  # Dataset base is Any

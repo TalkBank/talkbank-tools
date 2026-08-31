@@ -190,6 +190,7 @@ pub mod trace_store;
 pub mod transcribe;
 pub mod translate;
 pub mod utseg;
+pub(crate) mod utseg_evidence;
 pub mod whisper_native;
 pub mod worker;
 pub mod worker_setup;

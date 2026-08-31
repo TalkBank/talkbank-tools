@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::chat_ops::morphosyntax_ops::MwtDict;
 use tracing::warn;
 
-use crate::api::{EngineVersion, NumWorkers, RevAiJobId, UnixTimestamp};
+use crate::api::{EngineVersion, NumWorkers, UnixTimestamp};
 use crate::benchmark::{BenchmarkRequest, process_benchmark};
 use crate::cache::UtteranceCache;
 use crate::pipeline::PipelineServices;
@@ -41,8 +41,6 @@ pub(crate) struct BenchmarkDispatchRuntime {
     pub cache: Arc<UtteranceCache>,
     /// Current engine version string for cache partitioning.
     pub engine_version: EngineVersion,
-    /// Optional preflight Rev.AI job ids keyed by original audio path.
-    pub rev_job_ids: Arc<HashMap<PathBuf, RevAiJobId>>,
     /// Maximum number of file tasks to run concurrently for this job.
     pub num_workers: NumWorkers,
 }
@@ -59,8 +57,6 @@ struct BenchmarkFileContext<'a> {
     sink: Arc<dyn RunnerEventSink>,
     /// Shared cache/worker services for transcribe + compare.
     services: PipelineServices<'a>,
-    /// Rev.AI preflight job ids keyed by the original provider audio path.
-    rev_job_ids: &'a HashMap<PathBuf, RevAiJobId>,
     /// MWT dictionary shared with the compare pipeline.
     mwt: &'a MwtDict,
     /// Planned benchmark pairs keyed by main audio display path.
@@ -141,7 +137,6 @@ pub(crate) async fn dispatch_benchmark_infer(
         let mut opts = base_options.clone();
         let file = file.clone();
         let mwt = mwt.clone();
-        let rev_job_ids = runtime.rev_job_ids.clone();
         let planned_units = planned_units.clone();
         let filename = file.filename.clone();
 
@@ -155,7 +150,6 @@ pub(crate) async fn dispatch_benchmark_infer(
                     job: &job,
                     sink: sink.clone(),
                     services,
-                    rev_job_ids: rev_job_ids.as_ref(),
                     mwt: &mwt,
                     planned_units: planned_units.as_ref(),
                     should_merge_abbrev,
@@ -194,7 +188,6 @@ async fn process_one_benchmark_file(
         job,
         sink,
         services,
-        rev_job_ids,
         mwt,
         planned_units,
         should_merge_abbrev,
@@ -243,8 +236,7 @@ async fn process_one_benchmark_file(
 
     let media_name = preserved_media_name_for_chat(&original_audio_path, &original_audio_path);
     let prepared_media =
-        match prepare_asr_media_input(original_audio_path, rev_job_ids, media_name, filename).await
-        {
+        match prepare_asr_media_input(original_audio_path, media_name, filename).await {
             Ok(prepared) => prepared,
             Err(error) => {
                 let err_msg = error.to_string();
@@ -255,7 +247,6 @@ async fn process_one_benchmark_file(
             }
         };
     let audio_path = prepared_media.inference_audio_path;
-    opts.rev_job_id = prepared_media.rev_job_id;
     opts.media_name = prepared_media.media_name;
 
     let retry_policy = RetryPolicy::default();

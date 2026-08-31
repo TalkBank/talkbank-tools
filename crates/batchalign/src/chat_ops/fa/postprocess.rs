@@ -52,6 +52,7 @@ use super::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct PendingTiming {
     span: TimeSpan,
+    model_score: Option<super::ModelAlignmentScore>,
     start_origin: Origin,
     end_origin: Origin,
 }
@@ -118,6 +119,7 @@ impl PendingTiming {
     fn from_aligned(timing: WordTiming) -> Self {
         let span = *timing;
         Self {
+            model_score: timing.model_score(),
             start_origin: timing.start_origin().clone(),
             end_origin: timing.end_origin().clone(),
             span,
@@ -128,6 +130,7 @@ impl PendingTiming {
     fn from_transcript(span: TimeSpan) -> Self {
         Self {
             span,
+            model_score: None,
             start_origin: Origin::TranscriptBullet,
             end_origin: Origin::TranscriptBullet,
         }
@@ -159,6 +162,7 @@ impl PendingTiming {
         let was = self.span;
         Self {
             span,
+            model_score: self.model_score,
             start_origin: match span.start_ms == was.start_ms {
                 true => self.start_origin,
                 false => why(MovedBoundary {
@@ -194,6 +198,7 @@ impl PendingTiming {
     fn with_end(self, end_ms: u64, origin: Origin) -> Self {
         Self {
             span: TimeSpan::new(self.span.start_ms, end_ms),
+            model_score: self.model_score,
             start_origin: self.start_origin,
             end_origin: origin,
         }
@@ -244,6 +249,10 @@ impl PendingTiming {
             self.start_origin,
             self.end_origin,
         )
+        .map(|timing| match self.model_score {
+            Some(score) => timing.with_model_score(score),
+            None => timing,
+        })
         .ok_or(DegenerateWordTiming {
             start_ms: self.span.start_ms,
             end_ms: self.span.end_ms,
@@ -853,6 +862,7 @@ fn set_word_timing(word: &mut Word, timings: &[Option<WordTiming>], idx: &mut us
 #[cfg(test)]
 mod moved_boundary_tests {
     use super::*;
+    use crate::chat_ops::fa::ModelAlignmentScore;
 
     fn measured(engine: &'static str) -> Origin {
         Origin::EngineMeasured {
@@ -864,6 +874,7 @@ mod moved_boundary_tests {
     fn word(start_ms: u64, end_ms: u64) -> PendingTiming {
         PendingTiming {
             span: TimeSpan::new(start_ms, end_ms),
+            model_score: None,
             start_origin: measured("wav2vec_fa"),
             end_origin: measured("wav2vec_fa"),
         }
@@ -896,6 +907,25 @@ mod moved_boundary_tests {
         // The end did not move, so it is untouched and still measured.
         assert_eq!(moved_start.end_origin, measured("wav2vec_fa"));
         assert!(moved_start.end_origin.is_observation());
+    }
+
+    #[test]
+    fn postprocessing_preserves_the_model_score_while_marking_repairs() {
+        let score = ModelAlignmentScore::try_from_f64(0.73).unwrap();
+        let aligned = WordTiming::new(100, 300, measured("wav2vec_fa"), measured("wav2vec_fa"))
+            .unwrap()
+            .with_model_score(score);
+
+        let settled = PendingTiming::from_aligned(aligned)
+            .remeasured(TimeSpan::new(120, 300), |moved| Origin::RepairedForOrder {
+                was: Box::new(moved.was),
+                original: moved.original,
+            })
+            .settle()
+            .unwrap();
+
+        assert_eq!(settled.model_score(), Some(score));
+        assert!(!settled.start_origin().is_observation());
     }
 
     #[test]

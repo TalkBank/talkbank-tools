@@ -5,7 +5,6 @@
 //! work onto `spawn_blocking` threads. That keeps the client simple while still
 //! fitting both host runtimes cleanly.
 
-use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
@@ -13,7 +12,8 @@ use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 
 use super::types::{
-    Job, JobStatus, LangIdJob, LangIdJobStatus, LangIdResult, SubmitOptions, TimedWord, Transcript,
+    Job, JobStatus, LangIdJob, LangIdJobStatus, LangIdResult, RevTranscriptEvidence, SubmitOptions,
+    TimedWord, Transcript,
 };
 
 /// Transcript plus optional detected language from Rev.AI auto-detection.
@@ -25,10 +25,16 @@ use super::types::{
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TranscriptResult {
     /// The full transcript payload.
-    pub transcript: Transcript,
+    transcript: RevTranscriptEvidence,
     /// ISO 639-1 language code detected by Rev.AI (e.g. `"es"`, `"en"`).
     /// `None` when a concrete language was specified (not auto-detected).
-    pub detected_language: Option<String>,
+    detected_language: Option<String>,
+}
+
+impl TranscriptResult {
+    pub(super) fn into_parts(self) -> (RevTranscriptEvidence, Option<String>) {
+        (self.transcript, self.detected_language)
+    }
 }
 
 const BASE_URL: &str = "https://api.rev.ai/speechtotext/v1";
@@ -64,9 +70,10 @@ pub enum RevAiError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    /// Reading the local audio file failed before upload.
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    /// The transcript endpoint returned bytes that cannot be retained as
+    /// lossless UTF-8 JSON text.
+    #[error("Rev.AI transcript body is not UTF-8: {0}")]
+    TranscriptEncoding(#[from] std::string::FromUtf8Error),
 }
 
 /// Standard result type for Rev.AI client operations.
@@ -87,13 +94,13 @@ impl RevAiClient {
         }
     }
 
-    /// Submit one local audio file for transcription.
-    ///
-    /// The client retries transient upload failures up to three times with
-    /// exponential backoff before returning an error.
-    pub fn submit_local_file(&self, path: &Path, opts: &SubmitOptions) -> Result<Job> {
-        let file_bytes = std::fs::read(path)?;
-        let file_name = upload_file_name(path);
+    fn submit_media_bytes(
+        &self,
+        file_bytes: &[u8],
+        file_name: &str,
+        mime: &str,
+        opts: &SubmitOptions,
+    ) -> Result<Job> {
         let options_json = serde_json::to_string(opts)?;
 
         let mut last_err: Option<RevAiError> = None;
@@ -110,9 +117,9 @@ impl RevAiClient {
                 thread::sleep(delay);
             }
 
-            let file_part = reqwest::blocking::multipart::Part::bytes(file_bytes.clone())
-                .file_name(file_name.clone())
-                .mime_str("audio/mpeg")?;
+            let file_part = reqwest::blocking::multipart::Part::bytes(file_bytes.to_vec())
+                .file_name(file_name.to_owned())
+                .mime_str(mime)?;
             let options_part = reqwest::blocking::multipart::Part::text(options_json.clone())
                 .mime_str("application/json")?;
             let form = reqwest::blocking::multipart::Form::new()
@@ -150,7 +157,7 @@ impl RevAiClient {
     }
 
     /// Fetch the current status for one previously submitted job.
-    pub fn get_job_details(&self, job_id: &str) -> Result<Job> {
+    fn get_job_details(&self, job_id: &str) -> Result<Job> {
         let resp = self
             .client
             .get(format!("{BASE_URL}/jobs/{job_id}"))
@@ -167,7 +174,7 @@ impl RevAiClient {
     }
 
     /// Download the transcript for a completed job.
-    pub fn get_transcript(&self, job_id: &str) -> Result<Transcript> {
+    fn get_transcript(&self, job_id: &str) -> Result<RevTranscriptEvidence> {
         let resp = self
             .client
             .get(format!("{BASE_URL}/jobs/{job_id}/transcript"))
@@ -182,17 +189,18 @@ impl RevAiClient {
             return Err(RevAiError::ApiError { status, body });
         }
 
-        Ok(resp.json()?)
+        retain_transcript_body(resp.bytes()?.to_vec())
     }
 
-    /// Submit audio, poll with exponential backoff, and download the transcript.
-    pub fn transcribe_blocking(
+    pub(super) fn transcribe_bytes_blocking(
         &self,
-        path: &Path,
+        bytes: &[u8],
+        file_name: &str,
+        mime: &str,
         opts: &SubmitOptions,
         max_poll_secs: u64,
     ) -> Result<TranscriptResult> {
-        let job = self.submit_local_file(path, opts)?;
+        let job = self.submit_media_bytes(bytes, file_name, mime, opts)?;
         self.poll_and_download(&job.id, 5, max_poll_secs)
     }
 
@@ -200,7 +208,7 @@ impl RevAiClient {
     ///
     /// Returns a [`TranscriptResult`] that includes the detected language
     /// (when `language: "auto"` was used at submission time).
-    pub fn poll_and_download(
+    fn poll_and_download(
         &self,
         job_id: &str,
         initial_interval_secs: u64,
@@ -238,17 +246,15 @@ impl RevAiClient {
     // Language Identification API
     // -------------------------------------------------------------------
 
-    /// Submit one local audio file for language identification.
-    ///
-    /// Returns the job ID for polling. The Language ID API is a separate
-    /// Rev.AI endpoint from Speech-to-Text.
-    pub fn submit_langid(&self, path: &Path) -> Result<LangIdJob> {
-        let file_bytes = std::fs::read(path)?;
-        let file_name = upload_file_name(path);
-
-        let file_part = reqwest::blocking::multipart::Part::bytes(file_bytes)
-            .file_name(file_name)
-            .mime_str("audio/mpeg")?;
+    fn submit_langid_bytes(
+        &self,
+        file_bytes: &[u8],
+        file_name: &str,
+        mime: &str,
+    ) -> Result<LangIdJob> {
+        let file_part = reqwest::blocking::multipart::Part::bytes(file_bytes.to_vec())
+            .file_name(file_name.to_owned())
+            .mime_str(mime)?;
         let form = reqwest::blocking::multipart::Form::new().part("media", file_part);
 
         let resp = self
@@ -268,7 +274,7 @@ impl RevAiClient {
     }
 
     /// Poll a language identification job status.
-    pub fn get_langid_job(&self, job_id: &str) -> Result<LangIdJob> {
+    fn get_langid_job(&self, job_id: &str) -> Result<LangIdJob> {
         let resp = self
             .client
             .get(format!("{LANGID_BASE_URL}/jobs/{job_id}"))
@@ -285,7 +291,7 @@ impl RevAiClient {
     }
 
     /// Download the language identification result for a completed job.
-    pub fn get_langid_result(&self, job_id: &str) -> Result<LangIdResult> {
+    fn get_langid_result(&self, job_id: &str) -> Result<LangIdResult> {
         let resp = self
             .client
             .get(format!("{LANGID_BASE_URL}/jobs/{job_id}/result"))
@@ -302,21 +308,23 @@ impl RevAiClient {
         Ok(resp.json()?)
     }
 
-    /// Submit audio for language identification, poll until complete, and
-    /// return the result.
-    ///
-    /// Typically completes in 5-30 seconds. Uses exponential backoff polling.
-    pub fn identify_language_blocking(
+    pub(super) fn identify_language_bytes_blocking(
         &self,
-        path: &Path,
+        bytes: &[u8],
+        file_name: &str,
+        mime: &str,
         max_poll_secs: u64,
     ) -> Result<LangIdResult> {
-        let job = self.submit_langid(path)?;
+        let job = self.submit_langid_bytes(bytes, file_name, mime)?;
+        self.poll_langid_blocking(&job.id, max_poll_secs)
+    }
+
+    fn poll_langid_blocking(&self, job_id: &str, max_poll_secs: u64) -> Result<LangIdResult> {
         let mut interval: u64 = 3;
         let mut attempts: u32 = 0;
 
         loop {
-            let status = self.get_langid_job(&job.id)?;
+            let status = self.get_langid_job(job_id)?;
             match status.status {
                 LangIdJobStatus::InProgress => {
                     thread::sleep(Duration::from_secs(interval));
@@ -326,7 +334,7 @@ impl RevAiClient {
                     }
                 }
                 LangIdJobStatus::Completed => {
-                    return self.get_langid_result(&job.id);
+                    return self.get_langid_result(job_id);
                 }
                 LangIdJobStatus::Failed => {
                     let detail = status
@@ -339,11 +347,14 @@ impl RevAiClient {
     }
 }
 
-fn upload_file_name(path: &Path) -> String {
-    path.file_name()
-        .filter(|name| !name.is_empty())
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.display().to_string())
+/// Admit one transcript response body without text-decoder normalization.
+///
+/// JSON is required to be UTF-8. A strict conversion makes the retained
+/// `String` a lossless representation of the exact HTTP body bytes; malformed
+/// encodings fail before they can acquire exact-provider fidelity.
+fn retain_transcript_body(body: Vec<u8>) -> Result<RevTranscriptEvidence> {
+    let raw_json = String::from_utf8(body)?;
+    RevTranscriptEvidence::from_provider_json(raw_json).map_err(Into::into)
 }
 
 fn read_error_body(resp: reqwest::blocking::Response) -> String {
@@ -413,7 +424,31 @@ pub fn extract_timed_words(transcript: &Transcript) -> Vec<TimedWord> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+
+    #[test]
+    fn transcript_body_retention_preserves_exact_utf8_bytes() {
+        let body = "{\n  \"monologues\": [], \"provider_extension\": \"café\"\n}\n"
+            .as_bytes()
+            .to_vec();
+
+        let evidence = retain_transcript_body(body.clone()).expect("valid provider JSON");
+
+        assert_eq!(
+            evidence
+                .exact_provider_json()
+                .expect("live response retains exact JSON")
+                .as_bytes(),
+            body
+        );
+    }
+
+    #[test]
+    fn transcript_body_retention_rejects_non_utf8_without_lossy_decoding() {
+        let error = retain_transcript_body(vec![b'{', 0xff, b'}'])
+            .expect_err("non-UTF-8 provider bytes must not acquire exact fidelity");
+
+        assert!(matches!(error, RevAiError::TranscriptEncoding(_)));
+    }
 
     #[test]
     fn parse_job_in_progress() {
@@ -518,19 +553,5 @@ mod tests {
         let result: crate::revai::types::LangIdResult = serde_json::from_str(json).unwrap();
         assert_eq!(result.top_language, "en");
         assert_eq!(result.language_confidences.len(), 1);
-    }
-
-    #[test]
-    fn upload_file_name_prefers_basename() {
-        assert_eq!(
-            upload_file_name(Path::new("/tmp/example.wav")),
-            "example.wav"
-        );
-    }
-
-    #[test]
-    fn upload_file_name_falls_back_to_full_path_when_needed() {
-        assert_eq!(upload_file_name(Path::new("")), "");
-        assert_eq!(upload_file_name(Path::new("/")), "/");
     }
 }

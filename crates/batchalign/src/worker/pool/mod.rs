@@ -609,6 +609,55 @@ pub(super) type GroupsMap = Arc<std::sync::Mutex<HashMap<WorkerKey, Arc<WorkerGr
 // WorkerPool
 // ---------------------------------------------------------------------------
 
+/// Monotonic rejection counters owned as one operational subsystem.
+///
+/// These values share lifecycle, memory ordering, and their sole consumer
+/// (`metrics_snapshot`). Keeping them together prevents every new admission
+/// reason from widening `WorkerPool` itself.
+#[derive(Default)]
+pub(super) struct WorkerRejectionCounters {
+    /// Per-key worker-cap refusals.
+    per_key_cap: AtomicU64,
+    /// Refusals by the older in-spawn memory guard.
+    memory_guard: AtomicU64,
+    /// Refusals to acquire a global worker permit.
+    global_permit: AtomicU64,
+    /// Refusals while the host CPU is saturated.
+    cpu_saturation: AtomicU64,
+    /// Refusals while available host memory is below the hard floor.
+    memory_constrained: AtomicU64,
+}
+
+/// Closed reason set for mutating worker-rejection telemetry.
+#[derive(Debug, Clone, Copy)]
+pub(super) enum WorkerRejectionKind {
+    PerKeyCap,
+    MemoryGuard,
+    GlobalPermit,
+    CpuSaturation,
+    MemoryConstrained,
+}
+
+impl WorkerRejectionCounters {
+    fn counter(&self, kind: WorkerRejectionKind) -> &AtomicU64 {
+        match kind {
+            WorkerRejectionKind::PerKeyCap => &self.per_key_cap,
+            WorkerRejectionKind::MemoryGuard => &self.memory_guard,
+            WorkerRejectionKind::GlobalPermit => &self.global_permit,
+            WorkerRejectionKind::CpuSaturation => &self.cpu_saturation,
+            WorkerRejectionKind::MemoryConstrained => &self.memory_constrained,
+        }
+    }
+
+    pub(super) fn record(&self, kind: WorkerRejectionKind) -> u64 {
+        self.counter(kind).fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    fn count(&self, kind: WorkerRejectionKind) -> u64 {
+        self.counter(kind).load(Ordering::Relaxed)
+    }
+}
+
 /// Manages a pool of Python worker processes.
 pub struct WorkerPool {
     pub(super) config: PoolConfig,
@@ -625,6 +674,10 @@ pub struct WorkerPool {
     /// Shared GPU workers discovered from registry (TCP transport).
     pub(super) gpu_tcp_workers:
         Arc<tokio::sync::Mutex<HashMap<WorkerKey, Arc<shared_gpu::SharedGpuTcpWorker>>>>,
+    /// Distinct content-addressed Python runtimes observed since server start.
+    /// This history remains available while a sequential worker is checked out
+    /// and after a crash, unlike an instantaneous idle-worker listing.
+    observed_worker_runtimes: Arc<crate::worker::runtime_identity::ObservedWorkerRuntimes>,
     /// Pulsed on every `CheckedOutWorker::drop`. Parks saturated
     /// checkouts that have no live worker for their key and no idle
     /// worker elsewhere to evict; wakes them to retry spawn + eviction
@@ -641,18 +694,8 @@ pub struct WorkerPool {
     /// inside the dispatch path; consulted by `shutdown_workers_for_job`
     /// when a cancel arrives. See `pool/job_tracker.rs`.
     pub(crate) job_tracker: job_tracker::JobWorkerTracker,
-    /// Total times a spawn attempt was rejected because the global
-    /// worker cap was already at `max_total_workers`. Read via
-    /// [`metrics_snapshot`](Self::metrics_snapshot); never decreases.
-    /// Incremented at `lifecycle.rs::try_claim_spawn_slot`'s global-cap
-    /// branch.
-    pub(super) spawn_rejections_total: AtomicU64,
-    /// Total times the host-memory guard refused a worker reservation
-    /// because the configured `memory_gate_mb` headroom would be
-    /// breached. Incremented at the rejection arm in
-    /// [`crate::worker::memory_guard`]. Read via
-    /// [`metrics_snapshot`](Self::metrics_snapshot); never decreases.
-    pub(super) memory_gate_rejections_total: AtomicU64,
+    /// Monotonic counters for every worker-admission rejection reason.
+    pub(super) rejection_counters: WorkerRejectionCounters,
     /// Global-cap admission semaphore. Sized at construction time to
     /// `max_total_workers`. Each live worker (across all groups) holds
     /// exactly one permit for its lifetime; spawn attempts park on
@@ -662,33 +705,6 @@ pub struct WorkerPool {
     /// herd documented in BUG-028. See `pool/permit.rs` for the RAII
     /// guard that wraps an [`tokio::sync::OwnedSemaphorePermit`].
     pub(super) spawn_permits: Arc<tokio::sync::Semaphore>,
-    /// Total times a spawn attempt was rejected because the global
-    /// permit pool was exhausted (post-refactor counterpart to
-    /// `spawn_rejections_total`, which after the refactor counts only
-    /// per-key cap rejections). Incremented in
-    /// `lifecycle.rs::try_claim_spawn_slot` when `try_acquire` on
-    /// `spawn_permits` fails. Monotonic.
-    pub(super) permit_rejections_total: AtomicU64,
-    /// Total times `try_claim_spawn_slot` refused a spawn because
-    /// the host's 1-minute CPU load average was at or above its
-    /// logical CPU count. Incremented in
-    /// `lifecycle.rs::try_claim_spawn_slot` at the live-CPU gate
-    /// (Layer 0). Monotonic; never decreases. Unlike the other
-    /// rejection counters, a high value here means the host itself
-    /// is the bottleneck, no amount of worker recycling will
-    /// unblock admission. See `worker/pool/cpu_gate.rs`.
-    pub(super) cpu_saturation_rejections_total: AtomicU64,
-    /// Total times `try_claim_spawn_slot` refused a spawn because
-    /// the host's currently-available memory was at or below the
-    /// hardcoded minimum-free floor (`memory_gate::MIN_FREE_MEMORY_MB`).
-    /// Incremented in `lifecycle.rs::try_claim_spawn_slot` at the
-    /// live-memory gate (Layer 0.5). Monotonic; never decreases.
-    /// Distinct from `memory_gate_rejections_total`, which counts
-    /// rejections from the older in-spawn `memory_guard` and fires
-    /// only after the spawn has cleared the permit dance. A nonzero
-    /// value here means a spawn was refused at admission time
-    /// before consuming any permits. See `worker/pool/memory_gate.rs`.
-    pub(super) memory_constrained_rejections_total: AtomicU64,
 }
 
 /// Read-only snapshot of pool counters. Cheap to compute (one
@@ -796,17 +812,16 @@ impl WorkerPool {
             groups: Arc::new(std::sync::Mutex::new(HashMap::new())),
             gpu_workers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             gpu_tcp_workers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            observed_worker_runtimes: Arc::new(
+                crate::worker::runtime_identity::ObservedWorkerRuntimes::default(),
+            ),
             worker_returned: Arc::new(tokio::sync::Notify::new()),
             cancel: CancellationToken::new(),
             lazy_capabilities: std::sync::OnceLock::new(),
             stanza_registry: std::sync::OnceLock::new(),
             job_tracker: job_tracker::JobWorkerTracker::new(),
-            spawn_rejections_total: AtomicU64::new(0),
-            memory_gate_rejections_total: AtomicU64::new(0),
+            rejection_counters: WorkerRejectionCounters::default(),
             spawn_permits,
-            permit_rejections_total: AtomicU64::new(0),
-            cpu_saturation_rejections_total: AtomicU64::new(0),
-            memory_constrained_rejections_total: AtomicU64::new(0),
         }
     }
 
@@ -837,17 +852,36 @@ impl WorkerPool {
         PoolMetrics {
             active_workers_total: active_total,
             active_workers_by_profile: by_profile,
-            spawn_rejections_total: self.spawn_rejections_total.load(Ordering::Relaxed),
-            memory_gate_rejections_total: self.memory_gate_rejections_total.load(Ordering::Relaxed),
+            spawn_rejections_total: self
+                .rejection_counters
+                .count(WorkerRejectionKind::PerKeyCap),
+            memory_gate_rejections_total: self
+                .rejection_counters
+                .count(WorkerRejectionKind::MemoryGuard),
             permits_available: self.spawn_permits.available_permits(),
-            permit_rejections_total: self.permit_rejections_total.load(Ordering::Relaxed),
+            permit_rejections_total: self
+                .rejection_counters
+                .count(WorkerRejectionKind::GlobalPermit),
             cpu_saturation_rejections_total: self
-                .cpu_saturation_rejections_total
-                .load(Ordering::Relaxed),
+                .rejection_counters
+                .count(WorkerRejectionKind::CpuSaturation),
             memory_constrained_rejections_total: self
-                .memory_constrained_rejections_total
-                .load(Ordering::Relaxed),
+                .rejection_counters
+                .count(WorkerRejectionKind::MemoryConstrained),
         }
+    }
+
+    fn admit_worker_runtime(&self, worker: &WorkerHandle) -> Result<(), WorkerError> {
+        self.observed_worker_runtimes
+            .admit(worker.runtime_identity())?;
+        Ok(())
+    }
+
+    /// Distinct content-addressed worker runtimes observed since server start.
+    pub fn observed_worker_runtimes(
+        &self,
+    ) -> Vec<crate::worker::runtime_identity::WorkerRuntimeIdentity> {
+        self.observed_worker_runtimes.receipts()
     }
 
     /// Cancel-driven worker reaper. Looks up every worker PID currently
@@ -972,6 +1006,7 @@ impl WorkerPool {
         let worker = slot
             .worker_or_init(|| async move {
                 let mut handle = WorkerHandle::spawn(config).await?;
+                self.admit_worker_runtime(&handle)?;
                 if self.lazy_capabilities.get().is_none()
                     && let Err(e) = self.detect_capabilities_from_worker(&mut handle).await
                 {

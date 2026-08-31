@@ -24,7 +24,7 @@ mod global_opts;
 mod options;
 
 pub use commands::*;
-pub use global_opts::GlobalOpts;
+pub use global_opts::{GlobalOpts, MediaCacheOpts};
 pub use options::*;
 
 use crate::api::ReleasedCommand;

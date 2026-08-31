@@ -12,6 +12,7 @@
 mod asr_output;
 mod evidence_cache;
 mod infer;
+pub(crate) mod replay;
 pub mod types;
 
 // Re-export the public API so callers don't need to know about the split.
@@ -129,24 +130,23 @@ mod tests {
             num_speakers: 1,
             with_utseg: false,
             with_morphosyntax: false,
-            override_media_cache: false,
+            cache_policies: TranscribeCachePolicies::uniform(crate::params::CachePolicy::UseCache),
             allow_stanza_fallback_utseg: false,
             write_wor: false,
             media_name: Some("sample".into()),
-            rev_job_id: None,
             engine_extras: std::collections::BTreeMap::new(),
         }
     }
 
     #[test]
-    fn build_empty_chat_text_is_valid_chat() {
+    fn build_empty_chat_text_marks_existing_media_unlinked() {
         let text =
             build_empty_chat_text(&sample_transcribe_options(AsrBackend::RustRevAi)).unwrap();
 
-        // Legacy comment format removed; provenance is injected at pipeline
-        // level (not in build_empty_chat_text). Verify the output is valid CHAT.
-        assert!(text.contains("@Begin"));
-        assert!(text.contains("@End"));
+        assert!(
+            text.contains("@Media:\tsample, audio, unlinked"),
+            "empty ASR output must not claim timing linkage:\n{text}"
+        );
     }
 
     #[test]
@@ -161,6 +161,7 @@ mod tests {
             }],
             media_name: Some("sample".into()),
             media_type: Some("audio".into()),
+            media_status: None,
             utterances: vec![build_chat::UtteranceDesc {
                 speaker: "PAR".into(),
                 words: Some(vec![build_chat::WordDesc {

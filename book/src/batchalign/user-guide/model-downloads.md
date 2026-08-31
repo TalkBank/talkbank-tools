@@ -1,7 +1,7 @@
 # Model Downloads and Caching
 
 **Status:** Current
-**Last updated:** 2026-05-11 11:35 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 ## The contract
 
@@ -226,7 +226,10 @@ batchalign3 transcribe --override-media-cache recordings/ -o transcripts/ --lang
 
 `--override-media-cache` clears all audio-task caches for the run. For
 finer control, pass `--override-media-cache-tasks` with one or more of
-`forced_alignment` / `utr_asr`.
+`forced_alignment`, `utr_asr`, `rev_asr_evidence`, or
+`speaker_diarization_raw_evidence`. The last two are useful for controlled
+transcription experiments: refresh Rev without buying another speaker job, or
+refresh speaker evidence while replaying the same Rev response.
 
 The result cache lives at:
 

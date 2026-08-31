@@ -115,6 +115,7 @@ class _FakeModel:
 def _make_model(*, lang: str) -> BertUtteranceModel:
     instance = BertUtteranceModel.__new__(BertUtteranceModel)
     instance.model_name = "test-fake"
+    instance.model_revision = "test-revision"
     instance.lang = lang
     instance.tokenizer = _FakeTokenizer()
     instance.model = _FakeModel()

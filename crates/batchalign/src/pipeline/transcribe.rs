@@ -14,24 +14,45 @@ use std::path::Path;
 
 use tracing::info;
 
-use crate::api::{LanguageCode3, LanguageSpec, NumSpeakers};
+use crate::api::{ChatText, LanguageCode3, LanguageSpec, NumSpeakers, WorkerLanguage};
 use crate::error::ServerError;
-use crate::params::MorphosyntaxParams;
+use crate::params::{MorphosyntaxParams, UtsegFallbackPolicy};
 use crate::pipeline::PipelineServices;
 use crate::pipeline::plan::{PipelinePlan, StageFuture, StageId, StageSpec, run_plan};
 use crate::revai::{
-    RevAsrEvidenceRequest, RevAsrEvidenceResolution, RevAsrEvidenceResolutionError,
-    RevAsrModelRevision, RevAsrService, resolve_rev_asr_evidence, rev_evidence_to_asr_response,
+    PreparedRevProviderMedia, RevAsrEvidenceInference, RevAsrEvidenceRequest,
+    RevAsrEvidenceResolutionError, RevAsrEvidenceSource, RevAsrEvidenceTrace, RevAsrModelRevision,
+    RevAsrProjectionRevision, RevAsrService, resolve_rev_asr_evidence,
+    rev_evidence_to_asr_response,
 };
 use crate::runner::debug_dumper::DebugDumper;
 use crate::runner::util::{FileStage, ProgressSender, ProgressUpdate};
+use crate::transcribe::replay::AdmittedLegacyTranscribeReplay;
 use crate::transcribe::{
     AsrInferParams, AsrResponse, SpeakerEvidenceModelRevision, SpeakerEvidenceRequest,
-    SpeakerEvidenceResolution, SpeakerEvidenceResolutionError, SpeakerInferParams,
+    SpeakerEvidenceResolutionError, SpeakerEvidenceSource, SpeakerProjectionRevision,
     SpeakerWorkerInference, TranscribeOptions, build_empty_chat_text, convert_asr_response,
     generate_participant_ids, infer_asr, resolve_speaker_evidence,
 };
 use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
+use crate::utseg::TranscribeUtsegExecution;
+use crate::utseg_evidence::{UtsegEvidencePhase, UtsegEvidenceSink, UtsegEvidenceTrace};
+
+static PRODUCTION_REV_INFERENCE: RevAsrService = RevAsrService;
+
+/// Mutually exclusive evidence capabilities for one transcribe execution.
+///
+/// The replay variant carries admitted evidence but no provider-inference
+/// capability. Code executing a replay therefore cannot call Rev.AI or a
+/// speaker backend without first changing this exhaustive match.
+enum TranscribeEvidenceInput<'a> {
+    Live {
+        rev_inference: &'a dyn RevAsrEvidenceInference,
+    },
+    LegacyReplay {
+        replay: AdmittedLegacyTranscribeReplay,
+    },
+}
 
 /// Per-file transcribe pipeline state.
 pub(crate) struct TranscribePipelineContext<'a> {
@@ -51,6 +72,14 @@ pub(crate) struct TranscribePipelineContext<'a> {
     pub chat_text: Option<String>,
     /// Debug artifact writer for offline replay.
     pub dumper: DebugDumper,
+    /// Fail-closed destination for versioned utterance-boundary evidence.
+    utseg_evidence_sink: UtsegEvidenceSink,
+    /// Live-inference capability or fingerprinted offline replay evidence.
+    evidence_input: TranscribeEvidenceInput<'a>,
+    /// Explicit pass topology and policy for utterance segmentation.
+    utseg_execution: TranscribeUtsegExecution,
+    /// Typed causal receipt for the Rev projection used by this run.
+    rev_evidence: Option<RevAsrEvidenceTrace>,
     /// Language resolved after ASR detection. When `opts.lang` is `Auto`,
     /// this is set by `stage_build_chat` to the ASR-detected language.
     /// Post-ASR stages (utseg, morphotag) use this for concrete dispatch.
@@ -64,11 +93,34 @@ pub(crate) struct TranscribePipelineContext<'a> {
 }
 
 impl<'a> TranscribePipelineContext<'a> {
-    fn new(
+    #[cfg(test)]
+    fn new_with_rev_inference(
         audio_path: &'a Path,
         services: PipelineServices<'a>,
         opts: &'a TranscribeOptions,
         dumper: DebugDumper,
+        utseg_evidence_sink: UtsegEvidenceSink,
+        rev_inference: &'a dyn RevAsrEvidenceInference,
+    ) -> Self {
+        Self::new_with_evidence_input(
+            audio_path,
+            services,
+            opts,
+            dumper,
+            utseg_evidence_sink,
+            TranscribeEvidenceInput::Live { rev_inference },
+            TranscribeUtsegExecution::production(opts.with_utseg),
+        )
+    }
+
+    fn new_with_evidence_input(
+        audio_path: &'a Path,
+        services: PipelineServices<'a>,
+        opts: &'a TranscribeOptions,
+        dumper: DebugDumper,
+        utseg_evidence_sink: UtsegEvidenceSink,
+        evidence_input: TranscribeEvidenceInput<'a>,
+        utseg_execution: TranscribeUtsegExecution,
     ) -> Self {
         Self {
             services,
@@ -79,6 +131,10 @@ impl<'a> TranscribePipelineContext<'a> {
             speaker_segments: None,
             chat_text: None,
             dumper,
+            utseg_evidence_sink,
+            evidence_input,
+            utseg_execution,
+            rev_evidence: None,
             resolved_lang: None,
             asr_pipeline_snapshot: std::env::var("BA3_DUMP_ASR_PIPELINE")
                 .ok()
@@ -112,6 +168,17 @@ impl<'a> TranscribePipelineContext<'a> {
             )),
         }
     }
+
+    fn asr_provenance_name(&self) -> &'static str {
+        if let TranscribeEvidenceInput::LegacyReplay { replay, .. } = &self.evidence_input {
+            return replay.producer().provenance_name();
+        }
+        match self.opts.backend {
+            crate::transcribe::types::AsrBackend::RustRevAi => "rev",
+            crate::transcribe::types::AsrBackend::RustWhisperRs => "whisper_rs",
+            crate::transcribe::types::AsrBackend::Worker(_) => "whisper",
+        }
+    }
 }
 
 /// Run the transcribe pipeline for a single audio file.
@@ -122,6 +189,81 @@ pub(crate) async fn run_transcribe_pipeline(
     progress: Option<ProgressSender>,
     debug_dir: Option<&Path>,
 ) -> Result<String, ServerError> {
+    let completed = run_transcribe_pipeline_with_rev_inference(
+        audio_path,
+        services,
+        opts,
+        progress,
+        debug_dir,
+        &PRODUCTION_REV_INFERENCE,
+    )
+    .await?;
+    let CompletedTranscribePipeline {
+        chat_text,
+        rev_evidence: _rev_evidence,
+    } = completed;
+    Ok(chat_text)
+}
+
+#[derive(Debug)]
+struct CompletedTranscribePipeline {
+    chat_text: String,
+    rev_evidence: Option<RevAsrEvidenceTrace>,
+}
+
+async fn run_transcribe_pipeline_with_rev_inference<'a>(
+    audio_path: &'a Path,
+    services: PipelineServices<'a>,
+    opts: &'a TranscribeOptions,
+    progress: Option<ProgressSender>,
+    debug_dir: Option<&Path>,
+    rev_inference: &'a dyn RevAsrEvidenceInference,
+) -> Result<CompletedTranscribePipeline, ServerError> {
+    run_transcribe_pipeline_with_evidence_input(
+        audio_path,
+        services,
+        opts,
+        progress,
+        debug_dir,
+        TranscribeEvidenceInput::Live { rev_inference },
+        TranscribeUtsegExecution::production(opts.with_utseg),
+    )
+    .await
+}
+
+/// Replay fingerprinted projected evidence through the current local Rust and
+/// worker post-processing stages. This does not enter either paid cache.
+pub(crate) async fn run_transcribe_pipeline_with_legacy_replay<'a>(
+    replay: AdmittedLegacyTranscribeReplay,
+    utseg_execution: TranscribeUtsegExecution,
+    services: PipelineServices<'a>,
+    opts: &'a TranscribeOptions,
+    progress: Option<ProgressSender>,
+    debug_dir: Option<&Path>,
+) -> Result<String, ServerError> {
+    let audio_path = replay.media_path().to_owned();
+    let completed = run_transcribe_pipeline_with_evidence_input(
+        &audio_path,
+        services,
+        opts,
+        progress,
+        debug_dir,
+        TranscribeEvidenceInput::LegacyReplay { replay },
+        utseg_execution,
+    )
+    .await?;
+    Ok(completed.chat_text)
+}
+
+async fn run_transcribe_pipeline_with_evidence_input<'a>(
+    audio_path: &'a Path,
+    services: PipelineServices<'a>,
+    opts: &'a TranscribeOptions,
+    progress: Option<ProgressSender>,
+    debug_dir: Option<&Path>,
+    evidence_input: TranscribeEvidenceInput<'a>,
+    utseg_execution: TranscribeUtsegExecution,
+) -> Result<CompletedTranscribePipeline, ServerError> {
     // Plan-time language gate: if the user resolved a language Stanza
     // can't handle, drop the optional Stanza-backed stages at plan
     // build time so the dep graph stays internally consistent. The
@@ -155,19 +297,29 @@ pub(crate) async fn run_transcribe_pipeline(
         // resolved-language path will trip its own typed error if reached.
         crate::types::domain::LanguageSpec::PerFile => true,
     };
-    let with_utseg = opts.with_utseg && stanza_supported;
+    let with_post_chat_utseg = utseg_execution.post_chat_policy().is_some() && stanza_supported;
     let with_morphosyntax = opts.with_morphosyntax && stanza_supported;
     if !stanza_supported {
         info!(
             lang = ?opts.lang,
-            requested_utseg = opts.with_utseg,
-            requested_morphosyntax = opts.with_morphosyntax,
-            "Skipping Stanza-backed sub-stages: no Stanza pipeline for this language."
+            skipped_post_chat_utseg = utseg_execution.post_chat_policy().is_some(),
+            pre_chat_utseg_still_requested = utseg_execution.pre_chat_policy().is_some(),
+            skipped_morphosyntax = opts.with_morphosyntax,
+            "Skipping requested Stanza-backed post-CHAT stages: no Stanza pipeline for this language."
         );
     }
-    let plan = transcribe_plan(opts.diarize, with_utseg, with_morphosyntax);
+    let plan = transcribe_plan(opts.diarize, with_post_chat_utseg, with_morphosyntax);
     let dumper = DebugDumper::new(debug_dir);
-    let mut ctx = TranscribePipelineContext::new(audio_path, services, opts, dumper);
+    let utseg_evidence_sink = UtsegEvidenceSink::new(debug_dir);
+    let mut ctx = TranscribePipelineContext::new_with_evidence_input(
+        audio_path,
+        services,
+        opts,
+        dumper,
+        utseg_evidence_sink,
+        evidence_input,
+        utseg_execution,
+    );
 
     // Build stage-level progress callback if a sender is provided.
     let on_stage = progress.map(|tx| {
@@ -184,8 +336,12 @@ pub(crate) async fn run_transcribe_pipeline(
         on_stage.as_ref().map(|cb| cb as _);
     let _ = run_plan("transcribe", &plan, &mut ctx, on_stage_ref).await?;
 
-    ctx.chat_text.ok_or_else(|| {
+    let chat_text = ctx.chat_text.ok_or_else(|| {
         ServerError::Validation("transcribe pipeline completed without output".to_string())
+    })?;
+    Ok(CompletedTranscribePipeline {
+        chat_text,
+        rev_evidence: ctx.rev_evidence,
     })
 }
 
@@ -216,7 +372,7 @@ fn progress_stage_for_stage(stage: StageId) -> FileStage {
 
 fn transcribe_plan<'a>(
     diarize: bool,
-    with_utseg: bool,
+    with_post_chat_utseg: bool,
     with_morphosyntax: bool,
 ) -> PipelinePlan<TranscribePipelineContext<'a>> {
     let postprocess_dep = if diarize {
@@ -246,7 +402,7 @@ fn transcribe_plan<'a>(
         ),
     ];
 
-    if with_utseg {
+    if with_post_chat_utseg {
         stages.push(StageSpec::new(
             StageId::OptionalUtseg,
             vec![StageId::BuildChat],
@@ -256,7 +412,7 @@ fn transcribe_plan<'a>(
     }
 
     if with_morphosyntax {
-        let dep = if with_utseg {
+        let dep = if with_post_chat_utseg {
             StageId::OptionalUtseg
         } else {
             StageId::BuildChat
@@ -271,7 +427,7 @@ fn transcribe_plan<'a>(
 
     let final_dep = if with_morphosyntax {
         StageId::OptionalMorphosyntax
-    } else if with_utseg {
+    } else if with_post_chat_utseg {
         StageId::OptionalUtseg
     } else {
         StageId::BuildChat
@@ -317,6 +473,33 @@ fn stage_asr_infer<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
             "Starting ASR inference"
         );
 
+        if let TranscribeEvidenceInput::LegacyReplay { replay } = &ctx.evidence_input {
+            info!(
+                recording_id = replay.recording_id(),
+                manifest_blake3 = replay.manifest_blake3(),
+                "Replaying fingerprinted legacy projected ASR evidence"
+            );
+            ctx.asr_response = Some(replay.asr_response().clone());
+            if ctx.opts.diarize {
+                let segments = replay.speaker_segments().ok_or_else(|| {
+                    ServerError::Validation(format!(
+                        "replay {} requested diarization but its manifest has no speaker-turn artifact",
+                        replay.recording_id()
+                    ))
+                })?;
+                ctx.speaker_segments = Some(segments.to_vec());
+            }
+            return Ok(());
+        }
+
+        let rev_inference = match &ctx.evidence_input {
+            TranscribeEvidenceInput::Live { rev_inference } => *rev_inference,
+            TranscribeEvidenceInput::LegacyReplay { .. } => {
+                return Err(ServerError::Validation(
+                    "legacy replay reached live ASR inference after replay admission".into(),
+                ));
+            }
+        };
         let num_speakers = NumSpeakers(ctx.opts.num_speakers as u32);
         let response = if let Some(backend) = ctx.opts.backend.as_non_rev() {
             infer_asr(
@@ -331,25 +514,21 @@ fn stage_asr_infer<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
             )
             .await?
         } else {
-            let request = RevAsrEvidenceRequest::from_audio(
-                ctx.audio_path,
+            let provider_media = PreparedRevProviderMedia::from_source(ctx.audio_path)
+                .await
+                .map_err(|error| ServerError::Persistence(error.to_string()))?;
+            let request = RevAsrEvidenceRequest::new(
+                provider_media,
                 &ctx.opts.lang,
                 num_speakers,
                 &RevAsrModelRevision::current(),
             )
-            .await
             .map_err(|error| ServerError::Persistence(error.to_string()))?;
-            let service = RevAsrService::new(
-                ctx.audio_path,
-                &ctx.opts.lang,
-                num_speakers,
-                ctx.opts.rev_job_id.as_deref(),
-            );
             let resolution = resolve_rev_asr_evidence(
                 &request,
                 ctx.services.cache,
-                crate::params::CachePolicy::from(ctx.opts.override_media_cache),
-                &service,
+                ctx.opts.cache_policies.rev_asr,
+                rev_inference,
             )
             .await
             .map_err(|error| match error {
@@ -358,23 +537,29 @@ fn stage_asr_infer<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
                 }
                 RevAsrEvidenceResolutionError::Inference(error) => error,
             })?;
-            let evidence = match resolution {
-                RevAsrEvidenceResolution::Replayed(evidence) => {
+            let trace = resolution.trace(RevAsrProjectionRevision::AsrResponseV1);
+            if ctx.dumper.is_enabled() {
+                ctx.dumper
+                    .dump_rev_evidence(ctx.audio_path.to_string_lossy().as_ref(), &trace)
+                    .map_err(|error| ServerError::Persistence(error.to_string()))?;
+            }
+            ctx.rev_evidence = Some(trace);
+            match resolution.source() {
+                RevAsrEvidenceSource::Replayed => {
                     info!(
                         cache_key = %request.cache_key(),
                         "Replaying validated raw Rev.AI transcript evidence"
                     );
-                    evidence
                 }
-                RevAsrEvidenceResolution::Inferred { evidence, reason } => {
+                RevAsrEvidenceSource::Inferred(reason) => {
                     info!(
                         cache_key = %request.cache_key(),
                         reason = ?reason,
                         "Committed fresh raw Rev.AI transcript evidence"
                     );
-                    evidence
                 }
-            };
+            }
+            let evidence = resolution.into_evidence();
             rev_evidence_to_asr_response(&evidence)
         };
         let filename = ctx
@@ -526,13 +711,16 @@ fn build_prechat_utseg_items(chunks: &[PreparedMonologueChunk]) -> Vec<UtsegBatc
 
 fn apply_prechat_assignments(
     chunks: &[PreparedMonologueChunk],
-    assignments: &[batchalign_transform::utseg::UtsegResponse],
+    predictions: &[crate::utseg::AdmittedUtsegPrediction],
 ) -> Vec<PreparedMonologueChunk> {
     chunks
         .iter()
-        .zip(assignments.iter())
-        .flat_map(|(chunk, response)| {
-            asr_postprocess::split_prepared_chunk_by_assignments(chunk, &response.assignments)
+        .zip(predictions.iter())
+        .flat_map(|(chunk, prediction)| {
+            asr_postprocess::split_prepared_chunk_by_assignments(
+                chunk,
+                &prediction.response().assignments,
+            )
         })
         .collect()
 }
@@ -564,6 +752,20 @@ async fn process_asr_with_prechat_segmentation(
         );
         projection.chunks
     };
+    let Some(pre_chat_policy) = ctx.utseg_execution.pre_chat_policy() else {
+        let chunks = project_speakers(prepare_asr_chunks_with_snapshot(
+            asr_output,
+            &lang_str,
+            ctx.asr_pipeline_snapshot.as_mut(),
+        ));
+        let mut utterances = asr_postprocess::utterances_from_prepared_chunks(chunks);
+        asr_postprocess::finalize_utterances(&mut utterances, &lang_str);
+        if let Some(s) = ctx.asr_pipeline_snapshot.as_mut() {
+            s.final_utterances = utterances.clone();
+        }
+        return Ok(utterances);
+    };
+
     if !uses_prechat_utterance_model(resolved_lang) {
         let chunks = project_speakers(prepare_asr_chunks_with_snapshot(
             asr_output,
@@ -588,14 +790,32 @@ async fn process_asr_with_prechat_segmentation(
     }
 
     let items = build_prechat_utseg_items(&prepared_chunks);
-    let assignments = crate::utseg::infer_utseg_assignments(
+    let predictions = crate::utseg::infer_utseg_predictions_with_policy(
         ctx.services.pool,
         resolved_lang,
         &items,
         ctx.opts.allow_stanza_fallback_utseg,
+        pre_chat_policy,
     )
     .await?;
-    let split_chunks = apply_prechat_assignments(&prepared_chunks, &assignments);
+    let split_chunks = apply_prechat_assignments(&prepared_chunks, &predictions);
+    let indexed_items: Vec<_> = items.iter().cloned().enumerate().collect();
+    let evidence = UtsegEvidenceTrace::from_predictions(
+        UtsegEvidencePhase::PreChat,
+        resolved_lang.as_ref(),
+        ctx.services.engine_version.as_ref(),
+        &indexed_items,
+        &predictions,
+    )
+    .map_err(|error| ServerError::Validation(error.to_string()))?;
+    ctx.utseg_evidence_sink
+        .write(ctx.audio_path.to_string_lossy().as_ref(), &evidence)
+        .map_err(|error| {
+            ServerError::Persistence(format!(
+                "could not retain requested pre-CHAT utseg evidence for {}: {error}",
+                ctx.audio_path.display()
+            ))
+        })?;
     let mut utterances = asr_postprocess::utterances_from_prepared_chunks(split_chunks);
     asr_postprocess::finalize_utterances(&mut utterances, &lang_str);
     if let Some(s) = ctx.asr_pipeline_snapshot.as_mut() {
@@ -704,6 +924,14 @@ fn stage_speaker_diarization<'a, 'ctx>(
     ctx: &'a mut TranscribePipelineContext<'ctx>,
 ) -> StageFuture<'a> {
     Box::pin(async move {
+        if matches!(
+            ctx.evidence_input,
+            TranscribeEvidenceInput::LegacyReplay { .. }
+        ) {
+            // The ASR stage admitted and installed the manifest-bound turns.
+            // No live speaker-inference capability exists in this state.
+            return Ok(());
+        }
         let response = ctx.asr_response.as_ref().ok_or_else(|| {
             ServerError::Validation("ASR response missing before speaker diarization".to_string())
         })?;
@@ -726,7 +954,7 @@ fn stage_speaker_diarization<'a, 'ctx>(
         // remains `Auto` even after ASR, so derive a resolved value from the
         // response here rather than relying on a pipeline-order comment that
         // the type did not enforce.
-        let speaker_lang = LanguageSpec::Resolved(resolved_asr_language(ctx.opts, response)?);
+        let speaker_worker_lang = WorkerLanguage::from(resolved_asr_language(ctx.opts, response)?);
         info!(
             audio_path = %ctx.audio_path.display(),
             speaker_backend = ?speaker_backend,
@@ -743,16 +971,8 @@ fn stage_speaker_diarization<'a, 'ctx>(
         )
         .await
         .map_err(|error| ServerError::Persistence(error.to_string()))?;
-        let cache_policy = crate::params::CachePolicy::from(ctx.opts.override_media_cache);
-        let inference = SpeakerWorkerInference::new(
-            ctx.services.pool,
-            SpeakerInferParams {
-                audio_path: ctx.audio_path,
-                lang: &speaker_lang,
-                expected_speakers,
-                backend: speaker_backend,
-            },
-        );
+        let cache_policy = ctx.opts.cache_policies.speaker;
+        let inference = SpeakerWorkerInference::new(ctx.services.pool, speaker_worker_lang);
         let resolution = resolve_speaker_evidence(
             &evidence_request,
             ctx.services.cache,
@@ -766,47 +986,50 @@ fn stage_speaker_diarization<'a, 'ctx>(
             }
             SpeakerEvidenceResolutionError::Inference(error) => error,
         })?;
-        let segments = match resolution {
-            SpeakerEvidenceResolution::Replayed(evidence) => {
+        let evidence_identity = ctx.audio_path.to_string_lossy().into_owned();
+        let trace = resolution.trace(SpeakerProjectionRevision::SegmentsV1);
+        ctx.dumper
+            .dump_speaker_evidence(&evidence_identity, &trace)
+            .map_err(|error| {
+                ServerError::Persistence(format!(
+                    "could not retain requested speaker evidence trace for {evidence_identity}: {error}"
+                ))
+            })?;
+        let num_segments = resolution.segments().len();
+        match resolution.source() {
+            SpeakerEvidenceSource::ReplayedDerived => {
                 info!(
                     cache_key = %evidence_request.cache_key(),
-                    num_segments = evidence.segments().len(),
+                    num_segments,
                     "Replaying validated speaker diarization evidence"
                 );
-                evidence.into_segments()
             }
-            SpeakerEvidenceResolution::DerivedFromRaw(evidence) => {
+            SpeakerEvidenceSource::DerivedFromRaw => {
                 info!(
                     cache_key = %evidence_request.cache_key(),
-                    num_segments = evidence.segments().len(),
+                    num_segments,
                     "Derived speaker segments from retained raw evidence"
                 );
-                evidence.into_segments()
             }
-            SpeakerEvidenceResolution::Inferred { evidence, reason } => {
+            SpeakerEvidenceSource::Inferred(reason) => {
                 info!(
                     cache_key = %evidence_request.cache_key(),
                     reason = ?reason,
-                    num_segments = evidence.segments().len(),
+                    num_segments,
                     "Committed fresh speaker diarization evidence"
                 );
-                evidence.into_segments()
             }
-        };
+        }
+        let segments = resolution.into_segments();
         info!(
             num_segments = segments.len(),
             "Speaker diarization complete"
         );
-        let filename = ctx
-            .audio_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("unknown");
         ctx.dumper
-            .dump_speaker_turns(filename, speaker_backend, &segments)
+            .dump_speaker_turns(&evidence_identity, speaker_backend, &segments)
             .map_err(|error| {
                 ServerError::Persistence(format!(
-                    "could not retain requested same-job diarization evidence for {filename}: {error}"
+                    "could not retain requested same-job diarization evidence for {evidence_identity}: {error}"
                 ))
             })?;
         ctx.speaker_segments = Some(segments);
@@ -896,11 +1119,7 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
         let mut chat_file = build_chat::build_chat(&desc)
             .map_err(|e| ServerError::Validation(format!("Failed to build CHAT: {e}")))?;
         // Inject processing provenance comment.
-        let asr_engine = match ctx.opts.backend {
-            crate::transcribe::types::AsrBackend::RustRevAi => "rev",
-            crate::transcribe::types::AsrBackend::RustWhisperRs => "whisper_rs",
-            crate::transcribe::types::AsrBackend::Worker(_) => "whisper",
-        };
+        let asr_engine = ctx.asr_provenance_name();
         let provenance = crate::provenance::transcribe_provenance(
             resolved_lang.as_ref(),
             asr_engine,
@@ -948,13 +1167,22 @@ fn stage_run_utseg<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
             .unwrap_or("unknown");
         ctx.dumper.dump_pre_utseg_chat(filename, input);
         let utseg_lang = ctx.lang_for_nlp()?.clone();
-        let result = crate::utseg::process_utseg(
-            input,
-            &utseg_lang,
-            ctx.services.pool,
-            ctx.services.cache,
-            ctx.services.engine_version,
-            ctx.opts.allow_stanza_fallback_utseg,
+        let evidence_filename = ctx.audio_path.to_string_lossy();
+        let post_chat_policy = ctx.utseg_execution.post_chat_policy().ok_or_else(|| {
+            ServerError::Validation(
+                "post-CHAT utseg stage exists without a post-CHAT execution policy".into(),
+            )
+        })?;
+        let result = crate::utseg::process_utseg_with_evidence(
+            crate::utseg::EvidenceRetainingUtsegRequest {
+                chat_text: ChatText::from(input),
+                lang: &utseg_lang,
+                services: ctx.services,
+                fallback_policy: UtsegFallbackPolicy::from(ctx.opts.allow_stanza_fallback_utseg),
+                decision_policy: post_chat_policy,
+                evidence_filename: evidence_filename.as_ref(),
+                evidence_sink: &ctx.utseg_evidence_sink,
+            },
         )
         .await?;
         ctx.dumper.dump_post_utseg_chat(filename, &result);
@@ -1014,9 +1242,18 @@ mod tests {
     use super::*;
     use crate::api::{DurationSeconds, EngineVersion};
     use crate::cache::UtteranceCache;
+    use crate::revai::{
+        AuthorizedRevEvidenceRun, CompletedRevAsrEvidence, RevAsrEvidenceCacheOutcome,
+        RevAsrEvidenceInference, RevTranscriptEvidence,
+    };
+    use crate::transcribe::replay::{
+        LegacyProjectedAsrProducer, LegacyReplayManifestRequest, admit_legacy_replay_manifest,
+        write_legacy_replay_manifest,
+    };
     use crate::transcribe::{AsrBackend, AsrToken};
     use crate::types::worker_v2::SpeakerBackendV2;
     use crate::worker::pool::{PoolConfig, WorkerPool};
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn transcribe_stage_progress_labels_are_stable() {
@@ -1068,13 +1305,227 @@ mod tests {
             num_speakers: 2,
             with_utseg: false,
             with_morphosyntax: false,
-            override_media_cache: false,
+            cache_policies: crate::transcribe::TranscribeCachePolicies::uniform(
+                crate::params::CachePolicy::UseCache,
+            ),
             allow_stanza_fallback_utseg: false,
             write_wor: false,
             media_name: Some("sample".into()),
-            rev_job_id: None,
             engine_extras: std::collections::BTreeMap::new(),
         }
+    }
+
+    struct CountingRevInference {
+        calls: AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl RevAsrEvidenceInference for CountingRevInference {
+        async fn infer(
+            &self,
+            _run: AuthorizedRevEvidenceRun,
+        ) -> Result<CompletedRevAsrEvidence, ServerError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(CompletedRevAsrEvidence {
+                transcript_evidence: RevTranscriptEvidence::from_provider_json(
+                    r#"{"monologues":[{"speaker":0,"elements":[{"type":"text","value":"hello","ts":0.1,"end_ts":0.5,"confidence":0.9},{"type":"punct","value":".","ts":null,"end_ts":null,"confidence":null}]},{"speaker":1,"elements":[{"type":"text","value":"there","ts":0.6,"end_ts":1.0,"confidence":0.8},{"type":"punct","value":"?","ts":null,"end_ts":null,"confidence":null}]}]}"#
+                        .to_owned(),
+                )
+                .expect("valid provider transcript fixture"),
+                resolved_language: LanguageCode3::eng(),
+            })
+        }
+    }
+
+    fn only_debug_artifact(dir: &Path, suffix: &str) -> std::path::PathBuf {
+        let matches = std::fs::read_dir(dir)
+            .expect("read debug directory")
+            .map(|entry| entry.expect("debug directory entry").path())
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.ends_with(suffix))
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(matches.len(), 1, "expected one {suffix} artifact");
+        matches.into_iter().next().expect("one debug artifact")
+    }
+
+    /// A durable Rev cache hit must replay the same evidence through the full
+    /// Rust post-processing and CHAT construction path. The causal receipt is
+    /// intentionally different (`inferred_not_found` versus `replayed`), but
+    /// its typed semantic projection and every downstream output are stable.
+    #[tokio::test]
+    async fn rev_cold_and_replayed_transcribe_are_semantically_identical() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let audio_path = tempdir.path().join("sample.wav");
+        tokio::fs::write(&audio_path, b"provider media")
+            .await
+            .expect("write provider media");
+        let cache_dir = tempdir.path().join("cache");
+        let cold_debug = tempdir.path().join("cold-debug");
+        let replay_debug = tempdir.path().join("replay-debug");
+        let pool = WorkerPool::new(PoolConfig::default());
+        let engine_version = EngineVersion::from("test-asr");
+        let inference = CountingRevInference {
+            calls: AtomicUsize::new(0),
+        };
+        let mut opts = test_transcribe_options(None);
+        opts.diarize = false;
+
+        let cache = UtteranceCache::sqlite(Some(cache_dir.clone()))
+            .await
+            .expect("cold cache");
+        let cold = run_transcribe_pipeline_with_rev_inference(
+            &audio_path,
+            PipelineServices::new(&pool, &cache, &engine_version),
+            &opts,
+            None,
+            Some(&cold_debug),
+            &inference,
+        )
+        .await
+        .expect("cold transcribe");
+        drop(cache);
+
+        let reopened = UtteranceCache::sqlite(Some(cache_dir))
+            .await
+            .expect("reopened cache");
+        let replayed = run_transcribe_pipeline_with_rev_inference(
+            &audio_path,
+            PipelineServices::new(&pool, &reopened, &engine_version),
+            &opts,
+            None,
+            Some(&replay_debug),
+            &inference,
+        )
+        .await
+        .expect("replayed transcribe");
+
+        assert_eq!(inference.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(cold.chat_text, replayed.chat_text);
+        assert_eq!(
+            std::fs::read(only_debug_artifact(&cold_debug, "_asr_response.json"))
+                .expect("cold ASR artifact"),
+            std::fs::read(only_debug_artifact(&replay_debug, "_asr_response.json"))
+                .expect("replayed ASR artifact")
+        );
+
+        let cold_trace = cold.rev_evidence.expect("cold Rev trace");
+        let replay_trace = replayed.rev_evidence.expect("replayed Rev trace");
+        assert_eq!(
+            cold_trace.cache_outcome(),
+            RevAsrEvidenceCacheOutcome::InferredNotFound
+        );
+        assert_eq!(
+            replay_trace.cache_outcome(),
+            RevAsrEvidenceCacheOutcome::Replayed
+        );
+        assert_eq!(
+            cold_trace.semantic_projection(),
+            replay_trace.semantic_projection()
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(
+                &std::fs::read(only_debug_artifact(&cold_debug, "_rev_evidence.json"))
+                    .expect("cold Rev trace artifact")
+            )
+            .expect("cold Rev trace JSON"),
+            serde_json::to_value(&cold_trace).expect("cold typed trace JSON")
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(
+                &std::fs::read(only_debug_artifact(&replay_debug, "_rev_evidence.json"))
+                    .expect("replayed Rev trace artifact")
+            )
+            .expect("replayed Rev trace JSON"),
+            serde_json::to_value(&replay_trace).expect("replayed typed trace JSON")
+        );
+    }
+
+    /// A projected-evidence replay enters the current word-level speaker
+    /// projection and CHAT builder without possessing a live provider
+    /// capability. This is the end-to-end guard for the research replay path,
+    /// not merely a manifest-parser test.
+    #[tokio::test]
+    async fn legacy_replay_runs_current_speaker_projection_without_live_inference() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let media = tempdir.path().join("sample.wav");
+        let asr = tempdir.path().join("sample_asr_response.json");
+        let turns = tempdir.path().join("sample.turns.json");
+        let manifest = tempdir.path().join("sample.replay.json");
+        std::fs::write(&media, b"fingerprinted media").expect("media");
+        std::fs::write(
+            &asr,
+            serde_json::to_vec_pretty(&AsrResponse {
+                tokens: vec![
+                    AsrToken {
+                        text: "bonjour".into(),
+                        start_s: Some(DurationSeconds(0.0)),
+                        end_s: Some(DurationSeconds(0.5)),
+                        speaker: Some("ASR_0".into()),
+                        confidence: Some(0.9),
+                    },
+                    AsrToken {
+                        text: "oui".into(),
+                        start_s: Some(DurationSeconds(0.5)),
+                        end_s: Some(DurationSeconds(1.0)),
+                        speaker: Some("ASR_0".into()),
+                        confidence: Some(0.8),
+                    },
+                    AsrToken {
+                        text: ".".into(),
+                        start_s: None,
+                        end_s: None,
+                        speaker: Some("ASR_0".into()),
+                        confidence: None,
+                    },
+                ],
+                lang: LanguageCode3::fra(),
+                source_monologues: None,
+            })
+            .expect("ASR JSON"),
+        )
+        .expect("ASR artifact");
+        std::fs::write(
+            &turns,
+            br#"{"source":"batchalign3:pyannote_ai:precision-2","turns":[{"track":"PAR0","start_ms":0,"end_ms":500},{"track":"PAR1","start_ms":500,"end_ms":1000}]}"#,
+        )
+        .expect("turns");
+        write_legacy_replay_manifest(
+            LegacyReplayManifestRequest {
+                recording_id: "sample",
+                media_path: &media,
+                asr_response_path: &asr,
+                speaker_turns_path: Some(&turns),
+                producer: LegacyProjectedAsrProducer::RevAi,
+            },
+            &manifest,
+        )
+        .expect("manifest");
+        let replay = admit_legacy_replay_manifest(&manifest).expect("admitted replay");
+
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let pool = WorkerPool::new(PoolConfig::default());
+        let engine_version = EngineVersion::from("test-replay");
+        let mut opts = test_transcribe_options(Some(SpeakerBackendV2::PyannoteAi));
+        opts.lang = LanguageCode3::fra().into();
+        let chat = run_transcribe_pipeline_with_legacy_replay(
+            replay,
+            TranscribeUtsegExecution::production(opts.with_utseg),
+            PipelineServices::new(&pool, &cache, &engine_version),
+            &opts,
+            None,
+            None,
+        )
+        .await
+        .expect("offline replay");
+
+        assert!(chat.contains("*PAR0:\tbonjour ."), "{chat}");
+        assert!(chat.contains("*PAR1:\toui ."), "{chat}");
+        assert!(chat.contains("asr=rev"), "{chat}");
     }
 
     #[test]
@@ -1122,8 +1573,14 @@ mod tests {
         let services = PipelineServices::new(&pool, &cache, &engine_version);
         let audio_path = tempdir.path().join("sample.wav");
         let opts = test_transcribe_options(None);
-        let mut ctx =
-            TranscribePipelineContext::new(&audio_path, services, &opts, DebugDumper::disabled());
+        let mut ctx = TranscribePipelineContext::new_with_rev_inference(
+            &audio_path,
+            services,
+            &opts,
+            DebugDumper::disabled(),
+            UtsegEvidenceSink::Disabled,
+            &PRODUCTION_REV_INFERENCE,
+        );
         ctx.asr_response = Some(AsrResponse {
             tokens: vec![AsrToken {
                 text: "hello".into(),
@@ -1146,6 +1603,59 @@ mod tests {
         );
     }
 
+    /// `--no-utseg` controls the whole transcribe segmentation execution, not
+    /// only the optional CHAT-level stage. English is deliberately used here:
+    /// with segmentation enabled these two words require a worker request, and
+    /// this pool has no worker to satisfy one.
+    #[tokio::test]
+    async fn no_utseg_bypasses_the_pre_chat_worker_for_a_supported_language() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let pool = WorkerPool::new(PoolConfig::default());
+        let engine_version = EngineVersion::from("test-asr");
+        let services = PipelineServices::new(&pool, &cache, &engine_version);
+        let audio_path = tempdir.path().join("sample.wav");
+        let mut opts = test_transcribe_options(None);
+        opts.diarize = false;
+        opts.with_utseg = false;
+        let mut ctx = TranscribePipelineContext::new_with_rev_inference(
+            &audio_path,
+            services,
+            &opts,
+            DebugDumper::disabled(),
+            UtsegEvidenceSink::Disabled,
+            &PRODUCTION_REV_INFERENCE,
+        );
+        ctx.asr_response = Some(AsrResponse {
+            tokens: vec![
+                AsrToken {
+                    text: "hello".into(),
+                    start_s: Some(DurationSeconds(0.0)),
+                    end_s: Some(DurationSeconds(0.5)),
+                    speaker: None,
+                    confidence: None,
+                },
+                AsrToken {
+                    text: "there".into(),
+                    start_s: Some(DurationSeconds(0.5)),
+                    end_s: Some(DurationSeconds(1.0)),
+                    speaker: None,
+                    confidence: None,
+                },
+            ],
+            lang: LanguageCode3::eng(),
+            source_monologues: None,
+        });
+
+        stage_asr_postprocess(&mut ctx)
+            .await
+            .expect("disabled segmentation must not dispatch a worker");
+
+        assert_eq!(ctx.utterances.as_ref().map(Vec::len), Some(1));
+    }
+
     /// Dedicated diarization is available while ASR words still carry their
     /// observed timings. A speaker boundary between two words must therefore
     /// constrain utterance segmentation before CHAT is built, rather than
@@ -1163,8 +1673,14 @@ mod tests {
         let mut opts = test_transcribe_options(Some(SpeakerBackendV2::Pyannote));
         opts.lang = LanguageCode3::fra().into();
 
-        let mut ctx =
-            TranscribePipelineContext::new(&audio_path, services, &opts, DebugDumper::disabled());
+        let mut ctx = TranscribePipelineContext::new_with_rev_inference(
+            &audio_path,
+            services,
+            &opts,
+            DebugDumper::disabled(),
+            UtsegEvidenceSink::Disabled,
+            &PRODUCTION_REV_INFERENCE,
+        );
         ctx.asr_response = Some(AsrResponse {
             tokens: vec![
                 AsrToken {
@@ -1233,8 +1749,14 @@ mod tests {
         opts.lang = LanguageSpec::Auto;
         opts.diarize = false;
 
-        let mut ctx =
-            TranscribePipelineContext::new(&audio_path, services, &opts, DebugDumper::disabled());
+        let mut ctx = TranscribePipelineContext::new_with_rev_inference(
+            &audio_path,
+            services,
+            &opts,
+            DebugDumper::disabled(),
+            UtsegEvidenceSink::Disabled,
+            &PRODUCTION_REV_INFERENCE,
+        );
 
         // ASR response with detected language "spa"
         ctx.asr_response = Some(AsrResponse {
@@ -1287,8 +1809,14 @@ mod tests {
         opts.lang = LanguageSpec::Auto;
         opts.diarize = false;
 
-        let mut ctx =
-            TranscribePipelineContext::new(&audio_path, services, &opts, DebugDumper::disabled());
+        let mut ctx = TranscribePipelineContext::new_with_rev_inference(
+            &audio_path,
+            services,
+            &opts,
+            DebugDumper::disabled(),
+            UtsegEvidenceSink::Disabled,
+            &PRODUCTION_REV_INFERENCE,
+        );
         ctx.asr_response = Some(AsrResponse {
             tokens: vec![AsrToken {
                 text: "hola".into(),
@@ -1321,8 +1849,14 @@ mod tests {
         let mut opts = test_transcribe_options(None);
         opts.lang = LanguageSpec::Auto;
 
-        let mut ctx =
-            TranscribePipelineContext::new(&audio_path, services, &opts, DebugDumper::disabled());
+        let mut ctx = TranscribePipelineContext::new_with_rev_inference(
+            &audio_path,
+            services,
+            &opts,
+            DebugDumper::disabled(),
+            UtsegEvidenceSink::Disabled,
+            &PRODUCTION_REV_INFERENCE,
+        );
         ctx.asr_response = Some(AsrResponse {
             tokens: vec![],
             lang: LanguageCode3::fra(),

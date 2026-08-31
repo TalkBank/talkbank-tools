@@ -1,13 +1,12 @@
 //! Forced alignment dispatch and per-file FA pipeline.
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::api::{DisplayPath, DurationMs, EngineVersion, LanguageCode3, NumWorkers, RevAiJobId};
+use crate::api::{DisplayPath, DurationMs, EngineVersion, LanguageCode3, NumWorkers};
 use crate::cache::UtteranceCache;
 use crate::options::{CommandOptions, EngineBackend as _};
-use crate::params::{AudioContext, FaParams};
+use crate::params::{AudioContext, CachePolicy, FaParams};
 use crate::pipeline::PipelineServices;
 use crate::runner::DispatchHostContext;
 use crate::runner::debug_dumper::DebugDumper;
@@ -35,6 +34,39 @@ enum AlignUtrDecision<'a> {
     SkipAllTimed,
     Run(&'a crate::options::UtrEngine),
     ProceedWithoutUtr,
+}
+
+/// Requested destinations for the structured FA timeline.
+///
+/// Durable debug artifacts and ephemeral dashboard traces are independent
+/// options. Encoding all four combinations prevents one flag from
+/// accidentally gating the other, which previously made `--debug-dir` lose
+/// the evidence sidecar unless dashboard tracing was also enabled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FaEvidenceRetention {
+    None,
+    DurableOnly,
+    TraceOnly,
+    DurableAndTrace,
+}
+
+impl FaEvidenceRetention {
+    fn requested(durable: bool, trace: bool) -> Self {
+        match (durable, trace) {
+            (false, false) => Self::None,
+            (true, false) => Self::DurableOnly,
+            (false, true) => Self::TraceOnly,
+            (true, true) => Self::DurableAndTrace,
+        }
+    }
+
+    fn requires_timeline(self) -> bool {
+        !matches!(self, Self::None)
+    }
+
+    fn stores_trace(self) -> bool {
+        matches!(self, Self::TraceOnly | Self::DurableAndTrace)
+    }
 }
 
 fn plan_align_utr_stage<'a>(
@@ -67,8 +99,6 @@ pub(crate) struct FaDispatchRuntime {
     pub cache: Arc<UtteranceCache>,
     /// Current engine version string for cache partitioning.
     pub engine_version: EngineVersion,
-    /// Optional preflight Rev.AI job ids keyed by original audio path.
-    pub rev_job_ids: Arc<HashMap<PathBuf, RevAiJobId>>,
     /// Maximum number of file tasks to run concurrently for this job.
     pub num_workers: NumWorkers,
 }
@@ -89,6 +119,8 @@ struct FaFileContext<'a> {
     services: PipelineServices<'a>,
     /// Typed FA parameter bundle.
     fa_params: FaParams,
+    /// Independently resolved policy for UTR ASR evidence.
+    utr_cache_policy: CachePolicy,
     /// Whether merge-abbrev should run before writing the result.
     should_merge_abbrev: bool,
     /// Optional before-file path for incremental align reruns.
@@ -97,8 +129,6 @@ struct FaFileContext<'a> {
     utr_engine: Option<&'a crate::options::UtrEngine>,
     /// Overlap strategy for `+<` utterances during UTR.
     utr_overlap_strategy: crate::options::UtrOverlapStrategy,
-    /// Rev.AI preflight job ids keyed by original provider audio path.
-    rev_job_ids: &'a HashMap<PathBuf, RevAiJobId>,
     /// Fallback language from job submission, only present when the user
     /// passed an explicit `--lang <iso3>`. The per-file language from
     /// `@Languages:` takes priority; this is consulted only when the
@@ -140,7 +170,7 @@ fn media_search_subdir(filename: &str, media_subdir: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::media_search_subdir;
+    use super::{FaEvidenceRetention, media_search_subdir};
 
     #[test]
     fn media_search_subdir_preserves_mapping_subdir() {
@@ -153,6 +183,15 @@ mod tests {
             "French/Newcastle/Discussion/12"
         );
     }
+
+    #[test]
+    fn durable_evidence_does_not_depend_on_dashboard_tracing() {
+        let retention = FaEvidenceRetention::requested(true, false);
+
+        assert_eq!(retention, FaEvidenceRetention::DurableOnly);
+        assert!(retention.requires_timeline());
+        assert!(!retention.stores_trace());
+    }
 }
 
 struct AlignAudioTask<'a> {
@@ -162,6 +201,7 @@ struct AlignAudioTask<'a> {
     filename: String,
     services: PipelineServices<'a>,
     fa_params: FaParams,
+    utr_cache_policy: CachePolicy,
     before_path: Option<PathBuf>,
     file_lang: LanguageCode3,
     audio_path: PathBuf,
@@ -173,7 +213,6 @@ struct AlignAudioTask<'a> {
     utr_fallback_attempted: bool,
     utr_engine: Option<crate::options::UtrEngine>,
     utr_overlap_strategy: crate::options::UtrOverlapStrategy,
-    rev_job_id: Option<String>,
     dumper: &'a DebugDumper,
     debug_traces: bool,
     provenance_lang: String,
@@ -233,19 +272,31 @@ impl AudioChatTask for AlignAudioTask<'_> {
         &mut self,
         fa_result: Self::AttemptOutput,
     ) -> Result<String, crate::error::ServerError> {
-        let output_text = if self.debug_traces {
+        let retention = FaEvidenceRetention::requested(self.dumper.is_enabled(), self.debug_traces);
+        let output_text = if retention.requires_timeline() {
             let output_text = fa_result.chat_text.clone();
-            let file_traces = crate::types::traces::FileTraces {
-                filename: DisplayPath::from(self.filename.as_str()),
-                dp_alignments: Vec::new(),
-                asr_pipeline: None,
-                fa_timeline: Some(fa_result.into_timeline_trace()),
-                retokenizations: Vec::new(),
-            };
-            self.host
-                .trace_store()
-                .upsert_file(&self.job_id, self.file_index, file_traces)
-                .await;
+            let timeline = fa_result.into_timeline_trace();
+            self.dumper
+                .dump_fa_evidence(&self.filename, &timeline)
+                .map_err(|error| {
+                    crate::error::ServerError::Persistence(format!(
+                        "could not retain requested forced-alignment evidence for {}: {error}",
+                        self.filename
+                    ))
+                })?;
+            if retention.stores_trace() {
+                let file_traces = crate::types::traces::FileTraces {
+                    filename: DisplayPath::from(self.filename.as_str()),
+                    dp_alignments: Vec::new(),
+                    asr_pipeline: None,
+                    fa_timeline: Some(timeline),
+                    retokenizations: Vec::new(),
+                };
+                self.host
+                    .trace_store()
+                    .upsert_file(&self.job_id, self.file_index, file_traces)
+                    .await;
+            }
             output_text
         } else {
             fa_result.chat_text
@@ -288,13 +339,12 @@ impl AudioChatTask for AlignAudioTask<'_> {
                     lang: &self.file_lang,
                     services: self.services,
                     audio_identity: &self.audio_identity,
-                    cache_policy: self.fa_params.cache_policy,
+                    cache_policy: self.utr_cache_policy,
                     total_audio_ms: self.total_audio_ms.map(DurationMs),
                     max_group_ms: Some(self.fa_params.max_group_ms()),
                     filename: &self.filename,
                     engine: utr_engine,
                     overlap_strategy: self.utr_overlap_strategy,
-                    rev_job_id: self.rev_job_id.as_deref(),
                     dumper: self.dumper,
                 },
                 None,
@@ -351,6 +401,7 @@ pub(crate) async fn dispatch_fa_infer(
     let job_lang_fallback: Option<LanguageCode3> = job.dispatch.lang.as_resolved().cloned();
     let sink = host.sink().clone();
     let fa_params = plan.options.fa_params;
+    let utr_cache_policy = plan.utr_cache_policy;
     let should_merge_abbrev = plan.options.merge_abbrev.should_merge();
     let utr_engine = plan.options.utr_engine;
     let utr_overlap_strategy = plan.options.utr_overlap_strategy;
@@ -392,7 +443,6 @@ pub(crate) async fn dispatch_fa_infer(
         };
         let utr_engine = utr_engine.clone();
         let job_lang_fallback = job_lang_fallback.clone();
-        let rev_job_ids = runtime.rev_job_ids.clone();
         let filename = file.filename.clone();
 
         tasks.push(spawn_supervised_file_task(
@@ -415,11 +465,11 @@ pub(crate) async fn dispatch_fa_infer(
                     sink: sink.clone(),
                     services,
                     fa_params,
+                    utr_cache_policy,
                     should_merge_abbrev,
                     before_path: before_path.as_ref().map(|p| p.as_path()),
                     utr_engine: utr_engine.as_ref(),
                     utr_overlap_strategy,
-                    rev_job_ids: rev_job_ids.as_ref(),
                     lang_fallback: job_lang_fallback.as_ref(),
                     dumper,
                     media_dir: media_dir_ref,
@@ -451,11 +501,11 @@ async fn process_one_fa_file(
         sink,
         services,
         fa_params,
+        utr_cache_policy,
         should_merge_abbrev,
         before_path,
         utr_engine,
         utr_overlap_strategy: _,
-        rev_job_ids,
         lang_fallback,
         ref dumper,
         media_dir,
@@ -716,8 +766,6 @@ async fn process_one_fa_file(
         }
     };
 
-    let rev_job_id = rev_job_ids.get(&original_audio_path).map(|id| &**id);
-
     // Convert non-WAV media (e.g. mp4) to WAV via ffmpeg if needed.
     // soundfile (Python) cannot read container formats like mp4 directly.
     let audio_path = match crate::ensure_wav::ensure_wav(&original_audio_path, None).await {
@@ -819,13 +867,12 @@ async fn process_one_fa_file(
                         lang: &file_lang,
                         services,
                         audio_identity: &audio_identity,
-                        cache_policy: fa_params.cache_policy,
+                        cache_policy: utr_cache_policy,
                         total_audio_ms: total_audio_ms.map(DurationMs),
                         max_group_ms: Some(fa_params.max_group_ms()),
                         filename,
                         engine: utr_engine,
                         overlap_strategy: context.utr_overlap_strategy,
-                        rev_job_id,
                         dumper,
                     },
                     Some(&utr_progress),
@@ -866,6 +913,7 @@ async fn process_one_fa_file(
         filename: filename.to_string(),
         services,
         fa_params,
+        utr_cache_policy,
         before_path: before_path.map(Path::to_path_buf),
         file_lang,
         audio_path,
@@ -877,7 +925,6 @@ async fn process_one_fa_file(
         utr_fallback_attempted: false,
         utr_engine: utr_engine.cloned(),
         utr_overlap_strategy: context.utr_overlap_strategy,
-        rev_job_id: rev_job_id.map(|id| id.to_string()),
         dumper,
         debug_traces: job.dispatch.debug_traces,
         provenance_lang,

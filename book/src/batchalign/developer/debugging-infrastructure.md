@@ -1,7 +1,11 @@
 # Debugging Infrastructure
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:43 EDT
+**Last updated:** 2026-08-30 19:35 EDT
+
+> Release note: this document describes the current source tree. The
+> fail-closed FA/speaker evidence and content-addressed worker identity added in
+> the same local batch are not present in the currently running Ming servers.
 
 ## Design Goal
 
@@ -60,6 +64,12 @@ manual package patching to capture the payload.
 When `--debug-dir /path/to/dir` is passed (or `BATCHALIGN_DEBUG_DIR` is set),
 the `DebugDumper` writes detailed pipeline artifacts:
 
+Today those stage producers are wired for `align` and `transcribe`. The global
+CLI option being accepted by another processing command does not mean that
+command has a `DebugDumper` integration. The path is a server-filesystem path;
+it is reliable across direct/loopback/shared-filesystem execution, but a remote
+server does not copy the resulting files back to the client.
+
 | Artifact | Pipeline | Contents | DebugDumper method |
 |----------|----------|----------|---------------------|
 | `{stem}_pre_morphosyntax.cha` | Morphotag | CHAT before morphosyntax injection | `dump_pre_morphosyntax_chat` |
@@ -68,11 +78,17 @@ the `DebugDumper` writes detailed pipeline artifacts:
 | `{stem}_fa_input.cha` | Align | CHAT before FA | `dump_fa_grouping` (writes `_fa_input.cha`) |
 | `{stem}_fa_grouping.json` | Align | FA group structure | `dump_fa_grouping` |
 | `{stem}_fa_group_{n}.json` | Align | Per-group FA timings | `dump_fa_group_result` |
+| `{stem}_fa_evidence.json` | Align | Versioned group source/cache identity, pre-injection timing score/provenance, and typed post-inference decisions; fail-closed when requested | `dump_fa_evidence` |
+| `{identity}_rev_evidence.json` | Rev transcribe / align UTR | Versioned provider-media/request/cache/projection identity; collision-resistant and fail-closed | `dump_rev_evidence` |
 | `{stem}_asr_response.json` | Transcribe | Raw ASR output | `dump_asr_response` |
 | `{stem}_post_asr.cha` | Transcribe | CHAT after ASR assembly | `dump_post_asr_chat` |
 
 These are **zero-cost when disabled**: `DebugDumper` methods return
 immediately without allocation when constructed without a directory.
+The FA and Rev evidence artifacts use a collision-resistant stem: bare input filenames
+keep the ordinary stem, while nested submitted identities append a short
+BLAKE3 digest of the full filename. Older best-effort artifacts retain their
+historical basename-only convention.
 
 ## Structured Diagnostics (`talkbank_transform::morphosyntax::stanza_raw::diagnose_parse_failure`)
 

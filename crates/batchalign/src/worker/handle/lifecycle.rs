@@ -309,6 +309,11 @@ impl WorkerHandle {
         self.pid
     }
 
+    /// Content-addressed Python runtime evidence required by the ready schema.
+    pub fn runtime_identity(&self) -> &crate::worker::runtime_identity::WorkerRuntimeIdentity {
+        &self.runtime
+    }
+
     /// The logical bootstrap target label this worker handles.
     pub fn profile_label(&self) -> String {
         self.config.bootstrap_label()
@@ -351,6 +356,7 @@ impl WorkerHandle {
                 config: std::ptr::read(&md.config),
                 child: std::ptr::read(&md.child),
                 pid: std::ptr::read(&md.pid),
+                runtime: std::ptr::read(&md.runtime),
                 stdin: std::ptr::read(&md.stdin),
                 stdout: std::ptr::read(&md.stdout),
             }
@@ -391,14 +397,51 @@ mod ready_signal_tests {
         BufReader::new(s.as_bytes())
     }
 
+    fn ready(pid: u32) -> String {
+        format!(
+            concat!(
+                "{{\"ready\":true,\"pid\":{},\"transport\":\"stdio\",\"runtime\":{{",
+                "\"schema_version\":1,\"python_version\":\"3.13.12\",",
+                "\"python_executable_sha256\":\"{}\",",
+                "\"batchalign_package_tree_sha256\":\"{}\",",
+                "\"batchalign_core_extension_sha256\":\"{}\",",
+                "\"distribution_inventory_sha256\":\"{}\"}}}}\n"
+            ),
+            pid,
+            "a".repeat(64),
+            "b".repeat(64),
+            "c".repeat(64),
+            "d".repeat(64),
+        )
+    }
+
     /// Happy path: ready signal is the first line.
     #[tokio::test]
     async fn read_ready_line_accepts_ready_first() {
-        let stdout = "{\"ready\": true, \"pid\": 4242, \"transport\": \"stdio\"}\n";
-        let mut r = buf(stdout);
+        let stdout = ready(4242);
+        let mut r = buf(&stdout);
         let signal = WorkerHandle::read_ready_line(&mut r).await.unwrap();
         assert!(signal.ready);
         assert_eq!(signal.pid, 4242);
+        assert_eq!(signal.runtime.python_version(), "3.13.12");
+    }
+
+    #[tokio::test]
+    async fn read_ready_line_retains_content_addressed_runtime_without_paths() {
+        let stdout = concat!(
+            "{\"ready\":true,\"pid\":4242,\"transport\":\"stdio\",\"runtime\":{",
+            "\"schema_version\":1,\"python_version\":\"3.13.12\",",
+            "\"python_executable_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
+            "\"batchalign_package_tree_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
+            "\"batchalign_core_extension_sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",",
+            "\"distribution_inventory_sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"}}\n",
+        );
+        let mut r = buf(stdout);
+
+        let runtime = WorkerHandle::read_ready_line(&mut r).await.unwrap().runtime;
+
+        assert_eq!(runtime.python_version(), "3.13.12");
+        assert_eq!(runtime.python_executable_sha256().as_str(), "a".repeat(64));
     }
 
     /// 2026-05-06 morphotag protocol-ordering bug: a `progress_v2` event
@@ -409,11 +452,11 @@ mod ready_signal_tests {
     /// later line.
     #[tokio::test]
     async fn read_ready_line_skips_pre_ready_progress_event() {
-        let stdout = concat!(
-            "{\"op\": \"progress_v2\", \"event\": {\"request_id\": \"\", \"completed\": 0, \"total\": 0, \"stage\": \"downloading_stanza_lang_zh\"}}\n",
-            "{\"ready\": true, \"pid\": 9001, \"transport\": \"stdio\"}\n",
+        let stdout = format!(
+            "{{\"op\": \"progress_v2\", \"event\": {{\"request_id\": \"\", \"completed\": 0, \"total\": 0, \"stage\": \"downloading_stanza_lang_zh\"}}}}\n{}",
+            ready(9001)
         );
-        let mut r = buf(stdout);
+        let mut r = buf(&stdout);
         let signal = WorkerHandle::read_ready_line(&mut r).await.unwrap();
         assert!(
             signal.ready,
@@ -426,13 +469,16 @@ mod ready_signal_tests {
     /// (e.g. catalog download + language pack download + model load).
     #[tokio::test]
     async fn read_ready_line_skips_multiple_pre_ready_progress_events() {
-        let stdout = concat!(
-            "{\"op\": \"progress_v2\", \"event\": {\"stage\": \"downloading_stanza_catalog\"}}\n",
-            "{\"op\": \"progress_v2\", \"event\": {\"stage\": \"downloading_stanza_catalog_complete\"}}\n",
-            "{\"op\": \"progress_v2\", \"event\": {\"stage\": \"downloading_stanza_lang_zh\"}}\n",
-            "{\"ready\": true, \"pid\": 7, \"transport\": \"stdio\"}\n",
+        let stdout = format!(
+            concat!(
+                "{{\"op\": \"progress_v2\", \"event\": {{\"stage\": \"downloading_stanza_catalog\"}}}}\n",
+                "{{\"op\": \"progress_v2\", \"event\": {{\"stage\": \"downloading_stanza_catalog_complete\"}}}}\n",
+                "{{\"op\": \"progress_v2\", \"event\": {{\"stage\": \"downloading_stanza_lang_zh\"}}}}\n",
+                "{}"
+            ),
+            ready(7)
         );
-        let mut r = buf(stdout);
+        let mut r = buf(&stdout);
         let signal = WorkerHandle::read_ready_line(&mut r).await.unwrap();
         assert!(signal.ready);
         assert_eq!(signal.pid, 7);
@@ -442,12 +488,23 @@ mod ready_signal_tests {
     /// error: we don't let arbitrary garbage through.
     #[tokio::test]
     async fn read_ready_line_rejects_unknown_json_shape() {
-        let stdout = "{\"hello\": \"world\"}\n{\"ready\": true, \"pid\": 1, \"transport\": null}\n";
-        let mut r = buf(stdout);
+        let stdout = format!("{{\"hello\": \"world\"}}\n{}", ready(1));
+        let mut r = buf(&stdout);
         let result = WorkerHandle::read_ready_line(&mut r).await;
         assert!(
             matches!(result, Err(WorkerError::ReadyParseFailed(_))),
             "unknown JSON shape ahead of ready must error"
         );
+    }
+
+    #[tokio::test]
+    async fn read_ready_line_refuses_a_current_worker_without_runtime_identity() {
+        let stdout = "{\"ready\":true,\"pid\":4242,\"transport\":\"stdio\"}\n";
+        let mut r = buf(stdout);
+
+        assert!(matches!(
+            WorkerHandle::read_ready_line(&mut r).await,
+            Err(WorkerError::ReadyParseFailed(_))
+        ));
     }
 }

@@ -508,11 +508,82 @@ class MorphosyntaxResultPayloadV2(BaseModel):
     items: list[MorphosyntaxItemResultV2]
 
 
+class UtsegBoundaryActionV2(str, Enum):
+    """Closed semantic labels emitted by the utterance-boundary model."""
+
+    ORDINARY = "ordinary"
+    CAPITALIZED_ONSET = "capitalized_onset"
+    PERIOD_BOUNDARY = "period_boundary"
+    QUESTION_BOUNDARY = "question_boundary"
+    EXCLAMATION_BOUNDARY = "exclamation_boundary"
+    COMMA = "comma"
+
+
+class UtsegNormalizationRevisionV2(str, Enum):
+    """Closed normalization semantics for boundary-model evidence."""
+
+    LOWER_STRIP_ASCII_PUNCTUATION_V1 = "lower-strip-ascii-punctuation-v1"
+
+
+class UtsegAdjacencyPolicyRevisionV2(str, Enum):
+    """Closed raw-to-applied boundary-action policy revisions."""
+
+    SUPPRESS_EARLIER_ADJACENT_NONORDINARY_V1 = (
+        "suppress-earlier-adjacent-nonordinary-v1"
+    )
+    SUPPRESS_EARLIER_ADJACENT_BOUNDARIES_V1 = "suppress-earlier-adjacent-boundaries-v1"
+
+
+BoundaryProbabilityMicrosV2: TypeAlias = Annotated[int, Field(ge=0, le=1_000_000)]
+"""Fixed-point boundary probability in the inclusive unit interval."""
+
+
+class UtsegClassifiedBoundaryEvidenceV2(BaseModel):
+    """Model evidence for one input word that reached classification."""
+
+    kind: Literal["classified"] = "classified"
+    raw_action: UtsegBoundaryActionV2
+    applied_action: UtsegBoundaryActionV2
+    boundary_probability_micros: BoundaryProbabilityMicrosV2
+
+
+class UtsegNormalizationOmissionV2(BaseModel):
+    """Evidence that normalization removed one word before classification."""
+
+    kind: Literal["normalization_omission"] = "normalization_omission"
+
+
+class UtsegModelShortCircuitV2(BaseModel):
+    """Evidence that the normalized input was too short for inference."""
+
+    kind: Literal["model_short_circuit"] = "model_short_circuit"
+
+
+UtsegWordBoundaryEvidenceV2: TypeAlias = Annotated[
+    UtsegClassifiedBoundaryEvidenceV2
+    | UtsegNormalizationOmissionV2
+    | UtsegModelShortCircuitV2,
+    Field(discriminator="kind"),
+]
+"""One typed evidence state parallel to an input word."""
+
+
+class UtsegBoundaryModelEvidenceV2(BaseModel):
+    """Model provenance plus per-input-word boundary evidence."""
+
+    model_id: Annotated[str, StringConstraints(min_length=1)]
+    model_revision: Annotated[str, StringConstraints(min_length=1)] | None = None
+    normalization_revision: UtsegNormalizationRevisionV2
+    adjacency_policy_revision: UtsegAdjacencyPolicyRevisionV2
+    word_evidence: list[UtsegWordBoundaryEvidenceV2]
+
+
 class UtsegItemResultV2(BaseModel):
     """One utterance-segmentation item result returned by Python."""
 
     assignments: list[int] | None = None
     trees: list[str] | None = None
+    boundary_model_evidence: UtsegBoundaryModelEvidenceV2 | None = None
     error: str | None = None
 
 

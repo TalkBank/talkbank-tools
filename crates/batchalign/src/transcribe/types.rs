@@ -1,9 +1,29 @@
 //! ASR response types, backend selection, and transcribe options.
 
-use crate::api::{DurationSeconds, LanguageCode3, LanguageSpec, RevAiJobId};
+use crate::api::{DurationSeconds, LanguageCode3, LanguageSpec};
 use crate::types::worker_v2::{AsrBackendV2, SpeakerBackendV2};
 use batchalign_transform::asr_postprocess::AsrMonologue;
 use serde::{Deserialize, Serialize};
+
+/// Independent cache policy for each paid transcribe evidence boundary.
+///
+/// Keeping these policies in one named record prevents a Rev refresh from
+/// implicitly refreshing speaker evidence (or vice versa) merely because both
+/// stages happen to run inside one transcribe command.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct TranscribeCachePolicies {
+    pub(crate) rev_asr: crate::params::CachePolicy,
+    pub(crate) speaker: crate::params::CachePolicy,
+}
+
+impl TranscribeCachePolicies {
+    pub(crate) fn uniform(policy: crate::params::CachePolicy) -> Self {
+        Self {
+            rev_asr: policy,
+            speaker: policy,
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // ASR response types (match Python inference/asr.py models)
@@ -165,13 +185,14 @@ pub struct TranscribeOptions {
     pub lang: LanguageSpec,
     /// Expected number of speakers for diarization.
     pub num_speakers: usize,
-    /// Whether to run utterance segmentation after CHAT assembly.
+    /// Whether to run the production utterance-segmentation topology. When
+    /// enabled for supported languages this includes both the pre-CHAT word
+    /// boundary pass and the post-CHAT refinement pass.
     pub with_utseg: bool,
     /// Whether to run morphosyntax after CHAT assembly.
     pub with_morphosyntax: bool,
-    /// Whether to bypass reusable audio evidence, including dedicated
-    /// speaker-diarization evidence, and replace it with fresh inference.
-    pub override_media_cache: bool,
+    /// Independent inference/replay policy for Rev and speaker evidence.
+    pub(crate) cache_policies: TranscribeCachePolicies,
     /// Operator opt-in to the legacy Stanza constituency-parser
     /// fallback for utseg when no language-specific TalkBank BERT
     /// model is configured. Set by `--utseg-fallback-stanza` on the
@@ -183,8 +204,6 @@ pub struct TranscribeOptions {
     pub write_wor: bool,
     /// Media filename for the @Media header.
     pub media_name: Option<String>,
-    /// Rev.AI pre-submitted job ID (from preflight).
-    pub rev_job_id: Option<RevAiJobId>,
     /// Per-engine configuration extras drawn from
     /// `CommonOptions.engine_overrides.extras` (e.g. `qwen_model`,
     /// `qwen_device`, `funaudio_model`). Plumbed through the V2 dispatch

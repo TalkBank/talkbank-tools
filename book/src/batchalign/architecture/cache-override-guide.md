@@ -1,11 +1,12 @@
-# Cache Override Guide
+# Cache Policy Guide
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:58 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
-When fixing a bug or changing behavior, the first question is: **do deployed
-users need `--override-media-cache`?** This guide provides the mental model and
-decision matrix to answer that question quickly.
+When fixing a bug or changing behavior, ask two questions: **does the run need
+fresh inference (`--override-media-cache`), or must it prove that reusable
+evidence is sufficient (`--require-media-cache`)?** This guide provides the
+mental model and decision matrix.
 
 For what's cached and how keys work, see [Audio-Task Cache](../../architecture/runtime/audio-task-cache.md). This page is
 the complement: what sits *inside* vs *outside* the cache boundary, and what
@@ -26,33 +27,17 @@ post-processing). The rule is simple:
 
 ### Morphosyntax
 
-| Stage | Inside/Outside | Code |
-|-------|---------------|------|
-| Word extraction from CHAT AST | Outside (pre-cache) | `../chatter/crates/talkbank-transform/src/extract.rs` |
-| Cache key: `BLAKE3(words \| lang \| MWT lexicon)` |, | task-specific `cache_key()` helpers under `chat_ops/{fa,nlp}/`, hashed via the shared `CacheKey::from_content` newtype in `chat_ops/cache_key.rs` |
-| Stanza inference → raw %mor/%gra JSON | **Inside** | Python `morphosyntax.py` |
-| Retokenization (Stanza word splits/merges) | **Inside** (happens before cache store) | `crates/batchalign-transform/src/retokenize.rs` + `retokenize/` |
-| Deserialize cached JSON | Outside | `crates/batchalign/src/morphosyntax/` |
-| Patch MorTier terminator + Validate MOR/GRA chunk count + Inject %mor/%gra into AST | Outside | `crates/batchalign-transform/src/morphosyntax/injection.rs::inject_results` (same path regardless of cache hit vs miss) |
+Not cached. Stanza inference, retokenization, validation, and injection run on
+every invocation.
 
 ### Utterance Segmentation (utseg)
 
-| Stage | Inside/Outside | Code |
-|-------|---------------|------|
-| Word extraction | Outside (pre-cache) | `extract.rs` |
-| Cache key: `BLAKE3(words \| lang)` |, | `utseg.rs` |
-| Stanza constituency parse → boundary assignments | **Inside** | Python `utseg.py` |
-| `apply_utseg_results()` (split utterances) | Outside | `utseg.rs` |
+Not cached. Model inference and boundary application run on every invocation.
 
 ### Translation
 
-| Stage | Inside/Outside | Code |
-|-------|---------------|------|
-| `preprocess_for_translate()` (CJK space stripping) | Outside (pre-cache) | `translate.rs` |
-| Cache key: `BLAKE3(text \| src_lang \| tgt_lang)` |, | `translate.rs` |
-| Google Translate / Seamless M4T → translated string | **Inside** | Python `translate.py` |
-| `postprocess_translation()` (quote normalization, punctuation spacing) | Outside | `translate.rs` |
-| Inject as %xtra tier | Outside | `translate.rs` |
+Not cached. Provider/model inference, post-processing, and `%xtra` injection
+run on every invocation.
 
 ### Forced Alignment (FA)
 
@@ -61,7 +46,7 @@ post-processing). The rule is simple:
 | Tier 1: check reusable %wor timing | Outside (bypasses cache entirely) | `fa/mod.rs` |
 | Group utterances by time windows | Outside (pre-cache) | `fa/mod.rs` |
 | Word extraction per group | Outside (pre-cache) | `fa/mod.rs` |
-| Cache key: `BLAKE3(audio_identity \| start_ms \| end_ms \| text \| healing_flag \| engine)` | | `fa/mod.rs` |
+| Cache key: `BLAKE3(audio_identity \| start_ms \| end_ms \| text \| healing_flag \| engine)` | Boundary | `chat_ops/fa/mod.rs` |
 | Whisper/Wave2Vec inference → `Vec<Option<WordTiming>>` | **Inside** | Python `fa.py` |
 | `postprocess_utterance_timings()` | Outside | `fa/postprocess.rs` |
 | - `WordGapHealing::Heal`: backward end-time propagation, bounded by plausibility caps | Outside | `fa/postprocess.rs` |
@@ -75,11 +60,11 @@ post-processing). The rule is simple:
 
 | Stage | Inside/Outside | Code |
 |-------|---------------|------|
-| Full-file key: `BLAKE3(utr_asr \| audio_identity \| lang)` |, | `fa/utr.rs` |
-| Segment key: `BLAKE3(utr_asr_segment \| audio_identity \| start_ms \| end_ms \| lang)` |, | `fa/utr.rs` |
+| Full-file key: `BLAKE3(utr_asr \| audio_identity \| lang)` | Boundary | `chat_ops/fa/utr.rs` |
+| Segment key: `BLAKE3(utr_asr_segment \| audio_identity \| start_ms \| end_ms \| lang)` | Boundary | `chat_ops/fa/utr.rs` |
 | ASR inference → `Vec<AsrTimingToken>` | **Inside** | Python `asr.py` |
-| Global Hirschberg DP alignment (words ↔ ASR tokens) | Outside | `fa/utr.rs` |
-| Utterance bullet injection | Outside | `fa/utr.rs` |
+| Global Hirschberg DP alignment (words ↔ ASR tokens) | Outside | `runner/dispatch/utr.rs` |
+| Utterance bullet injection | Outside | `runner/dispatch/utr.rs` |
 
 ### Coref
 
@@ -87,9 +72,24 @@ Not cached. Document-level scope requires full context.
 
 ### Transcribe
 
-Not cached at file level. Sub-tasks (FA, UTR) cache individually. ASR
+Not cached at file level. Raw Rev.AI transcript evidence and dedicated speaker
+evidence are cached before local projection; speaker evidence has separate raw
+and normalized layers. Other ordinary ASR output is not cached. ASR
 post-processing (compound merging, number expansion, Cantonese normalization,
 retokenization) runs fresh every time.
+
+`--require-media-cache` fails before a raw Rev or speaker miss can become an
+inference authorization. A derived-speaker miss may still be rebuilt from a
+validated raw hit. FA requires every unresolved group to be reusable or cached;
+its worker batch accepts a typed authorization that required-cache misses
+cannot construct. Rev-backed UTR may rebuild normalized UTR evidence from a
+raw Rev hit; the raw resolver still refuses a provider call on a miss.
+
+An `align` run resolves FA and UTR independently. `FaParams` carries only the
+`forced_alignment` policy, while `FaDispatchPlan::utr_cache_policy` carries the
+`utr_asr` policy into both the initial UTR pass and retry fallback. This split
+is load-bearing: a selective UTR refresh must not refresh FA, and a selective
+FA refresh must not change UTR evidence reuse.
 
 ## Decision Matrix
 
@@ -99,7 +99,8 @@ retokenization) runs fresh every time.
 | Cache key computation | **No** | Old entries become orphans (different key = automatic miss). New keys miss and re-infer. |
 | Word extraction logic (changes which words are sent to the model) | **Yes** | Cached result was computed from different input words |
 | ML model/engine code (Python worker) | **Automatic** if `engine_version` changes; **Yes** if version string unchanged | Engine version scoping handles model upgrades transparently |
-| Serialization format of cached value | **Usually no** | Deserialization failure triggers re-inference with a warning (see below) |
+| Serialization format of legacy FA/UTR derived values | **Usually no** | Normal mode may treat an unreadable derived value as work to recompute; required mode refuses the unresolved group. |
+| Serialization format of raw Rev/speaker evidence | **No automatic refresh** | Corruption fails closed so local damage cannot authorize a paid call. Change the schema/revision deliberately. |
 | Parse logic (changes how CHAT is parsed before extraction) | **Depends** | If extraction produces different words → yes (different key). If same words → no. |
 | Pre-cache text normalization (e.g., `preprocess_for_translate`) | **Yes** | Key is computed from normalized text; same key now maps to wrong cached result |
 
@@ -147,13 +148,14 @@ auto-deletes the cache entry that produced it and writes a bug report to
   deleted, but re-inference produces the same cached value, which the same buggy
   post-processing corrupts again. Fix the post-processing first.
 
-## Deserialization Failure Fallback
+## Deserialization Failure Policy
 
-If a cached entry fails to deserialize (e.g., because the stored format changed
-between versions), the cache layer logs a warning and falls back to
-re-inference. The stale entry is **not** automatically deleted, it becomes a
-permanent miss that re-infers every time until `--override-media-cache` forces a fresh
-store. This is conservative: it avoids data loss from format migration bugs.
+Raw Rev and speaker evidence fails closed on cache read, envelope, provenance,
+or validation errors. It does not become a miss, because a miss is the value
+that can authorize a provider call. FA and the older normalized UTR cache may
+recompute unreadable derived entries in ordinary use, but
+`--require-media-cache` refuses any unresolved inference group. A deliberate
+`--override-media-cache` is the explicit operator decision to replace evidence.
 
 ## Deployment Checklist
 
@@ -168,5 +170,7 @@ When deploying a fix to the fleet (production server, worker hosts, etc.):
 4. **If engine version changed:** No action needed, version scoping
    automatically invalidates stale entries. Verify by checking cache stats in
    server logs (should show misses on first run).
-5. **If unsure:** `--override-media-cache` is always safe. The cost is re-inference
-   time, not correctness. When in doubt, override.
+5. **If unsure:** inspect the raw/derived boundary first. Use
+   `--require-media-cache` to prove an experiment can replay without inference;
+   use `--override-media-cache` only when fresh inference is the intended and
+   budgeted experimental variable.

@@ -124,10 +124,10 @@ def test_executes_wave2vec_fa_v2_request(tmp_path: Path) -> None:
 
     def wave2vec_runner(
         audio: np.ndarray, words: list[str]
-    ) -> list[tuple[str, tuple[int, int]]]:
+    ) -> list[tuple[str, tuple[int, int], float | None]]:
         assert audio.shape == (4,)
         assert words == ["hello", "world"]
-        return [("hello", (10, 40)), ("world", (40, 90))]
+        return [("hello", (10, 40), 0.75), ("world", (40, 90), 0.9)]
 
     response = execute_forced_alignment_request_v2(
         _make_request(
@@ -139,6 +139,7 @@ def test_executes_wave2vec_fa_v2_request(tmp_path: Path) -> None:
     assert isinstance(response.outcome, ExecuteSuccessV2)
     assert isinstance(response.result, IndexedWordTimingResultV2)
     assert response.result.indexed_timings[0].start_ms == 10
+    assert response.result.indexed_timings[0].confidence == 0.75
     assert response.result.indexed_timings[1].end_ms == 90
 
 
@@ -151,7 +152,10 @@ def test_executes_cantonese_wave2vec_fa_v2_request(tmp_path: Path) -> None:
         captured["shape"] = audio.shape
         captured["words"] = payload.words
         captured["text_mode"] = request.text_mode
-        return [(payload.words[0], (50, 120)), (payload.words[1], (130, 220))]
+        return [
+            (payload.words[0], (50, 120), None),
+            (payload.words[1], (130, 220), None),
+        ]
 
     response = execute_forced_alignment_request_v2(
         _make_request(
@@ -267,13 +271,36 @@ def test_invalid_wave2vec_fa_host_output_becomes_runtime_failure(
             tmp_path, backend=FaBackendV2.WAVE2VEC, text_mode=FaTextModeV2.SPACE_JOINED
         ),
         ForcedAlignmentExecutionHostV2(
-            wave2vec_runner=lambda _audio, _words: [("hello", (40, 10))]
+            wave2vec_runner=lambda _audio, _words: [("hello", (40, 10), 0.5)]
         ),
     )
 
     assert isinstance(response.outcome, ExecuteErrorV2)
     assert response.outcome.code is ProtocolErrorCodeV2.RUNTIME_FAILURE
     assert "invalid forced-alignment host output" in response.outcome.message
+    assert response.result is None
+
+
+def test_out_of_range_wave2vec_model_score_is_rejected(tmp_path: Path) -> None:
+    """A model score outside its declared domain must not enter evidence."""
+
+    response = execute_forced_alignment_request_v2(
+        _make_request(
+            tmp_path,
+            backend=FaBackendV2.WAVE2VEC,
+            text_mode=FaTextModeV2.SPACE_JOINED,
+        ),
+        ForcedAlignmentExecutionHostV2(
+            wave2vec_runner=lambda _audio, _words: [
+                ("hello", (10, 40), 1.1),
+                ("world", (40, 90), 0.9),
+            ]
+        ),
+    )
+
+    assert isinstance(response.outcome, ExecuteErrorV2)
+    assert response.outcome.code is ProtocolErrorCodeV2.RUNTIME_FAILURE
+    assert "confidence must be finite and between 0 and 1" in response.outcome.message
     assert response.result is None
 
 
@@ -348,7 +375,7 @@ def test_wave2vec_fa_requests_are_serialized_under_thread_pool(tmp_path: Path) -
     def serialization_checking_runner(
         audio: np.ndarray,
         words: list[str],
-    ) -> list[tuple[str, tuple[int, int]]]:
+    ) -> list[tuple[str, tuple[int, int], float | None]]:
         """Track concurrent entry count; sleep so overlap is detectable."""
         nonlocal active, max_concurrent
         with tracking_lock:
@@ -360,7 +387,7 @@ def test_wave2vec_fa_requests_are_serialized_under_thread_pool(tmp_path: Path) -
         time.sleep(0.05)
         with tracking_lock:
             active -= 1
-        return [(w, (i * 100, (i + 1) * 100)) for i, w in enumerate(words)]
+        return [(w, (i * 100, (i + 1) * 100), None) for i, w in enumerate(words)]
 
     host = ForcedAlignmentExecutionHostV2(wave2vec_runner=serialization_checking_runner)
     # Match the default gpu_thread_pool_size so the test reflects real concurrency

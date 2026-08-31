@@ -79,9 +79,9 @@ def _fake_load_audio_file(path: str) -> _FakeAudioFile:
 
 def _fake_infer_wave2vec_fa(
     model: Any, audio: Any, words: list[str]
-) -> list[tuple[str, tuple[int, int]]]:
+) -> list[tuple[str, tuple[int, int], float | None]]:
     """Deterministic FA: word i gets timing (i*100, (i+1)*100)."""
-    return [(w, (i * 100, (i + 1) * 100)) for i, w in enumerate(words)]
+    return [(w, (i * 100, (i + 1) * 100), None) for i, w in enumerate(words)]
 
 
 @pytest.fixture

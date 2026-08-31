@@ -81,6 +81,34 @@ fn parse_morphotag() {
 }
 
 #[test]
+fn parse_transcribe_replay_pre_chat_policy_scope() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "eval",
+        "transcribe-replay",
+        "run",
+        "recording.replay.json",
+        "--output",
+        "output",
+        "--utseg-passes",
+        "policy-on-pre-chat-only",
+    ]);
+    let Commands::Eval(eval) = cli.command else {
+        panic!("expected eval command")
+    };
+    let EvalAction::TranscribeReplay(replay) = eval.action else {
+        panic!("expected transcribe replay")
+    };
+    let TranscribeReplayAction::Run(run) = replay.action else {
+        panic!("expected replay run")
+    };
+    assert_eq!(
+        run.utseg_passes,
+        TranscribeReplayUtsegPasses::PolicyOnPreChatOnly
+    );
+}
+
+#[test]
 fn morphotag_defaults_l2_on() {
     let options = typed_options_for(&["batchalign3", "morphotag", "corpus/"]);
     match options {
@@ -123,7 +151,7 @@ fn morphotag_default_review_level_is_none() {
         CommandOptions::Morphotag(opts) => assert_eq!(
             opts.review_level,
             crate::chat_ops::fa::ReviewLevel::None,
-            "default morphotag must not emit %xalign/%xrev review tiers"
+            "legacy review-level wire default must remain stable"
         ),
         other => panic!("expected Morphotag options, got {other:?}"),
     }
@@ -131,8 +159,8 @@ fn morphotag_default_review_level_is_none() {
 
 #[test]
 fn morphotag_review_level_flag_opts_in() {
-    // Symmetric with `align --review-level`: the morphotag command accepts
-    // the same flag, mapping CLI values onto the domain `ReviewLevel`.
+    // Compatibility parsing remains symmetric with `align --review-level`.
+    // The resulting value never authorizes CHAT-tier generation.
     let options = typed_options_for(&[
         "batchalign3",
         "morphotag",
@@ -144,7 +172,7 @@ fn morphotag_review_level_flag_opts_in() {
         CommandOptions::Morphotag(opts) => assert_eq!(
             opts.review_level,
             crate::chat_ops::fa::ReviewLevel::All,
-            "--review-level all should opt morphotag into full review-tier emission"
+            "--review-level all should retain its legacy wire value"
         ),
         other => panic!("expected Morphotag options, got {other:?}"),
     }
@@ -1588,6 +1616,38 @@ fn build_options_override_media_cache_global() {
     let cli = Cli::parse_from(["batchalign3", "--override-media-cache", "align", "corpus/"]);
     let opts = build_typed_options(&cli.command, &cli.global).unwrap();
     assert!(opts.common().override_media_cache);
+}
+
+#[test]
+fn build_options_require_media_cache_global() {
+    let cli = Cli::parse_from(["batchalign3", "--require-media-cache", "align", "corpus/"]);
+    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    assert!(opts.common().require_media_cache);
+}
+
+#[test]
+fn require_media_cache_conflicts_with_every_refresh_form() {
+    assert_parse_error_contains(
+        &[
+            "batchalign3",
+            "--require-media-cache",
+            "--override-media-cache",
+            "align",
+            "corpus/",
+        ],
+        &["--require-media-cache", "--override-media-cache"],
+    );
+    assert_parse_error_contains(
+        &[
+            "batchalign3",
+            "--require-media-cache",
+            "--override-media-cache-tasks",
+            "forced_alignment",
+            "align",
+            "corpus/",
+        ],
+        &["--require-media-cache", "--override-media-cache-tasks"],
+    );
 }
 
 // -----------------------------------------------------------------------

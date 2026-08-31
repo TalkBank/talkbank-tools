@@ -39,7 +39,7 @@ def _host_with_canto() -> tuple[Any, list[list[str]]]:
 
     def _fake_align(_model: object, _audio: object, words: list[str]):
         aligned.append(list(words))
-        return [(w, (i * 100, i * 100 + 90)) for i, w in enumerate(words)]
+        return [(w, (i * 100, i * 100 + 90), None) for i, w in enumerate(words)]
 
     host = CantoneseFaHost(
         model=object(),

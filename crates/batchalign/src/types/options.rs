@@ -81,6 +81,10 @@ fn default_feature_set() -> String {
     "eGeMAPSv02".to_string()
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 /// Shared behavior for all engine backend selectors.
 ///
 /// Implement this on each engine enum (`AsrEngineName`, `FaEngineName`,
@@ -98,6 +102,10 @@ pub struct CommonOptions {
     /// Bypass the media analysis cache.
     #[serde(default)]
     pub override_media_cache: bool,
+
+    /// Require reusable media evidence and refuse inference on a cache miss.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub require_media_cache: bool,
 
     /// Engine overrides selected for this job (e.g., ASR=tencent, FA=cantonese_fa).
     /// Typed struct with `Option<AsrEngineName>` and `Option<FaEngineName>`.
@@ -343,11 +351,8 @@ pub struct MorphotagOptions {
     #[serde(default)]
     pub no_pos_hints: bool,
 
-    /// Review-tier verbosity for the incremental morphotag decision tiers
-    /// (`%xalign` / `%xrev`). Defaults to `None` (no review tiers written);
-    /// submit `low-confidence` or `all` to opt in. Mirrors the `align`
-    /// command's `review_level`. The decision-recording machinery is
-    /// retained regardless; only the emission is gated.
+    /// Legacy review-tier request retained for wire compatibility. No value
+    /// emits `%xalign` or `%xrev`; structured evidence retains the decisions.
     #[serde(default)]
     pub review_level: crate::chat_ops::fa::ReviewLevel,
 }
@@ -786,6 +791,20 @@ mod tests {
     }
 
     #[test]
+    fn required_media_cache_wire_field_is_explicit_and_backward_compatible() {
+        let required = CommonOptions {
+            require_media_cache: true,
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&required).expect("serialize required policy");
+        assert!(json.contains(r#""require_media_cache":true"#));
+
+        let legacy: CommonOptions = serde_json::from_str(r#"{"override_media_cache":false}"#)
+            .expect("deserialize legacy common options");
+        assert!(!legacy.require_media_cache);
+    }
+
+    #[test]
     fn engine_overrides_roundtrip() {
         let overrides = EngineOverrides {
             asr: Some(AsrEngineName::HkTencent),
@@ -1090,32 +1109,6 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<AsrEngineName>(&custom_json).unwrap(),
             AsrEngineName::HkTencent
-        );
-    }
-
-    /// A default `align` job must not emit the experimental `%xalign`/`%xrev`
-    /// review tiers. The opt-in (`--review-level all` / `low-confidence`) is
-    /// preserved; only the default flips off. RED while the enum default is
-    /// `LowConfidence`.
-    #[test]
-    fn align_default_review_level_is_none() {
-        assert_eq!(
-            AlignOptions::default().review_level,
-            crate::chat_ops::fa::ReviewLevel::None,
-        );
-    }
-
-    /// A default `morphotag` job must not emit the experimental
-    /// `%xalign`/`%xrev` decision tiers from the incremental path either.
-    /// This default flows MorphotagOptions -> MorphotagDispatchParams ->
-    /// BatchedInferDispatchPlan -> MorphotagRuntimeOptions ->
-    /// MorphosyntaxParams -> inject_decision_tiers, so a future re-hardcode
-    /// at any layer surfaces as a failure here.
-    #[test]
-    fn morphotag_default_review_level_is_none() {
-        assert_eq!(
-            MorphotagOptions::default().review_level,
-            crate::chat_ops::fa::ReviewLevel::None,
         );
     }
 }

@@ -28,24 +28,16 @@ pub(super) use file_status::{
 
 #[cfg(test)]
 pub(super) use media::apply_result_filename;
-#[cfg(test)]
-pub(super) use media::resolve_audio_for_chat;
-pub(super) use media::{
-    collect_preflight_audio_paths, compute_audio_identity, get_audio_duration_ms,
-    preflight_validate_media, should_preflight,
-};
+pub(super) use media::{compute_audio_identity, get_audio_duration_ms, preflight_validate_media};
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::options::{AsrEngineName, FaEngineName};
-    use std::collections::BTreeMap;
     use std::path::Path;
 
-    use crate::api::{DisplayPath, JobId, LanguageCode3, NumSpeakers, NumWorkers, ReleasedCommand};
+    use crate::api::{DisplayPath, NumWorkers, ReleasedCommand};
     use crate::config::ServerConfig;
     use crate::host_facts::EffectiveConfig;
-    use crate::options::{AlignOptions, CommandOptions, CommonOptions, UtrEngine};
     use crate::runtime;
 
     /// Resolve an [`EffectiveConfig`] for a test against the live
@@ -58,12 +50,8 @@ mod tests {
         EffectiveConfig::resolve_from_server_config(config)
     }
     use crate::scheduling::FailureCategory;
-    use crate::store::{
-        PendingJobFile, RunnerDispatchConfig, RunnerFilesystemConfig, RunnerJobIdentity,
-        RunnerJobSnapshot,
-    };
+    use crate::store::PendingJobFile;
     use crate::worker::error::WorkerError;
-    use tokio_util::sync::CancellationToken;
 
     #[test]
     fn apply_result_filename_basic() {
@@ -374,94 +362,6 @@ mod tests {
         assert!(msg.contains("test.cha"), "should include filename: {msg}");
     }
 
-    #[test]
-    fn should_preflight_transcribe_default() {
-        assert!(!should_preflight(ReleasedCommand::Transcribe, None));
-    }
-
-    #[test]
-    fn should_preflight_transcribe_rev_explicit() {
-        use crate::options::{CommonOptions, TranscribeOptions};
-        let opts = CommandOptions::Transcribe(TranscribeOptions {
-            common: CommonOptions::default(),
-            asr_engine: AsrEngineName::RevAi,
-            diarize: false,
-            wor: false.into(),
-            merge_abbrev: false.into(),
-            batch_size: 4,
-            utseg_fallback: false.into(),
-        });
-        assert!(!should_preflight(ReleasedCommand::Transcribe, Some(&opts)));
-    }
-
-    #[test]
-    fn should_not_preflight_transcribe_explicit_refresh_before_typed_miss() {
-        use crate::options::{CommonOptions, TranscribeOptions};
-        let common = CommonOptions {
-            override_media_cache: true,
-            ..CommonOptions::default()
-        };
-        let opts = CommandOptions::Transcribe(TranscribeOptions {
-            common,
-            asr_engine: AsrEngineName::RevAi,
-            diarize: false,
-            wor: false.into(),
-            merge_abbrev: false.into(),
-            batch_size: 4,
-            utseg_fallback: false.into(),
-        });
-        assert!(!should_preflight(ReleasedCommand::Transcribe, Some(&opts)));
-    }
-
-    #[test]
-    fn should_preflight_transcribe_whisper() {
-        use crate::options::{CommonOptions, TranscribeOptions};
-        let opts = CommandOptions::Transcribe(TranscribeOptions {
-            common: CommonOptions::default(),
-            asr_engine: AsrEngineName::Whisper,
-            diarize: false,
-            wor: false.into(),
-            merge_abbrev: false.into(),
-            batch_size: 4,
-            utseg_fallback: false.into(),
-        });
-        assert!(!should_preflight(ReleasedCommand::Transcribe, Some(&opts)));
-    }
-
-    #[test]
-    fn should_preflight_benchmark() {
-        assert!(!should_preflight(ReleasedCommand::Benchmark, None));
-    }
-
-    #[test]
-    fn should_preflight_align_default() {
-        assert!(!should_preflight(ReleasedCommand::Align, None));
-    }
-
-    #[test]
-    fn should_preflight_align_no_utr() {
-        use crate::options::{AlignOptions, CommonOptions};
-        let opts = CommandOptions::Align(AlignOptions {
-            common: CommonOptions::default(),
-            fa_engine: FaEngineName::Wave2Vec,
-            utr_engine: None,
-            utr_overlap_strategy: Default::default(),
-            utr_two_pass: Default::default(),
-            pauses: false,
-            wor: true.into(),
-            merge_abbrev: false.into(),
-            media_dir: None,
-            bullet_repair: false,
-            review_level: Default::default(),
-        });
-        assert!(!should_preflight(ReleasedCommand::Align, Some(&opts)));
-    }
-
-    #[test]
-    fn should_preflight_morphotag() {
-        assert!(!should_preflight(ReleasedCommand::Morphotag, None));
-    }
-
     #[tokio::test]
     async fn media_validate_not_paths_mode() {
         let file_list = vec![PendingJobFile {
@@ -583,124 +483,6 @@ mod tests {
             let failures = preflight_validate_media(&file_list, &source_paths, true).await;
             assert!(failures.is_empty(), "{name} should be accepted");
         }
-    }
-
-    // -----------------------------------------------------------------------
-    // Audio resolution for FA (content mode)
-    // -----------------------------------------------------------------------
-
-    #[tokio::test]
-    async fn resolve_audio_finds_wav_alongside_cha() {
-        let dir = tempfile::tempdir().unwrap();
-        let cha = dir.path().join("test.cha");
-        let wav = dir.path().join("test.wav");
-        std::fs::write(&cha, "@Begin\n@End\n").unwrap();
-        std::fs::write(&wav, b"RIFF").unwrap();
-
-        let result = resolve_audio_for_chat(&cha).await;
-        assert!(result.is_some(), "Should find wav alongside cha");
-        assert!(result.unwrap().ends_with("test.wav"));
-    }
-
-    #[tokio::test]
-    async fn resolve_audio_returns_none_when_no_media() {
-        let dir = tempfile::tempdir().unwrap();
-        let cha = dir.path().join("test.cha");
-        std::fs::write(&cha, "@Begin\n@End\n").unwrap();
-
-        let result = resolve_audio_for_chat(&cha).await;
-        assert!(
-            result.is_none(),
-            "Should return None when no audio file exists"
-        );
-    }
-
-    #[tokio::test]
-    async fn collect_preflight_audio_paths_resolves_align_media_from_chat_inputs() {
-        let dir = tempfile::tempdir().unwrap();
-        let chat_path = dir.path().join("sample.cha");
-        let wav_path = dir.path().join("sample.wav");
-        std::fs::write(&chat_path, "@Begin\n@End\n").unwrap();
-        std::fs::write(&wav_path, b"RIFF").unwrap();
-
-        let job = RunnerJobSnapshot {
-            run_generation: crate::store::RunGeneration::FIRST,
-            identity: RunnerJobIdentity {
-                job_id: JobId::from("job-1"),
-                correlation_id: "corr-1".into(),
-            },
-            dispatch: RunnerDispatchConfig {
-                command: ReleasedCommand::Align,
-                lang: crate::api::LanguageSpec::Resolved(LanguageCode3::eng()),
-                num_speakers: NumSpeakers(1),
-                options: CommandOptions::Align(AlignOptions {
-                    common: CommonOptions::default(),
-                    fa_engine: FaEngineName::Wave2Vec,
-                    utr_engine: Some(UtrEngine::RevAi),
-                    utr_overlap_strategy: Default::default(),
-                    utr_two_pass: Default::default(),
-                    pauses: false,
-                    wor: true.into(),
-                    merge_abbrev: false.into(),
-                    media_dir: None,
-                    bullet_repair: false,
-                    review_level: Default::default(),
-                }),
-                runtime_state: BTreeMap::new(),
-                debug_traces: false,
-            },
-            filesystem: RunnerFilesystemConfig {
-                paths_mode: true,
-                source_paths: vec![batchalign_types::paths::ClientPath::new(
-                    chat_path.to_string_lossy().to_string(),
-                )],
-                output_paths: vec![],
-                before_paths: vec![],
-                staging_dir: Default::default(),
-                media_mapping: Default::default(),
-                media_subdir: Default::default(),
-                source_dir: Default::default(),
-            },
-            cancel_token: CancellationToken::new(),
-            pending_files: vec![PendingJobFile {
-                file_index: 0,
-                filename: DisplayPath::from("sample.cha"),
-                has_chat: true,
-            }],
-        };
-
-        let paths =
-            collect_preflight_audio_paths(ReleasedCommand::Align, &job, &job.pending_files).await;
-
-        assert_eq!(paths, vec![wav_path.to_path_buf()]);
-    }
-
-    /// Simulates the content-mode FA audio resolution bug: staged file in a
-    /// temp dir has no audio alongside it, but the client's source_dir does.
-    /// Verifies that looking at source_dir finds the audio.
-    #[tokio::test]
-    async fn resolve_audio_source_dir_fallback() {
-        // Simulate client's source directory with audio
-        let source_dir = tempfile::tempdir().unwrap();
-        let _cha_source = source_dir.path().join("ACWT01a.cha");
-        let wav_source = source_dir.path().join("ACWT01a.wav");
-        std::fs::write(&_cha_source, "@Begin\n@End\n").unwrap();
-        std::fs::write(&wav_source, b"RIFF").unwrap();
-
-        // Simulate server staging directory (no audio here)
-        let staging_dir = tempfile::tempdir().unwrap();
-        let staged_cha = staging_dir.path().join("ACWT01a.cha");
-        std::fs::write(&staged_cha, "@Begin\n@End\n").unwrap();
-
-        // Strategy 4 (alongside staged file): should fail
-        let staged_result = resolve_audio_for_chat(&staged_cha).await;
-        assert!(staged_result.is_none(), "No audio in staging dir");
-
-        // Strategy 2 (source_dir): should succeed; this is the fix
-        let source_path = source_dir.path().join("ACWT01a.cha");
-        let source_result = resolve_audio_for_chat(&source_path).await;
-        assert!(source_result.is_some(), "Should find audio via source_dir");
-        assert!(source_result.unwrap().ends_with("ACWT01a.wav"));
     }
 
     /// Verifies media_roots fallback: audio not alongside cha or in source_dir,

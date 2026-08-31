@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use talkbank_model::model::MediaStatus;
 
 use crate::asr_postprocess;
 
@@ -16,6 +17,13 @@ pub struct TranscriptDescription {
     pub media_name: Option<String>,
     /// Optional media type (`"audio"` or `"video"`). Defaults to `"audio"`.
     pub media_type: Option<String>,
+    /// Optional relationship between the transcript and its media.
+    ///
+    /// In particular, `Unlinked` records that the media exists while the
+    /// transcript has no timing evidence. Omitting the status asserts that
+    /// the transcript is linked to the media.
+    #[serde(default)]
+    pub media_status: Option<MediaStatus>,
     /// Utterances to include in the transcript.
     #[serde(default)]
     pub utterances: Vec<UtteranceDesc>,

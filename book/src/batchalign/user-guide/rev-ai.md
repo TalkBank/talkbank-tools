@@ -1,7 +1,7 @@
 # Rev.AI Integration
 
 **Status:** Current
-**Last updated:** 2026-08-28 14:01 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 Rev.AI is the default ASR engine for `batchalign3 transcribe`, and the default
 UTR engine for `batchalign3 align`.
@@ -44,6 +44,47 @@ batchalign3 align corpus/ -o aligned/ --utr-engine rev
   speaker projection, are applied to timed ASR words, and split chunks before
   utterance segmentation. pyannoteAI Precision-2 is the default;
   `--speaker-engine pyannote` and `nemo` select local alternatives.
+
+## Provider-visible audio format matters
+
+Rev.AI can return different words, timings, confidence values, and speaker
+boundaries for perceptually equivalent encodings of one recording. In a
+controlled 94-clip test, submitting original MP3 bytes versus decoded PCM16
+WAV changed the lexical response in 81 cases and measured speaker/monologue
+boundaries in 54; matched word starts and ends shifted by a median 40 ms. This
+proves sensitivity, not that WAV is inherently more accurate. Individual clips
+showed plausible gains and losses, so a default-format change needs blinded
+quality adjudication against the audio.
+
+BA3's durable Rev cache therefore keys the exact provider-visible media bytes
+and their upload presentation, not an assumption that two encodings “sound the
+same.” Re-encoding produces a different evidence entry and can incur a new Rev
+call. Renaming or copying byte-identical media with the same extension reuses
+the existing entry; changing the extension deliberately does not, because the
+multipart filename is provider-visible.
+
+Current production preparation preserves source bytes. It presents them with a
+stable digest-derived metadata label, a normalized filename that retains only
+the source extension, and BA3's historical `audio/mpeg` multipart type. This
+describes the current request exactly; it is not a claim that the historical
+MIME choice is ideal. Alternative PCM, FLAC, MIME, or padding recipes must be
+revisioned and evaluated as separate evidence identities before becoming a
+default.
+
+## Retain a reproducible Rev evidence record
+
+Add `--debug-dir PATH` to a Rev transcription or Rev-backed `align` run to
+write fail-closed `*_rev_evidence.json` sidecars. They join the source and
+provider-media BLAKE3 digests, preparation recipe, exact multipart
+filename/MIME/metadata, language, speaker count, request-policy and model
+revisions, raw cache key, cache outcome, exact-versus-legacy transcript
+fidelity, and local projection revision. The sidecar contains no credential or
+machine-local source path. If requested
+evidence cannot be serialized or durably written, the file fails instead of
+silently completing without the research record.
+
+A transcribe file normally has one record. Align may have one full-file record
+or several stable cache-keyed records when UTR analyzes partial audio windows.
 
 ## Use a local model instead
 

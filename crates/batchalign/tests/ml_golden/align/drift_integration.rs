@@ -1,6 +1,4 @@
-//! Env-gated real-file integration tests for the four drift-invariant
-//! [`FixtureAssertion`](crate::common::regression_manifest::FixtureAssertion)
-//! variants landed in Task 1.1.
+//! Env-gated real-file integration tests for segment-aware timing drift.
 //!
 //! These tests run the full `batchalign3 align` pipeline on the real files that
 //! motivated the segment-aware UTR investigation. Audio is large
@@ -21,7 +19,7 @@
 //!   rhd/      { minga044.cha, minga044.<ext> }
 //! ```
 //!
-//! When the env var is unset, all four tests return `Ok(())` silently. When it
+//! When the env var is unset, all four corpus tests return silently. When it
 //! is set but a specific file's media cannot be resolved, that file is
 //! logged-and-skipped via `run_one_file`. When ALL files in a test subdir lack
 //! media, the test SKIPs cleanly via `skip_if_empty` rather than passing

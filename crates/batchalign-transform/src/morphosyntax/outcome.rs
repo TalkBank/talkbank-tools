@@ -3,8 +3,8 @@
 //! ([`MorOutcome`] / [`MorOutcomeKind`]), the structured "no Mor
 //! content" reason ([`NotApplicableReason`]), the classifier that picks
 //! that reason from CHAT content ([`classify_not_applicable`]), and the
-//! adapter that converts an outcome into a [`DecisionRecord`] for
-//! `%xalign` tier emission.
+//! adapter that converts an outcome into a [`DecisionRecord`] for tracing
+//! and structured evidence.
 //!
 //! The split exists because these types form a cohesive
 //! "outcome reporting" boundary that callers consume independently of
@@ -20,8 +20,7 @@ use crate::inject::MisalignmentDiagnostic;
 /// One morphotag outcome for one utterance.
 ///
 /// Carries enough information (line index, speaker, kind) to be converted
-/// into a [`DecisionRecord`] for `%xalign` tier emission without further
-/// context from the caller.
+/// into a [`DecisionRecord`] without further context from the caller.
 #[derive(Debug, Clone)]
 pub struct MorOutcome {
     /// Index into `ChatFile.lines` identifying the utterance.
@@ -87,7 +86,7 @@ pub enum NotApplicableReason {
 }
 
 impl NotApplicableReason {
-    /// Short label for `%xalign` tier output: `not_applicable:<label>`.
+    /// Stable evidence label used after `not_applicable:`.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Empty => "empty",
@@ -226,12 +225,12 @@ fn accumulate(cats: &mut ContentCategories, item: WordItem<'_>) {
 }
 
 impl MorOutcome {
-    /// Convert this outcome into a [`DecisionRecord`] for `%xalign`
-    /// tier emission.
+    /// Convert this outcome into a [`DecisionRecord`] for tracing and
+    /// structured evidence.
     ///
     /// [`MorOutcomeKind::Aligned`] outcomes return `None` because the
-    /// happy path is not review-worthy and would produce a tier entry
-    /// per successfully-morphotagged utterance: noise, not signal.
+    /// happy path is not review-worthy and would produce one record per
+    /// successfully-morphotagged utterance: noise, not signal.
     /// Callers that want to surface aligned counts should aggregate
     /// separately.
     pub fn to_decision_record(&self) -> Option<DecisionRecord> {

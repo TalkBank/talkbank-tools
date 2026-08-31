@@ -53,21 +53,19 @@ pub enum CaMarkerPolicy {
     Disabled,
 }
 
-/// Review tier verbosity for the `align` command.
+/// Legacy review-tier request accepted for command compatibility.
 ///
-/// Controls whether `%xalign` (machine decisions) and `%xrev` (human review
-/// prompts) are injected into the output CHAT. Defaults to `None` (no review
-/// tiers); pass `--review-level low-confidence` or `--review-level all` to
-/// opt in.
+/// No value emits `%xalign` or `%xrev`; decisions are retained in structured
+/// evidence instead. This enum remains so older scripts still parse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum CliReviewLevel {
     /// No review tiers (default).
     #[default]
     None,
-    /// Only flag low-confidence utterances with `%xrev: [?]`.
+    /// Legacy value; retained for compatibility and emits no CHAT tiers.
     #[value(name = "low-confidence")]
     LowConfidence,
-    /// Add `%xalign` on every bulleted utterance + `%xrev: [?]` on uncertain ones.
+    /// Legacy value; retained for compatibility and emits no CHAT tiers.
     All,
 }
 
@@ -139,12 +137,10 @@ pub struct AlignArgs {
     #[arg(long)]
     pub bullet_repair: bool,
 
-    /// Emit %xalign/%xrev review tiers documenting alignment decisions.
+    /// Legacy review-tier setting; retained for command compatibility.
     ///
-    /// none (default): no review tiers are written.
-    /// low-confidence: flag uncertain utterances with %xrev: [?] for human
-    /// review.
-    /// all: add %xalign on every bulleted utterance + %xrev on uncertain ones.
+    /// No value writes `%xalign` or `%xrev`. Machine decisions are retained in
+    /// structured run evidence.
     #[arg(long, value_enum, default_value_t)]
     pub review_level: CliReviewLevel,
 
@@ -570,16 +566,10 @@ pub struct MorphotagArgs {
     #[arg(long = "no-merge-abbrev", conflicts_with = "merge_abbrev")]
     pub no_merge_abbrev: bool,
 
-    /// Emit %xalign/%xrev review tiers documenting morphosyntax decisions.
+    /// Legacy review-tier setting; retained for command compatibility.
     ///
-    /// none (default): no review tiers are written.
-    /// low-confidence: flag uncertain decisions with %xrev: [?] for human
-    /// review.
-    /// all: add %xalign on every utterance with decisions + %xrev on
-    /// uncertain ones.
-    ///
-    /// Applies to the incremental reprocessing path (`--before`); the
-    /// full-file morphotag path does not emit decision tiers.
+    /// No value writes `%xalign` or `%xrev`. Machine decisions are retained in
+    /// structured run evidence.
     #[arg(long, value_enum, default_value_t)]
     pub review_level: CliReviewLevel,
 }
@@ -1443,6 +1433,118 @@ pub enum EvalAction {
     /// using a typed AST walk (supersedes `scripts/l2-eval/analyze.py`).
     #[command(name = "l2-morphotag")]
     L2Morphotag(L2MorphotagEvalArgs),
+    /// Replay fingerprinted legacy projected ASR evidence through the current
+    /// local transcribe post-processing pipeline without provider inference.
+    #[command(name = "transcribe-replay")]
+    TranscribeReplay(TranscribeReplayArgs),
+}
+
+/// Offline transcribe-replay utility family.
+#[derive(Args, Debug, Clone)]
+pub struct TranscribeReplayArgs {
+    /// Manifest authoring or replay execution.
+    #[command(subcommand)]
+    pub action: TranscribeReplayAction,
+}
+
+/// Offline transcribe-replay actions.
+#[derive(Subcommand, Debug, Clone)]
+pub enum TranscribeReplayAction {
+    /// Fingerprint one media/ASR/turns evidence set into an immutable manifest.
+    Manifest(TranscribeReplayManifestArgs),
+    /// Replay one or more admitted manifests with one warm worker pool.
+    Run(TranscribeReplayRunArgs),
+}
+
+/// Arguments for `eval transcribe-replay manifest`.
+#[derive(Args, Debug, Clone)]
+pub struct TranscribeReplayManifestArgs {
+    /// Stable recording identifier used for the output CHAT basename.
+    #[arg(long)]
+    pub recording_id: String,
+    /// Exact source media corresponding to the retained ASR and turns.
+    #[arg(long)]
+    pub media: std::path::PathBuf,
+    /// Retained BA3 projected `_asr_response.json` artifact.
+    #[arg(long)]
+    pub asr_response: std::path::PathBuf,
+    /// Optional canonical BA3 speaker-turns JSON artifact.
+    #[arg(long)]
+    pub speaker_turns: Option<std::path::PathBuf>,
+    /// Destination for the fingerprinted replay manifest.
+    #[arg(long)]
+    pub output: std::path::PathBuf,
+}
+
+/// Arguments for `eval transcribe-replay run`.
+#[derive(Args, Debug, Clone)]
+pub struct TranscribeReplayRunArgs {
+    /// Fingerprinted replay manifests. All are admitted before models load.
+    #[arg(required = true)]
+    pub manifests: Vec<std::path::PathBuf>,
+    /// Directory for replayed CHAT and run receipts.
+    #[arg(short, long)]
+    pub output: std::path::PathBuf,
+    /// Resolved three-letter language code used by local NLP stages.
+    #[arg(long, default_value = "eng")]
+    pub lang: String,
+    /// Expected speaker count used for CHAT participant capacity.
+    #[arg(long, default_value_t = 2)]
+    pub num_speakers: usize,
+    /// Apply each manifest's canonical speaker turns before segmentation.
+    #[arg(long)]
+    pub diarize: bool,
+    /// Skip the current utterance-segmentation model.
+    #[arg(long)]
+    pub no_utseg: bool,
+    /// Closed local policy used to turn retained raw model actions into
+    /// utterance assignments. The experimental choice repeats no inference.
+    #[arg(long, value_enum, default_value_t)]
+    pub utseg_policy: TranscribeReplayUtsegPolicy,
+    /// Which transcribe segmentation pass or passes receive the selected
+    /// policy. This is an offline evaluation control, not a production flag.
+    #[arg(long, value_enum, default_value_t)]
+    pub utseg_passes: TranscribeReplayUtsegPasses,
+    /// Generate `%wor` tiers from retained ASR word timings.
+    #[arg(long)]
+    pub wor: bool,
+    /// Opt in to the legacy Stanza fallback for unsupported utseg languages.
+    #[arg(long)]
+    pub utseg_fallback_stanza: bool,
+    /// Optional directory for the current pipeline's debug evidence.
+    #[arg(long)]
+    pub debug_dir: Option<std::path::PathBuf>,
+}
+
+/// Utterance-boundary decision policy for a controlled offline replay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum TranscribeReplayUtsegPolicy {
+    /// Preserve the assignments declared by the worker.
+    #[default]
+    WorkerDeclared,
+    /// Suppress only an earlier true boundary when two true boundaries are
+    /// adjacent, preserving a boundary before a capitalized onset.
+    SuppressEarlierAdjacentBoundariesV1,
+    /// Apply the boundary-only adjacency policy while preserving exact
+    /// repeated n-grams for CHAT retrace recognition.
+    SuppressEarlierAdjacentBoundariesPreserveExactRetracesV1,
+}
+
+/// Explicit pass topology for controlled offline transcribe replay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum TranscribeReplayUtsegPasses {
+    /// Apply the selected policy before and after CHAT, matching production's
+    /// current two-pass topology.
+    #[default]
+    Both,
+    /// Apply the selected policy once before CHAT and omit the post-CHAT pass.
+    PreChatOnly,
+    /// Run both passes, apply the selected policy only before CHAT, and keep
+    /// the worker-declared production policy after CHAT.
+    PolicyOnPreChatOnly,
+    /// Preserve the worker-declared production pre-CHAT pass and apply the
+    /// selected policy only to the post-CHAT pass.
+    PolicyOnPostChatOnly,
 }
 
 /// Arguments for `batchalign3 eval l2-morphotag`.

@@ -198,6 +198,18 @@ fn test_has_reusable_wor_timing_false_for_partial_wor_timing() {
 }
 
 #[test]
+fn test_has_reusable_wor_timing_false_for_same_count_lexical_drift() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\tgood night .\n%wor:\tgood \u{15}100_500\u{15} morning \u{15}600_1000\u{15} .\n@End\n";
+    let chat = parse_chat(input);
+    let utt = get_utterance(&chat, 0);
+
+    assert!(
+        !has_reusable_wor_timing_for_utterance(utt),
+        "equal word counts cannot make stale timing reusable when the main and %wor words differ"
+    );
+}
+
+#[test]
 fn test_has_reusable_wor_timing_false_when_wor_overruns_next_start() {
     let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\thello world . \u{15}1000_1500\u{15}\n%wor:\thello \u{15}1100_1400\u{15} world \u{15}1400_2600\u{15} .\n*CHI:\tmhm . \u{15}2000_2400\u{15}\n%wor:\tmhm \u{15}2000_2400\u{15} .\n@End\n";
     let chat = parse_chat(input);

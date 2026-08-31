@@ -221,8 +221,8 @@ def _fa_host(backend: FaBackendV2) -> ForcedAlignmentExecutionHostV2:
     if backend is FaBackendV2.WAVE2VEC:
         return ForcedAlignmentExecutionHostV2(
             wave2vec_runner=lambda audio, words: [
-                (words[0], (100, 180)),
-                (words[1], (240, 320 if audio.shape == (4,) else 0)),
+                (words[0], (100, 180), 0.8),
+                (words[1], (240, 320 if audio.shape == (4,) else 0), 0.9),
             ]
         )
     if backend is FaBackendV2.WAV2VEC_CANTO:
@@ -231,8 +231,9 @@ def _fa_host(backend: FaBackendV2) -> ForcedAlignmentExecutionHostV2:
                 (
                     payload.words[0],
                     (50, 120 if request.text_mode is FaTextModeV2.CHAR_JOINED else 0),
+                    None,
                 ),
-                (payload.words[1], (130, 220 if audio.shape == (4,) else 0)),
+                (payload.words[1], (130, 220 if audio.shape == (4,) else 0), None),
             ]
         )
     raise AssertionError(f"unexpected FA backend {backend!s}")

@@ -10,15 +10,13 @@
 //! - `reserve_job_execution`: host-memory coordinator interaction.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tracing::{error, info, warn};
 
-use crate::api::{JobId, JobStatus, RevAiJobId};
+use crate::api::{JobId, JobStatus};
 use crate::host_memory::{HostMemoryCoordinator, HostMemoryError, JobExecutionPlan};
-use crate::revai::{RevAiPreflightPlan, preflight_submit_audio_paths};
 use crate::scheduling::FailureCategory;
 use crate::store::{
     JobCompletionSnapshot, JobStore, LeaseRenewalOutcome, RunnerJobSnapshot, unix_now,
@@ -29,8 +27,8 @@ use super::context::{
     JobDispatchRequest, MemoryGateFailurePolicy, ServerExecutionHost,
 };
 use super::util::{
-    FileRunTracker, RunnerEventSink, collect_preflight_audio_paths, compute_job_workers,
-    force_terminal_file_states, preflight_validate_media, should_preflight,
+    FileRunTracker, RunnerEventSink, compute_job_workers, force_terminal_file_states,
+    preflight_validate_media,
 };
 
 /// Build the future that owns one background job lifecycle.
@@ -357,69 +355,12 @@ async fn run_hosted_job(
         .await;
     }
 
-    // Legacy Rev.AI batch preflight. `should_preflight()` currently returns
-    // false for every command because submission must follow typed evidence
-    // lookup. Keep the compatibility path isolated until a future planner can
-    // carry either a validated hit or an authorized miss for every file.
-    let rev_job_ids: Arc<HashMap<PathBuf, RevAiJobId>> = {
-        if should_preflight(command, Some(&job.dispatch.options)) {
-            let audio_paths = collect_preflight_audio_paths(command, &job, &file_list).await;
-
-            if !audio_paths.is_empty() {
-                info!(
-                    job_id = %job_id,
-                    correlation_id = %correlation_id,
-                    num_audio_files = audio_paths.len(),
-                    "Starting Rev.AI preflight submission"
-                );
-
-                let preflight_plan = RevAiPreflightPlan {
-                    audio_paths,
-                    lang: job.dispatch.lang.clone(),
-                    num_speakers: job.dispatch.num_speakers,
-                    max_concurrent: 16usize,
-                };
-
-                match preflight_submit_audio_paths(&preflight_plan).await {
-                    Ok(response) => {
-                        if !response.errors.is_empty() {
-                            warn!(
-                                job_id = %job_id,
-                                num_errors = response.errors.len(),
-                                "Preflight had partial errors (will fall back to per-file)"
-                            );
-                        }
-                        info!(
-                            job_id = %job_id,
-                            num_submitted = response.job_ids.len(),
-                            "Preflight submission complete"
-                        );
-                        Arc::new(response.job_ids.into_iter().collect())
-                    }
-                    Err(e) => {
-                        warn!(
-                            job_id = %job_id,
-                            error = %e,
-                            "Preflight failed, falling back to per-file submission"
-                        );
-                        Arc::new(HashMap::new())
-                    }
-                }
-            } else {
-                Arc::new(HashMap::new())
-            }
-        } else {
-            Arc::new(HashMap::new())
-        }
-    };
-
     if let Err(error) = engine
         .dispatch_job(
             JobDispatchRequest {
                 job: job.clone(),
                 file_list,
                 num_workers,
-                rev_job_ids,
             },
             &host_context,
         )

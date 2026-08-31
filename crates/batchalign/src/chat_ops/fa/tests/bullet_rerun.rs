@@ -58,10 +58,10 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
     // Through the same owner production uses. This test used to hand-simulate
     // `fa/mod.rs` step 9d, including its BUG (inject-and-strip only when the
     // record set is non-empty), so it asserted a property of a copy rather than
-    // of the code that ships. `write_decision_tiers` owns strip-then-inject
+    // of the code that ships. `retain_decision_evidence` owns stripping
     // now, and a caller cannot reintroduce the guard that caused this, which is
     // what makes the simulation both unnecessary and impossible to keep honest.
-    crate::chat_ops::fa::write_decision_tiers(
+    let written = crate::chat_ops::fa::retain_decision_evidence(
         &mut chat,
         crate::chat_ops::fa::FaDecisions {
             rescue: Vec::new(),
@@ -69,8 +69,10 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
             ordered,
             repair: Vec::new(),
         },
-        crate::chat_ops::fa::ReviewLevel::LowConfidence,
     );
+    let (records, effects) = written.into_evidence();
+    assert!(records.is_empty());
+    assert!(effects.is_empty());
 
     let output = chat.to_chat_string();
     let xalign_count = output.matches("%xalign:").count();
@@ -566,6 +568,24 @@ fn test_fast_path_strips_backward_wor_timestamps_and_removes_stale_wor_tier() {
     // Step 3 (fast path FIX): remove %wor from utterances whose bullets were
     // stripped, so the next re-run cannot reconstruct the backward bullet again.
     strip_wor_from_monotonicity_stripped_utterances(&mut chat, &decisions);
+
+    // The cheap all-%wor path must not erase the very decision that changed
+    // its output. It has no inference groups, but schema-2 evidence still
+    // retains the generic decision and its structured numeric effect.
+    let written = crate::chat_ops::fa::retain_decision_evidence(
+        &mut chat,
+        crate::chat_ops::fa::FaDecisions::without_injection(Vec::new(), Vec::new(), decisions),
+    );
+    let timeline = crate::types::results::FaResult::without_groups(
+        chat.to_chat_string(),
+        WordGapHealing::Heal,
+        "wav2vec_fa",
+        "test-build",
+    )
+    .with_written_decisions(written)
+    .into_timeline_trace();
+    assert_eq!(timeline.decisions.len(), 1);
+    assert_eq!(timeline.timing_decisions.len(), 1);
 
     let utt0 = get_utterance(&chat, 0);
     let utt1 = get_utterance(&chat, 1);

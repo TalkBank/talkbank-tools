@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-08-28 19:15 EDT
+**Last updated:** 2026-08-30 19:35 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -90,6 +90,19 @@ This is particularly important for the paid `pyannote-ai` default. A corrupt
 entry fails visibly and does not fall through to another paid call. Concurrent
 identical files in one server are coalesced so only the first miss runs
 inference.
+
+For a replay experiment that must not turn a missing Rev or speaker entry into
+a service call, require the cache explicitly:
+
+```bash
+batchalign3 --require-media-cache transcribe interview.wav -o out/ \
+  --asr-engine rev --diarization enabled
+```
+
+A raw-evidence miss then fails visibly before service inference is authorized.
+If raw speaker evidence exists but normalized turns do not, BA3 may still
+recompute those turns locally. The flag applies to cache-backed stages; it does
+not cache or suppress ordinary local ASR engines.
 
 To run a deliberate fresh experiment, use the global override:
 
@@ -201,8 +214,17 @@ There are two paths:
 - `eng`, `cmn`, `zho`, `yue`: dedicated pre-CHAT utterance models
 - all other languages, punctuation-based splitting in Rust
 
-Standalone `utseg` is the follow-up command for re-segmenting already-built
-CHAT transcripts.
+For a supported language, normal transcription applies the utterance model
+again after CHAT construction. This second pass can refine boundaries using
+the completed main-tier context. Standalone `utseg` remains available for
+re-segmenting an existing CHAT transcript without transcribing media again.
+
+With `--wor`, a post-CHAT split that has complete timing for all partitioned
+word tiers receives a main-tier timing bullet on every child, derived from
+that child's own word span. If complete child timing is unavailable, BA3 keeps
+the original enclosing bullet on the last child only; it does not invent
+intermediate timings. This is a timing-preservation rule, not a claim that the
+model's segmentation is the only acceptable CHAT segmentation.
 
 ---
 
@@ -335,13 +357,50 @@ deterministic `PAR` coordinate system as the generated CHAT and records typed
 backend provenance, including `batchalign3:pyannote_ai:precision-2` for the
 cloud default.
 
+BA3 also writes a versioned `*_speaker_evidence.json` sidecar. It records the
+source digest, preparation revision, backend and expected-speaker request,
+model and normalization revisions, raw and derived cache keys, whether the run
+replayed derived evidence, re-normalized raw evidence, or inferred after a
+miss, the named segment-projection revision, and a versioned digest and count
+of the exact validated segments. It excludes machine-local source paths and
+credentials.
+
 When this artifact is requested, failure to create or write it fails the file
 instead of silently discarding the evidence. With a remote server, `PATH` is
 on the server host; the CLI sends an absolute path.
 
-This debug artifact supports current experiments but is not yet the planned
-durable, versioned alignment and diarization evidence format. Keep the run
-manifest and generated CHAT with it.
+Keep both sidecars, the run manifest, and generated CHAT together: the causal
+record explains where the evidence came from, while the turns artifact is the
+exact normalized projection consumed downstream.
+
+For Rev ASR, the same `--debug-dir` run also writes a versioned,
+collision-resistant `*_rev_evidence.json` sidecar. It records the source and
+provider-media digests, preparation recipe, exact multipart presentation,
+language and speaker request, model/request revisions, raw cache key, cache
+outcome, and local projection revision. This sidecar is also fail-closed when
+requested and excludes the Rev credential and machine-local source path.
+
+For languages with a TalkBank utterance-boundary model, BA3 also writes a
+versioned `*_pre_chat_utseg_evidence.json` sidecar. Normal model-backed
+transcription writes a separate `*_post_chat_utseg_evidence.json` sidecar for
+the second pass over completed main tiers. Keeping the phases separate prevents
+an experiment from confusing boundaries over timed ASR chunks with later
+boundaries over main-tier words.
+
+Each item records the exact input words and applied group assignments. A
+boundary-model result additionally records its model ID and revision plus one
+evidence state per word: raw action, action after adjacency policy, and
+sentence-end probability, or an explicit normalization-omission or
+short-input state. Constituency-tree projection and compatibility assignments
+without model evidence are separate source variants. BA3 refuses a worker
+result whose assignments or evidence do not exactly parallel the input words.
+As with the Rev and speaker causal records, an enabled utseg evidence write is
+atomic and fail-closed.
+
+The current boundary model is lexical and contextual. It does not itself
+receive waveform energy, pause duration, pitch, diarization overlap, or CHAT
+retrace structure. The sidecar makes its contribution inspectable so research
+code can compare it with those signals without rerunning the model.
 
 ---
 

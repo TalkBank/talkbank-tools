@@ -82,7 +82,8 @@ fn parse_indexed_timings(
     response: &Bound<'_, PyAny>,
     expected_words: usize,
 ) -> Result<IndexedWordTimingResultV2, ExecuteFailure> {
-    let spans: Vec<(String, (u64, u64))> = parse_host_output(response, "forced-alignment")?;
+    let spans: Vec<(String, (u64, u64), Option<f64>)> =
+        parse_host_output(response, "forced-alignment")?;
 
     // The host must answer with exactly one timing per word it was asked
     // about. A short answer used to be padded with `None` and a long one
@@ -96,17 +97,23 @@ fn parse_indexed_timings(
     }
 
     let mut indexed_timings = vec![None; expected_words];
-    for (index, (_, (start_ms, end_ms))) in spans.into_iter().enumerate() {
+    for (index, (_, (start_ms, end_ms), confidence)) in spans.into_iter().enumerate() {
         if end_ms < start_ms {
             return Err(ExecuteFailure::Runtime(
                 "invalid forced-alignment host output: Indexed word timing end_ms must be >= start_ms"
                     .to_owned(),
             ));
         }
+        if confidence.is_some_and(|score| !score.is_finite() || !(0.0..=1.0).contains(&score)) {
+            return Err(ExecuteFailure::Runtime(
+                "invalid forced-alignment host output: model confidence must be finite and between 0 and 1"
+                    .to_owned(),
+            ));
+        }
         indexed_timings[index] = Some(IndexedWordTimingV2 {
             start_ms: DurationMs(start_ms),
             end_ms: DurationMs(end_ms),
-            confidence: None,
+            confidence,
         });
     }
     Ok(IndexedWordTimingResultV2 { indexed_timings })
