@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:13 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -48,25 +48,21 @@ incur account charges, so confirm the account plan and the recording's data-use
 or IRB rules before running it. Job output is not written into the API key
 configuration.
 
-For the local `--speaker-engine pyannote` alternative, authenticate Hugging
-Face first:
+The local `--speaker-engine pyannote` alternative uses the public, ungated
+TalkBank-pinned `talkbank/dia-fork` pipeline and public dependencies. It
+downloads them anonymously on first use and requires neither a Hugging Face
+token nor accepted model terms. It runs inference locally and does not use the
+pyannoteAI API key. `--speaker-engine nemo` is a second local alternative.
 
-```bash
-hf auth login
-```
-
-You may also need to accept the diarization model's terms in the browser once
-before retrying the command.
-
-The local engine uses ambient Hugging Face auth. The machine running
-`batchalign3` must have a valid `hf auth login` cache/keychain entry, or an
-`HF_TOKEN` exported in that process environment. `--speaker-engine nemo` is a
-second local alternative.
+A Hugging Face token is relevant only if an operator replaces the released
+local default with a gated custom model. It is not required for the command
+shown above.
 
 The standalone [`diarize`](diarize.md) command is intended for producing
-anonymous `.turns.json` evidence for an existing transcript. It currently uses
-the local Pyannote route rather than this command's default paid pyannoteAI
-backend. Integrated diarized transcription projects speaker evidence onto
+anonymous `.turns.json` evidence for an existing transcript. It defaults to
+local Pyannote but can explicitly select paid pyannoteAI Precision-2; both
+surfaces share the same raw/derived speaker-evidence cache. Integrated
+diarized transcription projects speaker evidence onto
 timed ASR words before utterance segmentation and CHAT construction; it does
 not require a later `chatter rediarize` pass.
 

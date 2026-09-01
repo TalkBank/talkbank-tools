@@ -517,10 +517,22 @@ pub struct DiarizeOptions {
     #[serde(flatten)]
     pub common: CommonOptions,
 
+    /// Speaker backend selected for this standalone diarization run.
+    ///
+    /// This is concrete rather than `Option`: by the time a job is persisted,
+    /// the choice between local and paid inference must already be made.
+    /// Older persisted jobs deserialize to the historical local backend.
+    #[serde(default = "default_standalone_speaker_engine")]
+    pub speaker_engine: SpeakerEngineName,
+
     /// Expected speaker count when the caller knows it; `None` lets the
     /// diarizer auto-detect (the normal mode, and pyannote's strength).
     #[serde(default)]
     pub expected_speakers: Option<crate::api::NumSpeakers>,
+}
+
+fn default_standalone_speaker_engine() -> SpeakerEngineName {
+    SpeakerEngineName::Pyannote
 }
 
 /// Options for the `compare` command.
@@ -947,6 +959,30 @@ mod tests {
         let json = serde_json::to_string(&opts).unwrap();
         let back: CommandOptions = serde_json::from_str(&json).unwrap();
         assert_eq!(opts, back);
+    }
+
+    #[test]
+    fn legacy_diarize_job_defaults_to_historical_local_backend() {
+        let options: CommandOptions = serde_json::from_str(r#"{"command":"diarize"}"#)
+            .expect("legacy standalone diarize job remains readable");
+        let CommandOptions::Diarize(options) = options else {
+            panic!("expected diarize options");
+        };
+        assert_eq!(options.speaker_engine, SpeakerEngineName::Pyannote);
+        assert_eq!(options.expected_speakers, None);
+    }
+
+    #[test]
+    fn standalone_paid_speaker_backend_roundtrips_by_wire_name() {
+        let options = CommandOptions::Diarize(DiarizeOptions {
+            common: CommonOptions::default(),
+            speaker_engine: SpeakerEngineName::PyannoteAi,
+            expected_speakers: Some(crate::api::NumSpeakers(3)),
+        });
+        let json = serde_json::to_string(&options).expect("serialize diarize options");
+        assert!(json.contains(r#""speaker_engine":"pyannote_ai""#));
+        let back = serde_json::from_str(&json).expect("deserialize diarize options");
+        assert_eq!(options, back);
     }
 
     #[test]

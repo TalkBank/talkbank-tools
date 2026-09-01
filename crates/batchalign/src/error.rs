@@ -8,6 +8,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
 use crate::api::JobId;
+use crate::chat_ops::CacheKey;
 use crate::media::window::EmptySegment;
 
 /// Non-empty forced-alignment cache misses behind `--require-media-cache`.
@@ -42,6 +43,87 @@ impl std::fmt::Display for MissingForcedAlignmentEvidence {
              --require-media-cache prevented new inference",
             self.group_indices
         )
+    }
+}
+
+/// One absent speaker-evidence entry behind `--require-media-cache`.
+///
+/// The content-derived key remains a [`CacheKey`] rather than an arbitrary
+/// string, so an actionable replay refusal cannot accidentally cite a path,
+/// job id, or unrelated cache namespace as the missing evidence identity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingSpeakerEvidence {
+    cache_key: CacheKey,
+}
+
+/// One absent Rev.AI transcript-evidence entry behind cache-only mode.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingRevAsrEvidence {
+    cache_key: CacheKey,
+}
+
+impl MissingRevAsrEvidence {
+    pub(crate) fn new(cache_key: CacheKey) -> Self {
+        Self { cache_key }
+    }
+
+    /// Content identity whose reusable Rev.AI response was absent.
+    pub fn cache_key(&self) -> &CacheKey {
+        &self.cache_key
+    }
+}
+
+impl std::fmt::Display for MissingRevAsrEvidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "required Rev.AI evidence is unavailable for cache key {}; \
+             --require-media-cache prevented a new provider call",
+            self.cache_key
+        )
+    }
+}
+
+impl MissingSpeakerEvidence {
+    pub(crate) fn new(cache_key: CacheKey) -> Self {
+        Self { cache_key }
+    }
+
+    /// Content identity whose reusable speaker evidence was absent.
+    pub fn cache_key(&self) -> &CacheKey {
+        &self.cache_key
+    }
+}
+
+impl std::fmt::Display for MissingSpeakerEvidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "required speaker evidence is unavailable for cache key {}; \
+             --require-media-cache prevented new inference",
+            self.cache_key
+        )
+    }
+}
+
+/// Typed family of intentional cache-only precondition refusals.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MissingRequiredEvidence {
+    /// One or more forced-alignment groups were absent.
+    ForcedAlignment(MissingForcedAlignmentEvidence),
+    /// Speaker evidence for one semantic media request was absent.
+    Speaker(MissingSpeakerEvidence),
+    /// Raw Rev.AI transcript evidence for one provider request was absent.
+    RevAsr(MissingRevAsrEvidence),
+}
+
+impl std::fmt::Display for MissingRequiredEvidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ForcedAlignment(missing) => missing.fmt(formatter),
+            Self::Speaker(missing) => missing.fmt(formatter),
+            Self::RevAsr(missing) => missing.fmt(formatter),
+        }
     }
 }
 
@@ -96,7 +178,7 @@ pub enum ServerError {
     /// This is an intentional, actionable precondition refusal, not corrupt
     /// persistence and not an internal system failure.
     #[error("{0}")]
-    RequiredEvidenceUnavailable(MissingForcedAlignmentEvidence),
+    RequiredEvidenceUnavailable(MissingRequiredEvidence),
 
     /// The requested `job_id` does not exist in the [`JobStore`](crate::store::JobStore).
     ///

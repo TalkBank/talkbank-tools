@@ -1267,6 +1267,12 @@ fn diarize_help_describes_speaker_turns() {
         stdout.contains("diarization") && stdout.contains("turns"),
         "help must say what the command produces. stdout: {stdout}"
     );
+    assert!(
+        stdout.contains("--speaker-engine")
+            && stdout.contains("pyannote-ai")
+            && stdout.contains("pyannote"),
+        "the binary help must expose local and paid standalone backends. stdout: {stdout}"
+    );
 }
 
 /// Contract: a missing media input fails with an error naming the path,

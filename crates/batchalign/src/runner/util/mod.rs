@@ -37,7 +37,7 @@ mod tests {
 
     use crate::api::{DisplayPath, NumWorkers, ReleasedCommand};
     use crate::config::ServerConfig;
-    use crate::error::{MissingForcedAlignmentEvidence, ServerError};
+    use crate::error::{MissingForcedAlignmentEvidence, MissingRequiredEvidence, ServerError};
     use crate::host_facts::EffectiveConfig;
     use crate::runtime;
 
@@ -293,8 +293,9 @@ mod tests {
 
     #[test]
     fn required_evidence_refusal_is_actionable_and_not_a_system_error() {
-        let error =
-            ServerError::RequiredEvidenceUnavailable(MissingForcedAlignmentEvidence::new(1, &[3]));
+        let error = ServerError::RequiredEvidenceUnavailable(
+            MissingRequiredEvidence::ForcedAlignment(MissingForcedAlignmentEvidence::new(1, &[3])),
+        );
         let category = classify_server_error(&error);
         assert_eq!(category, FailureCategory::EvidenceUnavailable);
 

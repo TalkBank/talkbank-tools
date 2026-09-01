@@ -1,7 +1,7 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-08-31 03:04 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 ## Release boundary
 
@@ -32,6 +32,7 @@ flowchart TB
         Q --> C{"Validated durable cache lookup"}
         C -->|"hit"| E["Completed raw evidence"]
         C -->|"miss"| A["Single-use inference authorization"]
+        C -->|"miss + require-cache"| R["Typed precondition refusal<br/>Rev / speaker / FA identity retained"]
         C -->|"corrupt"| F["Fail closed"]
         A --> S["Provider or model service"]
         S --> V["Validate + required durable commit"]
@@ -96,6 +97,18 @@ flowchart LR
 This distinction matters for experiments: a cache row labeled with another
 worker's engine version is false provenance even if payload validation later
 prevents the wrong engine from consuming it.
+
+The one-time SQLite compatibility migration follows the same rule. Schema-2
+FA evidence embeds the selected-worker version and may repair its row label
+from that owned fact. Schema-1 evidence does not; a row whose requested engine
+family contradicts its stored version family is copied byte-for-byte into
+`cache_quarantine` with reason
+`legacy_fa_raw_evidence_engine_namespace_unprovable`, then removed from live
+lookup and never relabeled. Cache statistics therefore stop reporting the
+known historical misnamespace without claiming a producer version the
+evidence did not record, while the original row remains available for audit.
+`batchalign3 cache stats` exposes the quarantined total and counts grouped by
+that stable reason separately from live-entry counts.
 
 ### Rev paid-boundary identity
 

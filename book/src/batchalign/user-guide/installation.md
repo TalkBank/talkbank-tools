@@ -1,7 +1,7 @@
 # Installation
 
 **Status:** Current
-**Last updated:** 2026-06-21 19:53 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 `batchalign3` is distributed via **GitHub releases** (there is no PyPI package).
 The installer bootstraps [`uv`](https://docs.astral.sh/uv/) if needed, installs
@@ -81,7 +81,7 @@ for your platform from the
 and install it with `uv`:
 
 ```bash
-uv tool install --python 3.13 ./batchalign3-0.4.0-cp313-abi3-macosx_11_0_arm64.whl
+uv tool install --python 3.13 ./batchalign3-0.4.1-cp313-abi3-macosx_11_0_arm64.whl
 ```
 
 ## First run

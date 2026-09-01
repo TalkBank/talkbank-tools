@@ -1,7 +1,7 @@
 # diarize
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:13 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 Detect speaker turns in audio (speaker diarization) without transcribing.
 Each input media file produces a speaker-turns JSON artifact naming which
@@ -13,8 +13,9 @@ transcript. Neither command can infer that an anonymous track is the child,
 mother, investigator, or another semantic CHAT role without additional role
 evidence.
 
-The standalone command currently uses the local TalkBank-pinned Pyannote
-pipeline. This is not merely an alternate spelling of
+The standalone command defaults to the local TalkBank-pinned Pyannote
+pipeline. Pass `--speaker-engine pyannote-ai` to use the paid pyannoteAI
+Precision-2 service instead. This is not merely an alternate spelling of
 `transcribe --diarization enabled`: the integrated transcription path defaults
 to the paid pyannoteAI Precision-2 cloud service and applies its speaker
 evidence before utterance segmentation and CHAT construction. Use standalone
@@ -32,6 +33,9 @@ batchalign3 diarize recordings/ -o turns/
 # One file, with a known speaker count
 batchalign3 diarize session.mp3 -o turns/ --num-speakers 2
 
+# Explicitly use paid pyannoteAI Precision-2 (requires its API key)
+batchalign3 diarize session.mp3 -o turns/ --speaker-engine pyannote-ai
+
 # Then repair a transcript's speaker attribution with chatter
 chatter rediarize session.cha --turns turns/session.turns.json
 ```
@@ -43,9 +47,22 @@ chatter rediarize session.cha --turns turns/session.turns.json
 ```mermaid
 flowchart TD
     start([diarize invoked]) --> resolve[Resolve input media]
-    resolve --> wav[Rust audio prep\ndecode to PCM artifact]
-    wav --> worker["execute_v2(task='speaker') → Python worker\nlocal TalkBank-pinned Pyannote"]
-    worker --> map[Map diarizer labels to anonymous tracks\nsorted labels → PAR0..PARn]
+    resolve --> source[Admit exact inference-source bytes\nand versioned PCM-preparation recipe]
+    source --> key[Hash source bytes + backend +\nspeaker-count semantics + model revision]
+    key --> derived{Validated derived-turn cache}
+    derived -->|hit| map
+    derived -->|miss| raw{Validated raw-evidence cache}
+    raw -->|hit| normalize[Versioned local normalization]
+    raw -->|miss / forced refresh| pcm[Rust prepares canonical\nmono 16 kHz float32 PCM]
+    pcm --> backend{--speaker-engine}
+    backend -->|pyannote default| local["execute_v2(task='speaker')\nlocal TalkBank-pinned Pyannote"]
+    backend -->|pyannote-ai| cloud["execute_v2(task='speaker')\npaid pyannoteAI Precision-2"]
+    backend -->|nemo| nemo["execute_v2(task='speaker')\nlocal NeMo"]
+    local --> commit[Validate + durably commit raw evidence]
+    cloud --> commit
+    nemo --> commit
+    commit --> normalize
+    normalize --> map[Map diarizer labels to anonymous tracks\nsorted labels → PAR0..PARn]
     map --> output([Write .turns.json per input])
 ```
 
@@ -58,6 +75,7 @@ flowchart TD
 | `PATHS...` | | Input media files and/or directories (`.mp3`, `.mp4`, `.wav`) |
 | `-o, --output DIR` | | Output directory for `.turns.json` artifacts |
 | `--num-speakers N` | auto-detect | Expected speaker count hint. Omit unless known: auto-detection is the point of the engine |
+| `--speaker-engine {pyannote,pyannote-ai,nemo}` | `pyannote` | Local TalkBank Pyannote, paid pyannoteAI Precision-2, or local NeMo |
 | `--lang CODE` | `eng` | 3-letter ISO code for worker-pool selection only; diarization itself is language-independent |
 
 ---
@@ -92,24 +110,30 @@ participant roles by itself.
 
 ---
 
-## Hugging Face access
+## Local model download: no credential required
 
-Standalone `diarize` uses the local Pyannote route and therefore needs Hugging
-Face access to the configured model and any gated dependencies. Authenticate
-the account that is authorized to use those assets:
+Standalone `diarize` runs the open-source `pyannote.audio` pipeline locally.
+Its pinned default, `talkbank/dia-fork`, and that pipeline's segmentation and
+speaker-embedding dependencies are public and ungated on Hugging Face. The
+first run downloads them anonymously; no Hugging Face account, accepted model
+terms, `hf auth login`, or `HF_TOKEN` is required.
 
-```bash
-hf auth login
-```
+"Pinned" is literal: the release manifest records an exact Hugging Face commit
+for the pipeline, segmentation model, and embedding model. A later update to a
+repository's default branch does not silently change a released BA3 runtime or
+reuse evidence produced by another model graph.
 
-If a model page requires acceptance of terms, accept them once in the browser
-for the same account. An `HF_TOKEN` exported in the CLI or daemon environment
-is also supported. Tokens are user or service credentials: do not copy another
-person's token into email, documentation, or a shared configuration file.
+This local model download must not be confused with
+`BATCHALIGN_PYANNOTE_API_KEY`. That separate credential authorizes the paid
+pyannoteAI cloud service selected by standalone
+`--speaker-engine pyannote-ai` and used by default in integrated diarized
+transcription. The default standalone `pyannote` route neither needs that API
+key nor sends audio to pyannoteAI. See [transcribe](transcribe.md) for the
+integrated cloud path.
 
-This credential is distinct from `BATCHALIGN_PYANNOTE_API_KEY`, which selects
-the paid pyannoteAI cloud service for integrated diarized transcription. See
-[transcribe](transcribe.md) for that path.
+An operator who changes the local engine to a gated custom Hugging Face model
+must independently accept that model's terms and authenticate as required by
+its publisher. That is not the released default.
 
 ---
 
@@ -128,10 +152,12 @@ certain. (`-n` was removed on 2026-08-19; it read as a worker count.)
 files with unknown or missing fields rather than guessing; do not
 post-process the artifact with ad-hoc scripts.
 
-**Standalone results are not yet replayed from the speaker-evidence cache.**
-Integrated `transcribe --diarization enabled` caches validated raw and derived
-speaker evidence, but repeating standalone `diarize` currently reruns local
-inference.
+**Standalone and integrated diarization share the speaker-evidence cache.** A
+warm standalone run replays validated derived turns or re-normalizes retained
+raw evidence; it does not call the selected backend again. This matters most
+for `pyannote-ai`, where a repeat miss could otherwise incur another paid job.
+Use global `--require-media-cache` for a fail-closed replay experiment, or
+`--override-media-cache` only when deliberately requesting fresh inference.
 
 ---
 

@@ -20,19 +20,18 @@ use crate::params::{MorphosyntaxParams, UtsegFallbackPolicy};
 use crate::pipeline::PipelineServices;
 use crate::pipeline::plan::{PipelinePlan, StageFuture, StageId, StageSpec, run_plan};
 use crate::revai::{
-    PreparedRevProviderMedia, RevAsrEvidenceInference, RevAsrEvidenceRequest,
-    RevAsrEvidenceResolutionError, RevAsrEvidenceSource, RevAsrEvidenceTrace, RevAsrModelRevision,
-    RevAsrProjectionRevision, RevAsrService, resolve_rev_asr_evidence,
+    PreparedRevProviderMedia, RevAsrEvidenceInference, RevAsrEvidenceRequest, RevAsrEvidenceSource,
+    RevAsrEvidenceTrace, RevAsrModelRevision, RevAsrProjectionRevision, RevAsrService,
+    resolve_rev_asr_evidence, rev_asr_resolution_error_to_server_error,
     rev_evidence_to_asr_response,
 };
 use crate::runner::debug_dumper::DebugDumper;
 use crate::runner::util::{FileStage, ProgressSender, ProgressUpdate};
 use crate::transcribe::replay::AdmittedLegacyTranscribeReplay;
 use crate::transcribe::{
-    AsrInferParams, AsrResponse, SpeakerEvidenceModelRevision, SpeakerEvidenceRequest,
-    SpeakerEvidenceResolutionError, SpeakerEvidenceSource, SpeakerProjectionRevision,
-    SpeakerWorkerInference, TranscribeOptions, build_empty_chat_text, convert_asr_response,
-    generate_participant_ids, infer_asr, resolve_speaker_evidence,
+    AsrInferParams, AsrResponse, SpeakerEvidenceRunParams, SpeakerEvidenceSource,
+    TranscribeOptions, build_empty_chat_text, convert_asr_response, generate_participant_ids,
+    infer_asr, resolve_speaker_evidence_for_audio,
 };
 use crate::types::worker_v2::{SpeakerBackendV2, SpeakerSegmentV2};
 use crate::utseg::TranscribeUtsegExecution;
@@ -527,12 +526,7 @@ fn stage_asr_infer<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
                 rev_inference,
             )
             .await
-            .map_err(|error| match error {
-                RevAsrEvidenceResolutionError::Evidence(error) => {
-                    ServerError::Persistence(error.to_string())
-                }
-                RevAsrEvidenceResolutionError::Inference(error) => error,
-            })?;
+            .map_err(rev_asr_resolution_error_to_server_error)?;
             let trace = resolution.trace(RevAsrProjectionRevision::AsrResponseV1);
             if ctx.dumper.is_enabled() {
                 ctx.dumper
@@ -958,32 +952,21 @@ fn stage_speaker_diarization<'a, 'ctx>(
             "Running dedicated speaker diarization"
         );
         let expected_speakers = NumSpeakers(ctx.opts.num_speakers as u32);
-        let model_revision = SpeakerEvidenceModelRevision::for_backend(speaker_backend);
-        let evidence_request = SpeakerEvidenceRequest::from_audio(
-            ctx.audio_path,
-            speaker_backend,
-            expected_speakers,
-            &model_revision,
-        )
-        .await
-        .map_err(|error| ServerError::Persistence(error.to_string()))?;
         let cache_policy = ctx.opts.cache_policies.speaker;
-        let inference = SpeakerWorkerInference::new(ctx.services.pool, speaker_worker_lang);
-        let resolution = resolve_speaker_evidence(
-            &evidence_request,
+        let resolution = resolve_speaker_evidence_for_audio(
+            ctx.services.pool,
             ctx.services.cache,
-            cache_policy,
-            &inference,
+            speaker_worker_lang,
+            SpeakerEvidenceRunParams {
+                audio_path: ctx.audio_path,
+                backend: speaker_backend,
+                expected_speakers: Some(expected_speakers),
+                cache_policy,
+            },
         )
-        .await
-        .map_err(|error| match error {
-            SpeakerEvidenceResolutionError::Evidence(error) => {
-                ServerError::Persistence(error.to_string())
-            }
-            SpeakerEvidenceResolutionError::Inference(error) => error,
-        })?;
+        .await?;
         let evidence_identity = ctx.audio_path.to_string_lossy().into_owned();
-        let trace = resolution.trace(SpeakerProjectionRevision::SegmentsV1);
+        let trace = resolution.trace();
         ctx.dumper
             .dump_speaker_evidence(&evidence_identity, &trace)
             .map_err(|error| {
@@ -995,21 +978,21 @@ fn stage_speaker_diarization<'a, 'ctx>(
         match resolution.source() {
             SpeakerEvidenceSource::ReplayedDerived => {
                 info!(
-                    cache_key = %evidence_request.cache_key(),
+                    cache_key = %resolution.cache_key(),
                     num_segments,
                     "Replaying validated speaker diarization evidence"
                 );
             }
             SpeakerEvidenceSource::DerivedFromRaw => {
                 info!(
-                    cache_key = %evidence_request.cache_key(),
+                    cache_key = %resolution.cache_key(),
                     num_segments,
                     "Derived speaker segments from retained raw evidence"
                 );
             }
             SpeakerEvidenceSource::Inferred(reason) => {
                 info!(
-                    cache_key = %evidence_request.cache_key(),
+                    cache_key = %resolution.cache_key(),
                     reason = ?reason,
                     num_segments,
                     "Committed fresh speaker diarization evidence"

@@ -773,6 +773,14 @@ pub struct DiarizeArgs {
     #[command(flatten)]
     pub common: CommonOpts,
 
+    /// Speaker diarization engine. The paid pyannoteAI path is opt-in.
+    #[arg(
+        long,
+        value_parser = engine_selection_parser::<SpeakerEngineName>(),
+        default_value = "pyannote"
+    )]
+    pub speaker_engine: SpeakerEngineName,
+
     /// Expected number of speakers. Omit to auto-detect (recommended).
     ///
     /// NOT a worker count: see `--workers`. No short flag by design.

@@ -1667,6 +1667,38 @@ fn build_options_require_media_cache_global() {
 }
 
 #[test]
+fn standalone_diarize_defaults_to_local_pyannote_without_paid_inference() {
+    let cli = Cli::parse_from(["batchalign3", "diarize", "audio/"]);
+    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let CommandOptions::Diarize(options) = opts else {
+        panic!("expected standalone diarize options");
+    };
+    assert_eq!(
+        options.speaker_engine,
+        crate::options::SpeakerEngineName::Pyannote
+    );
+}
+
+#[test]
+fn standalone_diarize_accepts_explicit_pyannote_ai() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "diarize",
+        "--speaker-engine",
+        "pyannote-ai",
+        "audio/",
+    ]);
+    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let CommandOptions::Diarize(options) = opts else {
+        panic!("expected standalone diarize options");
+    };
+    assert_eq!(
+        options.speaker_engine,
+        crate::options::SpeakerEngineName::PyannoteAi
+    );
+}
+
+#[test]
 fn require_media_cache_conflicts_with_every_refresh_form() {
     assert_parse_error_contains(
         &[

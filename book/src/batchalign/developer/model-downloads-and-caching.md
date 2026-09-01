@@ -1,7 +1,7 @@
 # Model Downloads and Caching (Developer Reference)
 
 **Status:** Current
-**Last updated:** 2026-08-31 03:04 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 This page documents how batchalign3 downloads, caches, and verifies ML
 models, the contributor-facing complement to the
@@ -161,7 +161,8 @@ must be opt-in via a code-path-specific flag, not a default.
 ## Pipeline-result caching (orthogonal to model caching)
 
 batchalign3 caches **audio-task evidence** in a tiered cache so repeated
-`align` and selected `transcribe` stages do not repeat expensive inference.
+`align`, selected `transcribe` stages, and standalone `diarize` do not repeat
+expensive inference.
 This is unrelated to ML-model caching: result evidence has semantic keys and
 revision identities of its own.
 
@@ -197,9 +198,25 @@ process-global model state. Engine-specific keys make those states
 unrepresentable; host worker permits and idle eviction still bound memory.
 
 Raw evidence remains payload-validated on replay. That is defense in depth,
-not a substitute for an honest namespace. A legacy row whose label disagrees
-with its admitted payload must be migrated only through payload-validated
-tooling; it must not be relabeled from the old cache column alone.
+not a substitute for an honest namespace. The SQLite migration
+`20260831000000_fa_raw_evidence_engine_namespace.sql` repairs this historical
+boundary once when a cache is opened. A schema-2 payload owns the exact
+selected-worker version and can therefore repair a contradictory database
+label. A schema-1 payload owns only the requested engine family; when that
+family contradicts the stored version family, the migration copies the exact
+row into `cache_quarantine` with a stable reason and removes it from live
+lookup instead of inventing producer provenance. Correctly labelled schema-1
+rows remain replayable under their explicit `legacy_cache_namespace` origin.
+The cache-stats command reports quarantined counts by reason without counting
+them as live hits.
+
+Local Pyannote has an additional cross-language identity rule. The JSON
+manifest at `batchalign/inference/local_pyannote_model.json` is the single
+owner of the exact pipeline, segmentation, and embedding Hub commits. Python
+validates it and passes pinned revisions to every download/model loader; Rust
+hashes the identical packaged bytes into `SpeakerEvidenceModelRevision`.
+Changing any graph node therefore invalidates raw speaker evidence without a
+second hand-maintained version constant or a drift-detection test.
 
 Text NLP tasks (`morphotag`, `utseg`, `translate`, `coref`) are NOT
 cached, running them twice runs the model twice.

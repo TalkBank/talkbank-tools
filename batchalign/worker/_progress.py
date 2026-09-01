@@ -159,6 +159,7 @@ def emit_hf_download_if_missing(
     kind: str,
     request_id: str | None = None,
     artifacts: Sequence[str] | None = None,
+    revision: str | None = None,
 ) -> None:
     """If ``model_id`` is not fully in the HuggingFace cache, emit an event.
 
@@ -192,6 +193,9 @@ def emit_hf_download_if_missing(
         artifacts: Optional list of filenames to probe in the HF cache.
             ``None`` falls back to ``_HF_DEFAULT_PROBE_ARTIFACTS``. Pass a
             wider set when the loader pulls multiple files.
+        revision: Optional immutable Hub revision consumed by the loader. The
+            probe must use the same revision or a cached moving-head artifact
+            could hide the download that the pinned run still needs.
     """
     probe_artifacts = tuple(artifacts) if artifacts else _HF_DEFAULT_PROBE_ARTIFACTS
 
@@ -208,7 +212,10 @@ def emit_hf_download_if_missing(
             # "miss": we let from_pretrained handle the actual fetch
             # semantics.
             cached = try_to_load_from_cache(
-                repo_id=model_id, filename=artifact, cache_dir=HF_HUB_CACHE
+                repo_id=model_id,
+                filename=artifact,
+                cache_dir=HF_HUB_CACHE,
+                revision=revision,
             )
             if not isinstance(cached, str):
                 is_fully_cached = False

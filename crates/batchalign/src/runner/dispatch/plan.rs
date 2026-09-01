@@ -253,8 +253,12 @@ pub(crate) enum MediaAnalysisDispatchPlan {
     Diarize {
         /// Resource-aware execution profile for the command's remaining workload.
         kernel_plan: CommandKernelPlan,
+        /// Fully resolved speaker backend; dispatch cannot invent a default.
+        backend: SpeakerBackendV2,
         /// Expected speaker count; `None` lets the diarizer auto-detect.
         expected_speakers: Option<crate::api::NumSpeakers>,
+        /// Evidence-cache policy resolved from the job's global cache flags.
+        cache_policy: CachePolicy,
     },
 }
 
@@ -284,7 +288,10 @@ impl MediaAnalysisDispatchPlan {
                 };
                 Some(Self::Diarize {
                     kernel_plan: kernel_plan_for_job(job, config),
+                    backend: resolve_selected_speaker_backend(options.speaker_engine),
                     expected_speakers: options.expected_speakers,
+                    cache_policy: resolve_cache_overrides(job)
+                        .policy_for(CacheTaskName::SpeakerDiarizationRawEvidence),
                 })
             }
             _ => None,
@@ -355,7 +362,14 @@ fn runtime_flag(job: &RunnerJobSnapshot, key: &str, default: bool) -> bool {
 
 /// Resolve the dedicated speaker backend from `engine_overrides`.
 fn resolve_speaker_backend(engine: Option<crate::options::SpeakerEngineName>) -> SpeakerBackendV2 {
-    match engine.unwrap_or(crate::options::SpeakerEngineName::PyannoteAi) {
+    resolve_selected_speaker_backend(
+        engine.unwrap_or(crate::options::SpeakerEngineName::PyannoteAi),
+    )
+}
+
+/// Lower one already-selected speaker engine to its worker-protocol backend.
+fn resolve_selected_speaker_backend(engine: crate::options::SpeakerEngineName) -> SpeakerBackendV2 {
+    match engine {
         crate::options::SpeakerEngineName::PyannoteAi => SpeakerBackendV2::PyannoteAi,
         crate::options::SpeakerEngineName::Pyannote => SpeakerBackendV2::Pyannote,
         crate::options::SpeakerEngineName::Nemo => SpeakerBackendV2::Nemo,
@@ -374,7 +388,8 @@ mod tests {
     use crate::config::ServerConfig;
     use crate::options::{
         AlignOptions, AsrEngineName, BenchmarkOptions, CommandOptions, CommonOptions,
-        MorphotagOptions, OpensmileOptions, TranscribeOptions as TranscribeCommand,
+        DiarizeOptions, MorphotagOptions, OpensmileOptions, SpeakerEngineName,
+        TranscribeOptions as TranscribeCommand,
     };
     use crate::store::{
         RunnerDispatchConfig, RunnerFilesystemConfig, RunnerJobIdentity, RunnerJobSnapshot,
@@ -743,5 +758,37 @@ mod tests {
                 feature_set: "ComParE_2016".into(),
             }
         );
+    }
+
+    #[test]
+    fn standalone_diarize_plan_carries_backend_and_required_cache_policy() {
+        let snapshot = make_snapshot(
+            ReleasedCommand::Diarize,
+            CommandOptions::Diarize(DiarizeOptions {
+                common: CommonOptions {
+                    require_media_cache: true,
+                    ..Default::default()
+                },
+                speaker_engine: SpeakerEngineName::PyannoteAi,
+                expected_speakers: None,
+            }),
+            BTreeMap::new(),
+        );
+
+        let plan = MediaAnalysisDispatchPlan::from_job(&snapshot, &ServerConfig::default())
+            .expect("standalone diarize plan");
+        let MediaAnalysisDispatchPlan::Diarize {
+            backend,
+            expected_speakers,
+            cache_policy,
+            ..
+        } = plan
+        else {
+            panic!("expected standalone diarize plan");
+        };
+
+        assert_eq!(backend, SpeakerBackendV2::PyannoteAi);
+        assert_eq!(expected_speakers, None);
+        assert_eq!(cache_policy, crate::params::CachePolicy::RequireCache);
     }
 }

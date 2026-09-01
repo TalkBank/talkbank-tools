@@ -11,7 +11,7 @@ use crate::api::{DurationMs, WorkerLanguage};
 use crate::chat_ops::fa::coordinates::{FaWindow, FileMs, Recording};
 use crate::chat_ops::fa::origin::EngineId;
 use crate::chat_ops::fa::{FaGroup, FaInferItem, WordGapHealing, WordTiming};
-use crate::error::{MissingForcedAlignmentEvidence, ServerError};
+use crate::error::{MissingForcedAlignmentEvidence, MissingRequiredEvidence, ServerError};
 use crate::params::CachePolicy;
 use crate::pipeline::PipelineServices;
 use crate::types::traces::FaFallbackEventTrace;
@@ -142,7 +142,10 @@ pub(crate) fn plan_fa_inference(
     match policy {
         CachePolicy::RequireCache => {
             return Err(ServerError::RequiredEvidenceUnavailable(
-                MissingForcedAlignmentEvidence::new(first_miss, remaining_misses),
+                MissingRequiredEvidence::ForcedAlignment(MissingForcedAlignmentEvidence::new(
+                    first_miss,
+                    remaining_misses,
+                )),
             ));
         }
         CachePolicy::UseCache | CachePolicy::SkipCache => {}
@@ -889,6 +892,9 @@ mod tests {
 
         let ServerError::RequiredEvidenceUnavailable(missing) = error else {
             panic!("cache precondition must have a typed refusal");
+        };
+        let MissingRequiredEvidence::ForcedAlignment(missing) = missing else {
+            panic!("expected forced-alignment evidence refusal");
         };
         assert_eq!(missing.group_indices(), &[1, 3]);
     }

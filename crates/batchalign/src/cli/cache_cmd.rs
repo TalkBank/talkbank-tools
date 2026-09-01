@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{ConnectOptions, Row};
+use sqlx::{ConnectOptions, Row, SqliteConnection};
 use walkdir::WalkDir;
 
 use crate::cli::args::{CacheAction, CacheArgs};
@@ -95,6 +95,56 @@ fn dir_stats(dir: &std::path::Path) -> (u64, u64) {
 // Stats
 // ---------------------------------------------------------------------------
 
+/// One auditable reason represented in the quarantine table.
+#[derive(Debug, Eq, PartialEq)]
+struct QuarantineReasonCount {
+    reason: String,
+    count: u64,
+}
+
+/// Evidence excluded from live cache lookup without being destroyed.
+#[derive(Debug, Default, Eq, PartialEq)]
+struct QuarantineStats {
+    total_entries: u64,
+    by_reason: Vec<QuarantineReasonCount>,
+}
+
+async fn load_quarantine_stats(conn: &mut SqliteConnection) -> Result<QuarantineStats, CliError> {
+    let table_exists: i64 = sqlx::query_scalar(
+        "SELECT EXISTS(\
+           SELECT 1 FROM sqlite_master \
+           WHERE type = 'table' AND name = 'cache_quarantine'\
+         )",
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    if table_exists == 0 {
+        return Ok(QuarantineStats::default());
+    }
+
+    let rows = sqlx::query(
+        "SELECT reason, COUNT(*) AS cnt \
+         FROM cache_quarantine GROUP BY reason ORDER BY reason",
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    let by_reason = rows
+        .into_iter()
+        .map(|row| {
+            Ok(QuarantineReasonCount {
+                reason: row.try_get("reason")?,
+                count: row.try_get::<i64, _>("cnt")? as u64,
+            })
+        })
+        .collect::<Result<Vec<_>, sqlx::Error>>()?;
+    let total_entries = by_reason.iter().map(|entry| entry.count).sum();
+
+    Ok(QuarantineStats {
+        total_entries,
+        by_reason,
+    })
+}
+
 /// Print cache statistics. Uses explicit paths for testability.
 async fn print_stats(
     db_path: &std::path::Path,
@@ -150,6 +200,15 @@ async fn print_stats(
                 let version: String = row.try_get("engine_version")?;
                 let count: i64 = row.try_get("cnt")?;
                 eprintln!("  {task} {version:<12} {count}");
+            }
+        }
+
+        let quarantine = load_quarantine_stats(&mut conn).await?;
+        if quarantine.total_entries > 0 {
+            eprintln!();
+            eprintln!("Quarantined evidence: {}", quarantine.total_entries);
+            for entry in quarantine.by_reason {
+                eprintln!("  {:<44} {}", entry.reason, entry.count);
             }
         }
     }
@@ -266,7 +325,7 @@ pub async fn run(args: &CacheArgs) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::ConnectOptions;
+    use sqlx::{ConnectOptions, Connection};
 
     #[test]
     fn test_format_bytes() {
@@ -371,6 +430,41 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(count.0, 0);
+    }
+
+    #[tokio::test]
+    async fn quarantine_stats_report_auditable_reasons() {
+        let mut conn = SqliteConnection::connect(":memory:").await.unwrap();
+        sqlx::query("CREATE TABLE cache_quarantine (reason TEXT NOT NULL)")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO cache_quarantine(reason) VALUES \
+               ('legacy_fa_raw_evidence_engine_namespace_unprovable'), \
+               ('legacy_fa_raw_evidence_engine_namespace_unprovable'), \
+               ('future_reason')",
+        )
+        .execute(&mut conn)
+        .await
+        .unwrap();
+
+        assert_eq!(
+            load_quarantine_stats(&mut conn).await.unwrap(),
+            QuarantineStats {
+                total_entries: 3,
+                by_reason: vec![
+                    QuarantineReasonCount {
+                        reason: "future_reason".into(),
+                        count: 1,
+                    },
+                    QuarantineReasonCount {
+                        reason: "legacy_fa_raw_evidence_engine_namespace_unprovable".into(),
+                        count: 2,
+                    },
+                ],
+            }
+        );
     }
 
     #[tokio::test]

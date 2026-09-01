@@ -1,7 +1,7 @@
 # Command Flowcharts
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:13 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 Option-driven flowcharts for every batchalign processing command. Each
 diagram shows how CLI flags route through different code paths at runtime.
@@ -428,17 +428,31 @@ flowchart TD
 ## diarize
 
 Produces anonymous acoustic speaker turns without ASR or CHAT mutation. The
-standalone command currently uses local Pyannote; integrated
+standalone command defaults to local Pyannote and can explicitly select
+pyannoteAI Precision-2 or local NeMo. Integrated
 `transcribe --diarization enabled` defaults to pyannoteAI Precision-2 and is
-shown separately in the transcribe diagram above.
+shown separately in the transcribe diagram above. Both use the same typed
+raw/derived speaker-evidence cache.
 
 ```mermaid
 flowchart TD
     start([diarize invoked]) --> resolve[Resolve media inputs]
-    resolve --> prepare[Rust audio preparation\nvalidated PCM artifact]
-    prepare --> speaker["execute_v2(task=speaker)\nPython hosts local Pyannote"]
-    speaker --> validate[Validate ordered finite intervals\nand diarizer labels]
-    validate --> tracks[Map native labels deterministically\nto anonymous PAR0..PARn tracks]
+    resolve --> source[Admit exact inference-source bytes\n+ versioned PCM-preparation recipe]
+    source --> key[Content + semantic request identity]
+    key --> derived{Validated derived turns?}
+    derived -->|hit| tracks
+    derived -->|miss| raw{Validated raw evidence?}
+    raw -->|hit| normalize[Versioned local normalization]
+    raw -->|miss / refresh| prepare[Rust materializes canonical\nmono 16 kHz float32 PCM]
+    prepare --> select{--speaker-engine}
+    select -->|pyannote default| local[Local TalkBank Pyannote]
+    select -->|pyannote-ai| cloud[Paid pyannoteAI Precision-2]
+    select -->|nemo| nemo[Local NeMo]
+    local --> validate[Validate + durably commit raw evidence]
+    cloud --> validate
+    nemo --> validate
+    validate --> normalize
+    normalize --> tracks[Map native labels deterministically\nto anonymous PAR0..PARn tracks]
     tracks --> turns[Write one .turns.json artifact\nper input file]
     turns -. optional later step .-> chatter["chatter rediarize\nproject tracks onto existing CHAT"]
     chatter --> roles["chatter speaker-id + external evidence\nor adjudication assigns semantic CHAT roles"]

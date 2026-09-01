@@ -4,22 +4,27 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tokio::sync::Semaphore;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
-use crate::api::NumSpeakers;
+use crate::api::WorkerLanguage;
+use crate::cache::UtteranceCache;
 use crate::ensure_wav;
 use crate::recipe_runner::runtime::{
     ChatOutputTarget, result_display_path_for_command, write_text_output_artifact,
 };
 use crate::runner::DispatchHostContext;
+use crate::runner::debug_dumper::DebugDumper;
 use crate::runner::util::{
-    FileRunTracker, FileStage, FileTaskOutcome, RunnerEventSink, classify_worker_error,
-    drain_supervised_file_tasks, is_retryable_worker_failure, spawn_supervised_file_task,
-    user_facing_error,
+    FileRunTracker, FileStage, FileTaskOutcome, RunnerEventSink, classify_server_error,
+    classify_worker_error, drain_supervised_file_tasks, is_retryable_worker_failure,
+    spawn_supervised_file_task, user_facing_error,
 };
 use crate::scheduling::{FailureCategory, RetryPolicy, WorkUnitKind};
 use crate::store::{PendingJobFile, RunnerJobSnapshot, unix_now};
-use crate::types::worker_v2::{AvqiResultV2, OpenSmileResultV2, SpeakerBackendV2, TaskResultV2};
+use crate::transcribe::{
+    SpeakerEvidenceRunParams, SpeakerEvidenceSource, resolve_speaker_evidence_for_audio,
+};
+use crate::types::worker_v2::{AvqiResultV2, OpenSmileResultV2, TaskResultV2};
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::avqi_request_v2::{
     AvqiBuildInputV2, PreparedAvqiRequestIdsV2, build_avqi_request_v2,
@@ -29,11 +34,6 @@ use crate::worker::opensmile_request_v2::{
     OpenSmileBuildInputV2, PreparedOpenSmileRequestIdsV2, build_opensmile_request_v2,
 };
 use crate::worker::pool::WorkerPool;
-use crate::worker::speaker_request_v2::{
-    PreparedSpeakerRequestIdsV2, SpeakerAudioBuildSourceV2, SpeakerBuildInputV2,
-    build_speaker_request_v2,
-};
-use crate::worker::speaker_result_v2::{normalize_speaker_evidence_v2, parse_speaker_result_v2};
 
 use super::diarize_turns::{SpeakerTurnsSource, format_turns_json};
 
@@ -46,6 +46,8 @@ use super::asr_media::resolve_paths_mode_or_staging_input;
 pub(crate) struct MediaAnalysisDispatchRuntime {
     /// Worker pool used for typed V2 media-analysis requests.
     pub pool: Arc<WorkerPool>,
+    /// Shared durable evidence cache used by standalone diarization.
+    pub cache: Arc<UtteranceCache>,
     /// Maximum number of file tasks to run concurrently for this job.
     pub num_workers: NumWorkers,
 }
@@ -84,6 +86,7 @@ pub(crate) async fn dispatch_media_analysis_v2(
         };
         let sink = sink.clone();
         let pool = runtime.pool.clone();
+        let cache = runtime.cache.clone();
         let job = job.clone();
         let file = file.clone();
         let filename = file.filename.clone();
@@ -94,7 +97,8 @@ pub(crate) async fn dispatch_media_analysis_v2(
             "media-analysis V2 file task",
             async move {
                 let _permit = permit;
-                process_one_media_analysis_file_v2(&job, sink.clone(), &pool, &file, &plan).await
+                process_one_media_analysis_file_v2(&job, sink.clone(), &pool, &cache, &file, &plan)
+                    .await
             },
         ));
     }
@@ -119,6 +123,7 @@ async fn process_one_media_analysis_file_v2(
     job: &RunnerJobSnapshot,
     sink: Arc<dyn RunnerEventSink>,
     pool: &Arc<WorkerPool>,
+    cache: &Arc<UtteranceCache>,
     file: &PendingJobFile,
     plan: &MediaAnalysisDispatchPlan,
 ) -> FileTaskOutcome {
@@ -153,6 +158,7 @@ async fn process_one_media_analysis_file_v2(
         match dispatch_one_media_analysis_attempt(
             job,
             pool,
+            cache,
             file_index,
             filename,
             &original_audio_path,
@@ -238,6 +244,7 @@ enum DispatchFailure {
 async fn dispatch_one_media_analysis_attempt(
     job: &RunnerJobSnapshot,
     pool: &Arc<WorkerPool>,
+    cache: &Arc<UtteranceCache>,
     file_index: usize,
     filename: &str,
     original_audio_path: &Path,
@@ -265,8 +272,24 @@ async fn dispatch_one_media_analysis_attempt(
         }
         MediaAnalysisDispatchPlan::Diarize {
             kernel_plan: _,
+            backend,
             expected_speakers,
-        } => dispatch_diarize_attempt(job, pool, filename, &audio_path, *expected_speakers).await,
+            cache_policy,
+        } => {
+            dispatch_diarize_attempt(
+                job,
+                pool,
+                cache,
+                filename,
+                SpeakerEvidenceRunParams {
+                    audio_path: &audio_path,
+                    backend: *backend,
+                    expected_speakers: *expected_speakers,
+                    cache_policy: *cache_policy,
+                },
+            )
+            .await
+        }
     }
 }
 
@@ -543,40 +566,10 @@ fn format_avqi_report(result: &AvqiResultV2, language: &str) -> String {
 async fn dispatch_diarize_attempt(
     job: &RunnerJobSnapshot,
     pool: &Arc<WorkerPool>,
+    cache: &Arc<UtteranceCache>,
     filename: &str,
-    audio_path: &Path,
-    expected_speakers: Option<NumSpeakers>,
+    params: SpeakerEvidenceRunParams<'_>,
 ) -> Result<(String, String, ContentType), DispatchFailure> {
-    let artifacts = PreparedArtifactRuntimeV2::new("diarize_v2").map_err(|error| {
-        DispatchFailure::Terminal(
-            format!("failed to create diarize V2 artifact runtime: {error}"),
-            FailureCategory::Validation,
-        )
-    })?;
-
-    // `fresh()` ids: diarize files run concurrently under one shared GPU
-    // worker, and pending-request routing is keyed by request id.
-    let request = build_speaker_request_v2(
-        artifacts.store(),
-        SpeakerBuildInputV2 {
-            ids: &PreparedSpeakerRequestIdsV2::fresh(),
-            audio: SpeakerAudioBuildSourceV2::File(audio_path),
-            // V1 backend is fixed: pyannote is the only declared speaker
-            // dependency (NeMo imports lazily and is not shipped). An
-            // `--engine` seam waits on `EngineOverrides` growing a typed
-            // speaker field.
-            backend: SpeakerBackendV2::Pyannote,
-            expected_speakers,
-        },
-    )
-    .await
-    .map_err(|error| {
-        DispatchFailure::Terminal(
-            format!("failed to build diarize V2 request: {error}"),
-            FailureCategory::Validation,
-        )
-    })?;
-
     // Diarization is not language-aware, but `dispatch_execute_v2` still
     // needs a concrete worker-pool key (same contract as opensmile/avqi).
     let pool_key = job.dispatch.lang.as_resolved().cloned().ok_or_else(|| {
@@ -588,21 +581,46 @@ async fn dispatch_diarize_attempt(
             FailureCategory::Validation,
         )
     })?;
-    let response = pool
-        .dispatch_execute_v2(&pool_key, &request)
-        .await
-        .map_err(|error| {
-            DispatchFailure::RetryableWorker(error.to_string(), classify_worker_error(&error))
-        })?;
-
-    let result = parse_speaker_result_v2(&response)
-        .map_err(|error| DispatchFailure::Terminal(error, FailureCategory::ProviderTerminal))?;
-    let segments = normalize_speaker_evidence_v2(&result.evidence)
-        .map_err(|error| DispatchFailure::Terminal(error, FailureCategory::ProviderTerminal))?;
+    let backend = params.backend;
+    let audio_path = params.audio_path;
+    let resolution =
+        resolve_speaker_evidence_for_audio(pool, cache, WorkerLanguage::from(pool_key), params)
+            .await
+            .map_err(|error| {
+                let category = classify_server_error(&error);
+                if is_retryable_worker_failure(category) {
+                    DispatchFailure::RetryableWorker(error.to_string(), category)
+                } else {
+                    DispatchFailure::Terminal(error.to_string(), category)
+                }
+            })?;
+    let evidence_identity = audio_path.to_string_lossy().into_owned();
+    let dumper = DebugDumper::new(job.dispatch.options.common().debug_dir.as_deref());
+    dumper
+        .dump_speaker_evidence(&evidence_identity, &resolution.trace())
+        .map_err(|error| DispatchFailure::Terminal(error.to_string(), FailureCategory::System))?;
+    match resolution.source() {
+        SpeakerEvidenceSource::ReplayedDerived => info!(
+            cache_key = %resolution.cache_key(),
+            backend = ?backend,
+            "Replaying standalone speaker diarization evidence"
+        ),
+        SpeakerEvidenceSource::DerivedFromRaw => info!(
+            cache_key = %resolution.cache_key(),
+            backend = ?backend,
+            "Deriving standalone speaker turns from retained raw evidence"
+        ),
+        SpeakerEvidenceSource::Inferred(reason) => info!(
+            cache_key = %resolution.cache_key(),
+            backend = ?backend,
+            reason = ?reason,
+            "Committed fresh standalone speaker diarization evidence"
+        ),
+    }
 
     let turns_json = format_turns_json(
-        SpeakerTurnsSource::from_backend(SpeakerBackendV2::Pyannote),
-        &segments,
+        SpeakerTurnsSource::from_backend(backend),
+        resolution.segments(),
     )
     .map_err(|error| {
         DispatchFailure::Terminal(

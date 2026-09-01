@@ -1,7 +1,7 @@
 # Worker Failure Classification and Retry Architecture
 
 **Status:** Current
-**Last updated:** 2026-08-31 00:02 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 This chapter is the canonical contributor reference for how a Python
 worker exception becomes, or does not become, an end-user error. It
@@ -421,12 +421,14 @@ inclusion is what makes the difference.
 
 `EvidenceUnavailable` is likewise terminal and actionable, but it does not
 mean a worker failed. It means a cache-required request reached a typed
-evidence boundary without a reusable entry. For forced alignment, the error
-retains a nonempty `MissingForcedAlignmentEvidence` value containing the exact
-group indices and maps to HTTP 412. The user-facing message states that
-`--require-media-cache` prevented inference. An empty missing-group error is
-unrepresentable, so the public category cannot be emitted for the successful
-"nothing to infer" state.
+evidence boundary without a reusable entry. `MissingRequiredEvidence` is a
+closed sum type: forced alignment retains a nonempty group-index set, while
+Rev.AI and speaker diarization retain the exact content-derived `CacheKey`.
+All map to HTTP 412, and the user-facing message states that
+`--require-media-cache` prevented inference. A missing kind cannot be confused
+with another, and an empty forced-alignment miss is unrepresentable, so the
+public category cannot be emitted for the successful "nothing to infer"
+state.
 
 ## The retry loop
 

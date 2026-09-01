@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:13 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -390,12 +390,14 @@ CHAT mutation.
 | **Extensions filter** | `["mp3", "mp4", "wav"]` | Same |
 | **Output** | One `<media-stem>.turns.json` file per input | Same JSON artifacts returned to the client, which writes them locally |
 | **Mutation** | **Never mutates input.** Does not read or write CHAT. | Same |
-| **Key options** | `--num-speakers`, `--lang` | Same |
+| **Key options** | `--num-speakers`, `--speaker-engine`, `--lang` | Same |
 
 The output identifies anonymous acoustic tracks (`PAR0`, `PAR1`, ...), not
-semantic CHAT roles. Standalone `diarize` currently executes local Pyannote;
-integrated `transcribe --diarization enabled` is a separate product path whose
-dedicated speaker backend defaults to paid pyannoteAI Precision-2.
+semantic CHAT roles. Standalone `diarize` defaults to local Pyannote and can
+explicitly select paid pyannoteAI Precision-2 or local NeMo. Integrated
+`transcribe --diarization enabled` is a separate product path whose dedicated
+speaker backend defaults to paid pyannoteAI Precision-2. Both paths share the
+same raw/derived speaker-evidence cache.
 
 ---
 
@@ -613,7 +615,7 @@ filter dummy CHAT locally.
 | translate | Full | Full | Full | |
 | coref | Full | Full | Full | |
 | benchmark | Full | Full | Full | Prefers the local daemon when `auto_daemon` is enabled; explicit `--server` stays the fallback if the daemon path is unavailable |
-| diarize | Full | Full | Full | Produces anonymous turns JSON; standalone evidence is not yet replayed from the integrated speaker cache |
+| diarize | Full | Full | Full | Produces anonymous turns JSON; shares validated raw/derived speaker evidence with integrated transcription |
 | opensmile | Full | Full | Full | Special CSV output handling on both sides |
 | compare | Full | Full | Full | Gold file resolved locally or server-side |
 | avqi | Full (local) | Full (local) | Full | Prefers the local daemon when `auto_daemon` is enabled; explicit `--server` stays the fallback if the daemon path is unavailable |

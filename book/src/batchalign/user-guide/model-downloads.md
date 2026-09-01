@@ -1,7 +1,7 @@
 # Model Downloads and Caching
 
 **Status:** Current
-**Last updated:** 2026-08-31 03:04 EDT
+**Last updated:** 2026-08-31 22:23 EDT
 
 ## The contract
 
@@ -13,9 +13,8 @@ see related to model downloads is one of these:
 - "Failed to download …: network unreachable", your machine can't reach
   the internet (or the upstream is down). Try again when you have network.
 - "Failed to download …: disk full", free some space and retry.
-- "Failed to download …: HTTP 401/403", the model requires authentication
-  (rare; only one or two pyannote variants need this and BA3 ships with a
-  default that doesn't).
+- "Failed to download …: HTTP 401/403", a configured custom model requires
+  authentication. BA3's released local Pyannote graph is public and ungated.
 
 If you see anything else, anything along the lines of "capability table is
 unavailable", "resources.json could not be read", "model not found locally"
@@ -30,14 +29,15 @@ local cache and the same command runs without any download.
 | When you run | What downloads | Approximate size | Approximate first-run wait |
 |---|---|---|---|
 | `morphotag` (any language) | Stanza resource catalog (`resources.json`) | ~1 MB | 1-2 seconds |
-| `morphotag` (first time for a language) | Stanza language pack for that language | 250-500 MB | 30 s, 2 min |
-| `morphotag --retokenize` on a Cantonese file (`@Languages: yue`) | Nothing extra, PyCantonese is bundled |, | Instant |
+| `morphotag` (first time for a language) | Stanza language pack for that language | 250-500 MB | 30 s to 2 min |
+| `morphotag --retokenize` on a Cantonese file (`@Languages: yue`) | Nothing extra, PyCantonese is bundled | Not applicable | Instant |
 | `morphotag --retokenize` on a Mandarin file (`@Languages: cmn`/`zho`) | Stanza Chinese tokenizer | ~200 MB | 30-60 s |
 | `transcribe` (Whisper engine) | Whisper ASR model from HuggingFace | 0.5-3 GB depending on model size | 1-10 min |
 | `align` (Whisper engine) | Whisper FA model from HuggingFace | ~3 GB | 3-10 min |
 | `align` (Wave2Vec engine, default) | Wave2Vec MMS_FA bundle from torchaudio | ~1.2 GB | 1-5 min |
 | `align --lang yue` (Cantonese FA) | Wave2Vec Cantonese model | ~1 GB | 1-5 min |
-| `transcribe` (with diarization) | pyannote `talkbank/dia-fork` from HuggingFace | ~500 MB | 1-3 min |
+| `transcribe --diarization enabled --speaker-engine pyannote` or standalone `diarize` (local default) | public, ungated Pyannote `talkbank/dia-fork` and dependencies from Hugging Face | ~500 MB | 1-3 min |
+| `transcribe --diarization enabled` (default speaker backend) or `diarize --speaker-engine pyannote-ai` | No local speaker model; uses paid pyannoteAI Precision-2 | N/A | Provider latency only |
 | `translate` (Seamless engine) | SeamlessM4T from HuggingFace | ~2.4 GB | 2-8 min |
 | `transcribe` (utterance segmentation, certain languages) | BERT utterance model from HuggingFace | ~400 MB | 1-3 min |
 
@@ -128,10 +128,11 @@ cache directories first to avoid that.
 
 ## Working offline
 
-After the first successful run with internet access, batchalign3 works
-fully offline for the same languages and engines. To enforce strictly-
-offline behavior (and surface a clear error if any model is missing rather
-than attempting a download), set:
+After the first successful download, local-model commands work offline for the
+same languages and engines. Cloud engines such as Rev.AI and pyannoteAI still
+require their services. To enforce strictly offline Hugging Face behavior (and
+surface a clear error if a local model is missing rather than attempting a
+download), set:
 
 ```bash
 export HF_HUB_OFFLINE=1
@@ -199,8 +200,9 @@ you, as documented above).
 ## Result caching (separate from model caching)
 
 batchalign3 caches **audio-bound intermediate evidence** so repeated runs of
-`align` or `transcribe` on the same media with the same settings do not redo
-expensive service calls or model inference. The cache distinguishes final
+`align`, selected `transcribe` stages, or standalone `diarize` on the same
+media with the same settings do not redo expensive service calls or model
+inference. The cache distinguishes final
 forced-alignment projection, raw forced-alignment worker evidence, UTR ASR,
 raw Rev transcript evidence, raw speaker evidence, and normalized speaker
 segments.

@@ -614,12 +614,7 @@ async fn resolve_rev_utr_asr_response<I: crate::revai::RevAsrEvidenceInference>(
 ) -> Result<crate::transcribe::AsrResponse, crate::error::ServerError> {
     let resolution = crate::revai::resolve_rev_asr_evidence(request, cache, policy, inference)
         .await
-        .map_err(|error| match error {
-            crate::revai::RevAsrEvidenceResolutionError::Evidence(error) => {
-                crate::error::ServerError::Persistence(error.to_string())
-            }
-            crate::revai::RevAsrEvidenceResolutionError::Inference(error) => error,
-        })?;
+        .map_err(crate::revai::rev_asr_resolution_error_to_server_error)?;
     if dumper.is_enabled() {
         let trace = resolution.trace(crate::revai::RevAsrProjectionRevision::UtrAsrResponseV1);
         dumper

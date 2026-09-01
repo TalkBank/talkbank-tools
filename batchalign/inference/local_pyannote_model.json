@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "pipeline": {
+    "repo_id": "talkbank/dia-fork",
+    "revision": "df67acf78543ba69e9d120a3a06ad5e0e56fac41",
+    "filename": "config.yaml"
+  },
+  "segmentation": {
+    "repo_id": "talkbank/seg-fork-3.0",
+    "revision": "28fe728a6fe524c67ed3958a6e9ec8980df7a41a",
+    "filename": "pytorch_model.bin"
+  },
+  "embedding": {
+    "repo_id": "hbredin/wespeaker-voxceleb-resnet34-LM",
+    "revision": "0ae88dcaf48cacdf741275d6d1a8101f45eee220",
+    "filename": "speaker-embedding.onnx"
+  }
+}

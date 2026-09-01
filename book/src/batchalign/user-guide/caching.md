@@ -1,7 +1,7 @@
 # Caching
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:54 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 ## What gets cached
 
@@ -11,7 +11,7 @@ Batchalign caches **only audio-task results**:
 |----------|---------|
 | Forced alignment word timings (`align`) | Yes |
 | ASR results for utterance timing recovery (`align`'s UTR pre-pass) | Yes |
-| Dedicated speaker evidence (`transcribe --diarization enabled`) | Yes |
+| Dedicated speaker evidence (`transcribe --diarization enabled` or standalone `diarize`) | Yes |
 | Media conversion (`.mp4`/`.m4a` → `.wav`) | Yes |
 | Raw Rev.AI transcript evidence (`transcribe`, `benchmark`, Rev-backed `align` UTR) | Yes |
 | Other ordinary ASR output (`transcribe`) | No |
@@ -19,7 +19,6 @@ Batchalign caches **only audio-task results**:
 | Utterance segmentation (`utseg`) | **No**: always recomputed |
 | Translation (`translate`) | **No**: always recomputed |
 | Coreference (`coref`) | **No**: always recomputed |
-| Standalone speaker diarization (`diarize`) | No |
 | OpenSMILE features (`opensmile`) | No |
 | AVQI scores (`avqi`) | No |
 
@@ -48,9 +47,10 @@ transcript evidence locally.
 
 ### Dedicated speaker evidence
 
-The speaker cache applies to the dedicated diarization stage of
-`transcribe`, for all three speaker engines (`pyannote-ai`, `pyannote`,
-and `nemo`). It is especially useful with the paid pyannoteAI service.
+The speaker cache applies to the dedicated diarization stage of `transcribe`
+and to standalone `diarize`, for all three speaker engines (`pyannote-ai`,
+`pyannote`, and `nemo`). It is especially useful with the paid pyannoteAI
+service.
 
 The key includes:
 
@@ -202,11 +202,21 @@ repeats the fallback. `--override-media-cache` and
 `--override-media-cache-tasks forced_alignment` bypass both FA layers and
 therefore request fresh model inference.
 
+When a current build first opens an older cache, it also removes from live
+lookup any legacy raw FA row whose requested engine contradicts the model
+family in its stored namespace. Those rows did not retain an exact producer
+version and cannot be safely reused or relabeled. Their exact stored bytes are
+retained in the database's `cache_quarantine` table for audit. This cleanup can
+turn an apparent historical hit into an honest miss;
+`--require-media-cache` still refuses that miss without running inference.
+`batchalign3 cache stats` reports the quarantine total and its stable reason
+counts separately from reusable entries.
+
 This flag is not a general offline, no-network, or zero-compute mode. Ordinary
 non-Rev ASR output is not cached, so Whisper, Tencent, Aliyun, FunAudio, or Qwen
 transcription can still run its configured inference path, including a network
-service where that backend uses one. Standalone `diarize`, OpenSMILE, and AVQI
-are also outside the analysis cache. The guarantee is specifically that a
+service where that backend uses one. OpenSMILE and AVQI are outside the
+analysis cache. The guarantee is specifically that a
 missing entry at a cache-backed boundary cannot authorize inference.
 
 `--require-media-cache` is mutually exclusive with
@@ -282,6 +292,12 @@ variables:
 export BATCHALIGN_ANALYSIS_CACHE_DIR=/tmp/ba-analysis-cache
 export BATCHALIGN_MEDIA_CACHE_DIR=/tmp/ba-media-cache
 ```
+
+`BATCHALIGN3_ANALYSIS_CACHE_DIR` is accepted as an alias for the analysis
+cache setting. If both spellings are set, the canonical
+`BATCHALIGN_ANALYSIS_CACHE_DIR` value wins. Set the variable before starting a
+server: a client process cannot relocate the cache owned by an already-running
+server.
 
 ## How to clear the cache
 

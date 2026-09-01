@@ -3,10 +3,18 @@
 use std::path::Path;
 
 use super::types::{AsrResponse, AsrWorkerMode, NonRevAsrBackend};
-use super::{SpeakerEvidenceInference, VerifiedSpeakerEvidenceRun};
+use super::{
+    SpeakerEvidenceInference, SpeakerEvidenceModelRevision, SpeakerEvidenceRequest,
+    SpeakerEvidenceResolution, SpeakerEvidenceResolutionError, SpeakerEvidenceSource,
+    SpeakerEvidenceTrace, SpeakerProjectionRevision, VerifiedSpeakerEvidenceRun,
+    resolve_speaker_evidence,
+};
 use crate::api::{LanguageCode3, LanguageSpec, NumSpeakers, WorkerLanguage};
-use crate::error::ServerError;
-use crate::types::worker_v2::SpeakerInferenceEvidenceV2;
+use crate::cache::UtteranceCache;
+use crate::chat_ops::CacheKey;
+use crate::error::{MissingRequiredEvidence, MissingSpeakerEvidence, ServerError};
+use crate::params::CachePolicy;
+use crate::types::worker_v2::{SpeakerBackendV2, SpeakerInferenceEvidenceV2, SpeakerSegmentV2};
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::asr_request_v2::{
     AsrBuildInputV2, AsrInputSourceV2, PreparedAsrRequestIdsV2, build_asr_request_v2,
@@ -247,7 +255,7 @@ async fn infer_speaker(
             ids: &PreparedSpeakerRequestIdsV2::fresh(),
             audio: SpeakerAudioBuildSourceV2::Bytes(source_bytes),
             backend,
-            expected_speakers: Some(expected_speakers),
+            expected_speakers,
         },
     )
     .await
@@ -291,6 +299,93 @@ impl SpeakerEvidenceInference for SpeakerWorkerInference<'_> {
     }
 }
 
+/// Complete semantic inputs for one live-or-replayed speaker-evidence run.
+///
+/// The optional speaker count is deliberate: standalone `diarize` supports
+/// backend auto-detection, while `transcribe` always supplies a known count.
+/// Keeping that distinction typed prevents the cache from conflating an
+/// auto-detected result with a request for an arbitrary sentinel count.
+pub(crate) struct SpeakerEvidenceRunParams<'a> {
+    pub audio_path: &'a Path,
+    pub backend: SpeakerBackendV2,
+    pub expected_speakers: Option<NumSpeakers>,
+    pub cache_policy: CachePolicy,
+}
+
+/// Validated speaker evidence together with the exact request identity that
+/// produced (or replayed) it.
+///
+/// Consumers cannot obtain segments without going through the shared
+/// cache-or-infer state machine, and cannot log a cache key from a different
+/// request by accident.
+pub(crate) struct ResolvedSpeakerEvidence {
+    request: SpeakerEvidenceRequest,
+    resolution: SpeakerEvidenceResolution,
+}
+
+impl ResolvedSpeakerEvidence {
+    pub(crate) fn cache_key(&self) -> &CacheKey {
+        self.request.cache_key()
+    }
+
+    pub(crate) fn source(&self) -> SpeakerEvidenceSource {
+        self.resolution.source()
+    }
+
+    pub(crate) fn segments(&self) -> &[SpeakerSegmentV2] {
+        self.resolution.segments()
+    }
+
+    pub(crate) fn trace(&self) -> SpeakerEvidenceTrace {
+        self.resolution.trace(SpeakerProjectionRevision::SegmentsV1)
+    }
+
+    pub(crate) fn into_segments(self) -> Vec<SpeakerSegmentV2> {
+        self.resolution.into_segments()
+    }
+}
+
+/// Resolve speaker evidence through one production operation shared by
+/// integrated transcription and standalone diarization.
+pub(crate) async fn resolve_speaker_evidence_for_audio(
+    pool: &WorkerPool,
+    cache: &UtteranceCache,
+    worker_lang: WorkerLanguage,
+    params: SpeakerEvidenceRunParams<'_>,
+) -> Result<ResolvedSpeakerEvidence, ServerError> {
+    let model_revision = SpeakerEvidenceModelRevision::for_backend(params.backend);
+    let request = SpeakerEvidenceRequest::from_audio(
+        params.audio_path,
+        params.backend,
+        params.expected_speakers,
+        &model_revision,
+    )
+    .await
+    .map_err(|error| ServerError::Persistence(error.to_string()))?;
+    let inference = SpeakerWorkerInference::new(pool, worker_lang);
+    let resolution = resolve_speaker_evidence(&request, cache, params.cache_policy, &inference)
+        .await
+        .map_err(speaker_resolution_error_to_server_error)?;
+    Ok(ResolvedSpeakerEvidence {
+        request,
+        resolution,
+    })
+}
+
+fn speaker_resolution_error_to_server_error(error: SpeakerEvidenceResolutionError) -> ServerError {
+    match error {
+        SpeakerEvidenceResolutionError::Evidence(
+            super::SpeakerEvidenceCacheError::RequiredEvidenceMissing(cache_key),
+        ) => ServerError::RequiredEvidenceUnavailable(MissingRequiredEvidence::Speaker(
+            MissingSpeakerEvidence::new(cache_key),
+        )),
+        SpeakerEvidenceResolutionError::Evidence(error) => {
+            ServerError::Persistence(error.to_string())
+        }
+        SpeakerEvidenceResolutionError::Inference(error) => error,
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
@@ -316,6 +411,22 @@ mod tests {
             cfg.model_path,
             std::path::PathBuf::from("/per/job/model.bin")
         );
+    }
+
+    #[test]
+    fn required_speaker_evidence_maps_to_typed_precondition_refusal() {
+        let key = CacheKey::from_content("speaker evidence identity");
+        let error = SpeakerEvidenceResolutionError::Evidence(
+            crate::transcribe::SpeakerEvidenceCacheError::RequiredEvidenceMissing(key.clone()),
+        );
+
+        let mapped = speaker_resolution_error_to_server_error(error);
+        let ServerError::RequiredEvidenceUnavailable(MissingRequiredEvidence::Speaker(missing)) =
+            mapped
+        else {
+            panic!("required speaker evidence must not become a persistence error");
+        };
+        assert_eq!(missing.cache_key(), &key);
     }
 
     #[tokio::test]

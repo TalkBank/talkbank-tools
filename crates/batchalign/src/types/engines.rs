@@ -1012,6 +1012,25 @@ impl SpeakerEngineName {
     }
 }
 
+impl Serialize for SpeakerEngineName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.wire_name())
+    }
+}
+
+impl<'de> Deserialize<'de> for SpeakerEngineName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let name = String::deserialize(deserializer)?;
+        Self::from_wire_name(&name).map_err(serde::de::Error::custom)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // EngineOverrides: typed engine override selection
 // ---------------------------------------------------------------------------

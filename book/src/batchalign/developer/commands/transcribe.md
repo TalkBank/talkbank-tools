@@ -1,7 +1,7 @@
 # transcribe: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-08-30 20:05 EDT
+**Last updated:** 2026-08-31 22:01 EDT
 
 Implementation guide for the `transcribe` command. For user-facing
 documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe.md).
@@ -23,11 +23,14 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 | CHAT assembly | `crates/batchalign-transform/src/build_chat/mod.rs:41`: `build_chat()` | Assembles `ChatFile` AST from `TranscriptDescription` (typed bridge) |
 | Speaker projection | `crates/batchalign/src/chat_ops/speaker.rs`: `project_speakers_onto_chunks()` | Projects raw segments onto timed ASR words and splits prepared chunks before utseg and CHAT assembly |
 | Speaker evidence cache | `crates/batchalign/src/transcribe/evidence_cache.rs` | Separate raw/derived identities and envelopes, per-key lease, typed miss authorization, durable commits, fakeable inference boundary |
+| Shared speaker operation | `crates/batchalign/src/transcribe/infer.rs`: `resolve_speaker_evidence_for_audio()` | Constructs the exact request/model identity and owns cache-or-infer resolution for both integrated `transcribe` and standalone `diarize` |
+| Standalone dispatch plan | `crates/batchalign/src/runner/dispatch/plan.rs`: `MediaAnalysisDispatchPlan::Diarize` | Carries an already-resolved backend, optional expected count, and cache policy; execution cannot invent or change them |
 | Same-job turn retention | `crates/batchalign/src/runner/debug_dumper.rs`: `dump_speaker_turns()` | When `--debug-dir` is set, writes the exact dedicated turns used by transcribe or returns a typed failure |
 | Canonical turns schema | `crates/batchalign/src/runner/dispatch/diarize_turns.rs` | Serializes chatter-compatible turns with backend-derived provenance |
 | ASR worker IPC | `batchalign/inference/asr.py` | Python-hosted ASR engines; Rev is Rust-owned |
 | Raw Rev evidence cache | `crates/batchalign/src/revai/evidence_cache.rs` | Provider-media identity, exact transcript JSON or typed legacy envelope, miss authorization, durable commit, fakeable Rev boundary |
 | Speaker worker IPC | `batchalign/inference/speaker.py`: `infer_speaker_prepared_audio()` | Exhaustive dispatch over pyannoteAI, local Pyannote, and NeMo, returning a backend-specific evidence variant |
+| Local Pyannote graph | `batchalign/inference/local_pyannote_model.json` + `pyannote_local.py` | One validated manifest pins the pipeline, segmentation, and embedding commits; Rust hashes the same manifest into the evidence revision |
 | pyannoteAI adapter | `batchalign/inference/pyannote_ai.py` | Typed prepare, upload, submit, complete lifecycle for Precision-2 exclusive diarization |
 
 ---
@@ -278,8 +281,11 @@ The FFI rejects a response whose evidence variant does not match the backend
 in the request.
 
 The typed CLI selector `SpeakerEngineName` maps exhaustively to
-`SpeakerBackendV2`. When no explicit speaker engine is supplied, enabled
-diarization selects `PyannoteAi`. The cloud adapter uses explicit lifecycle
+`SpeakerBackendV2`. Integrated enabled diarization defaults to `PyannoteAi`;
+standalone `diarize` deliberately defaults to local `Pyannote` but can select
+`PyannoteAi` or `Nemo` explicitly. Both consumers call
+`resolve_speaker_evidence_for_audio()`, so neither can bypass the evidence
+cache or construct a different model revision. The cloud adapter uses explicit lifecycle
 states: `PreparedWav`, `UploadedMedia`, `SubmittedDiarizationJob`, and
 `CompletedDiarizationJob`. Only a completed job can cross the worker boundary.
 It requests `exclusive: true`; the versioned Rust normalizer prefers
@@ -319,7 +325,8 @@ call. `--override-media-cache` deliberately constructs a forced-refresh miss,
 then replaces the entry after successful inference.
 
 `--require-media-cache` selects `CachePolicy::RequireCache`. On a raw miss,
-speaker and Rev lookup return a typed evidence error rather than
+speaker and Rev lookup return `ServerError::RequiredEvidenceUnavailable`
+carrying a typed speaker or Rev cache identity rather than
 `SpeakerEvidenceMiss` or `RevAsrEvidenceMiss`; consequently no
 `SpeakerInferenceAuthorization` or `RevAsrInferenceAuthorization` can exist.
 Warm raw evidence remains replayable, and a derived-speaker miss can still
@@ -328,7 +335,8 @@ travel through the raw-hit transition and run the local normalizer.
 FA closes the same route at the worker boundary. Cache partitioning produces
 raw miss indices, but only `plan_fa_inference()` can turn them into
 `FaInferenceAuthorization`, which is required by `FaWorkerBatch`. Required
-cache plus any unresolved group returns an error instead. This applies to both
+cache plus any unresolved group returns the same server error with a typed,
+non-empty forced-alignment group set instead. This applies to both
 full-file and incremental FA; neither can assemble a worker batch directly
 from a miss vector.
 

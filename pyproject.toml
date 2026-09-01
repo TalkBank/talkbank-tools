@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "batchalign3"
-version = "0.4.0"
+version = "0.4.1"
 description = "Transcription, alignment, and language-sample analysis for TalkBank CHAT transcripts"
 readme = "batchalign/README.md"
 license = "BSD-3-Clause"
@@ -116,6 +116,8 @@ profile = "dev"
 include = [
     { path = "batchalign/runtime_constants.toml", format = "sdist" },
     { path = "batchalign/runtime_constants.toml", format = "wheel" },
+    { path = "batchalign/inference/local_pyannote_model.json", format = "sdist" },
+    { path = "batchalign/inference/local_pyannote_model.json", format = "wheel" },
     { path = "batchalign/_bin/batchalign3", format = "wheel" },
     { path = "batchalign/_bin/batchalign3.exe", format = "wheel" },
 ]

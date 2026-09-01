@@ -261,7 +261,7 @@ impl RevAsrEvidenceRequest {
             match policy {
                 CachePolicy::RequireCache => {
                     return Err(RevAsrEvidenceCacheError::RequiredEvidenceMissing(
-                        self.cache_key.to_string(),
+                        self.cache_key.clone(),
                     ));
                 }
                 CachePolicy::UseCache | CachePolicy::SkipCache => {}
@@ -713,6 +713,26 @@ pub(crate) enum RevAsrEvidenceResolutionError {
     Inference(#[from] ServerError),
 }
 
+/// Preserve cache-only precondition failures as typed, actionable server
+/// errors instead of flattening them into an internal persistence failure.
+pub(crate) fn rev_asr_resolution_error_to_server_error(
+    error: RevAsrEvidenceResolutionError,
+) -> ServerError {
+    match error {
+        RevAsrEvidenceResolutionError::Evidence(
+            RevAsrEvidenceCacheError::RequiredEvidenceMissing(cache_key),
+        ) => {
+            ServerError::RequiredEvidenceUnavailable(crate::error::MissingRequiredEvidence::RevAsr(
+                crate::error::MissingRevAsrEvidence::new(cache_key),
+            ))
+        }
+        RevAsrEvidenceResolutionError::Evidence(error) => {
+            ServerError::Persistence(error.to_string())
+        }
+        RevAsrEvidenceResolutionError::Inference(error) => error,
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum RevAsrEvidenceCacheError {
     #[error("could not read Rev.AI provider media: {0}")]
@@ -730,7 +750,7 @@ pub(crate) enum RevAsrEvidenceCacheError {
     #[error("invalid cached Rev.AI evidence: {0}")]
     InvalidEvidence(String),
     #[error("required Rev.AI evidence is missing for cache key {0}")]
-    RequiredEvidenceMissing(String),
+    RequiredEvidenceMissing(CacheKey),
 }
 
 #[cfg(test)]
@@ -1165,6 +1185,14 @@ mod tests {
             .expect_err("a cold required-cache lookup must refuse Rev.AI inference");
 
         assert!(error.to_string().contains("required Rev.AI evidence"));
+        let server_error = rev_asr_resolution_error_to_server_error(error);
+        let ServerError::RequiredEvidenceUnavailable(
+            crate::error::MissingRequiredEvidence::RevAsr(missing),
+        ) = server_error
+        else {
+            panic!("required Rev evidence must remain an actionable precondition refusal");
+        };
+        assert_eq!(missing.cache_key(), request.cache_key());
         assert_eq!(service.calls.load(Ordering::SeqCst), 0);
     }
 

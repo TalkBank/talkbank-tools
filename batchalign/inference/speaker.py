@@ -28,13 +28,12 @@ from batchalign.inference._domain_types import (
     SpeakerId,
     TimestampMs,
 )
+from batchalign.inference.pyannote_local import _get_pyannote_pipeline
 
 if TYPE_CHECKING:
     import torch
 
 L = logging.getLogger("batchalign.worker")
-
-_PYANNOTE_PIPELINE: object | None = None
 
 
 def infer_speaker_prepared_audio(
@@ -423,30 +422,3 @@ def _iter_pyannote_turns_and_speakers(result: object):
 
     for turn, speaker in diarization:
         yield turn, speaker
-
-
-def _get_pyannote_pipeline():
-    """Return the shared Pyannote pipeline for this worker process.
-
-    Raises ImportError if pyannote.audio is missing from the runtime. Speaker
-    diarization is part of the standard batchalign3 install, so this indicates a
-    broken environment rather than an optional feature tier.
-    """
-    global _PYANNOTE_PIPELINE
-
-    if _PYANNOTE_PIPELINE is None:
-        try:
-            from pyannote.audio import Pipeline as PyannotePipeline
-        except ImportError as exc:
-            raise ImportError(
-                "Speaker diarization requires pyannote.audio, which is not installed.\n"
-                "Reinstall the standard batchalign3 package and confirm "
-                "'import pyannote.audio' works in the worker Python runtime."
-            ) from exc
-
-        from batchalign.worker._progress import emit_hf_download_if_missing
-
-        emit_hf_download_if_missing("talkbank/dia-fork", kind="speaker diarization")
-
-        _PYANNOTE_PIPELINE = PyannotePipeline.from_pretrained("talkbank/dia-fork")
-    return _PYANNOTE_PIPELINE

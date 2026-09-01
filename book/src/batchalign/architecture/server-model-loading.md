@@ -1,7 +1,7 @@
 # Server Model Loading and Caching
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:13 EDT
+**Last updated:** 2026-08-31 22:13 EDT
 
 This document describes every ML model loaded by batchalign3 workers,
 when each model is loaded into memory, and how results are cached.
@@ -110,11 +110,12 @@ exclusive diarization for ASR reconciliation. Local Pyannote and NeMo remain
 explicit alternatives. Local Pyannote loads lazily on the first request in a
 worker process and is then reused within that process.
 
-**Result caching:** Integrated diarized transcription caches validated raw
-backend evidence separately from derived normalized turns. A normal warm run
-can therefore replay evidence without another paid or local diarization call.
-Standalone `diarize` output is not yet connected to that cache and reruns local
-inference.
+**Result caching:** Integrated diarized transcription and standalone
+`diarize` share the same validated raw-evidence and derived-turn cache. A
+normal warm run can therefore replay evidence without another paid or local
+diarization call. Standalone defaults to local Pyannote but can explicitly
+select pyannoteAI Precision-2 or NeMo; the backend and optional/known speaker
+count are part of the evidence identity.
 
 ---
 
@@ -191,29 +192,36 @@ The default cloud engine reads `BATCHALIGN_PYANNOTE_API_KEY`,
 compatibility. This is a worker-owned credential path and audio is uploaded to
 pyannoteAI.
 
-### HuggingFace Hub token for the local Pyannote engine
+### Public Hugging Face downloads for the local Pyannote engine
 
-Most HF-hosted models used by batchalign3 are public, but the local speaker
-engine may depend on gated pyannote assets underneath
-`talkbank/dia-fork`. For diarization-capable machines, authenticate Hugging
-Face once before the first run and keep a read token available to the worker
-runtime.
+The released local speaker engine loads `talkbank/dia-fork`,
+`talkbank/seg-fork-3.0`, and
+`hbredin/wespeaker-voxceleb-resnet34-LM`. All three repositories are public and
+ungated. A worker therefore downloads the released model graph anonymously: it
+does not need `hf auth login`, `HF_TOKEN`, accepted model terms, or a
+pyannoteAI API key.
 
-```bash
-# Interactive login (stores token in Hugging Face's local auth cache/keychain)
-hf auth login
+The repository names are not the runtime identity. The packaged
+`batchalign/inference/local_pyannote_model.json` manifest owns an exact
+40-hex Hugging Face commit and required artifact for every node in the graph.
+Python validates the manifest before downloading and rewrites the pipeline's
+transitive model references to those pinned artifacts. Rust hashes those same
+manifest bytes into the raw speaker-evidence model revision. A moving Hub head
+therefore cannot change inference while retaining an old cache identity, and
+the Python and Rust sides cannot drift through duplicated version constants.
 
-# Or export a token explicitly for the current shell / worker runtime
-export HF_TOKEN="hf_..."  # from https://huggingface.co/settings/tokens
-```
+Release-candidate verification on 2026-08-31 exercised the packaged manifest
+through the real Pyannote loader, not only mocks: the loaded pipeline retained
+the manifest's pinned segmentation revision, resolved the embedding from that
+revision's snapshot path, and completed local inference over one second of
+prepared silent 16 kHz PCM with the expected empty segment result. This is a
+runtime wiring check, not a diarization-quality claim.
 
-If the model page asks you to accept terms, do that once in the browser before
-retrying diarization.
-
-The local engine relies on ambient Hugging Face authentication in the
-CLI/server process environment: the local Hugging Face auth cache/keychain created by
-`hf auth login`, or an explicit `HF_TOKEN` exported where the worker runtime can
-see it.
+This differs from some upstream Pyannote pipelines whose publishers gate their
+repositories. If an operator deliberately replaces the TalkBank-pinned model
+with such a custom model, that operator must provide whatever Hugging Face
+authentication and terms acceptance the custom repository requires. That
+credential is not part of the default Batchalign3 deployment.
 
 Once a model is downloaded, it is cached on disk at `~/.cache/huggingface/`
 and does not re-download on subsequent loads.

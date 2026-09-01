@@ -20,7 +20,6 @@ from batchalign.inference.speaker import (
     SpeakerSegment,
     _conv_scale_weights,
     _device_for_speaker_runtime,
-    _get_pyannote_pipeline,
     _infer_nemo_speaker_from_audio_file,
     _parse_rttm_line,
     _resolve_speaker_config,
@@ -266,32 +265,6 @@ def test_device_for_speaker_runtime_selects_expected_backend(
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: mps_available)
 
     assert _device_for_speaker_runtime(DevicePolicy(force_cpu=force_cpu)) == expected
-
-
-def test_get_pyannote_pipeline_caches_loaded_pipeline(monkeypatch) -> None:
-    """Pyannote pipeline loading should happen only once per worker process."""
-
-    loaded: list[str] = []
-
-    class _FakePipeline:
-        @staticmethod
-        def from_pretrained(name: str):
-            loaded.append(name)
-            return {"pipeline": name}
-
-    pyannote = ModuleType("pyannote")
-    pyannote_audio = ModuleType("pyannote.audio")
-    pyannote.audio = pyannote_audio
-    pyannote_audio.Pipeline = _FakePipeline
-    monkeypatch.setitem(sys.modules, "pyannote", pyannote)
-    monkeypatch.setitem(sys.modules, "pyannote.audio", pyannote_audio)
-    monkeypatch.setattr("batchalign.inference.speaker._PYANNOTE_PIPELINE", None)
-
-    first = _get_pyannote_pipeline()
-    second = _get_pyannote_pipeline()
-
-    assert first is second
-    assert loaded == ["talkbank/dia-fork"]
 
 
 def test_infer_pyannote_speaker_prepared_audio_shapes_waveform_and_labels(

@@ -294,6 +294,7 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
         Commands::Avqi(_) => Some(CommandOptions::Avqi(AvqiOptions { common })),
         Commands::Diarize(a) => Some(CommandOptions::Diarize(DiarizeOptions {
             common,
+            speaker_engine: a.speaker_engine,
             expected_speakers: a.num_speakers.map(crate::api::NumSpeakers),
         })),
         _ => None,

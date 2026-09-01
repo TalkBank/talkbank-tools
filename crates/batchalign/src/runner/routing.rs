@@ -172,7 +172,7 @@ pub(super) async fn dispatch_job_with_execution_context(
             "Using server-side media-analysis V2 path"
         );
 
-        dispatch_media_analysis_command(&job, host, pool, num_workers).await;
+        dispatch_media_analysis_command(&job, host, pool, cache, num_workers).await;
     } else if use_infer && command == ReleasedCommand::Morphotag {
         let engine_version = EngineVersion::from(
             engine_versions
@@ -458,6 +458,7 @@ async fn dispatch_media_analysis_command(
     job: &RunnerJobSnapshot,
     host: &DispatchHostContext,
     pool: &Arc<WorkerPool>,
+    cache: &Arc<UtteranceCache>,
     num_workers: NumWorkers,
 ) {
     let Some(plan) = MediaAnalysisDispatchPlan::from_job(job, host.config()) else {
@@ -470,6 +471,7 @@ async fn dispatch_media_analysis_command(
         host,
         MediaAnalysisDispatchRuntime {
             pool: pool.clone(),
+            cache: cache.clone(),
             num_workers,
         },
         plan,

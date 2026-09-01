@@ -20,9 +20,13 @@ daemon log into many gigabytes per day.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
+
+from batchalign.worker._progress import emit_hf_download_if_missing
 
 # Path resolution: this test file lives at
 # ``batchalign/tests/test_progress_audit.py``; the package root is its
@@ -124,3 +128,40 @@ def test_no_download_opt_outs(pattern: str, reason: str) -> None:
             f"If you genuinely need an exception, add ``# audit: allow <reason>`` "
             f"to the line and document why in the PR description."
         )
+
+
+def test_pinned_hub_probe_uses_the_loader_revision(monkeypatch) -> None:
+    """A moving-head cache hit cannot suppress progress for a pinned miss."""
+
+    observed: list[tuple[str, str, str | None]] = []
+    hub = ModuleType("huggingface_hub")
+    constants = ModuleType("huggingface_hub.constants")
+    constants.HF_HUB_CACHE = "/tmp/test-hf-cache"
+
+    def fake_probe(*, repo_id, filename, cache_dir, revision=None):
+        assert cache_dir == constants.HF_HUB_CACHE
+        observed.append((repo_id, filename, revision))
+        return "/tmp/cached-artifact"
+
+    hub.try_to_load_from_cache = fake_probe
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
+    monkeypatch.setitem(sys.modules, "huggingface_hub.constants", constants)
+    monkeypatch.setattr(
+        "batchalign.worker._progress.emit_download_event",
+        lambda *_args, **_kwargs: pytest.fail("a pinned cache hit must not emit"),
+    )
+
+    emit_hf_download_if_missing(
+        "talkbank/dia-fork",
+        kind="speaker diarization",
+        artifacts=("config.yaml",),
+        revision="df67acf78543ba69e9d120a3a06ad5e0e56fac41",
+    )
+
+    assert observed == [
+        (
+            "talkbank/dia-fork",
+            "config.yaml",
+            "df67acf78543ba69e9d120a3a06ad5e0e56fac41",
+        )
+    ]

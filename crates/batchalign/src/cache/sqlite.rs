@@ -14,6 +14,9 @@ use sqlx::{Row, SqlitePool};
 use crate::cache::CacheError;
 use crate::cache::backend::{CacheBackend, CacheStats};
 
+#[cfg(test)]
+mod migration_tests;
+
 /// Maximum parameters per SQLite IN clause (keep margin for other params).
 const CHUNK_SIZE: usize = 900;
 
@@ -52,6 +55,10 @@ impl SqliteBackend {
             .connect_with(options)
             .await?;
 
+        // Includes data repairs as well as schema changes. In particular, the
+        // FA raw-evidence migration refuses to invent a producer version for
+        // legacy payloads whose stored engine namespace contradicts them and
+        // quarantines their exact rows before removing them from live lookup.
         sqlx::migrate!("./cache_migrations").run(&pool).await?;
 
         Ok(Self { pool, db_path })
