@@ -1,7 +1,7 @@
 # diarize
 
 **Status:** Current
-**Last updated:** 2026-08-31 22:01 EDT
+**Last updated:** 2026-09-01 14:35 EDT
 
 Detect speaker turns in audio (speaker diarization) without transcribing.
 Each input media file produces a speaker-turns JSON artifact naming which
@@ -123,13 +123,26 @@ for the pipeline, segmentation model, and embedding model. A later update to a
 repository's default branch does not silently change a released BA3 runtime or
 reuse evidence produced by another model graph.
 
-This local model download must not be confused with
-`BATCHALIGN_PYANNOTE_API_KEY`. That separate credential authorizes the paid
-pyannoteAI cloud service selected by standalone
-`--speaker-engine pyannote-ai` and used by default in integrated diarized
-transcription. The default standalone `pyannote` route neither needs that API
-key nor sends audio to pyannoteAI. See [transcribe](transcribe.md) for the
-integrated cloud path.
+This local model download must not be confused with the pyannoteAI API key.
+That separate credential authorizes the paid pyannoteAI cloud service selected
+by standalone `--speaker-engine pyannote-ai` and used by default in integrated
+diarized transcription. It is not a Hugging Face token. BA3 reads it from
+either place, in this order:
+
+- the environment: `BATCHALIGN_PYANNOTE_API_KEY` (also accepted:
+  `BATCHALIGN_PYANNOTE_KEY`, `PYANNOTE_API_KEY`);
+- the configuration file `~/.batchalign.ini`, section `[diarize]`, key
+  `engine.pyannote.key`:
+
+```ini
+[diarize]
+engine.pyannote.key = <your pyannoteAI API key>
+```
+
+With the key in place, `batchalign3 diarize ... --speaker-engine pyannote-ai`
+needs nothing further. The default standalone `pyannote` route neither needs
+that API key nor sends audio to pyannoteAI. See [transcribe](transcribe.md)
+for the integrated cloud path.
 
 An operator who changes the local engine to a gated custom Hugging Face model
 must independently accept that model's terms and authenticate as required by
