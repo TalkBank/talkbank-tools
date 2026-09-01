@@ -1,7 +1,7 @@
 # Evidence, Replay, and Experiment Topology
 
 **Status:** Current
-**Last updated:** 2026-08-31 03:11 EDT
+**Last updated:** 2026-09-01 06:40 EDT
 
 This chapter is the visual map for BA3's evidence architecture. Version 0.3.0
 has raw-evidence caching and FA evidence schema 2. Version 0.4.0 additionally
@@ -160,6 +160,36 @@ Experiment admission cross-checks the recorded ordinal against the exact input
 CHAT and then resolves the same speaker/token identity in output CHAT; a
 header-only rewrite succeeds, while an utterance insertion, deletion, reorder,
 or lexical drift refuses.
+
+Global UTR has a third, narrower offline replay seam. The
+`eval utr-alignment` action consumes an exact clean CHAT document and retained
+UTR timing tokens, then emits the typed global word-to-token plan without
+inference or CHAT mutation. The plan keeps proposals for already timed lines
+even though current production projection preserves their bullets. This makes
+joint-boundary and word-prior research possible without confusing observed
+alignment evidence with a production policy.
+
+```mermaid
+flowchart LR
+    UCHAT["Fingerprint UTR input CHAT"]
+    UTOK["Fingerprint UTR token JSON"]
+    UDP["Global monotone alignment"]
+    UM["Typed word matches"]
+    UP["All-line timing proposals"]
+    UR["Immutable JSON report"]
+    POLICY["Separate research policy"]
+
+    UCHAT --> UDP
+    UTOK --> UDP
+    UDP --> UM --> UP --> UR --> POLICY
+```
+
+The replay report is not raw provider evidence and does not establish final
+`%wor` timing quality. A downstream experiment must admit input identity,
+coverage, lexical relation, and proposal validity before comparing policies.
+Reports are serialized completely before a destination is touched, staged in
+the destination directory, fsynced, and atomically published without
+replacing an existing evidence artifact.
 
 ## Reproducible comparative experiment loop
 

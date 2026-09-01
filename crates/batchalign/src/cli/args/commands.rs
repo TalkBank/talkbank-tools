@@ -7,6 +7,7 @@
 
 use clap::{Args, Subcommand, ValueEnum};
 
+use crate::chat_ops::fa::{UtrFuzzyThreshold, UtrOverlapDensityThreshold};
 use crate::types::engines::{
     AsrEngineName, AsrSelection, FaEngineName, SelectableEngine, SpeakerEngineName,
     TranslateEngineName, UtrEngine as AppUtrEngine,
@@ -125,8 +126,8 @@ pub struct AlignUtrTuningArgs {
     pub utr_ca_markers: CaMarkerPolicy,
 
     /// Max overlap density before skipping pass-1 exclusion (0.0-1.0).
-    #[arg(long, default_value_t = 0.30)]
-    pub utr_density_threshold: f64,
+    #[arg(long, default_value = "0.30")]
+    pub utr_density_threshold: UtrOverlapDensityThreshold,
 
     /// Tight window buffer for pass-2 backchannel recovery (ms).
     #[arg(long, default_value_t = 500)]
@@ -134,7 +135,7 @@ pub struct AlignUtrTuningArgs {
 
     /// UTR word matching threshold; 1.0 requests exact matching.
     #[arg(long)]
-    pub utr_fuzzy: Option<f64>,
+    pub utr_fuzzy: Option<UtrFuzzyThreshold>,
 }
 
 /// Complete UTR CLI policy, lowered immediately to
@@ -1477,6 +1478,41 @@ pub enum EvalAction {
     /// local transcribe post-processing pipeline without provider inference.
     #[command(name = "transcribe-replay")]
     TranscribeReplay(TranscribeReplayArgs),
+    /// Replay global UTR word-to-token matching without inference or CHAT
+    /// mutation, retaining exact match and timing-proposal evidence.
+    #[command(name = "utr-alignment")]
+    UtrAlignment(UtrAlignmentEvalArgs),
+}
+
+/// Arguments for `eval utr-alignment`.
+#[derive(Args, Debug, Clone)]
+pub struct UtrAlignmentEvalArgs {
+    /// Exact CHAT document to align against retained UTR tokens.
+    #[arg(long)]
+    pub chat: std::path::PathBuf,
+    /// Retained `_utr_tokens.json` artifact.
+    #[arg(long)]
+    pub tokens: std::path::PathBuf,
+    /// Fresh JSON report destination; an existing path is refused.
+    #[arg(long)]
+    pub output: std::path::PathBuf,
+    /// Jaro-Winkler threshold for fuzzy matching. Omit for case-insensitive
+    /// exact matching.
+    #[arg(long)]
+    pub fuzzy_threshold: Option<UtrFuzzyThreshold>,
+    /// Which utterances participate in the global alignment payload.
+    #[arg(long, value_enum, default_value_t)]
+    pub participation: UtrAlignmentParticipation,
+}
+
+/// Utterance population replayed by `eval utr-alignment`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum UtrAlignmentParticipation {
+    /// Include every main-tier utterance in document order.
+    #[default]
+    AllUtterances,
+    /// Exclude marked overlaps, matching the first pass of two-pass UTR.
+    ExcludeMarkedOverlap,
 }
 
 /// Offline transcribe-replay utility family.

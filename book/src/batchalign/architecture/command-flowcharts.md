@@ -204,15 +204,15 @@ flowchart TD
     end
 
     utr_in --> dp["Global DP alignment\nCHAT words ↔ ASR tokens"]
-    dp --> assign["Assign per-utterance\ntoken range (min_asr, max_asr)"]
+    dp --> assign["Plan: per-utterance word matches\nand a typed UtrTimingProposal\n(Positive | NonPositive), decided once"]
 
-    subgraph L2 ["Layer 2: UTR span guard (utr.rs run_global_utr)"]
-        assign --> zdcheck{"asr[min].start_ms\n>= asr[max].end_ms?"}
+    subgraph L2 ["Layer 2: UTR span guard (utr.rs project_global_utr_plan)"]
+        assign --> zdcheck{"proposal is\nNonPositive?"}
         zdcheck -->|Yes| drop2[Leave utterance untimed\ncount as unmatched]
         zdcheck -->|No| mono_check
     end
 
-    subgraph L3 ["Layer 3: UTR monotonicity pass (utr.rs run_global_utr)"]
+    subgraph L3 ["Layer 3: UTR monotonicity pass (utr.rs project_global_utr_plan)"]
         mono_check{"utt.start_ms\n< prev_non_overlap.end_ms?"}
         mono_check -->|Yes: DTW collision| advance["Advance start_ms = prev.end_ms\nExtend end_ms if needed"]
         mono_check -->|No| assign_bullet[Assign utterance bullet]
@@ -235,8 +235,8 @@ Each layer catches a different failure mode:
 | Layer | Where | What it catches |
 |-------|--------|----------------|
 | 1 | `dispatch/utr.rs` `asr_response_to_utr_tokens` | Whisper returning `start==end` for a single-frame token |
-| 2 | `utr.rs` `run_global_utr` bullet assignment | DP aligning an utterance to an ASR token range whose span is zero or negative |
-| 3 | `utr.rs` `run_global_utr` monotonicity post-pass | Two adjacent non-overlap utterances assigned to tokens with the same `start_ms` (DTW collision at a shared boundary) |
+| 2 | `utr.rs` `project_global_utr_plan` reading the plan's `UtrTimingProposal::NonPositive` | DP aligning an utterance to an ASR token range whose span is zero or negative. The verdict is decided once, where the plan is built (`UtrTimingProposal::spanning`); projection takes no token stream and cannot re-derive it |
+| 3 | `utr.rs` `project_global_utr_plan` monotonicity post-pass | Two adjacent non-overlap utterances assigned to tokens with the same `start_ms` (DTW collision at a shared boundary) |
 | Safety net | `orchestrate.rs` `enforce_monotonicity` | Residual overlaps from any source; when clamping would produce zero-duration, strip entirely |
 
 Layer 3 is the **root-cause fix**. Layers 1 and 2 handle degenerate single-token

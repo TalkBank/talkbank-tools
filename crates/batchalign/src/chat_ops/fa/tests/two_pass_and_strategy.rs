@@ -35,10 +35,11 @@ fn test_two_pass_correctly_times_lazy_overlap() {
 
     // PAR's two utterances + INV's backchannel should all get timing
     assert_eq!(
-        result.injected, 3,
+        result.injected(),
+        3,
         "all 3 untimed utterances should get timing"
     );
-    assert_eq!(result.unmatched, 0);
+    assert_eq!(result.unmatched(), 0);
 
     // Verify INV's "mhm" (utterance index 1) got correct timing
     let inv_bullet = get_utterance_bullet(&chat, 1).expect("INV +< mhm should have a bullet");
@@ -81,7 +82,7 @@ fn test_global_utr_misaligns_lazy_overlap_backchannel() {
     // (after "yesterday" or misplaced), not within the overlapping window.
     // We verify that at least the injected count covers all utterances.
     assert_eq!(
-        result.injected + result.unmatched,
+        result.injected() + result.unmatched(),
         3,
         "all 3 untimed utterances accounted for"
     );
@@ -127,9 +128,13 @@ fn test_two_pass_identical_without_lazy_overlap() {
     let r1 = utr::GlobalUtr.inject(&mut chat_global, &tokens);
     let r2 = utr::TwoPassOverlapUtr::new().inject(&mut chat_two_pass, &tokens);
 
-    assert_eq!(r1.injected, r2.injected, "injected count should match");
-    assert_eq!(r1.unmatched, r2.unmatched, "unmatched count should match");
-    assert_eq!(r1.skipped, r2.skipped, "skipped count should match");
+    assert_eq!(r1.injected(), r2.injected(), "injected count should match");
+    assert_eq!(
+        r1.unmatched(),
+        r2.unmatched(),
+        "unmatched count should match"
+    );
+    assert_eq!(r1.skipped(), r2.skipped(), "skipped count should match");
 
     // Compare bullets on each utterance
     for i in 0..6 {
@@ -185,10 +190,11 @@ fn test_two_pass_dense_backchannels() {
 
     // PAR's utterance (1) + 4 INV backchannels = 5 injected
     assert_eq!(
-        result.injected, 5,
+        result.injected(),
+        5,
         "PAR + 4 INV backchannels should be timed"
     );
-    assert_eq!(result.unmatched, 0);
+    assert_eq!(result.unmatched(), 0);
 
     // All 4 INV utterances (indices 1-4) should have bullets within PAR's range
     for inv_idx in 1..=4 {
@@ -232,7 +238,7 @@ fn test_select_strategy_chooses_correctly() {
         ("groceries", 6700, 7500),
     ]);
     let result = strategy.inject(&mut chat, &tokens);
-    assert_eq!(result.injected, 3, "should use two-pass and time all 3");
+    assert_eq!(result.injected(), 3, "should use two-pass and time all 3");
 
     // select_strategy on a non-+< file should use GlobalUtr
     let strategy = utr::select_strategy(&chat_no_overlap, None);

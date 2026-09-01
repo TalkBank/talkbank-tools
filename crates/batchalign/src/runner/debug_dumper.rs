@@ -862,16 +862,7 @@ mod tests {
         let chat = "@UTF8\n@Begin\n@End";
         dumper.dump_utr_input("test.cha", chat);
         dumper.dump_utr_tokens("test.cha", &[]);
-        dumper.dump_utr_output(
-            "test.cha",
-            chat,
-            &UtrResult {
-                injected: 0,
-                skipped: 0,
-                unmatched: 0,
-                decisions: Vec::new(),
-            },
-        );
+        dumper.dump_utr_output("test.cha", chat, &UtrResult::not_run_no_untimed(0));
         dumper.dump_fa_output("test.cha", chat);
         dumper.dump_asr_response("test.wav", &serde_json::json!({"tokens": []}));
         dumper.dump_post_asr_chat("test.wav", chat);
@@ -906,12 +897,7 @@ mod tests {
             start_ms: 100,
             end_ms: 500,
         }];
-        let utr_result = UtrResult {
-            injected: 1,
-            skipped: 0,
-            unmatched: 0,
-            decisions: Vec::new(),
-        };
+        let utr_result = UtrResult::not_run_no_untimed(1);
 
         dumper.dump_utr_input("sample.cha", chat);
         dumper.dump_utr_tokens("sample.cha", &tokens);

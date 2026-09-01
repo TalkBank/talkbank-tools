@@ -1,7 +1,7 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-08-31 22:01 EDT
+**Last updated:** 2026-09-01 06:40 EDT
 
 ## Release boundary
 
@@ -195,6 +195,56 @@ The trace keeps exact input words and assignments together with the source and
 model evidence. This permits policy replay and confidence analysis without
 another model invocation, while keeping the final CHAT free of dependent-tier
 debug clutter.
+
+### UTR word-alignment evidence
+
+`UtrResult` retains the exact typed alignment plan used by UTR. Each
+utterance is `matched`, `unmatched`, `excluded_marked_overlap`, or
+`no_alignable_words`; a matched state owns a nonempty ordered match collection
+and either a positive or nonpositive timing proposal. Deliberate first-pass
+exclusion cannot masquerade as failure to match. Each word match records stable
+utterance/word and ASR-token addresses plus an exact, case-insensitive, or
+fixed-point fuzzy relation. Global and two-pass results are different variants,
+so a timing-only overlap recovery cannot masquerade as a global word match.
+
+`UtrResult` fields are read through accessors rather than public construction.
+UTR evidence construction lives in a dedicated module whose address
+constructors remain private to the UTR implementation. Distinct utterance,
+word, and ASR-token ordinal types prevent cross-domain index substitution.
+The no-run constructor can represent only zero injected, zero unmatched, and
+the observed already-timed count. Two-pass completion derives final counts
+from a population-checked before/after bullet transition instead of balancing
+increments and decrements. A population change is a typed refusal that makes
+two-pass select the separately computed global result. A successful recovery
+also removes the superseded pass-one unmatched decision. The serialized
+summary and decision evidence therefore cannot disagree through those
+construction paths.
+
+The regular `_utr_result.json` debug artifact serializes this plan. The
+offline `eval utr-alignment` action can reconstruct the same global plan from
+an exact `_utr_input.cha` and `_utr_tokens.json` pair without model or provider
+inference. Its report fingerprints both inputs and records the build identity.
+This is intentionally separate from CHAT: BA3 does not restore `%xalign`, and
+an observation sidecar does not authorize a production bullet or `%wor`
+change.
+
+```mermaid
+flowchart LR
+    CHAT["Clean typed CHAT"]
+    TOK["Retained UTR tokens"]
+    PLAN["UtrAlignmentPlan"]
+    MATCH["Nonempty word matches<br/>and lexical relations"]
+    PROP["Positive / nonpositive proposal"]
+    RESULT["UtrResult debug evidence"]
+    EVAL["eval utr-alignment<br/>offline replay"]
+
+    CHAT --> PLAN
+    TOK --> PLAN
+    PLAN --> MATCH --> PROP --> RESULT
+    CHAT --> EVAL
+    TOK --> EVAL
+    EVAL --> PLAN
+```
 
 ### Forced-alignment decision evidence
 

@@ -143,12 +143,9 @@ pub(in crate::runner) async fn run_utr_pass(
 
     if untimed == 0 {
         info!(context.filename, "UTR pass: no untimed utterances");
-        return Ok(crate::chat_ops::fa::utr::UtrResult {
-            injected: 0,
-            skipped: timed,
-            unmatched: 0,
-            decisions: Vec::new(),
-        });
+        return Ok(crate::chat_ops::fa::utr::UtrResult::not_run_no_untimed(
+            timed,
+        ));
     }
 
     info!(
@@ -346,9 +343,9 @@ pub(in crate::runner) async fn run_utr_pass(
 
             info!(
                 context.filename,
-                injected = utr_result.injected,
-                skipped = utr_result.skipped,
-                unmatched = utr_result.unmatched,
+                injected = utr_result.injected(),
+                skipped = utr_result.skipped(),
+                unmatched = utr_result.unmatched(),
                 "UTR partial pass complete"
             );
 
@@ -465,9 +462,9 @@ async fn run_utr_pass_full(
 
     info!(
         context.filename,
-        injected = utr_result.injected,
-        skipped = utr_result.skipped,
-        unmatched = utr_result.unmatched,
+        injected = utr_result.injected(),
+        skipped = utr_result.skipped(),
+        unmatched = utr_result.unmatched(),
         "UTR pass complete"
     );
 

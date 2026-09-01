@@ -32,7 +32,7 @@ fn utr_serialize_reparse_no_internal_bullets() {
         ("here", 5900, 6200),
     ]);
     let result = utr::inject_utr_timing(&mut chat, &tokens);
-    assert!(result.injected > 0, "UTR should inject timing");
+    assert!(result.injected() > 0, "UTR should inject timing");
 
     // At this point, ChatFile has TierContent.bullet set, but NO InternalBullet items
     assert_eq!(
@@ -140,7 +140,8 @@ fn test_utr_zero_duration_asr_token_does_not_create_zero_duration_bullet() {
         None => {
             // Correct outcome: utterance is untimed; FA will assign a valid bullet.
             assert_eq!(
-                result.unmatched, 1,
+                result.unmatched(),
+                1,
                 "utterance should be counted as unmatched when only \
                  zero-duration tokens are available"
             );

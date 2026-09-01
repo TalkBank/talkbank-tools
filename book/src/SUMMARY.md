@@ -44,7 +44,7 @@
   - [opensmile](batchalign/user-guide/commands/opensmile.md)
   - [avqi](batchalign/user-guide/commands/avqi.md)
   - [diarize](batchalign/user-guide/commands/diarize.md)
-  - [eval l2-morphotag](batchalign/user-guide/commands/eval.md)
+  - [eval](batchalign/user-guide/commands/eval.md)
   - [merge-verify](batchalign/user-guide/commands/merge-verify.md)
 - [Python API](batchalign/user-guide/python-api.md)
 - [Cantonese Engines](batchalign/user-guide/cantonese-processing.md)

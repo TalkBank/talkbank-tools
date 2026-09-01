@@ -36,8 +36,16 @@ use super::coordinates::{FileMs, Recording};
 
 use super::extraction::collect_fa_words;
 
+mod evidence;
 pub mod overlap_markers;
 mod two_pass;
+
+pub use evidence::{
+    NonEmptyUtrWordMatches, UtrAlignmentEvidence, UtrAlignmentPlan, UtrAlignmentStrategy,
+    UtrAsrTokenAddress, UtrLexicalRelation, UtrOverlapRecovery, UtrResult, UtrTimingProposal,
+    UtrUtteranceAlignmentEvidence, UtrUtteranceOrdinal, UtrWordAddress, UtrWordMatch,
+};
+use evidence::{UtrAsrTokenOrdinal, UtrWordOrdinal};
 
 /// Synthetic drift-class regression scenarios. Public entry point is
 /// [`inject_utr_timing`]; the scenarios generate CHAT + ASR in-memory and
@@ -63,32 +71,6 @@ pub struct AsrTimingToken {
     pub end_ms: u64,
 }
 
-/// Result summary from UTR injection.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct UtrResult {
-    /// Utterances that received timing from ASR tokens.
-    pub injected: usize,
-    /// Already-timed utterances (left unchanged).
-    pub skipped: usize,
-    /// Untimed utterances that could not be matched to ASR tokens.
-    pub unmatched: usize,
-    /// Per-utterance decision records for unmatched utterances.
-    /// Excluded from equality comparison and serialization; these are
-    /// provenance metadata, not part of the UTR result semantics.
-    #[serde(skip)]
-    pub decisions: Vec<batchalign_transform::decisions::DecisionRecord>,
-}
-
-impl PartialEq for UtrResult {
-    fn eq(&self, other: &Self) -> bool {
-        self.injected == other.injected
-            && self.skipped == other.skipped
-            && self.unmatched == other.unmatched
-    }
-}
-
-impl Eq for UtrResult {}
-
 /// Strategy trait for UTR injection.
 ///
 /// Implementations determine how ASR tokens are aligned with CHAT utterances
@@ -108,7 +90,8 @@ pub trait UtrStrategy: Send + Sync {
 pub struct GlobalUtr;
 
 pub use two_pass::{
-    CaMarkerPolicy, GroupingContext, TwoPassConfig, TwoPassOverlapUtr, UtrMatchMode,
+    CaMarkerPolicy, GroupingContext, TwoPassConfig, TwoPassOverlapUtr, UtrFuzzyThreshold,
+    UtrMatchMode, UtrOverlapDensityThreshold,
 };
 
 /// Select the best UTR strategy for a given CHAT file.
@@ -178,29 +161,6 @@ pub(super) struct UtrUtteranceInfo {
     pub(super) top_onsets: Vec<(Option<talkbank_model::model::OverlapIndex>, f64)>,
 }
 
-/// Per-utterance matched ASR token range produced by one UTR alignment plan.
-type UtrTokenRanges = Vec<Option<(usize, usize)>>;
-
-/// Which alignment strategy produced the per-utterance token ranges.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum UtrAlignmentStrategy {
-    /// The entire transcript was a uniquely embedded exact monotonic
-    /// subsequence of the ASR token stream, so DP was unnecessary.
-    UniqueExactSubsequence,
-    /// The fast path was impossible or ambiguous, so the full-file Hirschberg
-    /// alignment remained necessary.
-    GlobalDp,
-}
-
-/// Complete plan for one UTR alignment pass.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct UtrAlignmentPlan {
-    /// Strategy used to build the matched token ranges.
-    strategy: UtrAlignmentStrategy,
-    /// Per-utterance min/max matched token indices.
-    utt_ranges: UtrTokenRanges,
-}
-
 /// Inject utterance-level timing from ASR tokens into untimed CHAT utterances.
 ///
 /// Backward-compatible entry point that delegates to [`GlobalUtr`]. New callers
@@ -215,68 +175,105 @@ impl UtrStrategy for GlobalUtr {
     /// Attempts a cheap exact-subsequence fast path first. Falls back to a
     /// single global Hirschberg DP alignment when the fast path is ambiguous.
     fn inject(&self, chat_file: &mut ChatFile, asr_tokens: &[AsrTimingToken]) -> UtrResult {
-        run_global_utr(chat_file, asr_tokens, false, MatchMode::CaseInsensitive)
+        run_global_utr(
+            chat_file,
+            asr_tokens,
+            GlobalUtrParticipation::AllUtterances,
+            MatchMode::CaseInsensitive,
+        )
     }
+}
+
+/// Which utterances participate in the global UTR alignment payload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GlobalUtrParticipation {
+    /// Include every utterance in document order.
+    AllUtterances,
+    /// Exclude marked overlap utterances for later local recovery.
+    ExcludeMarkedOverlap,
+}
+
+/// Recompute global UTR word-to-token evidence without changing CHAT timing.
+///
+/// This is the offline replay seam used by evaluation tools. It runs the same
+/// planner production UTR consumes, but it returns the plan without applying
+/// any bullet projection.
+pub fn observe_global_utr_alignment(
+    chat_file: &ChatFile,
+    asr_tokens: &[AsrTimingToken],
+    match_mode: UtrMatchMode,
+    participation: GlobalUtrParticipation,
+) -> UtrAlignmentPlan {
+    plan_global_utr_alignment(
+        chat_file,
+        asr_tokens,
+        match_mode.to_dp_match_mode(),
+        participation,
+    )
 }
 
 /// Core global UTR implementation shared by [`GlobalUtr`] and the first pass
 /// of [`TwoPassOverlapUtr`].
 ///
-/// When `skip_lazy_overlap` is true, `+<` utterances are excluded from the
-/// flattened word sequence (their words don't participate in the global DP)
-/// but are still counted in the result as unmatched. Pass 2 of the two-pass
-/// strategy handles them separately.
+/// Under [`GlobalUtrParticipation::ExcludeMarkedOverlap`], `+<` utterances are
+/// excluded from the flattened word sequence (their words do not participate
+/// in the global DP) but are still counted as unmatched. Pass 2 of the
+/// two-pass strategy handles them separately.
 pub(super) fn run_global_utr(
     chat_file: &mut ChatFile,
     asr_tokens: &[AsrTimingToken],
-    skip_lazy_overlap: bool,
+    participation: GlobalUtrParticipation,
     dp_match_mode: MatchMode,
+) -> UtrResult {
+    let utt_infos = collect_utr_utterance_info(chat_file);
+    if asr_tokens.is_empty() {
+        // Nothing can match. The plan still records every utterance as
+        // unmatched (or excluded, or wordless) so the evidence is complete,
+        // but no decision is written and no bullet is touched: the count is
+        // the whole outcome.
+        let plan = build_alignment_plan(
+            UtrAlignmentStrategy::GlobalDp,
+            &[],
+            asr_tokens,
+            &utt_infos,
+            std::iter::empty(),
+            participation,
+        );
+        let skipped = utt_infos.iter().filter(|info| info.has_bullet).count();
+        return UtrResult {
+            injected: 0,
+            skipped,
+            unmatched: utt_infos.len() - skipped,
+            alignment: UtrAlignmentEvidence::Global { plan },
+            decisions: Vec::new(),
+        };
+    }
+    let plan = plan_global_utr_alignment_for(&utt_infos, asr_tokens, dp_match_mode, participation);
+    project_global_utr_plan(chat_file, &utt_infos, plan)
+}
+
+/// Project a global plan's typed evidence onto the transcript's bullets.
+///
+/// This consumes each utterance's [`UtrTimingProposal`] as the plan recorded
+/// it. It takes nothing but the plan and the census it was built from, so it
+/// cannot re-derive a span or a positive/non-positive verdict from raw tokens
+/// and disagree with the evidence it also retains: the two used to be
+/// computed twice, from the same tokens, in two places. `utt_infos` is the
+/// census the plan was built from, so its population is the plan's by
+/// construction.
+pub(super) fn project_global_utr_plan(
+    chat_file: &mut ChatFile,
+    utt_infos: &[UtrUtteranceInfo],
+    plan: UtrAlignmentPlan,
 ) -> UtrResult {
     let mut result = UtrResult {
         injected: 0,
         skipped: 0,
         unmatched: 0,
+        alignment: UtrAlignmentEvidence::NotRunNoUntimed,
         decisions: Vec::new(),
     };
-
-    if asr_tokens.is_empty() {
-        for line in &chat_file.lines {
-            if let Line::Utterance(utt) = line {
-                if utt.main.content.bullet.is_some() {
-                    result.skipped += 1;
-                } else {
-                    result.unmatched += 1;
-                }
-            }
-        }
-        return result;
-    }
-
-    let utt_infos = collect_utr_utterance_info(chat_file);
-
-    // Flatten utterance words into a single payload sequence, optionally
-    // skipping overlap utterances (+< or ⌊-bearing) so the global alignment
-    // sees only main-speaker words in their correct temporal order.
-    let mut all_words: Vec<String> = Vec::new();
-    let mut word_to_utt: Vec<usize> = Vec::new();
-    for (utt_idx, info) in utt_infos.iter().enumerate() {
-        if skip_lazy_overlap && (info.has_lazy_overlap || info.has_ca_overlap) {
-            continue;
-        }
-        for word in &info.words {
-            all_words.push(word.clone());
-            word_to_utt.push(utt_idx);
-        }
-    }
-
-    let asr_texts: Vec<String> = asr_tokens.iter().map(|t| t.text.clone()).collect();
-    let plan = plan_utr_alignment(
-        &all_words,
-        &asr_texts,
-        &word_to_utt,
-        utt_infos.len(),
-        dp_match_mode,
-    );
 
     // Build utterance ordinal → line index mapping for decision records.
     let utt_line_indices: Vec<usize> = chat_file
@@ -291,78 +288,97 @@ pub(super) fn run_global_utr(
             }
         })
         .collect();
+    let decision = |utt_idx: usize,
+                    strategy: batchalign_transform::decisions::UtrStrategy,
+                    reason: String,
+                    needs_review: bool|
+     -> Option<batchalign_transform::decisions::DecisionRecord> {
+        let line_idx = *utt_line_indices.get(utt_idx)?;
+        let Some(Line::Utterance(utt)) = chat_file.lines.get(line_idx) else {
+            return None;
+        };
+        Some(batchalign_transform::decisions::DecisionRecord {
+            line_idx: batchalign_transform::decisions::LineIdx::new(line_idx),
+            speaker: utt.main.speaker.as_str().to_string(),
+            strategy: batchalign_transform::decisions::DecisionStrategy::Utr(strategy),
+            reason,
+            needs_review,
+        })
+    };
 
-    // Convert ranges to bullets for untimed utterances only.
+    // Project proposals onto untimed utterances only; timed ones are kept.
     let mut bullets_to_set: Vec<Option<(u64, u64)>> = vec![None; utt_infos.len()];
-    for (utt_idx, info) in utt_infos.iter().enumerate() {
+    for (utt_idx, (info, evidence)) in utt_infos.iter().zip(&plan.utterances).enumerate() {
         if info.has_bullet {
             result.skipped += 1;
             continue;
         }
-        // +< utterances skipped in pass 1 get no range, count as unmatched
-        // (the two-pass caller will handle them in pass 2).
-        match plan.utt_ranges[utt_idx] {
-            Some((min_asr, max_asr)) => {
-                let start_ms = asr_tokens[min_asr].start_ms;
-                let end_ms = asr_tokens[max_asr].end_ms;
-                if start_ms < end_ms {
-                    bullets_to_set[utt_idx] = Some((start_ms, end_ms));
-                    result.injected += 1;
-                } else {
-                    // The matched ASR token range has start_ms >= end_ms, a
-                    // zero-duration span produced by Whisper for very short words
-                    // (single 20ms frame backchannels like "mhm", "yeah").
-                    // Creating a •T_T• utterance bullet would be actively harmful:
-                    // the FA postprocess bounds word timings to the utterance range,
-                    // clamping every word timing to the empty [T,T] interval and
-                    // dropping them, so the zero-duration bullet then perpetuates
-                    // across every subsequent `align` re-run.
-                    // Leave the utterance untimed; FA will assign a valid bullet
-                    // from the word-level forced alignment instead.
-                    result.unmatched += 1;
-                    if let Some(&line_idx) = utt_line_indices.get(utt_idx)
-                        && let Some(Line::Utterance(utt)) = chat_file.lines.get(line_idx)
-                    {
-                        result
-                            .decisions
-                            .push(batchalign_transform::decisions::DecisionRecord {
-                            line_idx: batchalign_transform::decisions::LineIdx::new(line_idx),
-                            speaker: utt.main.speaker.as_str().to_string(),
-                            strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
-                                batchalign_transform::decisions::UtrStrategy::ZeroDurationSkipped,
-                            ),
-                            reason: format!(
-                                "words={} asr_range=[{min_asr},{max_asr}] \
-                                     start_ms={start_ms} end_ms={end_ms} \
-                                     reason=zero_or_negative_duration",
-                                info.words.len()
-                            ),
-                            needs_review: false,
-                        });
-                    }
-                }
+        match evidence {
+            UtrUtteranceAlignmentEvidence::Matched {
+                proposal: UtrTimingProposal::Positive { start_ms, end_ms },
+                ..
+            } => {
+                bullets_to_set[utt_idx] = Some((*start_ms, *end_ms));
+                result.injected += 1;
             }
-            None => {
+            UtrUtteranceAlignmentEvidence::Matched {
+                proposal: UtrTimingProposal::NonPositive { start_ms, end_ms },
+                matches,
+                alignable_words,
+                ..
+            } => {
+                // A zero- or negative-duration span, produced by Whisper for
+                // very short words (single 20ms frame backchannels like "mhm",
+                // "yeah"). Creating a •T_T• utterance bullet would be actively
+                // harmful: the FA postprocess bounds word timings to the
+                // utterance range, clamping every word timing to the empty
+                // [T,T] interval and dropping them, so the zero-duration
+                // bullet then perpetuates across every subsequent `align`
+                // re-run. Leave the utterance untimed; FA will assign a valid
+                // bullet from the word-level forced alignment instead.
                 result.unmatched += 1;
-                // Record which utterance was unmatched.
-                if let Some(&line_idx) = utt_line_indices.get(utt_idx)
-                    && let Some(Line::Utterance(utt)) = chat_file.lines.get(line_idx)
-                {
-                    result
-                        .decisions
-                        .push(batchalign_transform::decisions::DecisionRecord {
-                            line_idx: batchalign_transform::decisions::LineIdx::new(line_idx),
-                            speaker: utt.main.speaker.as_str().to_string(),
-                            strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
-                                batchalign_transform::decisions::UtrStrategy::Unmatched,
-                            ),
-                            reason: format!("words={} no_asr_match", info.words.len()),
-                            needs_review: true,
-                        });
-                }
+                let (min_asr, max_asr) = matches.token_extent();
+                result.decisions.extend(decision(
+                    utt_idx,
+                    batchalign_transform::decisions::UtrStrategy::ZeroDurationSkipped,
+                    format!(
+                        "words={alignable_words} asr_range=[{},{}] \
+                         start_ms={start_ms} end_ms={end_ms} \
+                         reason=zero_or_negative_duration",
+                        min_asr.index(),
+                        max_asr.index()
+                    ),
+                    false,
+                ));
+            }
+            UtrUtteranceAlignmentEvidence::Unmatched {
+                alignable_words, ..
+            }
+            | UtrUtteranceAlignmentEvidence::ExcludedMarkedOverlap {
+                alignable_words, ..
+            } => {
+                // `+<` utterances skipped in pass 1 count as unmatched here;
+                // the two-pass caller handles them in pass 2.
+                result.unmatched += 1;
+                result.decisions.extend(decision(
+                    utt_idx,
+                    batchalign_transform::decisions::UtrStrategy::Unmatched,
+                    format!("words={alignable_words} no_asr_match"),
+                    true,
+                ));
+            }
+            UtrUtteranceAlignmentEvidence::NoAlignableWords { .. } => {
+                result.unmatched += 1;
+                result.decisions.extend(decision(
+                    utt_idx,
+                    batchalign_transform::decisions::UtrStrategy::Unmatched,
+                    "words=0 no_asr_match".to_string(),
+                    true,
+                ));
             }
         }
     }
+    result.alignment = UtrAlignmentEvidence::Global { plan };
 
     // Post-pass: enforce strictly increasing start_ms for adjacent non-overlap
     // utterances among the bullets being set.
@@ -447,6 +463,16 @@ pub(super) fn run_global_utr(
 
 /// Extract alignable words, bullet presence, `+<` linker status, and CA
 /// overlap marker info for every utterance in the order UTR sees them.
+impl UtrUtteranceInfo {
+    /// Whether a global pass with this participation leaves the utterance
+    /// out of its flattened word sequence: the one owner of that rule, used
+    /// both to build the payload and to label the evidence.
+    fn excluded_from(&self, participation: GlobalUtrParticipation) -> bool {
+        participation == GlobalUtrParticipation::ExcludeMarkedOverlap
+            && (self.has_lazy_overlap || self.has_ca_overlap)
+    }
+}
+
 pub(super) fn collect_utr_utterance_info(chat_file: &ChatFile) -> Vec<UtrUtteranceInfo> {
     let mut utt_infos = Vec::new();
     for line in &chat_file.lines {
@@ -511,29 +537,106 @@ pub(super) fn collect_utr_utterance_info(chat_file: &ChatFile) -> Vec<UtrUtteran
 /// word appears in ASR order *and* that embedding is unique, UTR can avoid DP.
 /// Any missing word or repeated-token ambiguity falls back to the global
 /// Hirschberg alignment.
-fn plan_utr_alignment(
-    all_words: &[String],
-    asr_texts: &[String],
-    word_to_utt: &[usize],
-    utt_count: usize,
+pub(super) fn plan_global_utr_alignment(
+    chat_file: &ChatFile,
+    asr_tokens: &[AsrTimingToken],
     dp_match_mode: MatchMode,
+    participation: GlobalUtrParticipation,
 ) -> UtrAlignmentPlan {
-    // Exact-subsequence fast path only works with exact/case-insensitive matching.
-    if matches!(dp_match_mode, MatchMode::Exact | MatchMode::CaseInsensitive)
-        && let Some(utt_ranges) =
-            try_unique_exact_subsequence_ranges(all_words, asr_texts, word_to_utt, utt_count)
+    let utt_infos = collect_utr_utterance_info(chat_file);
+    plan_global_utr_alignment_for(&utt_infos, asr_tokens, dp_match_mode, participation)
+}
+
+/// Plan against utterance information already collected, so a caller that
+/// also projects the plan uses ONE census for both and the plan's utterance
+/// population is the projection's by construction.
+fn plan_global_utr_alignment_for(
+    utt_infos: &[UtrUtteranceInfo],
+    asr_tokens: &[AsrTimingToken],
+    dp_match_mode: MatchMode,
+    participation: GlobalUtrParticipation,
+) -> UtrAlignmentPlan {
+    let mut payload = Vec::new();
+    for (utterance_index, info) in utt_infos.iter().enumerate() {
+        if info.excluded_from(participation) {
+            continue;
+        }
+        for (word_index, word) in info.words.iter().enumerate() {
+            payload.push(UtrPayloadWord {
+                text: word.clone(),
+                address: UtrWordAddress {
+                    utterance_index: UtrUtteranceOrdinal(utterance_index),
+                    word_index: UtrWordOrdinal(word_index),
+                },
+            });
+        }
+    }
+    plan_utr_alignment(
+        &payload,
+        asr_tokens,
+        utt_infos,
+        dp_match_mode,
+        participation,
+    )
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct UtrPayloadWord {
+    text: String,
+    address: UtrWordAddress,
+}
+
+fn plan_utr_alignment(
+    payload: &[UtrPayloadWord],
+    asr_tokens: &[AsrTimingToken],
+    utt_infos: &[UtrUtteranceInfo],
+    dp_match_mode: MatchMode,
+    participation: GlobalUtrParticipation,
+) -> UtrAlignmentPlan {
+    let all_words = payload
+        .iter()
+        .map(|word| word.text.clone())
+        .collect::<Vec<_>>();
+    let asr_texts = asr_tokens
+        .iter()
+        .map(|token| token.text.clone())
+        .collect::<Vec<_>>();
+
+    // This fast path deliberately uses case-folded comparison, so it is only
+    // valid for the case-insensitive DP policy. An exact caller must reach the
+    // exact DP relation instead of being silently weakened here.
+    if matches!(dp_match_mode, MatchMode::CaseInsensitive)
+        && let Some(reference_indices) =
+            try_unique_exact_subsequence_indices(&all_words, &asr_texts)
     {
-        return UtrAlignmentPlan {
-            strategy: UtrAlignmentStrategy::UniqueExactSubsequence,
-            utt_ranges,
-        };
+        return build_alignment_plan(
+            UtrAlignmentStrategy::UniqueExactSubsequence,
+            payload,
+            asr_tokens,
+            utt_infos,
+            reference_indices.into_iter().enumerate(),
+            participation,
+        );
     }
 
-    let alignment = dp_align::align(all_words, asr_texts, dp_match_mode);
-    UtrAlignmentPlan {
-        strategy: UtrAlignmentStrategy::GlobalDp,
-        utt_ranges: collect_utt_ranges_from_alignment(&alignment, word_to_utt, utt_count),
-    }
+    let alignment = dp_align::align(&all_words, &asr_texts, dp_match_mode);
+    let matched_indices = alignment.into_iter().filter_map(|item| match item {
+        dp_align::AlignResult::Match {
+            payload_idx,
+            reference_idx,
+            ..
+        } => Some((payload_idx, reference_idx)),
+        dp_align::AlignResult::ExtraPayload { .. }
+        | dp_align::AlignResult::ExtraReference { .. } => None,
+    });
+    build_alignment_plan(
+        UtrAlignmentStrategy::GlobalDp,
+        payload,
+        asr_tokens,
+        utt_infos,
+        matched_indices,
+        participation,
+    )
 }
 
 /// Attempt the exact-subsequence fast path for UTR.
@@ -541,23 +644,17 @@ fn plan_utr_alignment(
 /// The fast path is accepted only when the transcript words have exactly one
 /// monotonic embedding into the ASR stream. Repeated-token ambiguity therefore
 /// forces a DP fallback instead of silently accepting an arbitrary greedy path.
-fn try_unique_exact_subsequence_ranges(
+fn try_unique_exact_subsequence_indices(
     all_words: &[String],
     asr_texts: &[String],
-    word_to_utt: &[usize],
-    utt_count: usize,
-) -> Option<UtrTokenRanges> {
+) -> Option<Vec<usize>> {
     let earliest = greedy_forward_match_indices(all_words, asr_texts)?;
     let latest = greedy_reverse_match_indices(all_words, asr_texts)?;
     if earliest != latest {
         return None;
     }
 
-    Some(collect_utt_ranges_from_match_indices(
-        &earliest,
-        word_to_utt,
-        utt_count,
-    ))
+    Some(earliest)
 }
 
 /// Return the earliest monotonic exact-subsequence match indices for the
@@ -603,55 +700,81 @@ fn greedy_reverse_match_indices(payload: &[String], reference: &[String]) -> Opt
     Some(matches)
 }
 
-/// Convert one matched reference index per payload word into per-utterance
-/// token ranges.
-fn collect_utt_ranges_from_match_indices(
-    matched_reference_indices: &[usize],
-    word_to_utt: &[usize],
-    utt_count: usize,
-) -> UtrTokenRanges {
-    let mut utt_ranges = vec![None; utt_count];
-    for (payload_idx, reference_idx) in matched_reference_indices.iter().enumerate() {
-        let utt_idx = word_to_utt[payload_idx];
-        update_utt_range(&mut utt_ranges[utt_idx], *reference_idx);
+fn build_alignment_plan(
+    strategy: UtrAlignmentStrategy,
+    payload: &[UtrPayloadWord],
+    asr_tokens: &[AsrTimingToken],
+    utt_infos: &[UtrUtteranceInfo],
+    matched_indices: impl IntoIterator<Item = (usize, usize)>,
+    participation: GlobalUtrParticipation,
+) -> UtrAlignmentPlan {
+    let mut by_utterance = vec![Vec::new(); utt_infos.len()];
+    for (payload_idx, reference_idx) in matched_indices {
+        let payload_word = &payload[payload_idx];
+        let asr_token = &asr_tokens[reference_idx];
+        by_utterance[payload_word.address.utterance_index.index()].push(UtrWordMatch {
+            word: payload_word.address,
+            token: UtrAsrTokenAddress {
+                token_index: UtrAsrTokenOrdinal(reference_idx),
+            },
+            chat_text: payload_word.text.clone(),
+            asr_text: asr_token.text.clone(),
+            relation: lexical_relation(&payload_word.text, &asr_token.text),
+        });
     }
-    utt_ranges
+
+    let utterances = utt_infos
+        .iter()
+        .enumerate()
+        .map(|(utterance_index, info)| {
+            let matches = std::mem::take(&mut by_utterance[utterance_index]);
+            let Some(matches) = NonEmptyUtrWordMatches::from_vec(matches) else {
+                if info.excluded_from(participation) {
+                    return UtrUtteranceAlignmentEvidence::ExcludedMarkedOverlap {
+                        utterance_index: UtrUtteranceOrdinal(utterance_index),
+                        alignable_words: info.words.len(),
+                    };
+                }
+                return if info.words.is_empty() {
+                    UtrUtteranceAlignmentEvidence::NoAlignableWords {
+                        utterance_index: UtrUtteranceOrdinal(utterance_index),
+                    }
+                } else {
+                    UtrUtteranceAlignmentEvidence::Unmatched {
+                        utterance_index: UtrUtteranceOrdinal(utterance_index),
+                        alignable_words: info.words.len(),
+                    }
+                };
+            };
+            let (minimum_token_index, maximum_token_index) = matches.token_extent();
+            let proposal = UtrTimingProposal::spanning(
+                &asr_tokens[minimum_token_index.index()],
+                &asr_tokens[maximum_token_index.index()],
+            );
+            UtrUtteranceAlignmentEvidence::Matched {
+                utterance_index: UtrUtteranceOrdinal(utterance_index),
+                alignable_words: info.words.len(),
+                matches,
+                proposal,
+            }
+        })
+        .collect();
+
+    UtrAlignmentPlan {
+        strategy,
+        utterances,
+    }
 }
 
-/// Convert Hirschberg alignment matches into per-utterance token ranges.
-fn collect_utt_ranges_from_alignment(
-    alignment: &[dp_align::AlignResult],
-    word_to_utt: &[usize],
-    utt_count: usize,
-) -> UtrTokenRanges {
-    let mut utt_ranges = vec![None; utt_count];
-    for result_item in alignment {
-        if let dp_align::AlignResult::Match {
-            payload_idx,
-            reference_idx,
-            ..
-        } = result_item
-        {
-            let utt_idx = word_to_utt[*payload_idx];
-            update_utt_range(&mut utt_ranges[utt_idx], *reference_idx);
-        }
-    }
-    utt_ranges
-}
-
-/// Extend one utterance token range to include an additional matched ASR index.
-fn update_utt_range(utt_range: &mut Option<(usize, usize)>, reference_idx: usize) {
-    match utt_range {
-        Some((min_idx, max_idx)) => {
-            if reference_idx < *min_idx {
-                *min_idx = reference_idx;
-            }
-            if reference_idx > *max_idx {
-                *max_idx = reference_idx;
-            }
-        }
-        None => {
-            *utt_range = Some((reference_idx, reference_idx));
+fn lexical_relation(chat_text: &str, asr_text: &str) -> UtrLexicalRelation {
+    if chat_text == asr_text {
+        UtrLexicalRelation::Exact
+    } else if chat_text.eq_ignore_ascii_case(asr_text) {
+        UtrLexicalRelation::CaseInsensitive
+    } else {
+        let similarity = strsim::jaro_winkler(&chat_text.to_lowercase(), &asr_text.to_lowercase());
+        UtrLexicalRelation::Fuzzy {
+            similarity_millionths: (similarity * 1_000_000.0).round() as u32,
         }
     }
 }
@@ -882,6 +1005,25 @@ mod tests {
             .expect("test recordings are non-empty")
     }
 
+    fn test_utt_infos(word_counts: &[usize]) -> Vec<UtrUtteranceInfo> {
+        word_counts
+            .iter()
+            .enumerate()
+            .map(|(utterance_index, count)| UtrUtteranceInfo {
+                words: (0..*count)
+                    .map(|word_index| format!("u{utterance_index}-w{word_index}"))
+                    .collect(),
+                has_bullet: false,
+                has_lazy_overlap: false,
+                has_ca_overlap: false,
+                overlap_onset_fraction: None,
+                speaker: "PAR".to_string(),
+                bottom_indices: Vec::new(),
+                top_onsets: Vec::new(),
+            })
+            .collect()
+    }
+
     #[test]
     fn a_padded_window_never_leaves_the_recording() {
         // Both edges clamp, and the type owns it. Only the END used to be
@@ -913,6 +1055,95 @@ mod tests {
                 end_ms: *end,
             })
             .collect()
+    }
+
+    /// Projection consumes the plan's typed proposal, never the raw token
+    /// stream: the projection signature carries no tokens at all, so a plan
+    /// whose proposal says `[100, 900]` projects exactly that, and a
+    /// `NonPositive` proposal is refused with the zero-duration decision.
+    #[test]
+    fn projection_consumes_the_plans_proposal_not_the_raw_tokens() {
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\thello world .\n*CHI:\tmhm .\n@End\n";
+        let mut chat = parse_chat(chat_text);
+        let utt_infos = collect_utr_utterance_info(&chat);
+        let matched = |utterance_index: usize, proposal: UtrTimingProposal| {
+            UtrUtteranceAlignmentEvidence::Matched {
+                utterance_index: UtrUtteranceOrdinal(utterance_index),
+                alignable_words: utt_infos[utterance_index].words.len(),
+                matches: NonEmptyUtrWordMatches {
+                    first: UtrWordMatch {
+                        word: test_word_address(utterance_index, 0),
+                        token: test_token_address(utterance_index * 2),
+                        chat_text: "x".to_string(),
+                        asr_text: "x".to_string(),
+                        relation: UtrLexicalRelation::Exact,
+                    },
+                    rest: Vec::new(),
+                },
+                proposal,
+            }
+        };
+        let plan = UtrAlignmentPlan {
+            strategy: UtrAlignmentStrategy::GlobalDp,
+            utterances: vec![
+                matched(
+                    0,
+                    UtrTimingProposal::Positive {
+                        start_ms: 100,
+                        end_ms: 900,
+                    },
+                ),
+                matched(
+                    1,
+                    UtrTimingProposal::NonPositive {
+                        start_ms: 1_000,
+                        end_ms: 1_000,
+                    },
+                ),
+            ],
+        };
+        let result = project_global_utr_plan(&mut chat, &utt_infos, plan);
+        assert_eq!(
+            (result.injected(), result.skipped(), result.unmatched()),
+            (1, 0, 1)
+        );
+        assert_eq!(utterance_bullets(&chat), vec![Some((100, 900)), None]);
+        assert!(result.decisions().iter().any(|decision| matches!(
+            decision.strategy,
+            batchalign_transform::decisions::DecisionStrategy::Utr(
+                batchalign_transform::decisions::UtrStrategy::ZeroDurationSkipped
+            )
+        )));
+    }
+
+    /// Every utterance's terminal bullet, in document order.
+    fn utterance_bullets(chat: &ChatFile) -> Vec<Option<(u64, u64)>> {
+        chat.lines
+            .iter()
+            .filter_map(|line| match line {
+                Line::Utterance(utt) => Some(
+                    utt.main
+                        .content
+                        .bullet
+                        .as_ref()
+                        .map(|bullet| (bullet.timing.start_ms, bullet.timing.end_ms)),
+                ),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn test_word_address(utterance_index: usize, word_index: usize) -> UtrWordAddress {
+        UtrWordAddress {
+            utterance_index: UtrUtteranceOrdinal(utterance_index),
+            word_index: UtrWordOrdinal(word_index),
+        }
+    }
+
+    fn test_token_address(token_index: usize) -> UtrAsrTokenAddress {
+        UtrAsrTokenAddress {
+            token_index: UtrAsrTokenOrdinal(token_index),
+        }
     }
 
     /// Captured old-batchalign output for the trimmed 407 regression fixture.
@@ -1033,56 +1264,229 @@ mod tests {
 
     #[test]
     fn test_plan_utr_alignment_uses_unique_exact_subsequence_fast_path() {
-        let all_words = vec![
-            "the".to_string(),
-            "cat".to_string(),
-            "sat".to_string(),
-            "down".to_string(),
+        let payload = vec![
+            UtrPayloadWord {
+                text: "the".to_string(),
+                address: test_word_address(0, 0),
+            },
+            UtrPayloadWord {
+                text: "cat".to_string(),
+                address: test_word_address(0, 1),
+            },
+            UtrPayloadWord {
+                text: "sat".to_string(),
+                address: test_word_address(1, 0),
+            },
+            UtrPayloadWord {
+                text: "down".to_string(),
+                address: test_word_address(1, 1),
+            },
         ];
-        let asr_texts = vec![
-            "noise".to_string(),
-            "the".to_string(),
-            "cat".to_string(),
-            "sat".to_string(),
-            "down".to_string(),
-            "tail".to_string(),
-        ];
-        let word_to_utt = vec![0, 0, 1, 1];
+        let asr_tokens = make_asr_tokens(&[
+            ("noise", 0, 10),
+            ("the", 10, 20),
+            ("cat", 20, 30),
+            ("sat", 30, 40),
+            ("down", 40, 50),
+            ("tail", 50, 60),
+        ]);
+        let utt_infos = test_utt_infos(&[2, 2]);
 
         let plan = plan_utr_alignment(
-            &all_words,
-            &asr_texts,
-            &word_to_utt,
-            2,
+            &payload,
+            &asr_tokens,
+            &utt_infos,
             MatchMode::CaseInsensitive,
+            GlobalUtrParticipation::AllUtterances,
         );
 
         assert_eq!(plan.strategy, UtrAlignmentStrategy::UniqueExactSubsequence);
-        assert_eq!(plan.utt_ranges, vec![Some((1, 2)), Some((3, 4))]);
+        assert_eq!(plan.token_extents(), vec![Some((1, 2)), Some((3, 4))]);
+        assert_eq!(
+            plan.utterances[0],
+            UtrUtteranceAlignmentEvidence::Matched {
+                utterance_index: UtrUtteranceOrdinal(0),
+                alignable_words: 2,
+                matches: NonEmptyUtrWordMatches {
+                    first: UtrWordMatch {
+                        word: payload[0].address,
+                        token: test_token_address(1),
+                        chat_text: "the".to_string(),
+                        asr_text: "the".to_string(),
+                        relation: UtrLexicalRelation::Exact,
+                    },
+                    rest: vec![UtrWordMatch {
+                        word: payload[1].address,
+                        token: test_token_address(2),
+                        chat_text: "cat".to_string(),
+                        asr_text: "cat".to_string(),
+                        relation: UtrLexicalRelation::Exact,
+                    }],
+                },
+                proposal: UtrTimingProposal::Positive {
+                    start_ms: 10,
+                    end_ms: 30,
+                },
+            }
+        );
     }
 
     #[test]
     fn test_plan_utr_alignment_falls_back_to_dp_when_exact_match_is_ambiguous() {
-        let all_words = vec!["hello".to_string(), "world".to_string()];
-        let asr_texts = vec![
-            "hello".to_string(),
-            "noise".to_string(),
-            "hello".to_string(),
-            "world".to_string(),
+        let payload = vec![
+            UtrPayloadWord {
+                text: "hello".to_string(),
+                address: test_word_address(0, 0),
+            },
+            UtrPayloadWord {
+                text: "world".to_string(),
+                address: test_word_address(0, 1),
+            },
         ];
-        let word_to_utt = vec![0, 0];
+        let asr_tokens = make_asr_tokens(&[
+            ("hello", 0, 10),
+            ("noise", 10, 20),
+            ("hello", 20, 30),
+            ("world", 30, 40),
+        ]);
+        let utt_infos = test_utt_infos(&[2]);
 
         let plan = plan_utr_alignment(
-            &all_words,
-            &asr_texts,
-            &word_to_utt,
-            1,
+            &payload,
+            &asr_tokens,
+            &utt_infos,
             MatchMode::CaseInsensitive,
+            GlobalUtrParticipation::AllUtterances,
         );
 
         assert_eq!(plan.strategy, UtrAlignmentStrategy::GlobalDp);
-        let range = plan.utt_ranges[0].expect("DP fallback should still time the utterance");
+        let range = plan.token_extents()[0].expect("DP fallback should still time the utterance");
         assert_eq!(range.1, 3, "Range should reach the aligned final token");
+    }
+
+    #[test]
+    fn exact_dp_mode_does_not_use_the_case_insensitive_fast_path() {
+        let payload = vec![UtrPayloadWord {
+            text: "Hello".to_string(),
+            address: test_word_address(0, 0),
+        }];
+        let asr_tokens = make_asr_tokens(&[("hello", 10, 20)]);
+        let utt_infos = test_utt_infos(&[1]);
+
+        let plan = plan_utr_alignment(
+            &payload,
+            &asr_tokens,
+            &utt_infos,
+            MatchMode::Exact,
+            GlobalUtrParticipation::AllUtterances,
+        );
+
+        assert!(matches!(
+            plan.utterances[0],
+            UtrUtteranceAlignmentEvidence::Unmatched { .. }
+        ));
+    }
+
+    #[test]
+    fn global_plan_retains_a_proposal_for_an_already_timed_utterance() {
+        let input = include_str!("../../../../../test-fixtures/fa_two_timed_utterances.cha");
+        let chat = parse_chat(input);
+        let tokens = make_asr_tokens(&[
+            ("hello", 100, 300),
+            ("world", 500, 900),
+            ("I", 1_100, 1_200),
+            ("want", 1_300, 1_500),
+            ("cookie", 1_600, 1_900),
+        ]);
+
+        let plan = plan_global_utr_alignment(
+            &chat,
+            &tokens,
+            MatchMode::CaseInsensitive,
+            GlobalUtrParticipation::AllUtterances,
+        );
+
+        assert_eq!(plan.token_extents(), vec![Some((0, 1)), Some((2, 4))]);
+        assert!(matches!(
+            plan.utterances[0],
+            UtrUtteranceAlignmentEvidence::Matched {
+                proposal: UtrTimingProposal::Positive {
+                    start_ms: 100,
+                    end_ms: 900
+                },
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn global_plan_distinguishes_excluded_overlap_from_unmatched() {
+        let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tPAR Participant, INV Investigator\n@ID:\teng|test|PAR|||||Participant|||\n@ID:\teng|test|INV|||||Investigator|||\n*PAR:\thello .\n*INV:\t+< mhm .\n@End\n";
+        let chat = parse_chat(input);
+        let tokens = make_asr_tokens(&[("hello", 100, 300), ("mhm", 200, 250)]);
+
+        let plan = plan_global_utr_alignment(
+            &chat,
+            &tokens,
+            MatchMode::CaseInsensitive,
+            GlobalUtrParticipation::ExcludeMarkedOverlap,
+        );
+
+        assert!(matches!(
+            plan.utterances[1],
+            UtrUtteranceAlignmentEvidence::ExcludedMarkedOverlap {
+                utterance_index: UtrUtteranceOrdinal(1),
+                alignable_words: 1
+            }
+        ));
+    }
+
+    #[test]
+    fn global_plan_keeps_fuzzy_and_exact_relations_distinct() {
+        let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tPAR Participant\n@ID:\teng|test|PAR|||||Participant|||\n*PAR:\tgonna now .\n@End\n";
+        let chat = parse_chat(input);
+        let tokens = make_asr_tokens(&[("gona", 100, 300), ("now", 400, 600)]);
+
+        let plan = plan_global_utr_alignment(
+            &chat,
+            &tokens,
+            MatchMode::Fuzzy { threshold: 0.85 },
+            GlobalUtrParticipation::AllUtterances,
+        );
+        let UtrUtteranceAlignmentEvidence::Matched { matches, .. } = &plan.utterances[0] else {
+            panic!("fuzzy plan should match the utterance");
+        };
+
+        assert!(matches!(
+            matches.first.relation,
+            UtrLexicalRelation::Fuzzy { .. }
+        ));
+        assert_eq!(matches.rest[0].relation, UtrLexicalRelation::Exact);
+    }
+
+    #[test]
+    fn global_plan_retains_nonpositive_provider_timing_as_a_refusal_state() {
+        let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tPAR Participant\n@ID:\teng|test|PAR|||||Participant|||\n*PAR:\tmhm .\n@End\n";
+        let chat = parse_chat(input);
+        let tokens = make_asr_tokens(&[("mhm", 1_000, 1_000)]);
+
+        let plan = plan_global_utr_alignment(
+            &chat,
+            &tokens,
+            MatchMode::CaseInsensitive,
+            GlobalUtrParticipation::AllUtterances,
+        );
+
+        assert!(matches!(
+            plan.utterances[0],
+            UtrUtteranceAlignmentEvidence::Matched {
+                proposal: UtrTimingProposal::NonPositive {
+                    start_ms: 1_000,
+                    end_ms: 1_000
+                },
+                ..
+            }
+        ));
     }
 
     #[test]

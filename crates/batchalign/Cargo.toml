@@ -108,6 +108,7 @@ sysinfo = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+strsim = { workspace = true }
 schemars = { workspace = true }
 toml = { workspace = true }
 tokio-util = { workspace = true }

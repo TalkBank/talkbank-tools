@@ -7,6 +7,7 @@
 
 pub mod l2_morphotag;
 pub mod transcribe_replay;
+pub mod utr_alignment;
 
 use crate::cli::args::{EvalAction, EvalArgs};
 use crate::cli::error::CliError;
@@ -16,5 +17,6 @@ pub async fn run(args: &EvalArgs) -> Result<(), CliError> {
     match &args.action {
         EvalAction::L2Morphotag(a) => l2_morphotag::run(a),
         EvalAction::TranscribeReplay(a) => transcribe_replay::run(a).await,
+        EvalAction::UtrAlignment(a) => utr_alignment::run(a),
     }
 }

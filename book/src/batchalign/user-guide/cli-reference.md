@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-08-31 00:39 EDT
+**Last updated:** 2026-09-01 06:47 EDT
 
 This page documents the current public `batchalign3` CLI surface. For anything
 you are scripting against, confirm with `batchalign3 <command> --help`.
@@ -380,6 +380,7 @@ failures locally.
 
 ```bash
 batchalign3 eval l2-morphotag <ARGS>
+batchalign3 eval utr-alignment --chat <CHAT> --tokens <JSON> --output <JSON>
 ```
 
 Evaluation subcommands. Currently:
@@ -387,6 +388,7 @@ Evaluation subcommands. Currently:
 | Subcommand | Purpose |
 | --- | --- |
 | `eval l2-morphotag` | L2 morphotag evaluation: pair `@s` words with `%mor` / `%gra` items via typed AST walk (supersedes `scripts/l2-eval/analyze.py`) |
+| `eval utr-alignment` | Offline global UTR word-to-token replay with fingerprinted typed evidence and no inference or CHAT mutation |
 
 ### `version`
 

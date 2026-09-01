@@ -351,18 +351,18 @@ impl AudioChatTask for AlignAudioTask<'_> {
             )
             .await
             {
-                Ok(utr_result) if utr_result.injected > 0 => {
+                Ok(utr_result) if utr_result.injected() > 0 => {
                     self.had_unrecovered_untimed = false;
                     info!(
                         filename = %self.filename,
-                        injected = utr_result.injected,
+                        injected = utr_result.injected(),
                         "Fallback UTR recovered timing"
                     );
                 }
                 Ok(utr_result) => {
                     warn!(
                         filename = %self.filename,
-                        injected = utr_result.injected,
+                        injected = utr_result.injected(),
                         "Fallback UTR ran but injected no timing; proceeding to FA retry without additional anchors"
                     );
                 }
@@ -879,7 +879,7 @@ async fn process_one_fa_file(
                 )
                 .await
                 {
-                    Ok(utr_result) => utr_result.unmatched > 0,
+                    Ok(utr_result) => utr_result.unmatched() > 0,
                     Err(_) => true,
                 }
             }

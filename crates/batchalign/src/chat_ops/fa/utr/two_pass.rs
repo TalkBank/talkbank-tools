@@ -20,13 +20,15 @@
 
 use talkbank_model::model::{Bullet, ChatFile, Line};
 
+use std::str::FromStr;
+
 use crate::chat_ops::fa::coordinates::{Ms, Recording};
 use crate::chat_ops::fa::grouping::group_utterances;
 use batchalign_transform::dp_align::{self, MatchMode};
 
 use super::{
-    AsrTimingToken, UtrResult, UtrStrategy, UtrUtteranceInfo, collect_utr_utterance_info,
-    run_global_utr,
+    AsrTimingToken, GlobalUtrParticipation, UtrResult, UtrStrategy, UtrUtteranceInfo,
+    collect_utr_utterance_info, run_global_utr,
 };
 
 /// Parameters needed to compare FA grouping outcomes between strategies.
@@ -73,7 +75,7 @@ pub enum UtrMatchMode {
     /// Accepts matches above the threshold (0.0-1.0).
     Fuzzy {
         /// Minimum similarity to accept (default: 0.85).
-        threshold: f64,
+        threshold: UtrFuzzyThreshold,
     },
 }
 
@@ -82,9 +84,139 @@ impl UtrMatchMode {
     pub(crate) fn to_dp_match_mode(self) -> MatchMode {
         match self {
             UtrMatchMode::Exact => MatchMode::CaseInsensitive,
-            UtrMatchMode::Fuzzy { threshold } => MatchMode::Fuzzy { threshold },
+            UtrMatchMode::Fuzzy { threshold } => MatchMode::Fuzzy {
+                threshold: threshold.value(),
+            },
         }
     }
+}
+
+/// Finite Jaro-Winkler match threshold in the closed interval `[0, 1]`.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "f64", into = "f64")]
+pub struct UtrFuzzyThreshold(f64);
+
+impl UtrFuzzyThreshold {
+    /// Empirically selected default for two-pass UTR.
+    pub const DEFAULT: Self = Self(0.85);
+
+    /// Validated floating-point value consumed by the DP aligner.
+    pub fn value(self) -> f64 {
+        self.0
+    }
+}
+
+impl TryFrom<f64> for UtrFuzzyThreshold {
+    type Error = UtrFuzzyThresholdError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        if value.is_finite() && (0.0..=1.0).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(UtrFuzzyThresholdError { value })
+        }
+    }
+}
+
+impl From<UtrFuzzyThreshold> for f64 {
+    fn from(value: UtrFuzzyThreshold) -> Self {
+        value.value()
+    }
+}
+
+impl FromStr for UtrFuzzyThreshold {
+    type Err = UtrFuzzyThresholdParseError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        value
+            .parse::<f64>()
+            .map_err(UtrFuzzyThresholdParseError::Number)?
+            .try_into()
+            .map_err(UtrFuzzyThresholdParseError::Threshold)
+    }
+}
+
+/// A numeric UTR threshold was finite but outside its domain.
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+#[error("UTR fuzzy threshold must be finite and between 0 and 1, got {value}")]
+pub struct UtrFuzzyThresholdError {
+    value: f64,
+}
+
+/// A CLI or configuration threshold could not be admitted.
+#[derive(Debug, thiserror::Error)]
+pub enum UtrFuzzyThresholdParseError {
+    /// The supplied text was not a floating-point number.
+    #[error("invalid floating-point threshold: {0}")]
+    Number(std::num::ParseFloatError),
+    /// The parsed number was outside the valid UTR threshold domain.
+    #[error(transparent)]
+    Threshold(UtrFuzzyThresholdError),
+}
+
+/// Finite maximum marked-overlap density in the closed interval `[0, 1]`.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "f64", into = "f64")]
+pub struct UtrOverlapDensityThreshold(f64);
+
+impl UtrOverlapDensityThreshold {
+    /// Default density above which marked overlaps stay in the global pass.
+    pub const DEFAULT: Self = Self(0.30);
+    /// Maximum possible density, useful when exclusion should always run.
+    pub const MAX: Self = Self(1.0);
+
+    /// Validated fraction consumed by the two-pass policy.
+    pub fn value(self) -> f64 {
+        self.0
+    }
+}
+
+impl TryFrom<f64> for UtrOverlapDensityThreshold {
+    type Error = UtrOverlapDensityThresholdError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        if value.is_finite() && (0.0..=1.0).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(UtrOverlapDensityThresholdError { value })
+        }
+    }
+}
+
+impl From<UtrOverlapDensityThreshold> for f64 {
+    fn from(value: UtrOverlapDensityThreshold) -> Self {
+        value.value()
+    }
+}
+
+impl FromStr for UtrOverlapDensityThreshold {
+    type Err = UtrOverlapDensityThresholdParseError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        value
+            .parse::<f64>()
+            .map_err(UtrOverlapDensityThresholdParseError::Number)?
+            .try_into()
+            .map_err(UtrOverlapDensityThresholdParseError::Threshold)
+    }
+}
+
+/// A UTR overlap density was finite but outside its domain.
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+#[error("UTR overlap density must be finite and between 0 and 1, got {value}")]
+pub struct UtrOverlapDensityThresholdError {
+    value: f64,
+}
+
+/// A CLI or configuration overlap density could not be admitted.
+#[derive(Debug, thiserror::Error)]
+pub enum UtrOverlapDensityThresholdParseError {
+    /// The supplied text was not a floating-point number.
+    #[error("invalid floating-point overlap density: {0}")]
+    Number(std::num::ParseFloatError),
+    /// The parsed number was outside the valid UTR density domain.
+    #[error(transparent)]
+    Threshold(UtrOverlapDensityThresholdError),
 }
 
 /// Tunable parameters for the two-pass overlap-aware UTR strategy.
@@ -103,7 +235,7 @@ pub struct TwoPassConfig {
     /// the strategy stops excluding them from pass 1. Above this threshold,
     /// excluding too many words starves the global DP of context.
     /// Default: 0.30 (30%).
-    pub max_exclusion_density: f64,
+    pub max_exclusion_density: UtrOverlapDensityThreshold,
 
     /// Tight window buffer for pass-2 recovery (milliseconds). The first
     /// attempt searches [onset ± this buffer]. Default: 500ms.
@@ -121,9 +253,11 @@ impl Default for TwoPassConfig {
     fn default() -> Self {
         Self {
             ca_markers: CaMarkerPolicy::default(),
-            max_exclusion_density: 0.30,
+            max_exclusion_density: UtrOverlapDensityThreshold::DEFAULT,
             tight_buffer_ms: 500,
-            match_mode: UtrMatchMode::Fuzzy { threshold: 0.85 },
+            match_mode: UtrMatchMode::Fuzzy {
+                threshold: UtrFuzzyThreshold::DEFAULT,
+            },
         }
     }
 }
@@ -200,9 +334,18 @@ impl UtrStrategy for TwoPassOverlapUtr {
         let global_result = run_global_utr(
             &mut global_file,
             asr_tokens,
-            false,
+            GlobalUtrParticipation::AllUtterances,
             self.config.match_mode.to_dp_match_mode(),
         );
+
+        let two_pass_result = match two_pass_result {
+            Ok(result) => result,
+            Err(error) => {
+                tracing::error!(%error, "Two-pass UTR changed the utterance population; using global UTR");
+                *chat_file = global_file;
+                return global_result;
+            }
+        };
 
         // The group-count signal needs a recording to group against. A context
         // whose duration is zero cannot supply one, and that is not a reason to
@@ -262,9 +405,10 @@ fn run_two_pass_inner(
     chat_file: &mut ChatFile,
     asr_tokens: &[AsrTimingToken],
     config: &TwoPassConfig,
-) -> UtrResult {
+) -> Result<UtrResult, UtrPopulationChanged> {
     // Check overlap density to decide whether to exclude from pass 1.
     let pre_infos = collect_utr_utterance_info(chat_file);
+    let before_bullets = UtrBulletPopulation::from_infos(&pre_infos);
     let total_utts = pre_infos.len();
     let overlap_utts = pre_infos
         .iter()
@@ -276,7 +420,7 @@ fn run_two_pass_inner(
         0.0
     };
 
-    let skip_in_pass1 = overlap_fraction <= config.max_exclusion_density;
+    let skip_in_pass1 = overlap_fraction <= config.max_exclusion_density.value();
 
     if !skip_in_pass1 {
         tracing::info!(
@@ -291,12 +435,16 @@ fn run_two_pass_inner(
     let mut result = run_global_utr(
         chat_file,
         asr_tokens,
-        skip_in_pass1,
+        if skip_in_pass1 {
+            GlobalUtrParticipation::ExcludeMarkedOverlap
+        } else {
+            GlobalUtrParticipation::AllUtterances
+        },
         config.match_mode.to_dp_match_mode(),
     );
 
     if asr_tokens.is_empty() {
-        return result;
+        return Ok(result.with_overlap_recoveries(Vec::new()));
     }
 
     // Pass 2: recover timing for overlap utterances from predecessor windows.
@@ -304,6 +452,13 @@ fn run_two_pass_inner(
     // didn't get timing from the global DP (they participated but weren't
     // matched). The onset fraction still helps narrow recovery windows.
     let utt_infos = collect_utr_utterance_info(chat_file);
+    let utt_line_indices = chat_file
+        .lines
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| matches!(line, Line::Utterance(_)))
+        .map(|(line_index, _)| batchalign_transform::decisions::LineIdx::new(line_index))
+        .collect::<Vec<_>>();
 
     // Collect current bullets (after pass 1) for window lookup.
     let utt_bullets: Vec<Option<(u64, u64)>> = chat_file
@@ -353,9 +508,7 @@ fn run_two_pass_inner(
             config,
         ) {
             pass2_bullets.push((utt_idx, start_ms, end_ms));
-            // Adjust counts: this was counted as unmatched in pass 1.
-            result.unmatched -= 1;
-            result.injected += 1;
+            result.discard_recovered_unmatched_decision(utt_line_indices[utt_idx]);
         }
     }
 
@@ -376,7 +529,83 @@ fn run_two_pass_inner(
         }
     }
 
-    result
+    // Derive the final counts from the before/after bullet states. This avoids
+    // increment/decrement bookkeeping that could underflow or drift when a
+    // future recovery path changes which pass supplied a bullet.
+    let final_counts = before_bullets.transition_to(UtrBulletPopulation::from_chat(chat_file))?;
+    result.skipped = final_counts.skipped;
+    result.injected = final_counts.injected;
+    result.unmatched = final_counts.unmatched;
+
+    let recoveries = pass2_bullets
+        .into_iter()
+        .map(
+            |(utterance_index, start_ms, end_ms)| super::UtrOverlapRecovery {
+                utterance_index: super::UtrUtteranceOrdinal(utterance_index),
+                start_ms,
+                end_ms,
+            },
+        )
+        .collect();
+    Ok(result.with_overlap_recoveries(recoveries))
+}
+
+/// Bullet presence for the complete main-tier population at one pipeline state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct UtrBulletPopulation(Vec<bool>);
+
+impl UtrBulletPopulation {
+    fn from_infos(infos: &[UtrUtteranceInfo]) -> Self {
+        Self(infos.iter().map(|info| info.has_bullet).collect())
+    }
+
+    fn from_chat(chat_file: &ChatFile) -> Self {
+        Self(
+            chat_file
+                .lines
+                .iter()
+                .filter_map(|line| match line {
+                    Line::Utterance(utterance) => Some(utterance.main.content.bullet.is_some()),
+                    _ => None,
+                })
+                .collect(),
+        )
+    }
+
+    fn transition_to(self, after: Self) -> Result<UtrFinalCounts, UtrPopulationChanged> {
+        if self.0.len() != after.0.len() {
+            return Err(UtrPopulationChanged {
+                before: self.0.len(),
+                after: after.0.len(),
+            });
+        }
+
+        let mut counts = UtrFinalCounts::default();
+        for (before, after) in self.0.into_iter().zip(after.0) {
+            match (before, after) {
+                (true, _) => counts.skipped += 1,
+                (false, true) => counts.injected += 1,
+                (false, false) => counts.unmatched += 1,
+            }
+        }
+        Ok(counts)
+    }
+}
+
+/// Final UTR counts derived from a population-preserving bullet transition.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct UtrFinalCounts {
+    skipped: usize,
+    injected: usize,
+    unmatched: usize,
+}
+
+/// A UTR pass unexpectedly inserted or removed main-tier utterances.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("main-tier population changed during UTR: before={before}, after={after}")]
+struct UtrPopulationChanged {
+    before: usize,
+    after: usize,
 }
 
 /// Count utterances that have a bullet (timed) in the chat file.
@@ -597,6 +826,32 @@ pub fn recover_overlap_timing(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deserialization_rejects_an_out_of_domain_fuzzy_threshold() {
+        let error = serde_json::from_str::<UtrFuzzyThreshold>("-0.01")
+            .expect_err("configuration input must pass through threshold validation");
+
+        assert!(error.to_string().contains("between 0 and 1"));
+    }
+
+    #[test]
+    fn deserialization_rejects_an_out_of_domain_overlap_density() {
+        let error = serde_json::from_str::<UtrOverlapDensityThreshold>("1.01")
+            .expect_err("configuration input must pass through density validation");
+
+        assert!(error.to_string().contains("between 0 and 1"));
+    }
+
+    #[test]
+    fn rejects_a_changed_utterance_population_instead_of_truncating_counts() {
+        let error = UtrBulletPopulation(vec![false, true])
+            .transition_to(UtrBulletPopulation(vec![true]))
+            .expect_err("population changes must be explicit");
+
+        assert_eq!(error.before, 2);
+        assert_eq!(error.after, 1);
+    }
     use talkbank_parser::TreeSitterParser;
 
     fn make_asr_tokens(words_with_times: &[(&str, u64, u64)]) -> Vec<AsrTimingToken> {
@@ -1076,11 +1331,41 @@ mod tests {
             },
         ];
 
-        let strategy = TwoPassOverlapUtr::with_grouping_context(60000, 15000);
+        let strategy =
+            TwoPassOverlapUtr::with_grouping_context(60000, 15000).with_config(TwoPassConfig {
+                max_exclusion_density: UtrOverlapDensityThreshold::MAX,
+                ..TwoPassConfig::default()
+            });
         let result = strategy.inject(&mut chat, &tokens);
 
         // Two-pass should be kept (groups equal, better backchannel placement).
         assert_eq!(result.injected, 3, "two-pass should time all 3 utterances");
         assert_eq!(result.unmatched, 0);
+        assert!(
+            result.decisions().is_empty(),
+            "a recovered overlap must not retain a pass-1 unmatched decision"
+        );
+        let super::super::UtrAlignmentEvidence::TwoPass {
+            first_pass,
+            overlap_recoveries,
+        } = result.alignment()
+        else {
+            panic!("selected two-pass result must retain two-pass evidence")
+        };
+        assert!(matches!(
+            first_pass.utterances[1],
+            super::super::UtrUtteranceAlignmentEvidence::ExcludedMarkedOverlap {
+                utterance_index: super::super::UtrUtteranceOrdinal(1),
+                alignable_words: 1
+            }
+        ));
+        assert_eq!(
+            overlap_recoveries,
+            &[super::super::UtrOverlapRecovery {
+                utterance_index: super::super::UtrUtteranceOrdinal(1),
+                start_ms: 1_800,
+                end_ms: 2_200,
+            }]
+        );
     }
 }

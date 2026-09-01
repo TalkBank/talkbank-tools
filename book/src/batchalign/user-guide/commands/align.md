@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:54 EDT
+**Last updated:** 2026-09-01 06:49 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -348,6 +348,10 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--end-overlap-policy {clamp-all-adjacent,preserve-cross-speaker}` | `clamp-all-adjacent` | v0.4.0 option controlling the later monotonicity projection. The experimental arm preserves cross-speaker overlap but still clamps same-speaker overlap. It does not change raw-evidence cache identity. |
 | `--merge-abbrev` | off | Merge abbreviations in the output CHAT |
 | `--before PATH` |: | Previous version of the file for incremental alignment (skip unchanged utterances) |
+
+Both UTR fraction options are validated before a command is constructed:
+non-finite values and values outside the closed interval `0.0` through `1.0`
+are rejected by the CLI and by configuration deserialization.
 | `--bullet-repair` | off | Post-FA bullet repair for timing violations (experimental) |
 | `--review-level {none,low-confidence,all}` | `none` | Legacy compatibility option. All values now leave CHAT free of `%xalign`/`%xrev`; omit it in new scripts. |
 

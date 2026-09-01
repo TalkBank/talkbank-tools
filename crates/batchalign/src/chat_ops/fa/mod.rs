@@ -65,9 +65,9 @@ pub use self::rescue_narrow_bullets::rescue_narrow_bullets;
 // does not reach CHAT serialization; `retain_decision_evidence` always strips
 // the two abandoned review tiers and returns typed evidence.
 pub use self::utr::{
-    CaMarkerPolicy, GlobalUtr, GroupingContext, TwoPassConfig, TwoPassOverlapUtr, UtrMatchMode,
-    UtrStrategy, find_untimed_windows, select_strategy, utr_asr_cache_key,
-    utr_asr_segment_cache_key,
+    CaMarkerPolicy, GlobalUtr, GroupingContext, TwoPassConfig, TwoPassOverlapUtr,
+    UtrFuzzyThreshold, UtrMatchMode, UtrOverlapDensityThreshold, UtrStrategy, find_untimed_windows,
+    select_strategy, utr_asr_cache_key, utr_asr_segment_cache_key,
 };
 pub use batchalign_transform::decisions::ReviewLevel;
 

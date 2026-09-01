@@ -109,6 +109,76 @@ fn parse_transcribe_replay_pre_chat_policy_scope() {
 }
 
 #[test]
+fn parse_utr_alignment_replay() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "eval",
+        "utr-alignment",
+        "--chat",
+        "input.cha",
+        "--tokens",
+        "tokens.json",
+        "--output",
+        "report.json",
+        "--fuzzy-threshold",
+        "0.85",
+        "--participation",
+        "exclude-marked-overlap",
+    ]);
+    let Commands::Eval(eval) = cli.command else {
+        panic!("expected eval command")
+    };
+    let EvalAction::UtrAlignment(args) = eval.action else {
+        panic!("expected UTR alignment replay")
+    };
+    assert_eq!(args.chat, PathBuf::from("input.cha"));
+    assert_eq!(args.tokens, PathBuf::from("tokens.json"));
+    assert_eq!(args.output, PathBuf::from("report.json"));
+    assert_eq!(
+        args.fuzzy_threshold.map(|threshold| threshold.value()),
+        Some(0.85)
+    );
+    assert_eq!(
+        args.participation,
+        UtrAlignmentParticipation::ExcludeMarkedOverlap
+    );
+}
+
+#[test]
+fn reject_out_of_domain_utr_fuzzy_threshold_at_cli_boundary() {
+    let error = Cli::try_parse_from([
+        "batchalign3",
+        "eval",
+        "utr-alignment",
+        "--chat",
+        "input.cha",
+        "--tokens",
+        "tokens.json",
+        "--output",
+        "report.json",
+        "--fuzzy-threshold",
+        "1.01",
+    ])
+    .expect_err("an invalid threshold must never enter the command state");
+
+    assert!(error.to_string().contains("between 0 and 1"));
+}
+
+#[test]
+fn reject_out_of_domain_utr_overlap_density_at_cli_boundary() {
+    let error = Cli::try_parse_from([
+        "batchalign3",
+        "align",
+        "corpus/",
+        "--utr-density-threshold",
+        "1.01",
+    ])
+    .expect_err("an invalid overlap density must never enter command state");
+
+    assert!(error.to_string().contains("between 0 and 1"));
+}
+
+#[test]
 fn morphotag_defaults_l2_on() {
     let options = typed_options_for(&["batchalign3", "morphotag", "corpus/"]);
     match options {

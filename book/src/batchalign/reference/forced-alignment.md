@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-08-31 07:54 EDT
+**Last updated:** 2026-09-01 06:49 EDT
 
 ## Overview
 
@@ -221,6 +221,44 @@ flowchart TD
     unique -->|"no"| dp --> bullets
 ```
 
+#### UTR alignment evidence and offline replay
+
+The global alignment plan is a first-class typed value. It records the chosen
+strategy, participation policy, every utterance state, every monotone
+word-to-token match, its lexical relation, and the timing proposal derived
+from the first and last matched token. Deliberately excluded overlap lines are
+distinct from attempted but unmatched lines. A matched utterance has a
+nonempty match collection by construction. Positive and nonpositive proposals
+are distinct states.
+
+`UtrResult` retains this plan even though production projection still changes
+bullets only for untimed utterances. This distinction lets experiments inspect
+what the same global alignment proposed for already timed neighbors without
+claiming that BA3 changed those authoritative bullets.
+
+For an offline replay over retained debug artifacts:
+
+```bash
+batchalign3 eval utr-alignment \
+  --chat recording_utr_input.cha \
+  --tokens recording_utr_tokens.json \
+  --fuzzy-threshold 0.85 \
+  --output recording_utr_alignment.json
+```
+
+The command performs no inference and does not mutate CHAT. It requires a
+clean parse, fingerprints both inputs with BLAKE3, records the executable build
+identity, and atomically publishes a complete report without overwriting an
+existing output. Omit
+`--fuzzy-threshold` for case-insensitive exact matching. Add
+`--participation exclude-marked-overlap` to
+replay the participation rule used by the first pass of two-pass UTR.
+
+The resulting proposal is evidence, not a final main-tier or `%wor` policy.
+Complete lexical coverage does not by itself establish word-boundary accuracy,
+and partial or unmatched states require an explicit abstention or fallback in
+downstream research code.
+
 #### Overlap Strategy Selection
 
 When a CHAT file contains overlapping speech (`+<` linkers or `⌊` CA markers),
@@ -273,6 +311,10 @@ in a single pass instead.
 | `--utr-density-threshold <0.0-1.0>` | `0.30` | Overlap fraction above which two-pass falls back to global |
 | `--utr-tight-buffer <ms>` | `500` | Buffer around previous utterance for Pass 2 recovery window |
 | `--utr-fuzzy <threshold>` | `0.85` | Jaro-Winkler similarity threshold for fuzzy word matching |
+
+The fuzzy threshold and overlap-density threshold are finite closed-interval
+types. CLI and serialized configuration inputs outside `0.0` through `1.0`
+are rejected before alignment policy exists.
 
 The two-pass defaults were tuned on SBCSAE, Jefferson NB, TaiwanHakka, and
 APROCSA corpora but have not been broadly validated. Use `--utr-strategy

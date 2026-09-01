@@ -450,6 +450,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sqlx",
+ "strsim",
  "symphonia",
  "sysinfo 0.39.6",
  "talkbank-model",
