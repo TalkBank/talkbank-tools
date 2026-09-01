@@ -75,3 +75,15 @@ echo "==> pre-push: mdBook build + linkcheck"
 make book-check
 
 echo "✓ pre-push ran CI's own target; anything it missed is platform-conditional"
+
+# Chain to an untracked local hook, if one is installed. `.git/hooks` is not
+# versioned, so a contributor may keep a further pre-push check of their own at
+# `pre-push.local`; git runs only THIS file, so this is the only way that check
+# runs at all. Order matters: the gate above first, then the local hook. This
+# hook never reads stdin, so the ref list git provides reaches the local hook
+# untouched. Keep this free of any particular local hook's identity: what a
+# contributor checks on their own machine is theirs.
+LOCAL_HOOK="$(git rev-parse --git-path hooks)/pre-push.local"
+if [[ -x "$LOCAL_HOOK" ]]; then
+    exec "$LOCAL_HOOK" "$@"
+fi

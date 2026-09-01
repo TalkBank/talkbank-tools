@@ -1,12 +1,29 @@
 # Pushing without CI churn
 
 **Status:** Current
-**Last updated:** 2026-08-14 20:15 EDT
+**Last updated:** 2026-09-01 13:18 EDT
 
 Three pushes to `main` on 2026-08-14 each turned CI red and each needed a
 follow-up commit. The pre-push hook reported "All pre-push checks passed" every
 time. This is what changed so that stops, and the one case that local checks
 can never cover.
+
+## The hook must actually be installed, and it chains to a local hook
+
+`git` runs exactly one file, `.git/hooks/pre-push`, and that directory is
+unversioned. Anything else that writes it (another tool's installer, a hand
+symlink) displaces this gate WITHOUT SAYING SO, and the next push reports only
+whatever the displacing hook checks. That happened between 2026-08-19 and
+2026-09-01: a separate local screen owned `.git/hooks/pre-push`, so two
+release-prep pushes reached `main` that `make batchalign-ci-rust` refuses (a
+version bump that missed a generated artifact). The gate was fine; it was not
+running.
+
+Two consequences. `make install-hooks` is the thing to re-run after anything
+touches `.git/hooks`, and `scripts/pre-push.sh` ends by chaining to
+`.git/hooks/pre-push.local` if that file is executable, so a further local
+check coexists with the gate instead of replacing it. The gate runs first; the
+local hook receives git's ref list unchanged.
 
 ## The hook runs CI's target, not a copy of it
 

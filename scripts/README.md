@@ -53,7 +53,7 @@ corpus-age fixers) were removed when this workspace became batchalign3-only.
 
 | Script | What it helps with | Preferred use |
 |---|---|---|
-| `pre-push.sh` | Fast local gate that mirrors key CI checks. | Install via `make install-hooks` |
+| `pre-push.sh` | Runs CI's own target (`make batchalign-ci-rust`) plus the drift checks, then chains to an untracked `.git/hooks/pre-push.local` if one exists. | Install via `make install-hooks`; re-run it after anything else writes `.git/hooks/pre-push` |
 | `pre-commit-check.sh` | Manual fmt + clippy + build + unit-test pass before committing. | Direct script (overlaps `make ci-full`) |
 | `run_react_dashboard_smoke.sh` | Frontend/dashboard smoke and E2E flow. | Direct script |
 | `build_react_dashboard.sh` | Builds the dashboard bundle into the configured target directory. | Direct script |
