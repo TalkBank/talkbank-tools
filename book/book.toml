@@ -14,7 +14,12 @@ command = "mdbook-mermaid"
 
 # Git-derived "last changed" dates: `{{git-dates:page}}` and `{{git-dates:book}}`
 # are substituted wherever a page uses them, and every page gets a footer with
-# both. mdBook runs preprocessors with the book directory as cwd, hence `..`.
+# both. mdBook 0.5.x always runs preprocessors with the book directory as cwd,
+# hence `..`; mdBook 0.4.x set NO cwd at all and inherited whatever directory
+# the `mdbook` process itself was started from, which is how the first CI run
+# of this preprocessor silently built nothing. Every `mdbook` invocation in
+# this repo (Makefile, book.yml) is therefore run with the book directory as
+# its OWN cwd, so the command above resolves under either mdBook line.
 # Needs full git history (refuses a shallow clone). `make book-check` verifies
 # the rendered front page carries the same dates git reports.
 [preprocessor.git-dates]

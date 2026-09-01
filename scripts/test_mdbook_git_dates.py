@@ -9,9 +9,11 @@ scratch book under each version.
 
 What these tests legitimately pin, since no type in a Python script can hold
 it: the wire format between two processes, the git history the dates are read
-from, and the rendered footer wording that `verify` searches for. They are
-stdlib `unittest` so the book build in CI can run them with no test framework
-installed; `python3 -m pytest` collects them too.
+from, the rendered footer wording that `verify` searches for, and (in
+`BookTomlWiring` below) the actual `book.toml` command string against the two
+cwd behaviors real mdBook releases use. They are stdlib `unittest` so the book
+build in CI can run them with no test framework installed; `python3 -m pytest`
+collects them too.
 
 Run: `python3 -m unittest scripts/test_mdbook_git_dates.py`
 """
@@ -20,13 +22,18 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().with_name("mdbook_git_dates.py")
+REPO_ROOT = SCRIPT.resolve().parents[1]
+BOOK_ROOT = REPO_ROOT / "book"
+BOOK_TOML = BOOK_ROOT / "book.toml"
 REPO_URL = "https://example.invalid/repo"
 
 FIRST_DATE = "2026-01-10"
@@ -280,6 +287,72 @@ class Verify(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("page: expected", result.stderr)
         self.assertIn("book: expected", result.stderr)
+
+
+class BookTomlWiring(unittest.TestCase):
+    """Pins the root cause of the 2026-09-01 book.yml CI failure.
+
+    mdBook 0.5.x always runs a preprocessor subprocess with the book
+    directory as its cwd. mdBook 0.4.x (what `book.yml` pins, for
+    mdbook-mermaid compatibility) sets NO cwd of its own for that subprocess
+    at all: it just inherits whatever directory the `mdbook` PROCESS ITSELF
+    was started from (verified directly against the `cmd.rs` source of both
+    releases, and against real 0.4.52 and 0.5.4 binaries). Since book.toml's
+    git-dates command is the relative path `../scripts/mdbook_git_dates.py`,
+    it resolves under 0.5.x no matter where `mdbook` was invoked from, but
+    under 0.4.x it resolves only when `mdbook` itself was started with the
+    book directory as its cwd. `Makefile` and `book.yml` are the wiring that
+    now guarantees that (`cd book && mdbook build` / `working-directory:
+    book`, never `mdbook build book` from the repo root); this drives the
+    ACTUAL `book.toml` command string, the way mdBook itself would run it,
+    against both cwd shapes and proves the previously-broken one stays
+    broken so nobody "fixes" the wiring back to it.
+    """
+
+    def command_words(self) -> list[str]:
+        config = tomllib.loads(BOOK_TOML.read_text(encoding="utf-8"))
+        command = config["preprocessor"]["git-dates"]["command"]
+        return shlex.split(command)
+
+    def payload(self) -> str:
+        intro = (BOOK_ROOT / "src" / "introduction.md").read_text(encoding="utf-8")
+        items = [chapter("Intro", "introduction.md", intro)]
+        return wire("0.4", BOOK_ROOT, items)
+
+    def test_resolves_when_mdbook_itself_is_started_from_the_book_directory(
+        self,
+    ) -> None:
+        result = subprocess.run(
+            self.command_words(),
+            cwd=BOOK_ROOT,
+            input=self.payload(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        content = str(chapters_of(result.stdout)[0]["content"])
+        self.assertIn("This page last changed: ", content)
+        self.assertNotIn("{{git-dates:", content)
+
+    def test_does_not_resolve_when_mdbook_itself_is_started_from_the_repo_root(
+        self,
+    ) -> None:
+        # The exact 2026-09-01 CI shape: `mdbook build book` run from the
+        # repo root, under mdBook 0.4.x, which never overrides the cwd it
+        # inherited. If this test ever starts PASSING, the fix has been
+        # silently undone and the `cd book &&` / `working-directory: book`
+        # wiring in Makefile / book.yml needs restoring.
+        result = subprocess.run(
+            self.command_words(),
+            cwd=REPO_ROOT,
+            input=self.payload(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("No such file or directory", result.stderr)
 
 
 if __name__ == "__main__":

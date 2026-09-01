@@ -386,14 +386,14 @@ verify:
 
 # Build the unified TalkBank mdBook and link-check it with lychee.
 #
-# mermaid must be a preprocessor (it rewrites ```mermaid blocks), and no
-# released mdbook-mermaid parses mdBook 0.5's renamed preprocessor wire
-# format, so the diagram-rendering pair is pinned to the 0.4.x era
-# (mdBook 0.4.52 + mdbook-mermaid 0.16.2). Link-checking is decoupled
-# onto lychee, which runs on the built HTML and is independent of
-# mdBook's wire format. The previous mdbook-linkcheck2 renderer only
-# accepts mdBook 0.5's `items` RenderContext, which 0.4.x does not emit,
-# so it could not run alongside mermaid on any single mdBook version.
+# mermaid must be a preprocessor (it rewrites ```mermaid blocks). The pair
+# (mdBook + mdbook-mermaid) is pinned to one version each, the SAME versions
+# chatter's book pins, and both are inventoried in the private workspace's
+# book-toolchain pin list so a bump lands in every repo at once. Until
+# 2026-09-01 this repo stayed on the 0.4.x line because no mdbook-mermaid
+# release spoke mdBook 0.5's wire format; 0.17 does. Link-checking is
+# decoupled onto lychee, which runs on the built HTML and is independent of
+# mdBook's wire format (the old mdbook-linkcheck2 renderer was tied to it).
 # lychee still catches SUMMARY-unreachable targets like the 2026-05-22
 # batchalign/introduction.md regression. `--offline` skips web links;
 # `--root-dir` resolves the 404 page's leading '/'.
@@ -406,7 +406,7 @@ verify:
 book-check:
 	@command -v mdbook >/dev/null || { \
 		echo "ERROR: mdbook not found on PATH."; \
-		echo "Install: cargo install mdbook@0.4.52 mdbook-mermaid@0.16.2 lychee"; \
+		echo "Install: cargo install mdbook@0.5.4 mdbook-mermaid@0.17.1 lychee"; \
 		exit 1; \
 	}
 	@command -v lychee >/dev/null || { \
@@ -415,7 +415,7 @@ book-check:
 		exit 1; \
 	}
 	python3 -m unittest $(CURDIR)/scripts/test_mdbook_git_dates.py
-	mdbook build book
+	cd $(CURDIR)/book && mdbook build
 	python3 $(CURDIR)/scripts/mdbook_git_dates.py verify --book-root $(CURDIR)/book --page introduction.md $(CURDIR)/book/build/index.html
 	lychee --offline --root-dir "$(CURDIR)/book/build" "$(CURDIR)/book/build"
 	@# The fence-shape regression guard, mirroring book.yml's third step.
@@ -424,7 +424,7 @@ book-check:
 	@# only build + lychee until 2026-07-31, so it passed locally while
 	@# CI was red on three such blocks; a local gate that omits a CI step
 	@# is worse than no local gate, because it is believed.
-	mdbook test book
+	cd $(CURDIR)/book && mdbook test
 
 # Fast iteration: compile-check workspace + test a single crate
 # Usage: make smoke CRATE=talkbank-model
@@ -473,12 +473,19 @@ clean:
 	cargo clean
 
 # Build the documentation book
+#
+# Run with the book directory as cwd (never `mdbook build book/` from here):
+# mdBook 0.4.x sets no cwd of its own for preprocessor subprocesses and just
+# inherits whatever directory `mdbook` itself was started from, so the
+# book.toml preprocessor commands' `../scripts/...` paths only resolve when
+# that directory is the book directory. mdBook 0.5.x always uses the book
+# directory regardless, so this is a no-op for it.
 book:
-	mdbook build book/
+	cd book && mdbook build
 
 # Serve the documentation book locally
 book-serve:
-	mdbook serve book/
+	cd book && mdbook serve
 
 # ---------------------------------------------------------------------------
 # Doc audit (talkbank-tools only)

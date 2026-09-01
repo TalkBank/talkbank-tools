@@ -38,23 +38,29 @@ jobs:
           # carry the checkout's date.
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
-      # Book toolchain. mdBook + mdbook-mermaid are pinned to the 0.4.x era:
-      # the mermaid preprocessor is protocol-sensitive to mdBook's wire format
-      # and no released mdbook-mermaid supports mdBook 0.5. Link-checking is
-      # decoupled onto lychee, which runs on the built HTML and is independent
-      # of mdBook's wire format (the old mdbook-linkcheck2 renderer only
-      # accepts mdBook 0.5's `items` RenderContext, which 0.4.x does not emit).
+      # Book toolchain, pinned to exact versions that match the Makefile's
+      # install hint and chatter's book (one inventory in the private
+      # workspace keeps every site in step). The mermaid preprocessor is
+      # protocol-sensitive to mdBook's wire format, so the pair moves
+      # together. Link-checking is decoupled onto lychee, which runs on the
+      # built HTML and is independent of mdBook's wire format.
       - name: Install mdbook + mdbook-mermaid + lychee
         run: |
           cargo install \
-            mdbook@0.4.52 \
-            mdbook-mermaid@0.16.2 \
+            mdbook@0.5.4 \
+            mdbook-mermaid@0.17.1 \
             lychee@0.24.2 \
             --locked
       - name: Test the git-dates preprocessor
         run: python3 -m unittest scripts/test_mdbook_git_dates.py
       - name: Build book
-        run: mdbook build book
+        # Run with the book directory as cwd, never `mdbook build book` from
+        # the repo root: mdBook 0.4.x sets no cwd of its own
+        # for preprocessor subprocesses and just inherits whatever directory
+        # `mdbook` itself was started from, so book.toml's `../scripts/...`
+        # preprocessor commands only resolve when that directory is `book/`.
+        working-directory: book
+        run: mdbook build
       - name: Verify the front page carries git-derived dates
         run: python3 scripts/mdbook_git_dates.py verify --book-root book --page introduction.md book/build/index.html
       - name: Link-check book (lychee, offline)
@@ -65,8 +71,10 @@ jobs:
         # target/debug/deps/, so executable doctest verification lives
         # in crates/<crate>/tests/book_*_examples.rs files instead).
         # This step is a guard against untagged ``` fences or stray
-        # ``` rust blocks creeping back in.
-        run: mdbook test book
+        # ``` rust blocks creeping back in. Same cwd requirement as the
+        # build step above; 0.5.x always uses the book directory, 0.4.x did not.
+        working-directory: book
+        run: mdbook test
       - name: Upload book artifact
         uses: actions/upload-artifact@v7
         with:
