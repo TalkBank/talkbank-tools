@@ -1,7 +1,8 @@
 # Introduction
 
 **Status:** Current
-**Last updated:** 2026-06-19
+**Book last changed:** {{git-dates:book}}
+**This page last changed:** {{git-dates:page}}
 
 [TalkBank](https://talkbank.org/) is the world's largest open repository of spoken language data. This repository (`talkbank-tools`) is the **Batchalign3** workspace: the machine-learning pipeline that turns audio into richly annotated CHAT transcripts (automatic speech recognition, forced alignment, neural morphosyntactic tagging, and utterance segmentation), together with its web dashboard and an experimental desktop app.
 

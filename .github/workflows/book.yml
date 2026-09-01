@@ -6,11 +6,15 @@ on:
     paths:
       - '.github/workflows/book.yml'
       - 'book/**'
+      - 'scripts/mdbook_git_dates.py'
+      - 'scripts/test_mdbook_git_dates.py'
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/book.yml'
       - 'book/**'
+      - 'scripts/mdbook_git_dates.py'
+      - 'scripts/test_mdbook_git_dates.py'
   workflow_dispatch:
 
 # Least privilege at the top; the deploy job widens its own scope below.
@@ -28,6 +32,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The git-dates preprocessor stamps every page with the date of its
+          # last commit and refuses a shallow clone, where every file would
+          # carry the checkout's date.
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       # Book toolchain. mdBook + mdbook-mermaid are pinned to the 0.4.x era:
       # the mermaid preprocessor is protocol-sensitive to mdBook's wire format
@@ -42,8 +51,12 @@ jobs:
             mdbook-mermaid@0.16.2 \
             lychee@0.24.2 \
             --locked
+      - name: Test the git-dates preprocessor
+        run: python3 -m unittest scripts/test_mdbook_git_dates.py
       - name: Build book
         run: mdbook build book
+      - name: Verify the front page carries git-derived dates
+        run: python3 scripts/mdbook_git_dates.py verify --book-root book --page introduction.md book/build/index.html
       - name: Link-check book (lychee, offline)
         run: lychee --offline --root-dir "${GITHUB_WORKSPACE}/book/build" "${GITHUB_WORKSPACE}/book/build"
       - name: Test book code blocks (fence-shape regression guard)

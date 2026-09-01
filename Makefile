@@ -397,6 +397,12 @@ verify:
 # lychee still catches SUMMARY-unreachable targets like the 2026-05-22
 # batchalign/introduction.md regression. `--offline` skips web links;
 # `--root-dir` resolves the 404 page's leading '/'.
+#
+# The git-dates preprocessor (book.toml) stamps every page with git-derived
+# "last changed" dates; its tests run first, and `verify` then proves the
+# rendered front page carries the same dates git reports, so a build in which
+# the preprocessor silently did not run cannot pass. Needs full git history
+# (a shallow checkout is refused by the script itself, not by this target).
 book-check:
 	@command -v mdbook >/dev/null || { \
 		echo "ERROR: mdbook not found on PATH."; \
@@ -408,7 +414,9 @@ book-check:
 		echo "Install: cargo install lychee"; \
 		exit 1; \
 	}
+	python3 -m unittest $(CURDIR)/scripts/test_mdbook_git_dates.py
 	mdbook build book
+	python3 $(CURDIR)/scripts/mdbook_git_dates.py verify --book-root $(CURDIR)/book --page introduction.md $(CURDIR)/book/build/index.html
 	lychee --offline --root-dir "$(CURDIR)/book/build" "$(CURDIR)/book/build"
 	@# The fence-shape regression guard, mirroring book.yml's third step.
 	@# rustdoc compiles every UNTAGGED ``` block as a Rust doctest, so a
