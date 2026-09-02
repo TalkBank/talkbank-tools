@@ -1,3 +1,3 @@
-0.4.2
+0.4.3
 September 1st 2026
-Typed UTR alignment evidence, the utr-alignment eval, and projection from the plan's proposals
+Forced alignment resolves same-speaker overlap on measured words, writes %wor only after resolution, and no longer cuts cross-speaker overlap
