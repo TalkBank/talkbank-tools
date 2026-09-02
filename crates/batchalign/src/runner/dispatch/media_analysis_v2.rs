@@ -352,9 +352,9 @@ async fn dispatch_opensmile_attempt(
     // payload first, and since a failed request carries `result: None` by
     // construction, every typed error response came out as "missing a result
     // payload" with the worker's own code and message discarded.
-    let result = match require_success_result(&response, "openSMILE")
-        .map_err(|message| DispatchFailure::Terminal(message, FailureCategory::ProviderTerminal))?
-    {
+    let result = match require_success_result(&response, "openSMILE").map_err(|failure| {
+        DispatchFailure::Terminal(failure.into(), FailureCategory::ProviderTerminal)
+    })? {
         TaskResultV2::OpensmileResult(result) => result,
         other => {
             return Err(DispatchFailure::Terminal(
@@ -451,9 +451,9 @@ async fn dispatch_avqi_attempt(
 
     // Outcome and payload read as one thing, for the reason in the openSMILE
     // path above.
-    let result = match require_success_result(&response, "AVQI")
-        .map_err(|message| DispatchFailure::Terminal(message, FailureCategory::ProviderTerminal))?
-    {
+    let result = match require_success_result(&response, "AVQI").map_err(|failure| {
+        DispatchFailure::Terminal(failure.into(), FailureCategory::ProviderTerminal)
+    })? {
         TaskResultV2::AvqiResult(result) => result,
         other => {
             return Err(DispatchFailure::Terminal(

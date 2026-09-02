@@ -126,6 +126,14 @@ class ProtocolErrorCodeV2(str, Enum):
     ATTACHMENT_UNREADABLE = "attachment_unreadable"
     MODEL_UNAVAILABLE = "model_unavailable"
     RUNTIME_FAILURE = "runtime_failure"
+    # A pinned Hugging Face Hub artifact refused this machine's request: a
+    # gated repository requiring accepted terms, a missing/invalid token, or
+    # no cached copy while offline. Distinct from RUNTIME_FAILURE so the
+    # server can categorize it as a configuration/credential condition on the
+    # operator's machine rather than a batchalign defect. Set by the Rust
+    # worker boundary when a Python runner call raises
+    # `batchalign.inference._model_access_errors.ModelAccessDeniedError`.
+    MODEL_ACCESS_DENIED = "model_access_denied"
 
 
 class FaTextModeV2(str, Enum):

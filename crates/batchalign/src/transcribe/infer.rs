@@ -14,7 +14,9 @@ use crate::cache::UtteranceCache;
 use crate::chat_ops::CacheKey;
 use crate::error::{MissingRequiredEvidence, MissingSpeakerEvidence, ServerError};
 use crate::params::CachePolicy;
-use crate::types::worker_v2::{SpeakerBackendV2, SpeakerInferenceEvidenceV2, SpeakerSegmentV2};
+use crate::types::worker_v2::{
+    ProtocolErrorCodeV2, SpeakerBackendV2, SpeakerInferenceEvidenceV2, SpeakerSegmentV2,
+};
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::asr_request_v2::{
     AsrBuildInputV2, AsrInputSourceV2, PreparedAsrRequestIdsV2, build_asr_request_v2,
@@ -25,7 +27,7 @@ use crate::worker::speaker_request_v2::{
     PreparedSpeakerRequestIdsV2, SpeakerAudioBuildSourceV2, SpeakerBuildInputV2,
     build_speaker_request_v2,
 };
-use crate::worker::speaker_result_v2::parse_speaker_result_v2;
+use crate::worker::speaker_result_v2::{SpeakerResultParseError, parse_speaker_result_v2};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -272,9 +274,34 @@ async fn infer_speaker(
 
     parse_speaker_result_v2(&response)
         .map(|result| result.evidence.clone())
-        .map_err(|error| {
-            ServerError::Validation(format!("speaker V2 response parse failed: {error}"))
-        })
+        .map_err(speaker_parse_failure_to_server_error)
+}
+
+/// Route a speaker V2 parse failure to its category, instead of collapsing
+/// every failure into `ServerError::Validation`.
+///
+/// A worker-reported PROTOCOL failure (`SpeakerResultParseError::Protocol`)
+/// carries a [`ProtocolErrorCodeV2`] the worker itself classified; a Hugging
+/// Face Hub access denial becomes `ServerError::ModelAccessDenied`, a
+/// configuration/credential condition on the SERVER's machine, never
+/// `Validation`, which the dashboard renders as "pipeline bug, filed
+/// automatically" and which describes a malformed CLIENT request. Every
+/// other protocol code, and a shape mismatch
+/// (`SpeakerResultParseError::UnexpectedPayload`), stays `Validation`: those
+/// really are "the response this server got does not make sense".
+fn speaker_parse_failure_to_server_error(error: SpeakerResultParseError) -> ServerError {
+    match error {
+        SpeakerResultParseError::Protocol {
+            code: ProtocolErrorCodeV2::ModelAccessDenied,
+            message,
+        } => ServerError::ModelAccessDenied(message),
+        SpeakerResultParseError::Protocol { message, .. } => {
+            ServerError::Validation(format!("speaker V2 response parse failed: {message}"))
+        }
+        SpeakerResultParseError::UnexpectedPayload(message) => {
+            ServerError::Validation(format!("speaker V2 response parse failed: {message}"))
+        }
+    }
 }
 
 /// Production implementation of the typed speaker-evidence service boundary.
@@ -391,6 +418,54 @@ fn speaker_resolution_error_to_server_error(error: SpeakerEvidenceResolutionErro
 mod tests {
     use super::*;
     use std::path::Path;
+
+    /// The regression this function exists for (2026-09-02): a worker
+    /// protocol failure carrying `ModelAccessDenied` (the category set when
+    /// pyannote's speaker-diarization load hits a gated Hugging Face Hub
+    /// repository) must become `ServerError::ModelAccessDenied`, and NEVER
+    /// `Validation`. Before this, every speaker V2 parse failure collapsed
+    /// into `Validation`, which the dashboard renders as "pipeline bug, not
+    /// your input" even when the true cause was the operator's own missing
+    /// Hub credentials.
+    #[test]
+    fn model_access_denied_protocol_failure_never_becomes_validation() {
+        let error = SpeakerResultParseError::Protocol {
+            code: ProtocolErrorCodeV2::ModelAccessDenied,
+            message: "could not download the Hugging Face model at \
+                      pyannote/speaker-diarization-community-1: its repository is gated"
+                .to_owned(),
+        };
+
+        let mapped = speaker_parse_failure_to_server_error(error);
+
+        assert!(
+            matches!(mapped, ServerError::ModelAccessDenied(_)),
+            "expected ServerError::ModelAccessDenied, got {mapped:?}"
+        );
+        assert!(!matches!(mapped, ServerError::Validation(_)));
+    }
+
+    /// Every OTHER protocol code, and a shape mismatch, still becomes
+    /// `Validation`: those genuinely are "the response this server got does
+    /// not make sense", unlike a Hub access denial.
+    #[test]
+    fn other_protocol_failures_and_shape_mismatches_still_become_validation() {
+        let protocol_runtime = SpeakerResultParseError::Protocol {
+            code: ProtocolErrorCodeV2::RuntimeFailure,
+            message: "boom".to_owned(),
+        };
+        assert!(matches!(
+            speaker_parse_failure_to_server_error(protocol_runtime),
+            ServerError::Validation(_)
+        ));
+
+        let shape_mismatch =
+            SpeakerResultParseError::UnexpectedPayload("wrong payload kind".to_owned());
+        assert!(matches!(
+            speaker_parse_failure_to_server_error(shape_mismatch),
+            ServerError::Validation(_)
+        ));
+    }
 
     /// `Auto` is ACCEPTED on the native whisper-rs path (whisper.cpp's
     /// own detection runs; 2026-07-28 "fully supported and default"). A

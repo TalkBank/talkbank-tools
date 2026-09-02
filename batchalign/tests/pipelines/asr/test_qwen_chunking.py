@@ -1,11 +1,12 @@
-"""Chunking and runaway detection for the native Qwen3-ASR engine.
+"""Chunking for the native Qwen3-ASR engine.
 
-These are the two jobs BA3 took over from the `qwen-asr` package when the
-engine moved onto `transformers`' native `qwen3_asr` module, and they are
-where its remaining risk lives. Neither needs a model, so these run in
-milliseconds.
+This is one of two jobs BA3 took over from the `qwen-asr` package when the
+engine moved onto `transformers`' native `qwen3_asr` module. Needs no model,
+so these run in milliseconds. Runaway detection, the other job, and the
+per-chunk decode budget it now reads first, are covered in
+`test_qwen_decode_budget.py`.
 
-What each property is protecting:
+What each property here is protecting:
 
 * **Exact reconstruction.** A splitter that dropped or duplicated samples
   would still produce a fluent transcript, so nothing downstream would notice
@@ -15,9 +16,6 @@ What each property is protecting:
   produces timings that look reasonable and are silently wrong. FA emitted
   word timings 28.2 seconds past the end of their own audio on 6 of 226
   sessions once, undetected for two months, for exactly this reason.
-* **Runaway detection.** Greedy decoding can fall into a repetition loop and
-  emit until it hits the token cap, which puts thousands of characters of
-  invented text into a transcript with nothing marking it as invented.
 """
 
 from __future__ import annotations
@@ -29,7 +27,6 @@ from batchalign.inference.languages.cantonese._qwen_chunking import (
     MIN_ASR_INPUT_SECONDS,
     SAMPLE_RATE,
     AudioChunk,
-    detect_runaway,
     split_audio_into_chunks,
 )
 
@@ -101,34 +98,3 @@ def test_a_short_tail_is_padded_up_to_the_model_minimum() -> None:
     tail = chunks[-1]
     assert len(tail.samples) == int(MIN_ASR_INPUT_SECONDS * SR)
     assert tail.samples[-1] == 0.0
-
-
-def test_ordinary_speech_density_is_not_a_runaway() -> None:
-    """The densest legitimate chunk measured across the whole Cantonese
-    benchmark was 4.3 characters per second; the median was 2.9."""
-    chunk = AudioChunk(samples=_noise(180.0), offset=0.0)
-    assert detect_runaway("x" * 780, chunk) is None
-
-
-def test_the_measured_runaway_is_caught() -> None:
-    """The real failure: 4,584 characters for 179.6 s of audio, 25.5 per
-    second, on fixture A020 of the Cantonese benchmark."""
-    chunk = AudioChunk(samples=_noise(179.6), offset=360.0)
-    runaway = detect_runaway("x" * 4584, chunk)
-
-    assert runaway is not None
-    assert runaway.chars == 4584
-    assert runaway.chars_per_second == pytest.approx(25.5, abs=0.2)
-    # The offset travels with the refusal so an operator can find the audio.
-    assert runaway.offset == 360.0
-    assert "4584 chars" in runaway.describe()
-
-
-def test_an_empty_chunk_is_not_reported_as_a_runaway() -> None:
-    """Zero-length audio would divide by zero; silence is not a runaway."""
-    assert (
-        detect_runaway(
-            "anything", AudioChunk(samples=np.array([], dtype=np.float32), offset=0.0)
-        )
-        is None
-    )

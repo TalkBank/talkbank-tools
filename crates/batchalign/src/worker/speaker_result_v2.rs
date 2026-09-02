@@ -8,46 +8,96 @@ use serde::Deserialize;
 
 use crate::api::DurationMs;
 use crate::types::worker_v2::{
-    ExecuteResponseV2, SpeakerInferenceEvidenceV2, SpeakerResultV2, SpeakerSegmentV2, TaskResultV2,
+    ExecuteResponseV2, ProtocolErrorCodeV2, SpeakerInferenceEvidenceV2, SpeakerResultV2,
+    SpeakerSegmentV2, TaskResultV2,
 };
-use crate::worker::execute_result_v2::require_success_result;
+use crate::worker::execute_result_v2::{ExecuteFailureRead, require_success_result};
+
+/// Why a V2 speaker execute response could not be read as speaker evidence.
+///
+/// Kept distinct from a bare `String` (every other V2 result adapter's error
+/// shape) so the caller can route a worker-reported PROTOCOL failure to its
+/// own category instead of collapsing every parse failure into one generic
+/// validation error. Without this, `infer_speaker` in `transcribe/infer.rs`
+/// had no way to tell "the worker's response was shaped wrong" apart from
+/// "the worker told us it could not download a gated Hugging Face model",
+/// and reported both as `ServerError::Validation`, which the dashboard
+/// renders as "pipeline bug, filed automatically" even when the true cause
+/// is a configuration condition on the operator's own machine.
+#[derive(Debug, Clone)]
+pub enum SpeakerResultParseError {
+    /// The worker's response itself reported failure; carries the protocol
+    /// code so the caller can categorize it without re-parsing the message.
+    Protocol {
+        /// The failed request's protocol category.
+        code: ProtocolErrorCodeV2,
+        /// The fully formatted diagnostic.
+        message: String,
+    },
+    /// The worker reported success but the payload was not a speaker result.
+    UnexpectedPayload(String),
+}
+
+impl std::fmt::Display for SpeakerResultParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Protocol { message, .. } => f.write_str(message),
+            Self::UnexpectedPayload(message) => f.write_str(message),
+        }
+    }
+}
+
+impl From<ExecuteFailureRead> for SpeakerResultParseError {
+    fn from(value: ExecuteFailureRead) -> Self {
+        Self::Protocol {
+            code: value.code,
+            message: value.message,
+        }
+    }
+}
 
 /// Parse one V2 speaker execute response into the typed segment list.
-pub fn parse_speaker_result_v2(response: &ExecuteResponseV2) -> Result<&SpeakerResultV2, String> {
+pub fn parse_speaker_result_v2(
+    response: &ExecuteResponseV2,
+) -> Result<&SpeakerResultV2, SpeakerResultParseError> {
     let result = require_success_result(response, "speaker")?;
 
     match result {
         TaskResultV2::SpeakerResult(result) => Ok(result),
-        TaskResultV2::MorphosyntaxResult(_) => {
-            Err("worker protocol V2 speaker response returned morphosyntax data".into())
-        }
-        TaskResultV2::UtsegResult(_) => {
-            Err("worker protocol V2 speaker response returned utterance-segmentation data".into())
-        }
-        TaskResultV2::WhisperChunkResult(_) => {
-            Err("worker protocol V2 speaker response returned ASR chunk data".into())
-        }
-        TaskResultV2::MonologueAsrResult(_) => {
-            Err("worker protocol V2 speaker response returned monologue ASR data".into())
-        }
+        TaskResultV2::MorphosyntaxResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned morphosyntax data".into(),
+        )),
+        TaskResultV2::UtsegResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned utterance-segmentation data".into(),
+        )),
+        TaskResultV2::WhisperChunkResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned ASR chunk data".into(),
+        )),
+        TaskResultV2::MonologueAsrResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned monologue ASR data".into(),
+        )),
         TaskResultV2::WhisperTokenTimingResult(_) => {
-            Err("worker protocol V2 speaker response returned forced-alignment token data".into())
+            Err(SpeakerResultParseError::UnexpectedPayload(
+                "worker protocol V2 speaker response returned forced-alignment token data".into(),
+            ))
         }
         TaskResultV2::IndexedWordTimingResult(_) => {
-            Err("worker protocol V2 speaker response returned indexed timing data".into())
+            Err(SpeakerResultParseError::UnexpectedPayload(
+                "worker protocol V2 speaker response returned indexed timing data".into(),
+            ))
         }
-        TaskResultV2::TranslationResult(_) => {
-            Err("worker protocol V2 speaker response returned translation data".into())
-        }
-        TaskResultV2::CorefResult(_) => {
-            Err("worker protocol V2 speaker response returned coreference data".into())
-        }
-        TaskResultV2::OpensmileResult(_) => {
-            Err("worker protocol V2 speaker response returned openSMILE feature data".into())
-        }
-        TaskResultV2::AvqiResult(_) => {
-            Err("worker protocol V2 speaker response returned AVQI feature data".into())
-        }
+        TaskResultV2::TranslationResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned translation data".into(),
+        )),
+        TaskResultV2::CorefResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned coreference data".into(),
+        )),
+        TaskResultV2::OpensmileResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned openSMILE feature data".into(),
+        )),
+        TaskResultV2::AvqiResult(_) => Err(SpeakerResultParseError::UnexpectedPayload(
+            "worker protocol V2 speaker response returned AVQI feature data".into(),
+        )),
     }
 }
 
@@ -198,6 +248,39 @@ mod tests {
 
         let error =
             parse_speaker_result_v2(&response).expect_err("translation result should be rejected");
-        assert!(error.contains("translation data"));
+        assert!(matches!(
+            error,
+            SpeakerResultParseError::UnexpectedPayload(_)
+        ));
+        assert!(error.to_string().contains("translation data"));
+    }
+
+    /// The regression this type exists for: a worker-reported protocol
+    /// failure (a Hugging Face Hub access denial, in the real 2026-09-02
+    /// incident) must come back as `Protocol { code, .. }`, never collapsed
+    /// into the same `UnexpectedPayload` shape as an ordinary shape mismatch.
+    #[test]
+    fn a_protocol_failure_preserves_its_code_distinct_from_a_shape_mismatch() {
+        let response = ExecuteResponseV2::failure(
+            WorkerRequestIdV2::from("req-speaker-v2-3"),
+            ProtocolErrorCodeV2::ModelAccessDenied,
+            "could not download the Hugging Face model at \
+             pyannote/speaker-diarization-community-1: its repository is gated"
+                .to_owned(),
+            DurationSeconds(0.01),
+        );
+
+        let error = parse_speaker_result_v2(&response)
+            .expect_err("a failed response is never speaker data");
+
+        match error {
+            SpeakerResultParseError::Protocol { code, message } => {
+                assert_eq!(code, ProtocolErrorCodeV2::ModelAccessDenied);
+                assert!(message.contains("speaker-diarization-community-1"));
+            }
+            SpeakerResultParseError::UnexpectedPayload(message) => {
+                panic!("a protocol failure must not read as a shape mismatch: {message}");
+            }
+        }
     }
 }

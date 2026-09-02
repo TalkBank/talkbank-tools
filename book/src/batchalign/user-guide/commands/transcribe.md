@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-08-31 22:01 EDT
+**Last updated:** 2026-09-02 06:51 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -49,14 +49,25 @@ or IRB rules before running it. Job output is not written into the API key
 configuration.
 
 The local `--speaker-engine pyannote` alternative uses the public, ungated
-TalkBank-pinned `talkbank/dia-fork` pipeline and public dependencies. It
-downloads them anonymously on first use and requires neither a Hugging Face
-token nor accepted model terms. It runs inference locally and does not use the
-pyannoteAI API key. `--speaker-engine nemo` is a second local alternative.
+TalkBank-pinned `talkbank/dia-fork` pipeline plus its pinned segmentation and
+embedding dependencies, downloaded anonymously on first use. It runs
+inference locally and does not use the pyannoteAI API key. `--speaker-engine
+nemo` is a second local alternative that avoids the paragraph below entirely.
 
-A Hugging Face token is relevant only if an operator replaces the released
-local default with a gated custom model. It is not required for the command
-shown above.
+**`--speaker-engine pyannote` also fetches one UNPINNED, currently GATED
+artifact: a PLDA calibration model.** `pyannote.audio`'s pipeline class loads
+it unconditionally during construction, and the released config does not
+override it, so the class's own default applies: the gated
+`pyannote/speaker-diarization-community-1` repository. A machine with no
+accepted terms and no Hugging Face token fails on first use naming that
+repository. The fix is a token, checked in this order: `~/.batchalign.ini`
+`[auth] hf_token`, then Hugging Face's own resolution (`HF_TOKEN`, or the
+token saved by `hf auth login`); accepting the repository's terms at
+<https://huggingface.co/pyannote/speaker-diarization-community-1> is required
+either way. Full detail: [diarize](diarize.md#local-model-download-todays-truth-including-a-gated-dependency).
+
+A Hugging Face token is NOT relevant to the default command shown above,
+which uses `--speaker-engine pyannote-ai` and never reaches this local path.
 
 The standalone [`diarize`](diarize.md) command is intended for producing
 anonymous `.turns.json` evidence for an existing transcript. It defaults to

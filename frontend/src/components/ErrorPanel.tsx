@@ -8,6 +8,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   system: "border-red-200",
   processing: "border-orange-200",
   validation: "border-rose-300",
+  model_access: "border-sky-200",
 };
 
 const CATEGORY_TEXT: Record<string, string> = {
@@ -16,6 +17,7 @@ const CATEGORY_TEXT: Record<string, string> = {
   system: "text-red-700",
   processing: "text-orange-700",
   validation: "text-rose-700",
+  model_access: "text-sky-700",
 };
 
 export function ErrorPanel({ errorGroups }: { errorGroups: ErrorGroup[] }) {
@@ -68,6 +70,18 @@ export function ErrorPanel({ errorGroups }: { errorGroups: ErrorGroup[] }) {
               {group.category === "validation" && (
                 <p className="text-[11px] text-rose-600 mb-2 italic">
                   This is a pipeline bug, not your input. A diagnostic report has been filed automatically.
+                </p>
+              )}
+
+              {/* Model access banner: a configuration/credential condition on
+                  the server's machine, not a batchalign defect and not the
+                  caller's bad input. Each file's own message below already
+                  names the repository and the remedy. */}
+              {group.category === "model_access" && (
+                <p className="text-[11px] text-sky-600 mb-2 italic">
+                  A required model needs access approval or a Hugging Face
+                  token on this machine. This is not a pipeline bug and not a
+                  problem with your input files.
                 </p>
               )}
 

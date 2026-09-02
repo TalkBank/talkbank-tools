@@ -1,7 +1,7 @@
 # diarize
 
 **Status:** Current
-**Last updated:** 2026-09-01 14:35 EDT
+**Last updated:** 2026-09-02 06:51 EDT
 
 Detect speaker turns in audio (speaker diarization) without transcribing.
 Each input media file produces a speaker-turns JSON artifact naming which
@@ -110,18 +110,47 @@ participant roles by itself.
 
 ---
 
-## Local model download: no credential required
+## Local model download: today's truth, including a gated dependency
 
-Standalone `diarize` runs the open-source `pyannote.audio` pipeline locally.
-Its pinned default, `talkbank/dia-fork`, and that pipeline's segmentation and
-speaker-embedding dependencies are public and ungated on Hugging Face. The
-first run downloads them anonymously; no Hugging Face account, accepted model
-terms, `hf auth login`, or `HF_TOKEN` is required.
+Standalone `diarize` runs the open-source `pyannote.audio` pipeline locally,
+and pins three artifacts by exact Hugging Face commit in its release
+manifest: the pipeline config (`talkbank/dia-fork`), the segmentation model
+(`talkbank/seg-fork-3.0`), and the speaker-embedding model
+(`hbredin/wespeaker-voxceleb-resnet34-LM`). All three repositories are public
+and ungated, and "pinned" is literal: a later update to a repository's
+default branch does not silently change a released BA3 runtime or reuse
+evidence produced by another model graph.
 
-"Pinned" is literal: the release manifest records an exact Hugging Face commit
-for the pipeline, segmentation model, and embedding model. A later update to a
-repository's default branch does not silently change a released BA3 runtime or
-reuse evidence produced by another model graph.
+**A fourth, UNPINNED dependency is fetched anonymously behind those three,
+and it is currently gated.** `pyannote.audio`'s `SpeakerDiarization` pipeline
+class unconditionally loads a PLDA calibration artifact during construction,
+regardless of which clustering algorithm the pinned config selects; when the
+config does not name a PLDA artifact of its own (ours does not), the class's
+own default applies, and that default is the gated
+`pyannote/speaker-diarization-community-1` repository. On a machine with no
+accepted terms and no Hugging Face token, standalone `diarize` and
+integrated `transcribe --speaker-engine pyannote` therefore fail on first
+use with a "model access" error naming that repository.
+
+**The fix is a Hugging Face token, in either of two places, checked in this
+order:**
+
+- `~/.batchalign.ini`, section `[auth]`, key `hf_token`:
+
+  ```ini
+  [auth]
+  hf_token = <your Hugging Face token, after accepting the model's terms>
+  ```
+
+- Hugging Face's own resolution: the `HF_TOKEN` environment variable, or the
+  token saved by running `hf auth login`.
+
+Accepting the gated repository's terms at
+<https://huggingface.co/pyannote/speaker-diarization-community-1> is required
+regardless of which of the two the token comes from. An operator who instead
+wants to avoid a Hugging Face account entirely should use
+`--speaker-engine pyannote-ai` (below) or `--speaker-engine nemo`, neither of
+which touches this dependency.
 
 This local model download must not be confused with the pyannoteAI API key.
 That separate credential authorizes the paid pyannoteAI cloud service selected
@@ -140,13 +169,14 @@ engine.pyannote.key = <your pyannoteAI API key>
 ```
 
 With the key in place, `batchalign3 diarize ... --speaker-engine pyannote-ai`
-needs nothing further. The default standalone `pyannote` route neither needs
-that API key nor sends audio to pyannoteAI. See [transcribe](transcribe.md)
-for the integrated cloud path.
+needs nothing further. That route neither touches the gated PLDA dependency
+above nor sends audio anywhere but pyannoteAI's own service. See
+[transcribe](transcribe.md) for the integrated cloud path.
 
-An operator who changes the local engine to a gated custom Hugging Face model
-must independently accept that model's terms and authenticate as required by
-its publisher. That is not the released default.
+An operator who changes the local engine to a different, gated custom
+Hugging Face model must independently accept that model's terms and
+authenticate as required by its publisher. That is not the released
+default.
 
 ---
 

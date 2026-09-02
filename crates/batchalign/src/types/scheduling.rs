@@ -129,6 +129,15 @@ pub enum FailureCategory {
     Cancelled,
     /// Catch-all infrastructure or system error.
     System,
+    /// A pinned Hugging Face Hub artifact refused this machine's request: a
+    /// gated repository requiring accepted terms, a missing/invalid token,
+    /// or no cached copy while offline. Deterministic across retries (the
+    /// operator's credentials do not change mid-job) and actionable, so it
+    /// gets its own category rather than folding into `WorkerBootstrap` or
+    /// the generic `Validation`, either of which would report a
+    /// configuration condition on the server's machine as if it were a
+    /// batchalign defect or bad input.
+    ModelAccessDenied,
 }
 
 impl std::fmt::Display for FailureCategory {
@@ -147,6 +156,7 @@ impl std::fmt::Display for FailureCategory {
             Self::MemoryPressure => write!(f, "memory_pressure"),
             Self::Cancelled => write!(f, "cancelled"),
             Self::System => write!(f, "system"),
+            Self::ModelAccessDenied => write!(f, "model_access_denied"),
         }
     }
 }
@@ -169,6 +179,7 @@ impl std::str::FromStr for FailureCategory {
             "memory_pressure" => Ok(Self::MemoryPressure),
             "cancelled" => Ok(Self::Cancelled),
             "system" => Ok(Self::System),
+            "model_access_denied" => Ok(Self::ModelAccessDenied),
             other => Err(format!("unknown FailureCategory: {other}")),
         }
     }
@@ -372,6 +383,7 @@ mod tests {
             FailureCategory::MemoryPressure,
             FailureCategory::Cancelled,
             FailureCategory::System,
+            FailureCategory::ModelAccessDenied,
         ] {
             let json = serde_json::to_string(&category).unwrap();
             let back: FailureCategory = serde_json::from_str(&json).unwrap();

@@ -216,6 +216,12 @@ pub enum ProtocolErrorCodeV2 {
     ModelUnavailable,
     /// Runtime failed while executing the task.
     RuntimeFailure,
+    /// A pinned Hugging Face Hub artifact refused this machine's request: a
+    /// gated repository requiring accepted terms, a missing/invalid token,
+    /// or no cached copy while offline. Distinct from `RuntimeFailure` so
+    /// callers can categorize it as a configuration/credential condition on
+    /// the OPERATOR's machine rather than a batchalign defect.
+    ModelAccessDenied,
 }
 
 impl ProtocolErrorCodeV2 {
@@ -236,6 +242,7 @@ impl ProtocolErrorCodeV2 {
             Self::AttachmentUnreadable => "attachment_unreadable",
             Self::ModelUnavailable => "model_unavailable",
             Self::RuntimeFailure => "runtime_failure",
+            Self::ModelAccessDenied => "model_access_denied",
         }
     }
 }
@@ -257,6 +264,7 @@ mod protocol_error_code_tests {
             ProtocolErrorCodeV2::AttachmentUnreadable,
             ProtocolErrorCodeV2::ModelUnavailable,
             ProtocolErrorCodeV2::RuntimeFailure,
+            ProtocolErrorCodeV2::ModelAccessDenied,
         ];
         for code in all {
             // Compared as `Option`, so a serialization failure shows up as a

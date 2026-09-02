@@ -14,8 +14,8 @@ use pyo3::prelude::*;
 
 use crate::worker_artifacts::require_mono_prepared_audio;
 use crate::worker_execute::{
-    ExecuteFailure, ValidatedRequestV2, execute_request_v2, extract_task_payload,
-    parse_host_output, require_runner,
+    ExecuteFailure, ValidatedRequestV2, classify_runner_error, execute_request_v2,
+    extract_task_payload, parse_host_output, require_runner,
 };
 
 fn parse_opensmile_result(
@@ -200,7 +200,7 @@ fn run_speaker(
             audio.descriptor().sample_rate_hz.0,
             expected_speakers,
         ))
-        .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
+        .map_err(|error| classify_runner_error(py, error))?;
     Ok(TaskResultV2::SpeakerResult(parse_speaker_result(
         &response,
         speaker_request.backend,

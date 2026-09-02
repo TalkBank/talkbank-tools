@@ -43,10 +43,14 @@ const STATUS_ORDER: Record<string, number> = {
  * Backend categories (from Rust `FailureCategory` enum) are kebab-cased:
  *   validation, parse_error, input_missing, worker_crash, worker_timeout,
  *   worker_protocol, provider_transient, provider_terminal, memory_pressure,
- *   cancelled, system.
+ *   cancelled, system, model_access_denied.
  *
- * We collapse these into 5 user-facing groups:
- *   input, media, system, processing, validation.
+ * We collapse these into 6 user-facing groups:
+ *   input, media, system, processing, validation, model_access.
+ *
+ * `worker_bootstrap` has no entry here (a pre-existing gap, not introduced by
+ * `model_access_denied`): it falls through to the raw-slug rendering the
+ * fallback below describes, same as any category added without an entry.
  */
 const CATEGORY_NORMALIZE: Record<string, string> = {
   validation: "validation",
@@ -60,6 +64,11 @@ const CATEGORY_NORMALIZE: Record<string, string> = {
   memory_pressure: "system",
   cancelled: "system",
   system: "system",
+  // A configuration/credential condition on the SERVER's machine (a gated
+  // Hugging Face model, a missing token), never the caller's bad input, so
+  // it gets its own bucket rather than folding into "validation" (which
+  // renders the "pipeline bug, not your input" banner) or "system".
+  model_access_denied: "model_access",
   // Legacy/fallback values from older display groups
   input: "input",
   media: "media",
@@ -72,6 +81,7 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   system: "System Error",
   processing: "Processing Error",
   validation: "Pipeline Bug",
+  model_access: "Model Access Required",
 };
 
 // ---------------------------------------------------------------------------

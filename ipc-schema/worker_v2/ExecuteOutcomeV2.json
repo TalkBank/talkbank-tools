@@ -73,6 +73,11 @@
           "description": "Runtime failed while executing the task.",
           "type": "string",
           "const": "runtime_failure"
+        },
+        {
+          "description": "A pinned Hugging Face Hub artifact refused this machine's request: a\ngated repository requiring accepted terms, a missing/invalid token,\nor no cached copy while offline. Distinct from `RuntimeFailure` so\ncallers can categorize it as a configuration/credential condition on\nthe OPERATOR's machine rather than a batchalign defect.",
+          "type": "string",
+          "const": "model_access_denied"
         }
       ]
     }

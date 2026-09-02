@@ -1,7 +1,7 @@
 # Server Model Loading and Caching
 
 **Status:** Current
-**Last updated:** 2026-08-31 22:13 EDT
+**Last updated:** 2026-09-02 06:51 EDT
 
 This document describes every ML model loaded by batchalign3 workers,
 when each model is loaded into memory, and how results are cached.
@@ -192,14 +192,31 @@ The default cloud engine reads `BATCHALIGN_PYANNOTE_API_KEY`,
 compatibility. This is a worker-owned credential path and audio is uploaded to
 pyannoteAI.
 
-### Public Hugging Face downloads for the local Pyannote engine
+### Hugging Face downloads for the local Pyannote engine
 
-The released local speaker engine loads `talkbank/dia-fork`,
-`talkbank/seg-fork-3.0`, and
-`hbredin/wespeaker-voxceleb-resnet34-LM`. All three repositories are public and
-ungated. A worker therefore downloads the released model graph anonymously: it
-does not need `hf auth login`, `HF_TOKEN`, accepted model terms, or a
-pyannoteAI API key.
+The released local speaker engine loads three PINNED artifacts:
+`talkbank/dia-fork`, `talkbank/seg-fork-3.0`, and
+`hbredin/wespeaker-voxceleb-resnet34-LM`. All three repositories are public
+and ungated, and a worker downloads them anonymously; none needs `hf auth
+login`, `HF_TOKEN`, accepted model terms, or a pyannoteAI API key.
+
+**A fourth, UNPINNED artifact is fetched behind those three, and it is
+currently GATED.** `pyannote.audio`'s `SpeakerDiarization` pipeline class
+loads a PLDA calibration artifact unconditionally during construction,
+regardless of the pinned config's clustering choice; the released config does
+not override it, so the class's own default applies, which is the gated
+`pyannote/speaker-diarization-community-1` repository. A worker with no
+accepted terms and no Hugging Face token fails on first use naming that
+repository, mapped by `batchalign.inference._model_access_errors` to a typed
+`ModelAccessDeniedError` (Rust: `ProtocolErrorCodeV2::ModelAccessDenied` /
+`ServerError::ModelAccessDenied` / `FailureCategory::ModelAccessDenied`,
+never `Validation`). The remedy is a Hugging Face token in
+`~/.batchalign.ini` `[auth] hf_token` (checked before Hugging Face's own
+`HF_TOKEN`/`hf auth login` resolution, via
+`batchalign.inference.pyannote_local.resolve_huggingface_hub_token`), after
+accepting the repository's terms at
+<https://huggingface.co/pyannote/speaker-diarization-community-1>. User-facing
+detail: [diarize](../user-guide/commands/diarize.md#local-model-download-todays-truth-including-a-gated-dependency).
 
 The repository names are not the runtime identity. The packaged
 `batchalign/inference/local_pyannote_model.json` manifest owns an exact

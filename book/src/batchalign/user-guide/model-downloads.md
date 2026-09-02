@@ -1,7 +1,7 @@
 # Model Downloads and Caching
 
 **Status:** Current
-**Last updated:** 2026-08-31 22:23 EDT
+**Last updated:** 2026-09-02 06:51 EDT
 
 ## The contract
 
@@ -14,7 +14,13 @@ see related to model downloads is one of these:
   the internet (or the upstream is down). Try again when you have network.
 - "Failed to download …: disk full", free some space and retry.
 - "Failed to download …: HTTP 401/403", a configured custom model requires
-  authentication. BA3's released local Pyannote graph is public and ungated.
+  authentication. BA3's three PINNED released local Pyannote artifacts
+  (`talkbank/dia-fork` and its segmentation/embedding dependencies) are
+  public and ungated, but that engine also fetches one UNPINNED PLDA
+  calibration artifact whose default is currently the GATED
+  `pyannote/speaker-diarization-community-1` repository; the model-access
+  error names the repository and the fix (a Hugging Face token). See
+  [diarize](commands/diarize.md#local-model-download-todays-truth-including-a-gated-dependency).
 
 If you see anything else, anything along the lines of "capability table is
 unavailable", "resources.json could not be read", "model not found locally"
@@ -36,7 +42,7 @@ local cache and the same command runs without any download.
 | `align` (Whisper engine) | Whisper FA model from HuggingFace | ~3 GB | 3-10 min |
 | `align` (Wave2Vec engine, default) | Wave2Vec MMS_FA bundle from torchaudio | ~1.2 GB | 1-5 min |
 | `align --lang yue` (Cantonese FA) | Wave2Vec Cantonese model | ~1 GB | 1-5 min |
-| `transcribe --diarization enabled --speaker-engine pyannote` or standalone `diarize` (local default) | public, ungated Pyannote `talkbank/dia-fork` and dependencies from Hugging Face | ~500 MB | 1-3 min |
+| `transcribe --diarization enabled --speaker-engine pyannote` or standalone `diarize` (local default) | Pyannote `talkbank/dia-fork` and its pinned dependencies (public, ungated) PLUS an unpinned PLDA artifact currently gated behind accepted terms + a Hugging Face token | ~500 MB | 1-3 min once authorized |
 | `transcribe --diarization enabled` (default speaker backend) or `diarize --speaker-engine pyannote-ai` | No local speaker model; uses paid pyannoteAI Precision-2 | N/A | Provider latency only |
 | `translate` (Seamless engine) | SeamlessM4T from HuggingFace | ~2.4 GB | 2-8 min |
 | `transcribe` (utterance segmentation, certain languages) | BERT utterance model from HuggingFace | ~400 MB | 1-3 min |

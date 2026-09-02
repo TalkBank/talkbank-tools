@@ -208,7 +208,8 @@
           "provider_terminal",
           "memory_pressure",
           "cancelled",
-          "system"
+          "system",
+          "model_access_denied"
         ],
         "type": "string"
       },

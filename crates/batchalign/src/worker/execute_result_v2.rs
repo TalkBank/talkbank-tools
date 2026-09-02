@@ -13,7 +13,40 @@
 //! `ExecuteResponseV2::read` is total over the two legal shapes. This module
 //! keeps only the shared message shape every adapter uses.
 
-use crate::types::worker_v2::{ExecuteOutcomeRef, ExecuteResponseV2, TaskResultV2};
+use crate::types::worker_v2::{
+    ExecuteOutcomeRef, ExecuteResponseV2, ProtocolErrorCodeV2, TaskResultV2,
+};
+
+/// A worker-protocol V2 execute response's failure, as read from the wire.
+///
+/// Carries the failed [`ProtocolErrorCodeV2`] alongside the fully formatted
+/// diagnostic, rather than collapsing them into a bare `String` (the shape
+/// every caller used before 2026-09-02). A caller that only needs text for
+/// display keeps writing `?` into a `String`-returning function via the
+/// [`From`] impl below; the one caller that needs to route on the failure's
+/// CATEGORY (`parse_speaker_result_v2`, for a Hugging Face Hub access
+/// failure) can read `code` instead of re-deriving it from message text,
+/// which the house rules ban.
+#[derive(Debug, Clone)]
+pub struct ExecuteFailureRead {
+    /// The protocol code the worker's response carried.
+    pub code: ProtocolErrorCodeV2,
+    /// The fully formatted diagnostic: `"worker protocol V2 {task} request
+    /// failed with {code:?}: {message}"`.
+    pub message: String,
+}
+
+impl std::fmt::Display for ExecuteFailureRead {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl From<ExecuteFailureRead> for String {
+    fn from(value: ExecuteFailureRead) -> Self {
+        value.message
+    }
+}
 
 /// Require that one execute response succeeded and produced a result payload.
 ///
@@ -22,12 +55,13 @@ use crate::types::worker_v2::{ExecuteOutcomeRef, ExecuteResponseV2, TaskResultV2
 pub fn require_success_result<'a>(
     response: &'a ExecuteResponseV2,
     task: &str,
-) -> Result<&'a TaskResultV2, String> {
+) -> Result<&'a TaskResultV2, ExecuteFailureRead> {
     match response.read() {
         ExecuteOutcomeRef::Success(result) => Ok(result),
-        ExecuteOutcomeRef::Failed { code, message } => Err(format!(
-            "worker protocol V2 {task} request failed with {code:?}: {message}"
-        )),
+        ExecuteOutcomeRef::Failed { code, message } => Err(ExecuteFailureRead {
+            code,
+            message: format!("worker protocol V2 {task} request failed with {code:?}: {message}"),
+        }),
     }
 }
 
@@ -60,12 +94,58 @@ mod tests {
         let error = require_success_result(&failed, "speaker")
             .expect_err("a failed response must not read as success");
 
-        assert!(error.contains("ModelUnavailable"), "{error}");
-        assert!(error.contains("no speaker host loaded"), "{error}");
+        assert_eq!(error.code, ProtocolErrorCodeV2::ModelUnavailable);
+        let rendered = error.to_string();
+        assert!(rendered.contains("ModelUnavailable"), "{rendered}");
+        assert!(rendered.contains("no speaker host loaded"), "{rendered}");
         assert!(
-            !error.contains("missing a result payload"),
-            "the reported failure was replaced by the missing-payload message: {error}"
+            !rendered.contains("missing a result payload"),
+            "the reported failure was replaced by the missing-payload message: {rendered}"
         );
+    }
+
+    /// The code survives so a caller can route on it (this is the type this
+    /// module exists for, since 2026-09-02): a Hugging Face Hub access
+    /// failure must be distinguishable from a generic runtime crash without
+    /// re-parsing the message text.
+    #[test]
+    fn a_model_access_denied_failure_preserves_its_code() {
+        let failed = ExecuteResponseV2::failure(
+            WorkerRequestIdV2::from("req-1".to_owned()),
+            ProtocolErrorCodeV2::ModelAccessDenied,
+            "could not download the Hugging Face model at pyannote/speaker-diarization-community-1"
+                .to_owned(),
+            DurationSeconds(0.0),
+        );
+
+        let error = require_success_result(&failed, "speaker")
+            .expect_err("a failed response must not read as success");
+
+        assert_eq!(error.code, ProtocolErrorCodeV2::ModelAccessDenied);
+        assert!(
+            error
+                .to_string()
+                .contains("speaker-diarization-community-1")
+        );
+    }
+
+    /// Existing callers that only need text (ASR, FA, text, opensmile/AVQI)
+    /// keep writing `require_success_result(...)?` into a `String`-returning
+    /// function: the `?` operator's implicit `From::from` must still work.
+    #[test]
+    fn converts_into_a_plain_string_via_from() {
+        let failed = ExecuteResponseV2::failure(
+            WorkerRequestIdV2::from("req-1".to_owned()),
+            ProtocolErrorCodeV2::RuntimeFailure,
+            "boom".to_owned(),
+            DurationSeconds(0.0),
+        );
+
+        let error = require_success_result(&failed, "ASR")
+            .expect_err("a failed response must not read as success");
+        let as_string: String = error.into();
+
+        assert!(as_string.contains("boom"));
     }
 
     #[test]

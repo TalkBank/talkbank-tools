@@ -313,6 +313,22 @@ pub enum ServerError {
     /// wrong with the media, not with the request.
     #[error("cannot establish the recording's duration: {0}")]
     RecordingDuration(String),
+
+    /// A pinned Hugging Face Hub artifact refused this machine's request: a
+    /// gated repository requiring accepted terms, a missing/invalid token,
+    /// or no cached copy while offline. The message is the worker's own
+    /// typed diagnostic, already actionable (which repository, and the two
+    /// remedies), so it is surfaced verbatim.
+    ///
+    /// **HTTP 500.** Distinct from [`Validation`](Self::Validation): this is
+    /// a configuration/credential condition on the SERVER's machine, not a
+    /// malformed request, and must never be reported to the caller as bad
+    /// input. Before 2026-09-02 every worker-protocol V2 speaker parse
+    /// failure, this one included, collapsed into `Validation`, which the
+    /// dashboard renders as "pipeline bug, filed automatically" even though
+    /// nothing about batchalign was broken.
+    #[error("model access required: {0}")]
+    ModelAccessDenied(String),
 }
 
 #[cfg(feature = "server")]
@@ -343,6 +359,9 @@ impl ServerError {
             // would tell the caller to fix a payload that has nothing wrong
             // with it.
             Self::RecordingDuration(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            // The server's own machine lacks Hub access/credentials; the
+            // caller's request was fine.
+            Self::ModelAccessDenied(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -381,6 +400,20 @@ mod tests {
     fn validation_is_400() {
         let err = ServerError::Validation("bad input".into());
         assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+    }
+
+    /// A Hugging Face Hub access failure is a server-side configuration
+    /// condition, never bad input, so it must map to 500 and never to the
+    /// 400 `Validation` gets.
+    #[test]
+    fn model_access_denied_is_500_not_400_and_carries_the_worker_message() {
+        let err = ServerError::ModelAccessDenied(
+            "could not download the Hugging Face model at \
+             pyannote/speaker-diarization-community-1: its repository is gated"
+                .into(),
+        );
+        assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(err.to_string().contains("speaker-diarization-community-1"));
     }
 
     #[test]

@@ -97,6 +97,12 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         // read it, or it is empty. `System` is the category an operator should
         // look at the host for.
         ServerError::RecordingDuration(_) => FailureCategory::System,
+        // A gated/credential-denied Hugging Face Hub artifact is deterministic
+        // across retries (the operator's credentials do not change mid-job)
+        // and actionable, so it gets its own category rather than `System`
+        // (which reads as "contact your administrator") or `Validation`
+        // (which reads as "you sent bad input").
+        ServerError::ModelAccessDenied(_) => FailureCategory::ModelAccessDenied,
     }
 }
 
@@ -185,5 +191,69 @@ pub(crate) fn user_facing_error(
              Try restarting the job. If the problem persists, please contact \
              your administrator."
         ),
+        FailureCategory::ModelAccessDenied => {
+            // The worker's typed message already names the repository and
+            // both remedies (accept its terms, authenticate with `hf auth
+            // login`, or choose a different engine); surface it verbatim,
+            // the same treatment `WorkerBootstrap` gets above.
+            let detail = truncate_tail(raw_error, 1000);
+            format!("{command_label} failed for {filename}: {detail}")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The regression this module exists for (2026-09-02): a Hugging Face
+    /// Hub access failure (gated repo, missing token) must classify as its
+    /// own category, never `Validation`. `Validation` tells the caller their
+    /// REQUEST was wrong; the request was fine, the server's own machine
+    /// lacks Hub access.
+    #[test]
+    fn model_access_denied_classifies_to_its_own_category_never_validation() {
+        let error = ServerError::ModelAccessDenied(
+            "could not download the Hugging Face model at \
+             pyannote/speaker-diarization-community-1: its repository is gated"
+                .to_owned(),
+        );
+
+        let category = classify_server_error(&error);
+
+        assert_eq!(category, FailureCategory::ModelAccessDenied);
+        assert_ne!(category, FailureCategory::Validation);
+    }
+
+    /// A deterministic, credential-class failure must not be auto-retried:
+    /// retrying does not change whether the operator has accepted a model's
+    /// terms or holds a valid token.
+    #[test]
+    fn model_access_denied_is_not_retryable() {
+        assert!(!is_retryable_worker_failure(
+            FailureCategory::ModelAccessDenied
+        ));
+    }
+
+    /// The user-facing message must surface the worker's own actionable text
+    /// (which repository, and the two remedies) rather than a generic
+    /// "contact your administrator" framing.
+    #[test]
+    fn model_access_denied_user_message_surfaces_the_worker_detail() {
+        let raw = "could not download the Hugging Face model at \
+                    pyannote/speaker-diarization-community-1: its repository is gated. \
+                    Visit https://huggingface.co/pyannote/speaker-diarization-community-1 \
+                    to accept its terms and authenticate with `hf auth login`, or choose a \
+                    different --speaker-engine.";
+
+        let message = user_facing_error(
+            FailureCategory::ModelAccessDenied,
+            "Diarize",
+            "session.cha",
+            raw,
+        );
+
+        assert!(message.contains("speaker-diarization-community-1"));
+        assert!(message.contains("hf auth login"));
     }
 }

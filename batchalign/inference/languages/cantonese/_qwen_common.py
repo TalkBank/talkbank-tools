@@ -40,6 +40,12 @@ from ._asr_types import AsrElement, AsrGenerationPayload, AsrMonologue, TimedWor
 from ._qwen_chunking import (
     SAMPLE_RATE,
     AudioChunk,
+    Bounded,
+    BoundReason,
+    ChunkDecodeBudget,
+    ChunkDecodeOutcome,
+    Completed,
+    DecodeBudget,
     RunawayOutput,
     detect_runaway,
     split_audio_into_chunks,
@@ -66,14 +72,6 @@ _QWEN_LANG_LABELS: dict[LanguageCode, str] = {
 # (the downstream FA pipeline injects them into `%wor`), so the aligner is
 # never optional: see `LoadedQwen`, whose existence is what guarantees it.
 _QWEN_FORCED_ALIGNER_MODEL_ID = "Qwen/Qwen3-ForcedAligner-0.6B-hf"
-
-# Caps generation for ONE chunk, which is at most ~185 s of audio. Generous for
-# that much speech: the densest legitimate chunk measured across the Cantonese
-# benchmark was 4.3 characters per second. Reaching this cap is the signature
-# of a decoding runaway rather than of dense speech, which is why
-# `detect_runaway` exists rather than this bound being trusted to contain the
-# damage: hitting it still yields thousands of characters of repetition.
-_MAX_NEW_TOKENS = 4096
 
 
 def _check_native_checkpoint(model_id: str) -> None:
@@ -182,6 +180,47 @@ class LoadedQwen:
         )
 
 
+class _RecordingMaxTimeCriteria:
+    """``transformers.generation.MaxTimeCriteria`` that remembers firing.
+
+    ``StoppingCriteriaList`` ORs together every criterion's per-row bool
+    tensor and hands the caller only the combined result, so nothing in that
+    protocol tells a caller afterward WHICH criterion fired. Recording it
+    here is what lets ``QwenRecognizer._transcribe_chunk`` classify a
+    ``Bounded`` decode from the criterion's OWN fact, rather than
+    re-deriving "did the deadline fire" from a wall-clock measurement taken
+    outside ``generate`` that could, in principle, disagree with what the
+    criterion itself decided (a slow return from ``generate`` after the
+    criterion already stopped it, for instance).
+
+    Subclassing (not wrapping) ``MaxTimeCriteria`` keeps the calibrated
+    timeout logic itself in ``transformers`` rather than reimplemented here;
+    this class adds exactly the one bit ``transformers`` does not expose.
+    """
+
+    def __init__(self, max_time: float, initial_timestamp: float | None = None) -> None:
+        from transformers.generation import (  # type: ignore[import-not-found]
+            MaxTimeCriteria,
+        )
+
+        # Composition, not inheritance: `MaxTimeCriteria` lives behind a
+        # lazy `transformers` import (see the module docstring on why torch
+        # itself is imported lazily throughout this file), so a class body
+        # cannot subclass it without importing `transformers` at module load
+        # time. `self._inner` is that instance; every other member of this
+        # class exists only to observe it.
+        self._inner = MaxTimeCriteria(
+            max_time=max_time, initial_timestamp=initial_timestamp
+        )
+        self.fired = False
+
+    def __call__(self, input_ids: Any, scores: Any, **kwargs: Any) -> Any:
+        is_done = self._inner(input_ids, scores, **kwargs)
+        if bool(is_done.any()):
+            self.fired = True
+        return is_done
+
+
 class QwenRecognizer:
     """Wrapper around Qwen3-ASR model invocation.
 
@@ -265,9 +304,31 @@ class QwenRecognizer:
         )
         return self._model
 
-    def _transcribe_chunk(self, loaded: LoadedQwen, chunk: AudioChunk) -> str:
-        """ASR one chunk. Returns the chunk's text, window-scoped."""
+    def _transcribe_chunk(
+        self, loaded: LoadedQwen, chunk: AudioChunk, budget: ChunkDecodeBudget
+    ) -> ChunkDecodeOutcome:
+        """ASR one chunk against an already-built budget.
+
+        Returns the typed decode outcome, window-scoped. ``budget`` is built
+        by the caller (``_run_model``) from the request's ``DecodeBudget``,
+        drawn down chunk by chunk, so file-level accounting is the caller's
+        job, not this method's.
+
+        Classified by a ``match`` over two independently-observed facts:
+        whether ``_RecordingMaxTimeCriteria`` itself recorded firing (its
+        OWN fact, not a wall-clock measurement re-derived out here that
+        could disagree with it), and whether the returned token count
+        reached ``budget.max_new_tokens``. The deadline takes priority when
+        both are true: a decode that reached the cap AFTER the deadline had
+        already fired is, first, a deadline overrun.
+        """
         import torch  # type: ignore[import-not-found]
+        from transformers.generation import (  # type: ignore[import-not-found]
+            StoppingCriteriaList,
+        )
+
+        deadline_criterion = _RecordingMaxTimeCriteria(max_time=budget.deadline_seconds)
+        stopping_criteria = StoppingCriteriaList([deadline_criterion])
 
         inputs = loaded.processor.apply_transcription_request(
             audio=chunk.samples,
@@ -278,11 +339,26 @@ class QwenRecognizer:
             # and auto-detect on short or low-energy audio mis-classifies.
             language=self._qwen_language,
         ).to(loaded.model.device, loaded.model.dtype)
+
         with torch.inference_mode():
-            output_ids = loaded.model.generate(**inputs, max_new_tokens=_MAX_NEW_TOKENS)
+            output_ids = loaded.model.generate(
+                **inputs,
+                max_new_tokens=budget.max_new_tokens,
+                stopping_criteria=stopping_criteria,
+            )
+
         generated = output_ids[:, inputs["input_ids"].shape[1] :]
         parsed = loaded.processor.decode(generated, return_format="parsed")[0]
-        return str(parsed.get("transcription", "") or "")
+        text = str(parsed.get("transcription", "") or "")
+
+        hit_token_cap = generated.shape[1] >= budget.max_new_tokens
+        match (deadline_criterion.fired, hit_token_cap):
+            case (True, _):
+                return Bounded(reason=BoundReason.DEADLINE, text=text)
+            case (False, True):
+                return Bounded(reason=BoundReason.TOKEN_CAP, text=text)
+            case (False, False):
+                return Completed(text=text)
 
     def _align_chunk(
         self, loaded: LoadedQwen, chunk: AudioChunk, text: str
@@ -322,8 +398,22 @@ class QwenRecognizer:
             )
         return timings
 
-    def _run_model(self, source_path: str) -> QwenTranscription:
-        """Transcribe and align the whole recording, chunk by chunk."""
+    def _run_model(
+        self, source_path: str, decode_budget_seconds: float | None = None
+    ) -> QwenTranscription:
+        """Transcribe and align the whole recording, chunk by chunk.
+
+        ``decode_budget_seconds``, when given, is the request's own
+        file-level wall-clock decode budget (the Rust side will populate
+        this from the same audio duration once the request carries a
+        ``decode_budget_seconds`` field). Until then it defaults to
+        ``None``, and this method derives one itself, from THIS file's own
+        total audio seconds via ``DecodeBudget.for_total_seconds``, using
+        the one named realtime factor the whole scheme is built on. Either
+        way, exactly one ``DecodeBudget`` is built for the request and every
+        chunk's deadline is drawn down from it (see ``ChunkDecodeBudget.
+        for_chunk``), so no chunk computes its own deadline in isolation.
+        """
         import librosa  # type: ignore[import-not-found]
 
         loaded = self._get_model()
@@ -337,17 +427,37 @@ class QwenRecognizer:
         wav, _sr = librosa.load(source_path, sr=SAMPLE_RATE, mono=True)
         chunks = split_audio_into_chunks(wav)
 
+        remaining_budget = (
+            DecodeBudget(seconds=decode_budget_seconds)
+            if decode_budget_seconds is not None
+            else DecodeBudget.for_total_seconds(sum(chunk.seconds for chunk in chunks))
+        )
+
         segments: list[QwenAsrSegment] = []
         refused: list[RunawayOutput] = []
         for chunk in chunks:
-            text = self._transcribe_chunk(loaded, chunk)
-            if not text.strip():
-                continue
+            chunk_budget = ChunkDecodeBudget.for_chunk(chunk, remaining_budget)
+            outcome = self._transcribe_chunk(loaded, chunk, chunk_budget)
+            remaining_budget = remaining_budget.remaining_after(
+                chunk_budget.deadline_seconds
+            )
 
-            runaway = detect_runaway(text, chunk)
+            # Classify BEFORE the blank-text check: a `Bounded` outcome is a
+            # runaway regardless of how much text it produced, including
+            # none at all (a chunk whose deadline fired before it emitted
+            # anything). Checking blank-text first would silently swallow
+            # exactly that case into "no speech" and never record which
+            # bound fired.
+            runaway = detect_runaway(outcome, chunk)
             if runaway is not None:
                 L.warning("Qwen3-ASR discarding runaway chunk: %s", runaway.describe())
                 refused.append(runaway)
+                continue
+
+            # Only reachable for a `Completed` outcome now: `detect_runaway`
+            # already returned non-None for every `Bounded` one above.
+            text = outcome.text
+            if not text.strip():
                 continue
 
             segments.append(
@@ -359,10 +469,14 @@ class QwenRecognizer:
         return QwenTranscription(segments=segments, refused=refused)
 
     def transcribe(
-        self, source_path: str
+        self, source_path: str, decode_budget_seconds: float | None = None
     ) -> tuple[AsrGenerationPayload, list[TimedWord]]:
         """Run Qwen3-ASR on the audio file and return the shared
         ``(monologues_payload, timed_words)`` tuple.
+
+        ``decode_budget_seconds`` forwards to ``_run_model``: see its
+        docstring. ``None`` (the default, and the only value reachable
+        today) means derive the budget from this file's own audio.
 
         Unlike the FunASR path, this projection is done entirely in
         Python (no Rust ``batchalign_core`` call). The Qwen3-ASR
@@ -372,7 +486,9 @@ class QwenRecognizer:
         consolidate into a shared Rust helper alongside the FunASR
         and Tencent projections.
         """
-        result = self._run_model(source_path)
+        result = self._run_model(
+            source_path, decode_budget_seconds=decode_budget_seconds
+        )
         if result.refused:
             # Surfaced here as well as at the discard site, because by this
             # point it is a property of the whole transcript: this many

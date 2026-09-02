@@ -32,6 +32,14 @@ pub(crate) enum ExecuteFailure {
     InvalidPayload(String),
     /// The model or SDK for the task is not loaded.
     ModelUnavailable(String),
+    /// A pinned Hugging Face Hub artifact refused this machine's request: a
+    /// gated repository requiring accepted terms, a missing/invalid token,
+    /// or no cached copy while offline. Distinct from `Runtime` so the
+    /// server can categorize it as a configuration/credential condition on
+    /// the OPERATOR's machine rather than a batchalign defect. Produced only
+    /// by [`classify_runner_error`], which recognizes the raised Python
+    /// exception by CLASS, never by parsing its message text.
+    ModelAccessDenied(String),
     /// The task ran and failed.
     Runtime(String),
 }
@@ -50,8 +58,38 @@ impl ExecuteFailure {
             Self::Artifact(failure) => failure.into_code_and_message(),
             Self::InvalidPayload(message) => (ProtocolErrorCodeV2::InvalidPayload, message),
             Self::ModelUnavailable(message) => (ProtocolErrorCodeV2::ModelUnavailable, message),
+            Self::ModelAccessDenied(message) => (ProtocolErrorCodeV2::ModelAccessDenied, message),
             Self::Runtime(message) => (ProtocolErrorCodeV2::RuntimeFailure, message),
         }
+    }
+}
+
+// The stable identity of the Python exception raised for a Hugging Face Hub
+// access/credential failure. Maps a Python class to a Rust marker type at
+// compile time, so `classify_runner_error` below can check the ACTUAL
+// exception class raised, never its message text (see
+// `batchalign/inference/_model_access_errors.py`, the module this exception
+// is defined in).
+pyo3::import_exception!(
+    batchalign.inference._model_access_errors,
+    ModelAccessDeniedError
+);
+
+/// Classify a `PyErr` raised by an inference-runner callback into the shared
+/// V2 failure taxonomy.
+///
+/// Distinguishes [`ModelAccessDeniedError`] (matched by EXCEPTION CLASS
+/// identity, never by parsing the error's message text) from every other
+/// exception, which stays a generic [`ExecuteFailure::Runtime`]. Python is
+/// the only side that inspects the underlying `huggingface_hub` exception
+/// classes (see `classify_huggingface_access_error`); this function exists
+/// so that reclassification does not have to be repeated at every Rust call
+/// site that invokes a Python runner.
+pub(crate) fn classify_runner_error(py: Python<'_>, error: PyErr) -> ExecuteFailure {
+    if error.is_instance_of::<ModelAccessDeniedError>(py) {
+        ExecuteFailure::ModelAccessDenied(error.to_string())
+    } else {
+        ExecuteFailure::Runtime(error.to_string())
     }
 }
 
@@ -222,6 +260,10 @@ mod tests {
             (
                 ExecuteFailure::ModelUnavailable("m".to_owned()),
                 ProtocolErrorCodeV2::ModelUnavailable,
+            ),
+            (
+                ExecuteFailure::ModelAccessDenied("m".to_owned()),
+                ProtocolErrorCodeV2::ModelAccessDenied,
             ),
             (
                 ExecuteFailure::Runtime("m".to_owned()),
