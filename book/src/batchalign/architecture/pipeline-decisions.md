@@ -274,7 +274,9 @@ flowchart TD
     Rep -->|"LIS removal"| FD3["DecisionRecord<br/>Fa::LisRemoval"]
     Rep --> Mono{"Typed monotonicity<br/>fa::orchestrate"}
     Mono -->|"monotonicity strip"| FD4["DecisionRecord<br/>Monotonicity::TimingStripped"]
-    Mono -->|"end clamp"| FD5["DecisionRecord<br/>Monotonicity::EndClamped"]
+    Mono -->|"coverage-only clamp"| FD5a["DecisionRecord<br/>Monotonicity::EndClampedCoverageOnly"]
+    Mono -->|"hull-boundary clamp"| FD5b["DecisionRecord<br/>Monotonicity::EndClampedBoundaryFromWords"]
+    Mono -->|"word-conflict clamp"| FD5c["DecisionRecord<br/>Monotonicity::EndClampedInterleavedWords"]
     Rep -->|"narrow bullet"| FD6["DecisionRecord<br/>Fa::NarrowBulletRescued"]
     Rep -->|"words timing dropped"| FD7["DecisionRecord<br/>Fa::WordsTimingDropped"]
 ```
@@ -329,7 +331,9 @@ classDiagram
     }
     class MonotonicityStrategy {
         <<enumeration>>
-        EndClamped
+        EndClampedCoverageOnly
+        EndClampedBoundaryFromWords
+        EndClampedInterleavedWords
         TimingStripped
     }
     class MorphosyntaxStrategy {

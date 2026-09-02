@@ -268,6 +268,41 @@ impl std::ops::Deref for PendingTiming {
     }
 }
 
+/// Clamp a word's timing, as it already sits in the transcript AST, to
+/// `[start_ms, end_ms)`.
+///
+/// This is the one route by which a pass running AFTER this module has
+/// already lowered timings to AST bullets (the cross-utterance monotonicity
+/// pass in `orchestrate.rs`) may cut a word's timing. It seeds a
+/// [`PendingTiming`] with [`Origin::TranscriptBullet`] (the same meaning that
+/// origin already carries above: "a span lifted off the transcript, before
+/// any pass has touched it", exactly true here, since as far as this later
+/// pass is concerned the span is a value it found already written to the
+/// AST, not a fresh measurement) and runs the clamp through the same
+/// [`PendingTiming::clamped_to_bullet`] and [`PendingTiming::settle`] every
+/// other clamp in this crate uses. The returned timing's end origin is
+/// therefore a real `Origin::ClampedTo { bound: ClampBound::UtteranceBullet,
+/// .. }` produced by the actual arithmetic, never a hand-written
+/// substitute, and a clamp that would leave no positive extent returns
+/// `None` rather than writing a degenerate span, exactly like every other
+/// caller of `clamped_to_bullet`.
+///
+/// `talkbank-model`'s `Bullet` has no field for an `Origin` (it is two
+/// integers plus source metadata), so the caller cannot carry this timing's
+/// origin into the CHAT file it writes back to; the value exists so the
+/// CLAMP ITSELF runs through the real, invariant-checked route rather than
+/// a second hand-rolled `.max()`/`.min()`.
+pub(super) fn clamp_transcript_word_to_bullet(
+    span: TimeSpan,
+    start_ms: u64,
+    end_ms: u64,
+) -> Option<WordTiming> {
+    PendingTiming::from_transcript(span)
+        .clamped_to_bullet(start_ms, end_ms)?
+        .settle()
+        .ok()
+}
+
 /// Maximum internal gap (ms) that gap healing may collapse into the
 /// previous word.
 ///

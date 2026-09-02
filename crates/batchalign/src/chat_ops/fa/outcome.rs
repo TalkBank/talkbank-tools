@@ -49,8 +49,10 @@
 //! Instead, each pass continues to own its own vocabulary and emits
 //! `DecisionRecord`s as side effects. The shared
 //! [`DecisionModule::Fa`](batchalign_transform::decisions::DecisionModule::Fa) module
-//! tag and the `strategy` string (e.g. `"end_clamped"`, `"gap_filled"`,
-//! `"timing_stripped"`) give the downstream consumer a unified view.
+//! tag and the `strategy` string (e.g. `"end_clamped_coverage_only"`,
+//! `"end_clamped_boundary_from_words"`, `"end_clamped_interleaved_words"`,
+//! `"gap_filled"`, `"timing_stripped"`) give the downstream consumer a
+//! unified view.
 //!
 //! ## Typed-error boundary
 //!

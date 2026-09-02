@@ -145,6 +145,12 @@ fn word_interval_cache_key_retires_scoreless_entries_only() {
     assert_eq!(current_whisper_key, legacy_whisper_key);
 }
 
+/// `%wor` is now written by the write phase
+/// (`FaApplied::then_enforce_monotonicity`, reached via `then_finalize`),
+/// not inline during `apply_fa_results` itself (2026-09-01 review, item 2):
+/// a caller that discards the returned `FaApplied` without finalizing gets
+/// no `%wor` at all, which is the point of carrying the write as a typed
+/// obligation rather than a side effect of injection.
 #[test]
 fn test_apply_fa_results() {
     let input = include_str!("../../../../../../test-fixtures/fa_hello_world_goodbye_timed.cha");
@@ -178,13 +184,14 @@ fn test_apply_fa_results() {
         WordTiming::fixture(5500, 8000),
     ]];
 
-    let _ = apply_fa_results(
+    let _finalized = apply_fa_results(
         &mut chat,
         &groups,
         &responses,
         WordEndPolicy::measured(WordGapHealing::PreserveMeasured),
         true,
-    );
+    )
+    .then_finalize(&mut chat, BulletRepairPolicy::Disabled);
 
     let output = chat.to_chat_string();
     assert!(output.contains("%wor:"), "Output should contain %wor tier");
@@ -272,7 +279,7 @@ fn test_monotonicity_clamps_overlapping_end_times() {
     let clamp_decisions: Vec<_> = decisions
         .records()
         .iter()
-        .filter(|d| d.strategy.strategy_name() == "end_clamped")
+        .filter(|d| d.strategy.strategy_name() == "end_clamped_coverage_only")
         .collect();
     assert_eq!(
         clamp_decisions.len(),
@@ -297,7 +304,7 @@ fn monotonicity_clamp_that_cuts_wor_timing_requests_review() {
     let clamp = decisions
         .records()
         .iter()
-        .find(|decision| decision.strategy.strategy_name() == "end_clamped")
+        .find(|decision| decision.strategy.strategy_name() == "end_clamped_interleaved_words")
         .expect("overlap should produce an end clamp");
     assert!(
         clamp.needs_review,
@@ -326,7 +333,7 @@ fn monotonicity_clamp_that_cuts_fresh_inline_word_timing_requests_review_without
     let clamp = decisions
         .records()
         .iter()
-        .find(|decision| decision.strategy.strategy_name() == "end_clamped")
+        .find(|decision| decision.strategy.strategy_name() == "end_clamped_interleaved_words")
         .expect("overlap should produce an end clamp");
     assert!(
         clamp.needs_review,
@@ -367,11 +374,8 @@ fn cross_speaker_overlap_policy_preserves_only_cross_speaker_end_overlap() {
     );
     assert!(matches!(
         result.effects(),
-        [MonotonicityEffect::EndClamped {
-            utterance_idx,
-            next_utterance_idx,
-            ..
-        }] if utterance_idx.raw() == 1 && next_utterance_idx.raw() == 2
+        [MonotonicityEffect::EndClampedCoverageOnly { edge, .. }]
+            if edge.utterance_idx.raw() == 1 && edge.next_utterance_idx.raw() == 2
     ));
 }
 

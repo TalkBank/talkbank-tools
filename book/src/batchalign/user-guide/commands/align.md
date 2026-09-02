@@ -57,7 +57,7 @@ flowchart TD
     resolve_audio --> ensure_wav[ensure_wav: convert mp4→wav if needed]
     ensure_wav --> parse[parse_lenient → ChatFile]
     parse --> reuse_check{Complete reusable\n%wor timing?}
-    reuse_check -->|Yes| reuse[Refresh main-tier bullets\nfrom %wor + optionally\nregenerate %wor]
+    reuse_check -->|Yes| reuse[Refresh main-tier bullets from %wor\nmechanically, then resolve overlap\n(--end-overlap-policy) and only THEN\noptionally regenerate %wor from the\nresolved state]
     reuse_check -->|No| count[count_utterance_timing → timed, untimed]
     reuse --> done([Output .cha file])
 
@@ -109,8 +109,8 @@ flowchart TD
     retry_check -->|Yes| prior_boundary_check{"--existing-wor-boundaries?"}
     prior_boundary_check -->|preserve| preserve_prior[Clamp against prior authoritative bounds<br/>and preserve compatible edge coverage]
     prior_boundary_check -->|rebuild-from-evidence| rebuild_prior[Keep fresh word extents<br/>rebuild main bullet from word hull]
-    preserve_prior --> wor_check
-    rebuild_prior --> wor_check
+    preserve_prior --> overlap_policy
+    rebuild_prior --> overlap_policy
     retry_check -->|No + retryable| fallback_check{Untimed utts\nnot recovered?}
     fallback_check -->|Yes + not tried| fallback_utr["Fallback: run_utr_pass()\n(at most once)"]
     fallback_utr --> retry_loop[Retry FA with\nrecovered timing]
@@ -118,16 +118,19 @@ flowchart TD
     fallback_check -->|No or already tried| backoff[Backoff + retry]
     backoff --> cache_check
 
+    overlap_policy{"--end-overlap-policy?\n(default: preserve-cross-speaker)"}
+    overlap_policy -->|preserve-cross-speaker default| resolve_same[Resolve same-speaker overlap\nCoverageOnly / BoundaryFromWords /\nInterleavedWords, from measured word hulls\ncross-speaker overlap untouched]
+    overlap_policy -->|clamp-all-adjacent| resolve_all[Resolve every adjacent overlap\nsame rule, any speaker pair]
+
+    resolve_same --> wor_check
+    resolve_all --> wor_check
+
     wor_check{--wor / --nowor?}
-    wor_check -->|--wor| gen_wor[Generate %wor tier]
+    wor_check -->|--wor| gen_wor["Generate %wor tier\n(from the RESOLVED state)"]
     wor_check -->|--nowor| skip_wor[Omit %wor tier]
 
-    gen_wor --> overlap_policy{"--end-overlap-policy?"}
-    skip_wor --> overlap_policy
-    overlap_policy -->|clamp-all-adjacent| clamp_all[Clamp every adjacent end overlap]
-    overlap_policy -->|preserve-cross-speaker| preserve_cross[Preserve cross-speaker overlap<br/>clamp same-speaker overlap]
-    clamp_all --> merge_check
-    preserve_cross --> merge_check
+    gen_wor --> merge_check
+    skip_wor --> merge_check
 
     merge_check{--merge-abbrev?}
     merge_check -->|Yes| merge[merge_abbreviations transform]
@@ -295,20 +298,40 @@ back into the output:
    intended groups actually reach evidence resolution, then confirm each
    sidecar's evidence source.
 
-6. **Cross-speaker end overlap is an explicit v0.4.0 research projection.**
-   The default `--end-overlap-policy clamp-all-adjacent` preserves current
-   behavior. `preserve-cross-speaker` leaves conversational overlap between
-   different speaker codes intact while continuing to clamp same-speaker
-   overlap. It does not relax start-order enforcement and does not change raw
-   FA cache identity. Treat it as an experimental arm until blinded listening
-   evidence supports a wider policy.
+6. **The default is `preserve-cross-speaker`: cross-speaker overlap is
+   ordinary conversation and is left alone.** `--end-overlap-policy` governs
+   same-speaker (and, under `clamp-all-adjacent`, cross-speaker) end overlap
+   between adjacent utterances. A same-speaker overlap is resolved from
+   MEASURED word timings, never guessed, into one of three cases:
+   - The earlier utterance's last measured word already ends before the
+     next utterance starts: only the bullet's inherited coverage overshot,
+     so the bullet end moves back to the word; no word moves, no review is
+     needed.
+   - The two utterances' words do not themselves overlap: both bullets take
+     their measured word-hull edges instead of an arbitrary clamp; no word
+     moves, no review is needed.
+   - The two utterances' words genuinely overlap in time (or the next
+     utterance has no measured word): the bullet is clamped to the next
+     utterance's start AND every word past that bound is clamped with it,
+     and the decision is flagged for review, since this is a real conflict
+     between segmentation and FA evidence that only a person can adjudicate.
+   `clamp-all-adjacent` applies the same three-way resolution to a
+   cross-speaker pair too, instead of leaving it alone. Neither value relaxes
+   start-order enforcement or changes raw FA cache identity.
 
 7. **Execution shape does not change the declared projection.** The same
    prior-boundary, optional-repair, and end-overlap policies now apply whether
    a run performs fresh injection, reuses every `%wor`, or resolves no FA
-   groups. Optional repair always runs before final monotonicity enforcement.
-   This is a consistency guarantee, not a recommendation to enable the
-   experimental repair flag.
+   groups, and `%wor` (when requested) is always written AFTER this
+   resolution runs, never before, on every path (fresh alignment, the
+   all-reusable fast path, and per-utterance partial reuse folded into the
+   same write). Optional repair always runs before final monotonicity
+   enforcement, and repair's own boundary-averaging step (`--bullet-repair`)
+   uses the SAME three-way resolution on measured hulls, so a small overlap
+   it splits can only move into a bullet's own inherited coverage, never into
+   a real word; where the hulls themselves overlap, it clamps bullet and
+   words together exactly as the main resolution does. This is a consistency
+   guarantee, not a recommendation to enable the experimental repair flag.
 
 The practical effect is that reruns now prefer **fresh FA over stale reuse**
 whenever the old timing distribution already looks suspicious, and postprocess
@@ -345,7 +368,7 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--wor` / `--nowor` | `--wor` | Include or suppress the `%wor` word-timing tier |
 | `--pauses` | off | Preserve each engine-reported word end instead of healing small plausible gaps. For Whisper, it also selects the historical character-spaced text mode. |
 | `--existing-wor-boundaries {preserve,rebuild-from-evidence}` | `preserve` | v0.4.0 option controlling how a rerun projects fresh FA evidence when the input already has `%wor`. `preserve` keeps compatibility; the experimental rebuild mode keeps fresh word extents and reconstructs the main bullet from their hull. It is a local projection only and does not change raw-evidence cache identity. |
-| `--end-overlap-policy {clamp-all-adjacent,preserve-cross-speaker}` | `clamp-all-adjacent` | v0.4.0 option controlling the later monotonicity projection. The experimental arm preserves cross-speaker overlap but still clamps same-speaker overlap. It does not change raw-evidence cache identity. |
+| `--end-overlap-policy {clamp-all-adjacent,preserve-cross-speaker}` | `preserve-cross-speaker` | Controls the same-speaker/cross-speaker resolution described above. The default leaves cross-speaker overlap alone; `clamp-all-adjacent` resolves it the same way as a same-speaker pair. It does not change raw-evidence cache identity. |
 | `--merge-abbrev` | off | Merge abbreviations in the output CHAT |
 | `--before PATH` |: | Previous version of the file for incremental alignment (skip unchanged utterances) |
 
@@ -438,8 +461,10 @@ hand-linked by an annotator), the bullet is **expanded but never shrunk**:
 - The raw FA cache key remains unchanged, so a cache-required comparison can
   vary this projection without rerunning the model.
 - A later document-order monotonicity pass applies the selected
-  `--end-overlap-policy`. The default still clamps any overlap; the research
-  arm preserves only cross-speaker overlap. Word-cutting cases remain explicit
+  `--end-overlap-policy`, resolving each same-speaker (and, under
+  `clamp-all-adjacent`, cross-speaker) pair from measured word hulls into one
+  of three cases (see above); the default, `preserve-cross-speaker`, leaves a
+  cross-speaker pair alone entirely. A genuine word conflict remains explicit
   evidence for adjudication; do not equate CHAT validity or word containment
   counts with boundary accuracy.
 

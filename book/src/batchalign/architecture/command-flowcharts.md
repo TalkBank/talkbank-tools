@@ -22,7 +22,7 @@ flowchart TD
     resolve_audio --> ensure_wav[ensure_wav: convert mp4→wav if needed]
     ensure_wav --> parse[parse_lenient → ChatFile]
     parse --> reuse_check{Complete reusable\n%wor timing?}
-    reuse_check -->|Yes| reuse[Refresh main-tier bullets\nfrom %wor + optionally\nregenerate %wor]
+    reuse_check -->|Yes| reuse[Refresh main-tier bullets from %wor\nmechanically, resolve overlap, THEN\noptionally regenerate %wor from the\nresolved state]
     reuse_check -->|No| count[count_utterance_timing → timed, untimed]
     reuse --> done([Output .cha file])
 
@@ -68,7 +68,7 @@ flowchart TD
     dp_align_fa --> inject_fa[Inject word-level timings into AST]
 
     inject_fa --> retry_check{FA\nsucceeded?}
-    retry_check -->|Yes| wor_check
+    retry_check -->|Yes| overlap_policy
     retry_check -->|No + retryable| fallback_check{Untimed utts\nnot recovered?}
     fallback_check -->|Yes + not tried| fallback_utr["Fallback: run_utr_pass()\n(at most once)"]
     fallback_utr --> retry_loop[Retry FA with\nrecovered timing]
@@ -76,8 +76,14 @@ flowchart TD
     fallback_check -->|No or already tried| backoff[Backoff + retry]
     backoff --> cache_check
 
+    overlap_policy{"--end-overlap-policy?\n(default: preserve-cross-speaker)"}
+    overlap_policy -->|"preserve-cross-speaker (default)"| resolve_same[Resolve same-speaker overlap from\nmeasured word hulls; cross-speaker untouched]
+    overlap_policy -->|clamp-all-adjacent| resolve_all[Same resolution for every\nadjacent pair, any speakers]
+    resolve_same --> wor_check
+    resolve_all --> wor_check
+
     wor_check{--wor / --nowor?}
-    wor_check -->|--wor| gen_wor[Generate %wor tier]
+    wor_check -->|--wor| gen_wor["Generate %wor tier\n(from the RESOLVED state)"]
     wor_check -->|--nowor| skip_wor[Omit %wor tier]
 
     gen_wor --> merge_check

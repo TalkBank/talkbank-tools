@@ -189,15 +189,28 @@ pub struct AlignUtrOptions {
 }
 
 /// Boundary-projection policy persisted with an `align` job.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AlignBoundaryOptions {
     /// How fresh FA evidence interacts with boundaries from an existing `%wor` run.
     #[serde(default)]
     pub existing_wor_boundaries: crate::chat_ops::fa::ExistingWorBoundaryPolicy,
 
     /// How adjacent utterance end overlap is projected after alignment.
-    #[serde(default)]
+    #[serde(default = "crate::chat_ops::fa::default_end_overlap_policy_serde")]
     pub end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy,
+}
+
+/// `EndOverlapPolicy` deliberately carries no `Default` impl (see
+/// `DEFAULT_END_OVERLAP_POLICY`'s doc), so this struct's default cannot be
+/// derived field-wise; it reads the same one constant every other caller of
+/// "the default" reads, rather than restating the choice here.
+impl Default for AlignBoundaryOptions {
+    fn default() -> Self {
+        Self {
+            existing_wor_boundaries: Default::default(),
+            end_overlap_policy: crate::chat_ops::fa::DEFAULT_END_OVERLAP_POLICY,
+        }
+    }
 }
 
 /// Options for the `align` command.
@@ -715,7 +728,7 @@ mod tests {
             pauses: true,
             boundaries: AlignBoundaryOptions {
                 existing_wor_boundaries: Default::default(),
-                end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker,
+                end_overlap_policy: crate::chat_ops::fa::DEFAULT_END_OVERLAP_POLICY,
             },
             wor: true.into(),
             merge_abbrev: false.into(),

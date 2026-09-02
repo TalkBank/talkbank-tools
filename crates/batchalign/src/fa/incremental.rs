@@ -13,9 +13,8 @@ use crate::api::DurationMs;
 use crate::cache::CacheBackend;
 use crate::chat_ops::fa::{
     BulletRepairPolicy, FaGroup, WordTiming, apply_fa_results_with_projection_policy, cache_key,
-    collect_existing_fa_word_timings, expand_bullets_for_edge_fillers, finalize_without_injection,
-    group_utterances, refresh_existing_alignment_for_utterance,
-    strip_wor_from_monotonicity_stripped_utterances,
+    collect_existing_fa_word_timings, expand_bullets_for_edge_fillers, group_utterances,
+    refresh_existing_alignment_for_utterance, strip_wor_from_monotonicity_stripped_utterances,
 };
 use crate::chat_ops::{CacheKey, ChatFile, Line, Utterance};
 use crate::error::ServerError;
@@ -109,12 +108,12 @@ pub(crate) async fn process_fa_incremental(
         )));
     }
 
-    let reusable_after_indices = reuse_stable_wor_timing_from_before(
-        &before_file,
-        &mut chat_file,
-        &deltas,
-        fa_params.wor_tier.should_write(),
-    );
+    let reusable_after_indices =
+        reuse_stable_wor_timing_from_before(&before_file, &mut chat_file, &deltas);
+    let reusable_after_touched: Vec<crate::chat_ops::UtteranceIdx> = reusable_after_indices
+        .iter()
+        .map(|&idx| crate::chat_ops::UtteranceIdx::new(idx))
+        .collect();
 
     expand_bullets_for_edge_fillers(&mut chat_file);
 
@@ -129,9 +128,17 @@ pub(crate) async fn process_fa_incremental(
         windows_clamped,
     } = group_utterances(&chat_file, fa_params.max_group_ms().0, &recording);
     if groups.is_empty() {
-        let finalized = finalize_without_injection(
-            &mut chat_file,
+        // Every utterance reused by `reuse_stable_wor_timing_from_before` is
+        // folded in here so `%wor` (when requested) is written after
+        // monotonicity resolves, never by the refresh step itself
+        // (2026-09-01 review, item 2).
+        let finalized = crate::chat_ops::fa::projection_without_injection_with_touched(
             fa_params.projection_policy(),
+            fa_params.wor_tier.should_write(),
+            reusable_after_touched,
+        )
+        .then_finalize(
+            &mut chat_file,
             BulletRepairPolicy::from(fa_params.bullet_repair),
         );
         if fa_params.bullet_repair {
@@ -446,6 +453,10 @@ pub(crate) async fn process_fa_incremental(
         fa_params.projection_policy(),
         fa_params.wor_tier.should_write(),
     )
+    // Utterances reused from the "before" file's `%wor` (2026-09-01 review,
+    // item 2): their `%wor` (if requested) is written by this SAME phase,
+    // after monotonicity resolves, not by the refresh step above.
+    .also_touched(reusable_after_touched)
     .then_finalize(
         &mut chat_file,
         BulletRepairPolicy::from(fa_params.bullet_repair),
@@ -532,11 +543,15 @@ pub(crate) async fn process_fa_incremental(
 /// trusting the edited utterance bullet. Each reused utterance receives the
 /// `%wor` tier from the "before" file and is then refreshed back onto the main
 /// tier so later grouping sees current utterance bullets and word timings.
+/// Mechanical only: never writes a fresh `%wor` tier itself. Callers fold
+/// the returned indices into whichever `FaApplied` write phase runs next
+/// (`also_touched` for the fresh-groups path, `projection_without_injection_with_touched`
+/// for the no-groups path), so `%wor` is always written after monotonicity
+/// resolves, never here (2026-09-01 review, item 2).
 fn reuse_stable_wor_timing_from_before(
     before_file: &ChatFile,
     after_file: &mut ChatFile,
     deltas: &[UtteranceDelta],
-    write_wor: bool,
 ) -> std::collections::HashSet<usize> {
     let mut reused = std::collections::HashSet::new();
 
@@ -568,7 +583,7 @@ fn reuse_stable_wor_timing_from_before(
         let Some(utterance) = get_utterance_mut(after_file, after_idx.raw()) else {
             continue;
         };
-        if refresh_existing_alignment_for_utterance(utterance, write_wor) {
+        if refresh_existing_alignment_for_utterance(utterance) {
             reused.insert(after_idx.raw());
         }
     }
@@ -651,7 +666,7 @@ mod tests {
         let mut after = parse_chat(&chat_with_wor("hello world .", "farewell ."));
         let deltas = diff_chat(&before, &after);
 
-        let reused = reuse_stable_wor_timing_from_before(&before, &mut after, &deltas, true);
+        let reused = reuse_stable_wor_timing_from_before(&before, &mut after, &deltas);
         assert!(reused.contains(&0));
         assert!(!reused.contains(&1));
 
@@ -665,7 +680,7 @@ mod tests {
         let before = parse_chat(&chat_with_wor("hello world .", "goodbye ."));
         let mut after = parse_chat(&chat_with_wor("hello world .", "goodbye ."));
         let deltas = diff_chat(&before, &after);
-        let reused = reuse_stable_wor_timing_from_before(&before, &mut after, &deltas, true);
+        let reused = reuse_stable_wor_timing_from_before(&before, &mut after, &deltas);
         assert_eq!(reused.len(), 2);
 
         let groups = group_utterances(
@@ -697,7 +712,7 @@ mod tests {
         let deltas = diff_chat(&before, &after);
         assert!(matches!(deltas[0], UtteranceDelta::TimingOnly { .. }));
 
-        let reused = reuse_stable_wor_timing_from_before(&before, &mut after, &deltas, true);
+        let reused = reuse_stable_wor_timing_from_before(&before, &mut after, &deltas);
         assert!(
             reused.contains(&0),
             "timing-only utterance should be reused"

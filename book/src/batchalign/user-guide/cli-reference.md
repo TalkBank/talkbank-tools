@@ -52,7 +52,7 @@ name, like `batchalign3 transcribe in/ --asr-engine paraformer`.
 | `--fa-engine NAME` | `align` | Forced-alignment engine. |
 | `--utr-engine NAME` | `align` | Utterance-timing-recovery engine. Only consulted with `--utr`. |
 | `--existing-wor-boundaries {preserve,rebuild-from-evidence}` | `align` | v0.4.0 option for prior `%wor`/main boundaries. Default `preserve`; rebuild mode is experimental and does not change raw FA cache identity. |
-| `--end-overlap-policy {clamp-all-adjacent,preserve-cross-speaker}` | `align` | v0.4.0 option for adjacent utterance ends. Default retains current all-adjacent clamping; the experimental arm preserves only cross-speaker overlap. No raw FA cache-key change. |
+| `--end-overlap-policy {clamp-all-adjacent,preserve-cross-speaker}` | `align` | Same-speaker (default, `preserve-cross-speaker`) or every adjacent pair (`clamp-all-adjacent`) end overlap resolved from measured word hulls. Cross-speaker overlap is left alone under the default, since it is ordinary conversation. No raw FA cache-key change. |
 | `--translate-engine NAME` | `translate` | Translation engine. |
 
 Each flag's `--help` lists every value it accepts, derived from the engine

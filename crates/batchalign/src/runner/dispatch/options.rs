@@ -398,7 +398,7 @@ mod tests {
     fn fa_dispatch_reads_end_overlap_policy() {
         let opts = CommandOptions::Align(AlignOptions {
             boundaries: crate::options::AlignBoundaryOptions {
-                end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker,
+                end_overlap_policy: crate::chat_ops::fa::DEFAULT_END_OVERLAP_POLICY,
                 ..Default::default()
             },
             ..AlignOptions::default()
@@ -406,7 +406,7 @@ mod tests {
         let params = extract_fa_dispatch_params(&opts, CachePolicy::UseCache).unwrap();
         assert_eq!(
             params.fa_params.end_overlap_policy,
-            crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker
+            crate::chat_ops::fa::DEFAULT_END_OVERLAP_POLICY
         );
     }
 

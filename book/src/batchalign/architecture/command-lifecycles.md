@@ -178,8 +178,10 @@ sequenceDiagram
 5b. **Cheap rerun path:** After parsing, the server first checks whether the
    file already has complete reusable `%wor` timing. If main↔`%wor` alignment
    is clean and every mapped `%wor` word is timed, the server copies that
-   timing back to main-tier words, refreshes utterance bullets, optionally
-   regenerates `%wor`, and skips FA for the file entirely.
+   timing back to main-tier words, refreshes utterance bullets, resolves
+   adjacent-utterance end overlap (`--end-overlap-policy`), and only THEN
+   optionally regenerates `%wor` from that resolved state; FA is skipped for
+   the file entirely.
 5c. **UTR pre-pass** (detect-and-skip): If the file is not already fully
    reusable, the server calls `count_utterance_timing()`. If untimed utterances
    exist and a UTR engine is configured (`--utr`, the default), it runs a

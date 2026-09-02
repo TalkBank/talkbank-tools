@@ -114,14 +114,32 @@ overlap policy.
 
 Partial `%wor` reuse has a load-bearing phase boundary. Before grouping,
 `refresh_reusable_utterances()` always uses compatibility preservation so the
-input bullet continues to define the same audio window and raw cache key. The
-explicit projection policy applies only after evidence collection. The
-all-reusable fast path has no grouping or inference and may therefore rebuild
-directly from the existing admitted `%wor` timings. The option does not force a
+input bullet continues to define the same audio window and raw cache key, and
+(2026-09-01 review, item 2) it is now MECHANICAL ONLY: it never writes `%wor`
+itself. It returns the utterances it touched, and `run_fa_from_ast` folds
+them into the SAME `FaApplied` write phase that this run's fresh injections
+use, via `FaApplied::also_touched`, so their `%wor` (when requested) is
+written once, after `EndOverlapPolicy` resolves, never before. The
+all-reusable fast path (no grouping, no inference) is the same: it rebuilds
+directly from the existing admitted `%wor` timings via
+`refresh_reusable_alignment`, then reaches the write phase through
+`projection_without_injection_with_touched` rather than a bare
+`finalize_without_injection` with a separate write. The explicit projection
+policy applies only after evidence collection. The option does not force a
 fully reusable document back through raw-cache replay. A cache-required
 development experiment caught and refused an early version that rebuilt before
 grouping; that refusal is the executable reason this phase separation must
-remain visible in code and diagrams.
+remain visible in code and diagrams. `add_wor_tier` itself is `pub(crate)`.
+In a PRODUCTION build it has exactly one caller: that one write phase
+(`FaApplied::then_enforce_monotonicity`). The only other callers are test
+code: unit tests of `%wor` generation shape itself, which do not claim the
+ordering property, and the `refresh_existing_alignment` /
+`refresh_existing_alignment_with_boundary_policy` convenience wrappers,
+which write `%wor` directly and are `#[cfg(test)]` (2026-09-01 review, item
+12) precisely because they have no production caller left -- the cheap
+rerun path that used to call them now goes through
+`refresh_reusable_alignment` and the write phase instead, as this page
+already describes below.
 
 ```mermaid
 flowchart LR
@@ -137,9 +155,11 @@ flowchart LR
     H --> PHASE
     PHASE --> B{"BulletRepairPolicy"}
     B -->|Disabled| O{"EndOverlapPolicy"}
-    B -->|Enabled| RPR["Repair small boundaries"] --> O
-    O -->|ClampAllAdjacent| COMP["Compatibility end projection"]
-    O -->|PreserveCrossSpeaker| X["Keep cross-speaker overlap<br/>clamp same-speaker overlap"]
+    B -->|Enabled| RPR["Repair: same three-way resolution\non measured hulls, small overlaps only"] --> O
+    O -->|"PreserveCrossSpeaker (default)"| X["Same-speaker: 3-way resolution\nfrom measured hulls;<br/>cross-speaker: untouched"]
+    O -->|ClampAllAdjacent| COMP["3-way resolution for EVERY\nadjacent pair, any speakers"]
+    X --> WOR["WorPlan::Pending →<br/>write %wor from RESOLVED state"]
+    COMP --> WOR
 ```
 
 ---

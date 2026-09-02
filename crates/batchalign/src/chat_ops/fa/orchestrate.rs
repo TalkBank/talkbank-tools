@@ -3,13 +3,14 @@
 use std::collections::HashMap;
 
 use talkbank_model::UtteranceIdx;
-use talkbank_model::alignment::helpers::{WordItem, walk_words};
+use talkbank_model::alignment::helpers::{WordItem, WordItemMut, walk_words, walk_words_mut};
 use talkbank_model::alignment::{
     WorTimingBinding, WorTimingCorrespondence, WorTimingSequence, assess_wor_timing_sequence,
     bind_wor_timing, corroborate_wor_timing,
 };
+use talkbank_model::model::dependent_tier::{WorItem, WorTier};
 use talkbank_model::model::{
-    BracketedItem, ChatFile, DependentTier, Line, Utterance, UtteranceContent,
+    BracketedItem, Bullet, ChatFile, DependentTier, Line, Utterance, UtteranceContent,
 };
 use talkbank_model::model::{BracketedItems, TierContentItems};
 
@@ -19,9 +20,120 @@ use super::postprocess::postprocess_utterance_timings_with_boundary_policy;
 use super::repair::{BulletRepairPolicy, RepairStats, repair_bullets};
 use super::{EndOverlapPolicy, ExistingWorBoundaryPolicy, FaProjectionPolicy, WordEndPolicy};
 use super::{
-    FaGroup, WordTiming, add_wor_tier, count_alignable_main_words, get_utterance_mut,
+    FaGroup, TimeSpan, WordTiming, add_wor_tier, count_alignable_main_words, get_utterance_mut,
     update_utterance_bullet_with_boundary_policy,
 };
+
+/// What the write phase should do about `%wor`, once monotonicity has
+/// resolved same-speaker overlaps.
+///
+/// Replaces a `write_wor: bool` + `touched: Vec<UtteranceIdx>` pair that
+/// admitted a state nothing ever read: a non-empty `touched` with
+/// `write_wor` false. That state was never CONSTRUCTED wrongly by the one
+/// call site that built both fields together, but every reader still had to
+/// know "touched only matters when write_wor is true" from a comment; here
+/// there is only one thing to read, and its shape says what it means.
+///
+/// `%wor` generation used to happen inline, per utterance, in the same loop
+/// that injects and postprocesses timings, BEFORE monotonicity ran over the
+/// whole file. That ordering was the defect the `Pending` variant exists to
+/// close: a same-speaker overlap resolved by cutting a word (see
+/// [`EndOverlapResolution::InterleavedWords`]) would leave an
+/// already-written `%wor` stale, holding the pre-cut span. Carrying the
+/// request here, instead of acting on it immediately, makes writing `%wor` a
+/// step of [`FaApplied::then_enforce_monotonicity`] rather than of the
+/// per-utterance loop.
+#[derive(Debug, Clone)]
+pub(super) enum WorPlan {
+    /// No `%wor` write requested for this run.
+    Suppressed,
+    /// `%wor` should be (re)written for these utterances, once monotonicity
+    /// resolves. Two disjoint reasons an utterance ends up in this list, and
+    /// both are legitimate: THIS run injected fresh timings into it (the
+    /// `apply_fa_results_with_projection_policy` loop), or a caller
+    /// separately refreshed it from reusable `%wor` and folded it in via
+    /// [`FaApplied::also_touched`] so the SAME write phase covers it too.
+    /// An utterance neither of these produced has nothing new to reflect
+    /// and is never in this list.
+    Pending(Vec<UtteranceIdx>),
+}
+
+impl WorPlan {
+    fn new(write_wor: bool, touched: Vec<UtteranceIdx>) -> Self {
+        match write_wor {
+            true => Self::Pending(touched),
+            false => Self::Suppressed,
+        }
+    }
+
+    /// Fold in utterances a caller separately refreshed and wants covered
+    /// by this same write phase. A no-op on `Suppressed`: a run that asked
+    /// for no `%wor` writes gets none, regardless of what else it touched.
+    fn also_touched(self, extra: impl IntoIterator<Item = UtteranceIdx>) -> Self {
+        match self {
+            Self::Suppressed => Self::Suppressed,
+            Self::Pending(mut touched) => {
+                touched.extend(extra);
+                Self::Pending(touched)
+            }
+        }
+    }
+}
+
+/// Proof that, at the moment it was built, `utterance` carried at least one
+/// word with real timing (main tier or `%wor`, whichever currently carries
+/// it -- see [`furthest_word_timing_end`]).
+///
+/// 2026-09-01 review, item 9. The write phase's own `WorPlan::Pending` list
+/// records which utterances a run INJECTED or REFRESHED timing into, but an
+/// utterance can lose every one of its words AFTER being added to that list:
+/// Pass 1 strips it outright for a start regression, Pass 2's
+/// `EndClampedInterleavedWords` can clamp its last word to nothing,
+/// `repair_bullets`'s LIS removal strips it, or (the case this type exists
+/// to catch, `3009.cha` line 58 in the real Batch 1 fixture) it never had a
+/// timed word to begin with: `update_utterance_bullet_with_boundary_policy`'s
+/// "no word timings: leave the existing bullet unchanged" branch (`mod.rs`)
+/// preserves an INHERITED bullet (from a prior run, or a UTR hint) exactly
+/// because there is nothing to derive one from, so the utterance keeps a
+/// bullet while every one of its words stays untimed. A `%wor` tier
+/// generated from zero timed words is worse than none: it looks like
+/// evidence and carries no timing at all.
+///
+/// So the write phase does not trust `Pending`'s membership; it re-derives
+/// this fact FRESH, from whatever state the utterance is actually in at the
+/// moment `%wor` would be written, which is after every strip and every
+/// clamp above has already run. `write_wor_tier` below takes this proof, not
+/// an `UtteranceIdx`, so there is no route to `add_wor_tier` in the write
+/// phase that skips the check: an untimed `%wor` tier is unconstructible
+/// from this call site, regardless of what `Pending` says.
+struct TimedUtterance(UtteranceIdx);
+
+impl TimedUtterance {
+    /// The only constructor. `None` when `utterance` currently has no timed
+    /// word on any tier.
+    fn inspect(utterance_idx: UtteranceIdx, utterance: &Utterance) -> Option<Self> {
+        furthest_word_timing_end(utterance).map(|_| Self(utterance_idx))
+    }
+
+    fn utterance_idx(self) -> UtteranceIdx {
+        self.0
+    }
+}
+
+/// Proof that `utterance`'s timing was just removed: bullet, main-tier word
+/// timings, and `%wor` are all gone.
+///
+/// Returned rather than left implicit (2026-09-01 review, item 9) so a
+/// caller stripping an utterance is handed the fact that any
+/// [`TimedUtterance`] proof obtained for it earlier is now stale, instead of
+/// having to remember that on its own. No caller of this crate currently
+/// needs to ACT on the value (the write phase re-derives timing fresh at
+/// write time regardless, which is what actually closes the gap this type
+/// documents), so it is not `#[must_use]`; it exists so the signature itself
+/// states what stripping does, rather than a caller having to trust a
+/// comment.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct StrippedTiming;
 
 /// Proof that FA results were injected into a file, carrying what that decided.
 ///
@@ -49,6 +161,7 @@ use super::{
 pub struct FaApplied {
     postprocess: Vec<batchalign_transform::decisions::DecisionRecord>,
     end_overlap_policy: EndOverlapPolicy,
+    wor_plan: WorPlan,
 }
 
 /// What injection and monotonicity enforcement decided, in that order.
@@ -125,25 +238,101 @@ pub enum MonotonicityEffect {
         /// Speaker on the following line.
         next_speaker: String,
     },
-    /// An earlier utterance end was clamped to the following start.
-    EndClamped {
-        /// Affected line index, including headers.
-        line_idx: usize,
-        /// Stable ordinal among utterances only.
-        utterance_idx: UtteranceIdx,
-        /// Speaker on the affected utterance.
-        speaker: String,
-        /// End before clamping.
-        original_end_ms: u64,
+    /// A same-speaker end overlap was resolved because only the bullet's
+    /// inherited coverage overshot the next utterance's start: no measured
+    /// word conflicted. The bullet end moved to the word hull, or (when the
+    /// utterance has no measured words at all) to the next start directly.
+    /// Words are untouched.
+    EndClampedCoverageOnly {
+        /// The two utterances involved and how they are identified.
+        edge: OverlapEdge,
+        /// The end this bullet was clamped to.
+        clamped_to_ms: u64,
+    },
+    /// A same-speaker end overlap was resolved by replacing both
+    /// utterances' inherited boundary with their measured word hulls; the
+    /// words themselves never conflicted, so the arbitrary next-start clamp
+    /// was never applied to either.
+    EndClampedBoundaryFromWords {
+        /// The two utterances involved and how they are identified.
+        edge: OverlapEdge,
+        /// The previous utterance's measured last-word end, its new bullet end.
+        prev_hull_end_ms: u64,
+        /// The next utterance's measured first-word start, its new bullet start.
+        next_hull_start_ms: u64,
+    },
+    /// A same-speaker end overlap could not be resolved from measurement
+    /// alone: the words themselves interleave, or the next utterance has
+    /// none. The bullet AND every previous-utterance word past the bound
+    /// were clamped, and review is requested.
+    EndClampedInterleavedWords {
+        /// The two utterances involved and how they are identified.
+        edge: OverlapEdge,
         /// Following start used as the new end.
         clamped_to_ms: u64,
-        /// Following line that supplied the clamp boundary.
-        next_line_idx: usize,
-        /// Stable ordinal of the following timed utterance.
-        next_utterance_idx: UtteranceIdx,
-        /// Speaker on the following line.
-        next_speaker: String,
+        /// How many word timings were cut to fit the new bound.
+        words_clamped: usize,
     },
+}
+
+impl MonotonicityEffect {
+    /// The utterance whose WORD timings this effect may have changed, if
+    /// any (2026-09-01 review, item 13).
+    ///
+    /// Only `EndClampedInterleavedWords` clamps a word, and only on its
+    /// `edge.utterance_idx` side (the `next` side is never touched under
+    /// any resolution). `EndClampedCoverageOnly` and
+    /// `EndClampedBoundaryFromWords` move only a BULLET, which `%wor` does
+    /// not encode, so they do not make `%wor` stale. The two stripped
+    /// variants remove an utterance's timing (and its `%wor`, if any)
+    /// outright rather than leaving a mismatch, so there is nothing for the
+    /// write phase to regenerate.
+    ///
+    /// This is the typed refusal item 13 asks for: an utterance this run
+    /// never touched, and whose words this pass never mutated, produces NO
+    /// `MonotonicityEffect` naming it at all, so it cannot appear here
+    /// structurally. `%wor` regeneration can therefore never reach an
+    /// utterance a human (or an earlier run) edited and this run left
+    /// alone; there is no scan of "every utterance in the file" for such a
+    /// value to leak through.
+    fn word_mutated_utterance(&self) -> Option<UtteranceIdx> {
+        match self {
+            Self::EndClampedInterleavedWords { edge, .. } => Some(edge.utterance_idx),
+            Self::StartRegressionStripped { .. }
+            | Self::ZeroDurationClampStripped { .. }
+            | Self::EndClampedCoverageOnly { .. }
+            | Self::EndClampedBoundaryFromWords { .. } => None,
+        }
+    }
+}
+
+/// The two utterances an end-overlap resolution ran on, and how each is
+/// identified: line index (for a decision record), stable ordinal, and
+/// speaker code.
+///
+/// Replaces seven fields (`line_idx`, `utterance_idx`, `speaker`,
+/// `original_end_ms`, `next_line_idx`, `next_utterance_idx`, `next_speaker`)
+/// that were repeated verbatim across three [`MonotonicityEffect`] arms,
+/// three [`crate::types::traces::FaTimingDecisionTrace`] arms, the `From`
+/// impl between them, and three construction sites in `orchestrate.rs`
+/// (2026-09-01 review, item 5). One owner: a caller builds this once, per
+/// pair, and every arm embeds it rather than restating its fields.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverlapEdge {
+    /// Affected (previous) line index, including headers.
+    pub line_idx: usize,
+    /// Stable ordinal of the affected (previous) utterance.
+    pub utterance_idx: UtteranceIdx,
+    /// Speaker on the affected (previous) utterance.
+    pub speaker: String,
+    /// The previous utterance's end before clamping.
+    pub original_end_ms: u64,
+    /// Following line that supplied the clamp boundary.
+    pub next_line_idx: usize,
+    /// Stable ordinal of the following timed utterance.
+    pub next_utterance_idx: UtteranceIdx,
+    /// Speaker on the following line.
+    pub next_speaker: String,
 }
 
 /// The inseparable human-readable and numeric outputs of monotonicity.
@@ -175,14 +364,67 @@ impl MonotonicityResult {
 }
 
 impl FaApplied {
-    /// Enforce monotonicity, and hand back both sets of records.
+    /// Fold in utterances a caller separately refreshed from reusable
+    /// `%wor` (outside this run's own injection loop) and wants covered by
+    /// this SAME write phase, so a caller with a partial-reuse or
+    /// incremental path never has an excuse to write `%wor` itself. See
+    /// [`WorPlan::Pending`].
+    pub fn also_touched(mut self, extra: impl IntoIterator<Item = UtteranceIdx>) -> Self {
+        self.wor_plan = self.wor_plan.also_touched(extra);
+        self
+    }
+
+    /// Enforce monotonicity, then (re)write `%wor` per `wor_plan`, and hand
+    /// back both sets of records.
     ///
     /// Consuming `self` is what makes the sequence unskippable: there is no
-    /// other way to reach the injection records.
+    /// other way to reach the injection records. The `%wor` write happens
+    /// HERE, after `enforce_monotonicity_with_policy` has resolved every
+    /// same-speaker overlap, which is the whole point of carrying
+    /// `wor_plan` on `self` instead of writing `%wor` inline as each
+    /// utterance was processed: this is the only place in the type graph
+    /// that can produce a `FaOrdered`, so it is the only place a caller of
+    /// this crate can cause a `%wor` tier to be written, and it always
+    /// happens after resolution.
     fn then_enforce_monotonicity(self, chat_file: &mut ChatFile) -> FaOrdered {
+        let monotonicity = enforce_monotonicity_with_policy(chat_file, self.end_overlap_policy);
+        // Fold in whichever utterances THIS resolution itself clamped a word
+        // on, even when the run never touched them by injection or refresh
+        // (2026-09-01 review, item 13): an `EndClampedInterleavedWords` can
+        // land on either side of a pair where only ONE side was `touched`.
+        // `also_touched` is a no-op when `write_wor` was never requested, so
+        // this cannot cause a write that was not asked for.
+        let wor_plan = self.wor_plan.also_touched(
+            monotonicity
+                .effects()
+                .iter()
+                .filter_map(MonotonicityEffect::word_mutated_utterance),
+        );
+        if let WorPlan::Pending(touched) = wor_plan {
+            // A `BTreeSet`: `also_touched` can name the same utterance twice
+            // (originally touched AND word-mutated), and regenerating `%wor`
+            // twice for one utterance is wasted work, not a correctness
+            // question, but there is no reason to do it.
+            let candidates: std::collections::BTreeSet<UtteranceIdx> =
+                touched.into_iter().collect();
+            for utt_idx in candidates {
+                // The write phase does not trust its own candidate list:
+                // `TimedUtterance::inspect` re-derives, from the utterance's
+                // CURRENT words, whether there is anything to write at all
+                // (2026-09-01 review, item 9). An untimed `%wor` tier is
+                // unconstructible from this call site.
+                let timed = get_utterance_mut(chat_file, utt_idx)
+                    .and_then(|utt| TimedUtterance::inspect(utt_idx, &*utt));
+                if let Some(timed) = timed
+                    && let Some(utt) = get_utterance_mut(chat_file, timed.utterance_idx())
+                {
+                    add_wor_tier(utt);
+                }
+            }
+        }
         FaOrdered {
             postprocess: self.postprocess,
-            monotonicity: enforce_monotonicity_with_policy(chat_file, self.end_overlap_policy),
+            monotonicity,
         }
     }
 
@@ -198,7 +440,9 @@ impl FaApplied {
     ) -> FaFinalized {
         let repair_result = match repair_policy {
             BulletRepairPolicy::Disabled => Default::default(),
-            BulletRepairPolicy::Enabled => repair_bullets(chat_file, false),
+            BulletRepairPolicy::Enabled => {
+                repair_bullets(chat_file, false, self.end_overlap_policy)
+            }
         };
         let repair = repair_result.decisions.iter().map(Into::into).collect();
         let ordered = self.then_enforce_monotonicity(chat_file);
@@ -233,6 +477,24 @@ fn projection_without_injection(policy: FaProjectionPolicy) -> FaApplied {
     FaApplied {
         postprocess: Vec::new(),
         end_overlap_policy: policy.end_overlaps(),
+        wor_plan: WorPlan::Suppressed,
+    }
+}
+
+/// A no-injection projection that still has a known set of utterances a
+/// caller separately refreshed from reusable `%wor` and wants covered by
+/// this run's write phase (2026-09-01 review, item 2): the "all utterances
+/// reusable" fast path refreshes every utterance's timing before this
+/// projection ever runs, and that refresh must not write `%wor` itself.
+pub fn projection_without_injection_with_touched(
+    policy: FaProjectionPolicy,
+    write_wor: bool,
+    touched: Vec<UtteranceIdx>,
+) -> FaApplied {
+    FaApplied {
+        postprocess: Vec::new(),
+        end_overlap_policy: policy.end_overlaps(),
+        wor_plan: WorPlan::new(write_wor, touched),
     }
 }
 
@@ -290,6 +552,7 @@ pub fn apply_fa_results_with_projection_policy(
     write_wor: bool,
 ) -> FaApplied {
     let mut decisions = Vec::new();
+    let mut touched: Vec<UtteranceIdx> = Vec::new();
     // 0. Strip stale decision tiers (%xalign / %xrev) from any previous FA run.
     //
     // This must happen unconditionally, not gated on whether new decisions will
@@ -387,9 +650,7 @@ pub fn apply_fa_results_with_projection_policy(
             }
 
             update_utterance_bullet_with_boundary_policy(utt, policy.existing_wor_boundaries());
-            if write_wor {
-                add_wor_tier(utt);
-            }
+            touched.push(utt_idx);
         }
     }
 
@@ -399,10 +660,17 @@ pub fn apply_fa_results_with_projection_policy(
     // regressions vs batchalign 0.8.x (up to 60% timing loss on real data).
     // The CHAT validator in talkbank-tools flags these violations after the
     // fact: the FA pipeline should not silently destroy timing data.
+    //
+    // `%wor` is deliberately NOT written here (it used to be, per
+    // utterance, right above). See `WorPlan`'s doc comment: writing it
+    // before monotonicity resolves same-speaker overlaps can leave it stale
+    // relative to a word timing monotonicity later cuts.
+    // `FaApplied::then_enforce_monotonicity` writes it, once, after.
 
     FaApplied {
         postprocess: decisions,
         end_overlap_policy: policy.end_overlaps(),
+        wor_plan: WorPlan::new(write_wor, touched),
     }
 }
 
@@ -420,6 +688,14 @@ pub fn apply_fa_results_with_projection_policy(
 ///
 /// Callers should only use this after [`super::has_reusable_wor_timing`]
 /// succeeds.
+///
+/// `#[cfg(test)]` (2026-09-01 review, item 12): it has no production caller
+/// (see [`refresh_existing_alignment_with_boundary_policy`]'s own doc) and
+/// writes `%wor` directly, bypassing the write phase; gating it to test
+/// builds is what makes [`add_wor_tier`]'s doc claim ("reachable only from
+/// the write phase") actually true outside test code, rather than true only
+/// by nobody happening to call this in production.
+#[cfg(test)]
 pub fn refresh_existing_alignment(chat_file: &mut ChatFile, write_wor: bool) {
     refresh_existing_alignment_with_boundary_policy(
         chat_file,
@@ -428,31 +704,74 @@ pub fn refresh_existing_alignment(chat_file: &mut ChatFile, write_wor: bool) {
     );
 }
 
-/// Refresh every reusable `%wor` tier under an explicit boundary policy.
+/// Refresh every reusable `%wor` tier under an explicit boundary policy,
+/// optionally writing `%wor` from the refreshed state directly.
+///
+/// This whole-file convenience wrapper has NO production caller
+/// (`fa::run_fa_from_ast`'s cheap-rerun path, the one that used to call it,
+/// now builds its own `FaApplied` via `refresh_reusable_alignment` +
+/// [`projection_without_injection_with_touched`] instead, so it can retain
+/// the monotonicity records and run bullet repair; see that call site). It
+/// remains, alongside [`add_wor_tier`], as a test-fixture convenience for
+/// building a file with `%wor` already present and CURRENT (not yet
+/// monotonicity-resolved), which several tests deliberately need as the
+/// STARTING point for exercising a separate monotonicity/finalize step.
+/// Because it has no production caller, writing `%wor` here without running
+/// monotonicity does not reopen the ordering defect this file's `WorPlan`
+/// exists to close (2026-09-01 review, item 2): nothing in the real pipeline
+/// reaches this function any more.
+///
+/// `#[cfg(test)]` (2026-09-01 review, item 12), for the same reason: this
+/// crate no longer builds a `%wor`-writing binary that can reach this
+/// function, so nothing but a test can construct the call that reaches
+/// [`add_wor_tier`] through it.
+#[cfg(test)]
 pub fn refresh_existing_alignment_with_boundary_policy(
     chat_file: &mut ChatFile,
     write_wor: bool,
     existing_wor_boundaries: ExistingWorBoundaryPolicy,
 ) {
+    for utt_idx in refresh_reusable_alignment(chat_file, existing_wor_boundaries) {
+        if write_wor && let Some(utt) = get_utterance_mut(chat_file, utt_idx) {
+            add_wor_tier(utt);
+        }
+    }
+}
+
+/// The mechanical part of [`refresh_existing_alignment_with_boundary_policy`]:
+/// rehydrate every reusable utterance's timing, WITHOUT writing `%wor`.
+/// Returns the utterances actually refreshed, for a caller to fold into
+/// whichever `%wor` write phase it is already running (see
+/// [`projection_without_injection_with_touched`] / [`FaApplied::also_touched`]).
+pub fn refresh_reusable_alignment(
+    chat_file: &mut ChatFile,
+    existing_wor_boundaries: ExistingWorBoundaryPolicy,
+) -> Vec<UtteranceIdx> {
+    let mut touched = Vec::new();
+    let mut utt_idx = 0usize;
     for line in &mut chat_file.lines {
         let Line::Utterance(utterance) = line else {
             continue;
         };
+        let utterance_idx = UtteranceIdx::new(utt_idx);
+        utt_idx += 1;
         if count_alignable_main_words(utterance) == 0 {
             continue;
         }
 
         let refreshed = refresh_existing_alignment_for_utterance_with_boundary_policy(
             utterance,
-            write_wor,
             existing_wor_boundaries,
         );
-        if !refreshed {
+        if refreshed {
+            touched.push(utterance_idx);
+        } else {
             tracing::warn!(
                 "skipping utterance with unreusable %wor timing in refresh_existing_alignment"
             );
         }
     }
+    touched
 }
 
 /// Return `true` when one utterance has reusable `%wor` timing.
@@ -464,26 +783,22 @@ pub fn has_reusable_wor_timing_for_utterance(utterance: &Utterance) -> bool {
     collect_wor_backed_timings(utterance).is_some()
 }
 
-/// Refresh one utterance from its existing `%wor` timing.
-///
-/// Returns `true` when the utterance had a clean reusable `%wor` mapping and
-/// was refreshed successfully. Returns `false` when `%wor` was missing,
+/// Refresh one utterance from its existing `%wor` timing. Mechanical only:
+/// never writes `%wor` itself (see [`add_wor_tier`]'s doc for the routes that
+/// do). Returns `true` when the utterance had a clean reusable `%wor`
+/// mapping and was refreshed successfully; `false` when `%wor` was missing,
 /// mismatched, or partially untimed.
-pub fn refresh_existing_alignment_for_utterance(
-    utterance: &mut Utterance,
-    write_wor: bool,
-) -> bool {
+pub fn refresh_existing_alignment_for_utterance(utterance: &mut Utterance) -> bool {
     refresh_existing_alignment_for_utterance_with_boundary_policy(
         utterance,
-        write_wor,
         ExistingWorBoundaryPolicy::Preserve,
     )
 }
 
 /// Refresh one reusable `%wor` tier under an explicit boundary policy.
+/// Mechanical only: see [`refresh_existing_alignment_for_utterance`].
 fn refresh_existing_alignment_for_utterance_with_boundary_policy(
     utterance: &mut Utterance,
-    write_wor: bool,
     existing_wor_boundaries: ExistingWorBoundaryPolicy,
 ) -> bool {
     let Some(timings) = collect_wor_backed_timings(utterance) else {
@@ -494,14 +809,15 @@ fn refresh_existing_alignment_for_utterance_with_boundary_policy(
     let mut offset = 0usize;
     inject_timings_for_utterance(utterance, &timings, &mut offset);
     update_utterance_bullet_with_boundary_policy(utterance, existing_wor_boundaries);
-    if write_wor {
-        add_wor_tier(utterance);
-    }
     true
 }
 
 /// Refresh timing for utterances with reusable `%wor`, leaving stale ones
-/// untouched for FA worker processing.
+/// untouched for FA worker processing. Mechanical only, like
+/// [`refresh_existing_alignment_for_utterance`]: never writes `%wor` itself.
+/// Returns the utterances actually refreshed, for a caller to fold into
+/// whichever `%wor` write phase it is already running (see
+/// [`FaApplied::also_touched`]).
 ///
 /// This is the per-utterance counterpart to [`refresh_existing_alignment()`].
 /// Unlike that function (which asserts all utterances are reusable), this one
@@ -510,27 +826,27 @@ fn refresh_existing_alignment_for_utterance_with_boundary_policy(
 pub fn refresh_reusable_utterances(
     chat_file: &mut ChatFile,
     reusable_indices: &std::collections::HashSet<usize>,
-    write_wor: bool,
-) {
+) -> Vec<UtteranceIdx> {
+    let mut touched = Vec::new();
     let mut utt_idx = 0usize;
     for line in &mut chat_file.lines {
         let Line::Utterance(utterance) = line else {
             continue;
         };
         if reusable_indices.contains(&utt_idx) {
-            let refreshed = refresh_existing_alignment_for_utterance(utterance, write_wor);
+            let refreshed = refresh_existing_alignment_for_utterance(utterance);
             debug_assert!(
                 refreshed,
                 "utterance {utt_idx} was in reusable set but refresh failed"
             );
+            touched.push(UtteranceIdx::new(utt_idx));
         }
         utt_idx += 1;
     }
+    touched
 }
 
-fn furthest_word_timing_end(utterance: &Utterance) -> Option<u64> {
-    use talkbank_model::model::dependent_tier::WorItem;
-
+pub(super) fn furthest_word_timing_end(utterance: &Utterance) -> Option<u64> {
     // Fresh FA evidence lives on main-tier words before `%wor` generation and
     // remains there when the user disables `%wor` output. Review policy must
     // not become weaker merely because that serialization choice is off.
@@ -566,6 +882,263 @@ fn furthest_word_timing_end(utterance: &Utterance) -> Option<u64> {
     });
 
     main_end.into_iter().chain(wor_end).max()
+}
+
+/// The earliest measured word start in `utterance`, mirroring
+/// [`furthest_word_timing_end`] for the opposite boundary. Checks both the
+/// main tier's inline word bullets and a `%wor` tier's, since either
+/// representation may be the one currently carrying durable per-word timing
+/// (see [`furthest_word_timing_end`]'s own comment for why both exist).
+pub(super) fn earliest_word_timing_start(utterance: &Utterance) -> Option<u64> {
+    let mut main_start = None;
+    walk_words(&utterance.main.content.content, None, &mut |item| {
+        let word = match item {
+            WordItem::Word(word) => word,
+            WordItem::ReplacedWord(replaced) => &replaced.word,
+            WordItem::Separator(_) => return,
+        };
+        if let Some(start_ms) = word
+            .inline_bullet
+            .as_ref()
+            .map(|bullet| bullet.timing.start_ms)
+        {
+            main_start = Some(main_start.map_or(start_ms, |current: u64| current.min(start_ms)));
+        }
+    });
+
+    let wor_start = utterance.wor_tier().and_then(|wor| {
+        wor.items
+            .iter()
+            .filter_map(|item| match item {
+                WorItem::Word(word) => word
+                    .inline_bullet
+                    .as_ref()
+                    .map(|bullet| bullet.timing.start_ms),
+                WorItem::Separator { .. } => None,
+            })
+            .min()
+    });
+
+    main_start.into_iter().chain(wor_start).min()
+}
+
+/// The `%wor` tier, mutable, if `utterance` has one.
+///
+/// `Utterance` exposes `wor_tier()` (immutable) and tiers like `%mor` have a
+/// `_mut` companion; `%wor` does not, so this mirrors that pattern locally
+/// rather than reading the tier back out through text.
+fn wor_tier_mut(utterance: &mut Utterance) -> Option<&mut WorTier> {
+    utterance
+        .dependent_tiers
+        .iter_mut()
+        .find_map(|entry| match &mut entry.tier {
+            DependentTier::Wor(tier) => Some(tier),
+            _ => None,
+        })
+}
+
+/// Clamp every word timing in `utterance` that ends after `bound_ms`, on
+/// whichever representation currently carries real per-word timing (main-tier
+/// inline bullets, a `%wor` tier, or both, a word can be cut on one, the
+/// other, or both independently, since a reparsed transcript may carry
+/// durable timing only on `%wor`). Every cut goes through
+/// [`super::postprocess::clamp_transcript_word_to_bullet`], the one route by which
+/// this pass may shorten a word; a word whose start is at or past the bound
+/// is dropped rather than written with no extent, exactly like every other
+/// clamp in this crate.
+///
+/// Returns the number of words actually cut, for the caller's decision
+/// record; this is the measured fact the former `cuts_word_timing` boolean
+/// stood in for; here it is counted, not guessed.
+pub(super) fn clamp_words_past_bound(utterance: &mut Utterance, bound_ms: u64) -> usize {
+    let mut clamped = 0usize;
+
+    walk_words_mut(
+        utterance.main.content.content.as_mut_slice(),
+        None,
+        &mut |leaf| {
+            let word = match leaf {
+                WordItemMut::Word(word) => word,
+                WordItemMut::ReplacedWord(replaced) => &mut replaced.word,
+                WordItemMut::Separator(_) => return,
+            };
+            let Some(bullet) = word.inline_bullet.as_ref() else {
+                return;
+            };
+            if bullet.timing.end_ms <= bound_ms {
+                return;
+            }
+            clamped += 1;
+            word.inline_bullet = super::postprocess::clamp_transcript_word_to_bullet(
+                TimeSpan::new(bullet.timing.start_ms, bullet.timing.end_ms),
+                bullet.timing.start_ms,
+                bound_ms,
+            )
+            .map(|timing| Bullet::new(timing.start_ms, timing.end_ms));
+        },
+    );
+
+    if let Some(wor) = wor_tier_mut(utterance) {
+        for item in &mut wor.items {
+            let WorItem::Word(word) = item else {
+                continue;
+            };
+            let Some(bullet) = word.inline_bullet.as_ref() else {
+                continue;
+            };
+            if bullet.timing.end_ms <= bound_ms {
+                continue;
+            }
+            clamped += 1;
+            word.inline_bullet = super::postprocess::clamp_transcript_word_to_bullet(
+                TimeSpan::new(bullet.timing.start_ms, bullet.timing.end_ms),
+                bullet.timing.start_ms,
+                bound_ms,
+            )
+            .map(|timing| Bullet::new(timing.start_ms, timing.end_ms));
+        }
+    }
+
+    clamped
+}
+
+/// How a same-speaker end overlap between two adjacent utterances resolves,
+/// decided from what is MEASURED (word timings), never from the
+/// coverage-extended bullet alone.
+///
+/// The bullet each utterance carries at this point is a projection: the word
+/// hull unioned with whatever legacy coverage an earlier pass preserved
+/// (`update_utterance_bullet`'s `Preserve` policy never shrinks a bullet).
+/// That union is exactly what can push an END past the next utterance's
+/// START even when the words themselves never conflict, which is the defect
+/// this type exists to make unrepresentable: these three cases are the only
+/// ones the measured hulls can produce, and each is resolved differently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum EndOverlapResolution {
+    /// The previous utterance has no measured word past the next
+    /// utterance's start: either it has no timed words at all, or its last
+    /// one already ends at or before that start. Only the bullet's
+    /// inherited coverage overshot; the bullet end moves to the word hull
+    /// (or, with no words at all, to the next start directly, matching the
+    /// prior bookkeeping-only clamp). Words are untouched either way.
+    CoverageOnly {
+        /// The previous utterance's last measured word end, when it has one.
+        hull_end_ms: Option<u64>,
+    },
+    /// The previous utterance's last measured word ends after the next
+    /// start, but the two utterances' words do not interleave: the next
+    /// utterance's first measured word starts at or after that end. The
+    /// boundary is itself measurable, so both bullets take their word-hull
+    /// edges instead of the arbitrary next-start clamp; the far side of
+    /// each bullet (the previous utterance's start, the next utterance's
+    /// end) is untouched.
+    BoundaryFromWords {
+        /// The previous utterance's measured last-word end.
+        prev_hull_end_ms: u64,
+        /// The next utterance's measured first-word start.
+        next_hull_start_ms: u64,
+    },
+    /// The two utterances' measured words overlap in time, or the next
+    /// utterance has no measured word to fix a boundary against. A genuine
+    /// conflict between segmentation and FA: the bullet is clamped to the
+    /// next start and every previous-utterance word past that bound is
+    /// clamped with it, flagged for human review.
+    InterleavedWords,
+}
+
+/// Classify a same-speaker end overlap from measured word timings.
+///
+/// `prev_hull_end_ms` and `next_hull_start_ms` are the previous utterance's
+/// last measured word end and the next utterance's first measured word
+/// start (each `None` when that utterance has no measured word), and
+/// `next_start_ms` is the bullet-level boundary that triggered the pass.
+pub(super) fn classify_end_overlap(
+    prev_hull_end_ms: Option<u64>,
+    next_start_ms: u64,
+    next_hull_start_ms: Option<u64>,
+    next_successor_start_ms: Option<u64>,
+) -> EndOverlapResolution {
+    match prev_hull_end_ms {
+        None => EndOverlapResolution::CoverageOnly { hull_end_ms: None },
+        Some(hull_end_ms) if hull_end_ms <= next_start_ms => EndOverlapResolution::CoverageOnly {
+            hull_end_ms: Some(hull_end_ms),
+        },
+        Some(hull_end_ms) => match next_hull_start_ms {
+            // `BoundaryFromWords` moves `next`'s bullet start forward to its
+            // measured hull start. Left unguarded, that move can push it past
+            // `next`'s OWN successor's start, a fresh non-monotonic-start
+            // conflict pass 1 (which already ran) cannot see. `next_successor_start_ms`
+            // is that successor's LIVE start, read by the caller before the
+            // move; when it would be violated this is a genuine three-utterance
+            // conflict, not a clean two-utterance boundary, so it falls back to
+            // `InterleavedWords`: `next`'s start is left untouched, and `prev`
+            // is clamped (bullet and words) to `next`'s ORIGINAL start instead.
+            Some(next_hull_start_ms)
+                if next_hull_start_ms >= hull_end_ms
+                    && match next_successor_start_ms {
+                        Some(successor_start_ms) => next_hull_start_ms < successor_start_ms,
+                        None => true,
+                    } =>
+            {
+                EndOverlapResolution::BoundaryFromWords {
+                    prev_hull_end_ms: hull_end_ms,
+                    next_hull_start_ms,
+                }
+            }
+            _ => EndOverlapResolution::InterleavedWords,
+        },
+    }
+}
+
+impl EndOverlapResolution {
+    /// Whether this resolution needs human review: only a genuine word
+    /// conflict does. Derived from the variant, not carried beside it (see
+    /// this type's own doc for why a former `cuts_word_timing` boolean was
+    /// exactly the affordance a type here replaces).
+    fn needs_review(&self) -> bool {
+        matches!(self, Self::InterleavedWords)
+    }
+
+    /// The wire-label strategy this resolution corresponds to (2026-09-01
+    /// review, item 4): `MonotonicityStrategy`'s three `EndClamped*`
+    /// variants exist one-for-one with this type's, so a consumer filtering
+    /// on the wire label sees the same three cases this type does.
+    fn strategy(&self) -> batchalign_transform::decisions::MonotonicityStrategy {
+        use batchalign_transform::decisions::MonotonicityStrategy;
+        match self {
+            Self::CoverageOnly { .. } => MonotonicityStrategy::EndClampedCoverageOnly,
+            Self::BoundaryFromWords { .. } => MonotonicityStrategy::EndClampedBoundaryFromWords,
+            Self::InterleavedWords => MonotonicityStrategy::EndClampedInterleavedWords,
+        }
+    }
+
+    /// The human-facing decision reason, derived from the variant plus the
+    /// ambient facts it does not itself carry: `overlap_ms` and
+    /// `clamped_to_ms` (both knowable before classification: the raw
+    /// overlap and the bullet-level boundary that triggered the pass) and
+    /// `words_clamped` (knowable only after an `InterleavedWords` clamp
+    /// actually runs; `0` for the other two variants, which never touch a
+    /// word). The text is READ OFF the variant, never the other way round:
+    /// nothing here decides a fact the variant does not already hold.
+    fn reason(&self, overlap_ms: u64, clamped_to_ms: u64, words_clamped: usize) -> String {
+        match self {
+            Self::CoverageOnly { hull_end_ms } => {
+                let clamped_to = hull_end_ms.unwrap_or(clamped_to_ms);
+                format!(
+                    "end_truncated_by={overlap_ms}ms clamped_to={clamped_to}                      cuts_word_timing=false resolution=coverage_only                      cause=adjacent_utterance_overlap"
+                )
+            }
+            Self::BoundaryFromWords {
+                prev_hull_end_ms,
+                next_hull_start_ms,
+            } => format!(
+                "end_truncated_by={overlap_ms}ms clamped_to={prev_hull_end_ms}                  cuts_word_timing=false resolution=boundary_from_words                  next_hull_start={next_hull_start_ms} cause=adjacent_utterance_overlap"
+            ),
+            Self::InterleavedWords => format!(
+                "end_truncated_by={overlap_ms}ms clamped_to={clamped_to_ms}                  cuts_word_timing=true resolution=interleaved_words                  words_clamped={words_clamped} cause=adjacent_utterance_overlap"
+            ),
+        }
+    }
 }
 
 /// Enforce E362: strip timing from utterances whose start time is before
@@ -666,7 +1239,15 @@ pub fn enforce_monotonicity_with_policy(
     }
 
     // Pass 2: clamp end-time overlaps.
-    let mut timed: Vec<(usize, UtteranceIdx, u64, String)> = Vec::new();
+    //
+    // `timed` is IDENTITY ONLY (line index, utterance ordinal, speaker), not
+    // a snapshot of any timing value. A resolution below (`BoundaryFromWords`)
+    // can move an utterance's bullet START, so a captured `start_ms` read
+    // once here would go stale the moment that happens; every timing value
+    // used below is read LIVE from `chat_file` at the point it is used,
+    // which is also what lets `classify_end_overlap` see the effect of an
+    // earlier pair's mutation on a later pair.
+    let mut timed: Vec<(usize, UtteranceIdx, String)> = Vec::new();
     let mut utterance_ordinal = 0;
     for (line_idx, line) in chat_file.lines.iter().enumerate() {
         let Line::Utterance(utterance) = line else {
@@ -674,104 +1255,203 @@ pub fn enforce_monotonicity_with_policy(
         };
         let utterance_idx = UtteranceIdx::new(utterance_ordinal);
         utterance_ordinal += 1;
-        if let Some(bullet) = utterance.main.content.bullet.as_ref() {
+        if utterance.main.content.bullet.is_some() {
             timed.push((
                 line_idx,
                 utterance_idx,
-                bullet.timing.start_ms,
                 utterance.main.speaker.as_str().to_string(),
             ));
         }
     }
 
-    for pair in timed.windows(2) {
-        let (prev_idx, prev_utterance_idx, _prev_start, prev_speaker) = &pair[0];
-        let (next_idx, next_utterance_idx, next_start, next_speaker) = &pair[1];
-        let (prev_idx, next_idx, next_start) = (*prev_idx, *next_idx, *next_start);
+    for window_idx in 0..timed.len().saturating_sub(1) {
+        let (prev_idx, prev_utterance_idx, prev_speaker) = &timed[window_idx];
+        let (next_idx, next_utterance_idx, next_speaker) = &timed[window_idx + 1];
+        let (prev_idx, next_idx) = (*prev_idx, *next_idx);
 
         if !end_overlap_policy.should_clamp(prev_speaker, next_speaker) {
             continue;
         }
 
-        if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
-            && let Some(bullet) = prev_utt.main.content.bullet.as_ref()
-            && bullet.timing.end_ms > next_start
-        {
-            let original_end = bullet.timing.end_ms;
-            let overlap_ms = original_end - next_start;
-            let start_ms = bullet.timing.start_ms;
-
-            if next_start <= start_ms {
-                // Clamping would produce a zero-or-negative-duration
-                // bullet (next_start ≤ prev.start), which fails E362.
-                // Strip the bullet entirely, untimed is safer than invalid.
-                let speaker = prev_utt.main.speaker.as_str().to_string();
-                decisions.push(DecisionRecord::new_and_trace(
-                    prev_idx,
-                    speaker.clone(),
-                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
-                        batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
-                    ),
-                    format!(
-                        "zero_duration_clamp original_end={original_end} \
-                                 next_start={next_start} start_ms={start_ms} \
-                                 cause=utr_identical_start_times"
-                    ),
-                    true,
-                ));
-                effects.push(MonotonicityEffect::ZeroDurationClampStripped {
-                    line_idx: prev_idx,
-                    utterance_idx: *prev_utterance_idx,
-                    speaker,
-                    start_ms,
-                    original_end_ms: original_end,
-                    next_start_ms: next_start,
-                    next_line_idx: next_idx,
-                    next_utterance_idx: *next_utterance_idx,
-                    next_speaker: next_speaker.clone(),
-                });
-                strip_utterance_timing(prev_utt);
-            } else {
-                let speaker = prev_utt.main.speaker.as_str().to_string();
-                let cuts_word_timing = furthest_word_timing_end(prev_utt)
-                    .is_some_and(|word_end_ms| word_end_ms > next_start);
-                decisions.push(DecisionRecord::new_and_trace(
-                    prev_idx,
-                    speaker.clone(),
-                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
-                        batchalign_transform::decisions::MonotonicityStrategy::EndClamped,
-                    ),
-                    format!(
-                        "end_truncated_by={overlap_ms}ms original_end={original_end} \
-                                 clamped_to={next_start} cuts_word_timing={cuts_word_timing} \
-                                 cause=adjacent_utterance_overlap"
-                    ),
-                    // Trimming wordless container coverage is bookkeeping.
-                    // Cutting a retained word observation is a conflict
-                    // between segmentation and FA evidence, and only a human
-                    // can decide which boundary is wrong.
-                    cuts_word_timing,
-                ));
-                effects.push(MonotonicityEffect::EndClamped {
-                    line_idx: prev_idx,
-                    utterance_idx: *prev_utterance_idx,
-                    speaker,
-                    original_end_ms: original_end,
-                    clamped_to_ms: next_start,
-                    next_line_idx: next_idx,
-                    next_utterance_idx: *next_utterance_idx,
-                    next_speaker: next_speaker.clone(),
-                });
-                // Control-flow invariant: the enclosing
-                // `if let Line::Utterance(prev_utt) ... && let Some(bullet)`
-                // guard at line 261-263 already proved
-                // `prev_utt.main.content.bullet` is `Some(...)`. The
-                // intervening code never replaces or clears the bullet
-                // before reaching this assignment.
-                #[allow(clippy::unwrap_used)]
-                {
-                    prev_utt.main.content.bullet.as_mut().unwrap().timing.end_ms = next_start;
+        // `next`'s CURRENT start (may have moved via an earlier pair's
+        // `BoundaryFromWords`), and, when it exists, `next`'s OWN successor's
+        // start (never touched yet at this point in the sweep: an utterance
+        // is mutated only when it is `next`, which for the successor has not
+        // happened). Both read live, per the comment above.
+        let Line::Utterance(next_utt_ref0) = &chat_file.lines.as_slice()[next_idx] else {
+            continue;
+        };
+        let Some(next_start) = next_utt_ref0
+            .main
+            .content
+            .bullet
+            .as_ref()
+            .map(|bullet| bullet.timing.start_ms)
+        else {
+            continue;
+        };
+        let next_successor_start_ms =
+            timed.get(window_idx + 2).and_then(|(successor_idx, _, _)| {
+                match &chat_file.lines.as_slice()[*successor_idx] {
+                    Line::Utterance(successor) => successor
+                        .main
+                        .content
+                        .bullet
+                        .as_ref()
+                        .map(|b| b.timing.start_ms),
+                    _ => None,
                 }
+            });
+
+        // Read what is true of the previous utterance's bullet before
+        // touching anything: whether an overlap exists at all is decided
+        // read-only, and prev/next share one Vec so only one of them can be
+        // borrowed mutably at a time.
+        let Line::Utterance(prev_utt_ref) = &chat_file.lines.as_slice()[prev_idx] else {
+            continue;
+        };
+        let Some(prev_bullet) = prev_utt_ref.main.content.bullet.as_ref() else {
+            continue;
+        };
+        if prev_bullet.timing.end_ms <= next_start {
+            continue;
+        }
+        let original_end = prev_bullet.timing.end_ms;
+        let overlap_ms = original_end - next_start;
+        let start_ms = prev_bullet.timing.start_ms;
+        let speaker = prev_utt_ref.main.speaker.as_str().to_string();
+
+        if next_start <= start_ms {
+            // Clamping would produce a zero-or-negative-duration bullet
+            // (next_start <= prev.start), which fails E362. Strip the
+            // bullet entirely; untimed is safer than invalid.
+            decisions.push(DecisionRecord::new_and_trace(
+                prev_idx,
+                speaker.clone(),
+                batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                    batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
+                ),
+                format!(
+                    "zero_duration_clamp original_end={original_end} \
+                     next_start={next_start} start_ms={start_ms} \
+                     cause=utr_identical_start_times"
+                ),
+                true,
+            ));
+            effects.push(MonotonicityEffect::ZeroDurationClampStripped {
+                line_idx: prev_idx,
+                utterance_idx: *prev_utterance_idx,
+                speaker,
+                start_ms,
+                original_end_ms: original_end,
+                next_start_ms: next_start,
+                next_line_idx: next_idx,
+                next_utterance_idx: *next_utterance_idx,
+                next_speaker: next_speaker.clone(),
+            });
+            if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx] {
+                strip_utterance_timing(prev_utt);
+            }
+            continue;
+        }
+
+        // Classify from what is MEASURED (word timings), never from the
+        // coverage-extended bullet alone: see `EndOverlapResolution`.
+        let prev_hull_end_ms = furthest_word_timing_end(prev_utt_ref);
+        let next_hull_start_ms = match &chat_file.lines.as_slice()[next_idx] {
+            Line::Utterance(next_utt_ref) => earliest_word_timing_start(next_utt_ref),
+            _ => None,
+        };
+        let resolution = classify_end_overlap(
+            prev_hull_end_ms,
+            next_start,
+            next_hull_start_ms,
+            next_successor_start_ms,
+        );
+
+        let edge = OverlapEdge {
+            line_idx: prev_idx,
+            utterance_idx: *prev_utterance_idx,
+            speaker: speaker.clone(),
+            original_end_ms: original_end,
+            next_line_idx: next_idx,
+            next_utterance_idx: *next_utterance_idx,
+            next_speaker: next_speaker.clone(),
+        };
+
+        match resolution {
+            EndOverlapResolution::CoverageOnly { hull_end_ms } => {
+                let clamped_to_ms = hull_end_ms.unwrap_or(next_start);
+                decisions.push(DecisionRecord::new_and_trace(
+                    prev_idx,
+                    speaker,
+                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                        resolution.strategy(),
+                    ),
+                    resolution.reason(overlap_ms, next_start, 0),
+                    resolution.needs_review(),
+                ));
+                effects.push(MonotonicityEffect::EndClampedCoverageOnly {
+                    edge,
+                    clamped_to_ms,
+                });
+                if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
+                    && let Some(bullet) = prev_utt.main.content.bullet.as_mut()
+                {
+                    bullet.timing.end_ms = clamped_to_ms;
+                }
+            }
+            EndOverlapResolution::BoundaryFromWords {
+                prev_hull_end_ms,
+                next_hull_start_ms,
+            } => {
+                decisions.push(DecisionRecord::new_and_trace(
+                    prev_idx,
+                    speaker,
+                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                        resolution.strategy(),
+                    ),
+                    resolution.reason(overlap_ms, next_start, 0),
+                    resolution.needs_review(),
+                ));
+                effects.push(MonotonicityEffect::EndClampedBoundaryFromWords {
+                    edge,
+                    prev_hull_end_ms,
+                    next_hull_start_ms,
+                });
+                if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
+                    && let Some(bullet) = prev_utt.main.content.bullet.as_mut()
+                {
+                    bullet.timing.end_ms = prev_hull_end_ms;
+                }
+                if let Line::Utterance(next_utt) = &mut chat_file.lines.as_mut_slice()[next_idx]
+                    && let Some(bullet) = next_utt.main.content.bullet.as_mut()
+                {
+                    bullet.timing.start_ms = next_hull_start_ms;
+                }
+            }
+            EndOverlapResolution::InterleavedWords => {
+                let mut words_clamped = 0usize;
+                if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx] {
+                    if let Some(bullet) = prev_utt.main.content.bullet.as_mut() {
+                        bullet.timing.end_ms = next_start;
+                    }
+                    words_clamped = clamp_words_past_bound(prev_utt, next_start);
+                }
+                decisions.push(DecisionRecord::new_and_trace(
+                    prev_idx,
+                    speaker,
+                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                        resolution.strategy(),
+                    ),
+                    resolution.reason(overlap_ms, next_start, words_clamped),
+                    resolution.needs_review(),
+                ));
+                effects.push(MonotonicityEffect::EndClampedInterleavedWords {
+                    edge,
+                    clamped_to_ms: next_start,
+                    words_clamped,
+                });
             }
         }
     }
@@ -1066,12 +1746,13 @@ pub(super) fn collect_wor_backed_span(utterance: &Utterance) -> Option<WordTimin
 }
 
 /// Strip timing and %wor from a single utterance.
-pub(super) fn strip_utterance_timing(utt: &mut Utterance) {
+pub(super) fn strip_utterance_timing(utt: &mut Utterance) -> StrippedTiming {
     utt.main.content.bullet = None;
     strip_timing_from_content(&mut utt.main.content.content);
     // Remove %wor tiers.
     utt.dependent_tiers
         .retain(|t| !matches!(t.tier, DependentTier::Wor(_)));
+    StrippedTiming
 }
 
 /// Every source of structured decision records one FA run can produce.

@@ -330,19 +330,29 @@ generating it adds noise that CA researchers must manually remove. The
 
 #### End-Time Overlap Clamping
 
-After alignment, the default `enforce_monotonicity()` policy clamps utterance
-end times so that utterance N's end never exceeds the next timed utterance's
-start. UTR
-token-range assignment is one source of such overlap, but a rerun can also
-expose stale prior bullets, segmentation conflict, conversational overlap, or
-fresh FA evidence that crosses the next main-tier boundary. The decision
-therefore records the neutral cause `adjacent_utterance_overlap`. A clamp that
-cuts retained main-tier or `%wor` word timing requests review; trimming only wordless
-container coverage does not. This is current behavior, not evidence that the
-clamped boundary is acoustically correct. The v0.4.0 experimental
-`--end-overlap-policy preserve-cross-speaker` arm preserves overlap between
-different speaker codes while retaining same-speaker clamps and all start
-ordering checks. It is a local projection over the same admitted FA evidence.
+After alignment, `enforce_monotonicity()`'s Pass 2 resolves adjacent-utterance
+end overlap for every same-speaker pair (and, under `--end-overlap-policy
+clamp-all-adjacent`, every pair regardless of speaker; the DEFAULT is
+`preserve-cross-speaker`, which leaves a cross-speaker pair untouched
+entirely, since that overlap is ordinary conversation). The resolution is
+classified from MEASURED word timings, never guessed, into one of three
+cases (`coverage_only`, `boundary_from_words`, `interleaved_words`; see
+[Monotonicity warnings](#monotonicity-warnings) below for the full
+breakdown). UTR token-range assignment is one source of overlap, but a rerun
+can also expose stale prior bullets, segmentation conflict, conversational
+overlap, or fresh FA evidence that crosses the next main-tier boundary. The
+decision records the neutral cause `adjacent_utterance_overlap` plus which of
+the three resolutions applied. Only `interleaved_words` (a genuine word
+conflict) requests review; the other two never touch a measured word and
+never need one. This is current behavior, not evidence that a clamped
+boundary is acoustically correct.
+
+A `BoundaryFromWords` resolution can also move the FOLLOWING utterance's
+start forward, to its own measured word hull. When doing so would push it
+past its own next successor's start (a fresh three-utterance conflict Pass 1
+already ran and cannot see), the resolution falls back to
+`interleaved_words` for that pair instead, so the move never happens and
+nothing is stripped.
 
 Source: strategy selection in `crates/batchalign/src/chat_ops/fa/utr.rs`,
 two-pass config and algorithm in `crates/batchalign/src/chat_ops/fa/utr/two_pass.rs`.
@@ -693,35 +703,97 @@ WARN fa_transport: Whisper FA fallback also failed with model RuntimeFailure;
 #### Monotonicity warnings
 
 After all groups are resolved, monotonicity enforcement makes two passes over
-the utterance list. The compatibility policy clamps every adjacent end
-overlap; the experimental `preserve-cross-speaker` policy skips that clamp only
-when the two speaker codes differ. Each stripping or clamping decision is
-recorded in structured evidence and emits a `WARN` log line. BA3 does not project these
-records into `%xalign` or `%xrev` (see
-[Decision evidence](../user-guide/review-tiers-guide.md)). The two decision
-types have different severity and review priority:
+the utterance list. Pass 2 resolves same-speaker end overlap by default
+(`--end-overlap-policy preserve-cross-speaker`); `clamp-all-adjacent` resolves
+every adjacent pair regardless of speaker. Each stripping or resolving
+decision is recorded in structured evidence and emits a `WARN` log line. BA3
+does not project these records into `%xalign` or `%xrev` (see
+[Decision evidence](../user-guide/review-tiers-guide.md)). The decision
+strategies have different severity and review priority:
 
 | Decision | Cause | Needs review? | Action needed? |
 |----------|-------|:---:|---|
-| `end_clamped` | Utterance N's end overlapped the next timed utterance's start | **Only when it cuts retained word timing** | Adjudicate word-cutting cases; container-only trims are housekeeping |
+| `end_clamped_coverage_only` | Only the bullet's inherited coverage overshot the next utterance's start; no measured word conflicted | **No** | Informational; automatic |
+| `end_clamped_boundary_from_words` | Both bullets' inherited boundary replaced by their measured word hulls; the words never conflicted | **No** | Informational; automatic |
+| `end_clamped_interleaved_words` | The words themselves interleave, or the next utterance has none: a genuine conflict | **Yes** | Adjudicate; the bullet and every affected word were clamped together |
 | `start_stripped` | Utterance start precedes previous accepted start, full timing removed | **Yes** | Review utterance; may indicate transcript/audio reordering |
 
+The three `end_clamped_*` strategies are classified from what is MEASURED
+(word timings), never from the bullet's own extent, since the bullet at this
+point may already be wider than its words (`update_utterance_bullet`'s
+`Preserve` policy unions a bullet with prior coverage and never shrinks it).
+Each strategy corresponds one-for-one to a `MonotonicityEffect::EndClamped*`
+variant in structured evidence (`fa/orchestrate.rs`), and each variant embeds
+one `OverlapEdge` (the two utterances involved: line index, ordinal, speaker,
+on both sides) rather than repeating those seven fields per variant:
+
+- **`end_clamped_coverage_only`**: the previous utterance's last measured
+  word already ends at or before the next utterance's start (or the
+  utterance has no measured words at all). Only the bullet's inherited
+  coverage overshot; the bullet end moves to the word hull (or, with no
+  words, to the next start directly). Words are untouched.
+- **`end_clamped_boundary_from_words`**: the previous utterance's last
+  measured word ends after the next start, but the two utterances' words do
+  not interleave (the next utterance's first measured word starts at or
+  after that end). The boundary is itself measurable, so BOTH bullets take
+  their word-hull edges instead of the arbitrary next-start clamp; the far
+  side of each bullet is untouched. Words are untouched. This resolution is
+  refused, falling back to `end_clamped_interleaved_words` instead, when
+  moving the next utterance's start to its measured hull would push it past
+  its OWN next successor's start: that would be a fresh three-utterance
+  monotonicity conflict Pass 1 already ran and cannot see, so the move never
+  happens and nothing is stripped.
+- **`end_clamped_interleaved_words`**: the two utterances' measured words
+  genuinely overlap in time, or the next utterance has no measured word to
+  fix a boundary against (or the boundary-from-words move above was
+  refused). A real conflict between segmentation and FA: the bullet is
+  clamped to the next start AND every previous-utterance word past that
+  bound is clamped with it (through the same `clamped_to_bullet` route
+  postprocessing uses, so the clamp is a real, invariant-checked cut rather
+  than a second hand-rolled `.min()`), flagged for review.
+
 ```text
-WARN monotonicity: strategy="end_clamped" speaker=PAR line_idx=59
-     reason="end_truncated_by=2160ms original_end=138165 clamped_to=136005
-             cuts_word_timing=true cause=adjacent_utterance_overlap"
+WARN monotonicity: strategy="end_clamped_interleaved_words" speaker=PAR line_idx=59
+     reason="end_truncated_by=2160ms clamped_to=136005
+             cuts_word_timing=true resolution=interleaved_words
+             words_clamped=1 cause=adjacent_utterance_overlap"
 
 WARN monotonicity: strategy="start_stripped" speaker=INV line_idx=23
      reason="start_before_previous=130000 previous_start=131500"
 ```
 
-An `end_clamped` record does not by itself identify an alignment defect. Small
-container-only trims can be routine cleanup of overlapping provisional
-coverage. Cutting a retained word observation is different: segmentation and
-word timing disagree, and the output no longer contains all of the admitted
-word interval. BA3 keeps that distinction in the decision reason and
-`needs_review`; the FA evidence sidecar retains the original and clamped ends
-for controlled listening rather than attributing every case to UTR.
+Neither `end_clamped_coverage_only` nor `end_clamped_boundary_from_words`
+records identify an alignment defect. They are routine: the bullet's
+inherited coverage was reconciled against the words that were actually
+measured, and no word timing changed (`end_clamped_boundary_from_words` may
+move a word's CONTAINER, i.e. the bullet, without moving the word itself).
+`end_clamped_interleaved_words` is different: segmentation and word timing
+genuinely disagree, and the output no longer contains every admitted word
+interval on the previous utterance. BA3 keeps
+that distinction in the decision reason and `needs_review`; the FA evidence
+sidecar retains the original and clamped ends for controlled listening rather
+than attributing every case to UTR. `%wor`, when written, is ALWAYS
+regenerated after monotonicity resolves, never before, on every path: fresh
+alignment (`apply_fa_results_with_projection_policy`), the all-reusable fast
+path (`refresh_reusable_alignment` +
+`projection_without_injection_with_touched`), and per-utterance partial reuse
+(`refresh_reusable_utterances`, folded into the fresh-injection write phase
+via `FaApplied::also_touched`). `add_wor_tier` is `pub(crate)`, and in a
+PRODUCTION build it has exactly one caller, that one write phase
+(`FaApplied::then_enforce_monotonicity`); its only other callers are
+`#[cfg(test)]` (2026-09-01 review, item 12), so a word clamped by
+`end_clamped_interleaved_words` can never be left stale on `%wor` while the
+main tier (or vice versa) shows the uncut value, on any of those paths. The
+write phase also does not trust its own candidate list: it re-derives, from
+each utterance's CURRENT words, whether there is anything timed to write at
+all, so an utterance that lost every word to a clamp or a strip (Pass 1,
+Pass 2, or `repair_bullets`'s LIS removal) gets no `%wor` tier, never an
+untimed one (2026-09-01 review, item 9). The defect this classification
+replaces: the pass used to move only the bullet end back to the next
+utterance's start, after `%wor` had already been written, so the measured
+words ended after their own bullet (in one 253-file corpus, 30,858 word slots
+did) and, under the former any-speaker default, real cross-speaker overlap
+was cut as well.
 
 `start_stripped` is a genuine alignment concern, the utterance's start
 timestamp precedes the previous accepted start, which means time went backwards
@@ -1199,7 +1271,7 @@ prevent output from being written.  Only file-level errors prevent output.
 | `crates/batchalign/src/chat_ops/fa/mod.rs` | `Failed to deserialize cached FA timings` | Cache entry written by a different schema version | Wipe FA cache: `rm ~/Library/Caches/batchalign3/cache.db*` |
 | `fa/mod.rs` | `Failed to cache FA result` | SQLite cache write error (non-fatal; inference result still used) | Check disk space |
 | `fa/mod.rs` | `Post-validation warnings` | CHAT structural issues after injection | Review structured decision evidence and output |
-| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped"` | Utterance end trimmed to the next timed utterance's start; reason says whether retained main-tier or `%wor` word timing was cut | Review when `cuts_word_timing=true`; otherwise informational |
+| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped_coverage_only"\|"end_clamped_boundary_from_words"\|"end_clamped_interleaved_words"` | Same-speaker (default) or every adjacent (`clamp-all-adjacent`) end overlap resolved from measured word timings; the last variant's reason carries how many words were cut | Review only `end_clamped_interleaved_words` (`needs_review=true`); the other two are automatic and informational |
 | `fa/orchestrate.rs` | `monotonicity: strategy="start_stripped"` | Utterance start precedes previous accepted start, full timing stripped | Review utterance; structured decision has `needs_review=true` |
 | `fa_pipeline` | `FA failed with untimed utterances; attempting fallback UTR` | FA error on file that still has untimed utterances | Informational; fallback UTR retry follows |
 | `fa_pipeline` | `Fallback UTR recovered timing` | Fallback UTR succeeded before retry | Informational; timing injected, FA retry queued |

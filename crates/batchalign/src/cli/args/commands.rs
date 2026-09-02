@@ -163,7 +163,7 @@ pub struct AlignBoundaryArgs {
     pub existing_wor_boundaries: crate::chat_ops::fa::ExistingWorBoundaryPolicy,
 
     /// Treatment of an earlier utterance end that crosses the next start.
-    #[arg(long, value_enum, default_value_t)]
+    #[arg(long, value_enum, default_value_t = crate::chat_ops::fa::DEFAULT_END_OVERLAP_POLICY)]
     pub end_overlap_policy: crate::chat_ops::fa::EndOverlapPolicy,
 }
 

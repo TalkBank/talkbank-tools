@@ -37,8 +37,8 @@ use crate::cache::CacheBackend;
 use crate::chat_ops::fa::{
     BulletRepairPolicy, WordTiming, apply_fa_results_with_projection_policy, cache_key,
     expand_bullets_for_edge_fillers, finalize_without_injection, find_reusable_utterance_indices,
-    group_utterances, has_reusable_wor_timing, refresh_existing_alignment_with_boundary_policy,
-    refresh_reusable_utterances, rescue_narrow_bullets,
+    group_utterances, has_reusable_wor_timing, projection_without_injection_with_touched,
+    refresh_reusable_alignment, refresh_reusable_utterances, rescue_narrow_bullets,
     strip_wor_from_monotonicity_stripped_utterances,
 };
 use crate::chat_ops::{CacheKey, CacheTaskName};
@@ -521,11 +521,12 @@ pub(crate) async fn run_fa_from_ast(
     // without sending audio back through FA.
     if has_reusable_wor_timing(&chat_file) {
         info!("FA fast path: reusing existing %wor timing");
-        refresh_existing_alignment_with_boundary_policy(
-            &mut chat_file,
-            write_wor,
-            fa_params.existing_wor_boundaries,
-        );
+        // Mechanical refresh only (no `%wor` write): the touched utterances
+        // are folded into the SAME `FaApplied` write phase that runs
+        // monotonicity below, so `%wor` (when requested) is always written
+        // after same-speaker overlaps are resolved, never before (2026-09-01
+        // review, item 2).
+        let touched = refresh_reusable_alignment(&mut chat_file, fa_params.existing_wor_boundaries);
 
         // A previous run may have written backward `%wor` timestamps (e.g.
         // APROCSA 2256_T4.cha: UTR anchor drift placed utterances from task N
@@ -534,9 +535,13 @@ pub(crate) async fn run_fa_from_ast(
         // data, and the E362 violation persists indefinitely.
         //
         // Step 1: strip backward main-tier bullets.
-        let finalized = finalize_without_injection(
-            &mut chat_file,
+        let finalized = projection_without_injection_with_touched(
             fa_params.projection_policy(),
+            write_wor,
+            touched,
+        )
+        .then_finalize(
+            &mut chat_file,
             BulletRepairPolicy::from(fa_params.bullet_repair),
         );
         if fa_params.bullet_repair {
@@ -562,6 +567,11 @@ pub(crate) async fn run_fa_from_ast(
 
     // 1f. Per-utterance partial reuse: when some (but not all) utterances have
     // clean %wor, refresh those and track them so their FA groups can be skipped.
+    // `partially_reused_touched` is folded into the write phase around
+    // `apply_fa_results_with_projection_policy` below via `also_touched`, so
+    // their `%wor` is (re)written from the SAME post-monotonicity state as
+    // everything that run injected fresh (2026-09-01 review, item 2).
+    let mut partially_reused_touched: Vec<crate::chat_ops::UtteranceIdx> = Vec::new();
     let reusable_indices = find_reusable_utterance_indices(&chat_file);
     if !reusable_indices.is_empty() {
         info!(
@@ -571,8 +581,11 @@ pub(crate) async fn run_fa_from_ast(
         // This is a pre-grouping reconstruction, so it MUST preserve the
         // inherited main bullets. Rebuilding here changes group windows and
         // therefore raw-evidence cache keys. The explicit projection policy is
-        // applied later, after evidence collection, to every group.
-        refresh_reusable_utterances(&mut chat_file, &reusable_indices, write_wor);
+        // applied later, after evidence collection, to every group. Mechanical
+        // refresh only: `%wor` is not written here; `partially_reused_touched`
+        // is folded into the write phase around `apply_fa_results_with_projection_policy`
+        // below via `FaApplied::also_touched`.
+        partially_reused_touched = refresh_reusable_utterances(&mut chat_file, &reusable_indices);
     }
 
     // 2a. Rescue catastrophically narrow utterance bullets before grouping.
@@ -615,11 +628,29 @@ pub(crate) async fn run_fa_from_ast(
     } = group_utterances(&chat_file, fa_params.max_group_ms().0, &recording);
 
     if groups.is_empty() {
-        let finalized = finalize_without_injection(
-            &mut chat_file,
-            fa_params.projection_policy(),
-            BulletRepairPolicy::from(fa_params.bullet_repair),
-        );
+        // `partially_reused_touched` may be non-empty here too (1f refreshed
+        // some utterances, but grouping still found nothing left to send to
+        // FA workers): fold it in so its `%wor` is still written, once, after
+        // monotonicity (2026-09-01 review, item 2). `finalize_without_injection`
+        // stays the right call for the ordinary no-touched case (no
+        // allocation for an empty `Vec` beyond what it already does).
+        let finalized = if partially_reused_touched.is_empty() {
+            finalize_without_injection(
+                &mut chat_file,
+                fa_params.projection_policy(),
+                BulletRepairPolicy::from(fa_params.bullet_repair),
+            )
+        } else {
+            projection_without_injection_with_touched(
+                fa_params.projection_policy(),
+                write_wor,
+                partially_reused_touched,
+            )
+            .then_finalize(
+                &mut chat_file,
+                BulletRepairPolicy::from(fa_params.bullet_repair),
+            )
+        };
         if fa_params.bullet_repair {
             tracing::info!(stats = %finalized.repair_stats(), "bullet repair applied");
         }
@@ -939,7 +970,11 @@ pub(crate) async fn run_fa_from_ast(
         &final_timings,
         fa_params.projection_policy(),
         write_wor,
-    );
+    )
+    // Utterances 1f refreshed from reusable `%wor` before grouping: their
+    // `%wor` (if requested) is written by the SAME phase this run's own
+    // fresh injections are, after monotonicity resolves.
+    .also_touched(partially_reused_touched);
 
     // 9. Apply optional repair, then enforce monotonicity: strip non-monotonic start times and clamp
     //    end-time overlaps. The old enforcement was removed (see comment in

@@ -37,11 +37,13 @@ use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
 
 mod bullet_rerun;
+mod end_overlap_resolution;
 mod find_reusable;
 mod grouping_and_wor;
 mod inject_and_parse;
 mod postprocess_continuous;
 mod replaced_word_and_compound;
+mod timed_utterance_gate;
 mod two_pass_and_strategy;
 mod update_bullet;
 mod utr_and_monotonicity;

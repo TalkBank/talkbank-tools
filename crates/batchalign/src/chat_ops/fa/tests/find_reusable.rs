@@ -144,7 +144,7 @@ fn test_refresh_reusable_utterances_selective() {
     let mut chat = parse_chat(input);
 
     let reusable: std::collections::HashSet<usize> = [0].into_iter().collect();
-    orchestrate::refresh_reusable_utterances(&mut chat, &reusable, true);
+    orchestrate::refresh_reusable_utterances(&mut chat, &reusable);
 
     let output = chat.to_chat_string();
     // Utterance 0 should have refreshed word timing

@@ -299,25 +299,97 @@ pub enum FaTimingDecisionTrace {
         /// Speaker on the following line.
         next_speaker: String,
     },
-    /// An earlier utterance's end was clamped to the next start.
-    EndClamped {
-        /// Affected line index, including headers.
-        line_idx: usize,
-        /// Stable ordinal among utterances only.
-        utterance_idx: usize,
-        /// Speaker on the affected utterance.
-        speaker: String,
-        /// End before clamping.
-        original_end_ms: u64,
+    /// A same-speaker end overlap was resolved because only the bullet's
+    /// inherited coverage overshot the next utterance's start; no measured
+    /// word conflicted, and no word timing changed.
+    EndClampedCoverageOnly {
+        /// The two utterances involved. Flattened so this variant's OWN
+        /// field set (`line_idx`, `utterance_idx`, `speaker`,
+        /// `original_end_ms`, `next_line_idx`, `next_utterance_idx`,
+        /// `next_speaker`, `clamped_to_ms`) matches exactly what the single
+        /// pre-2026-09-01 `end_clamped` tag emitted (2026-09-01 review, item
+        /// 5 factored the SEVEN shared fields into `OverlapEdgeTrace`
+        /// without renaming or reshaping any of them here).
+        #[serde(flatten)]
+        edge: OverlapEdgeTrace,
+        /// The end this bullet was clamped to.
+        clamped_to_ms: u64,
+    },
+    /// A same-speaker end overlap was resolved by replacing both
+    /// utterances' inherited boundary with their measured word hulls.
+    EndClampedBoundaryFromWords {
+        /// The two utterances involved.
+        #[serde(flatten)]
+        edge: OverlapEdgeTrace,
+        /// The previous utterance's measured last-word end, its new bullet end.
+        prev_hull_end_ms: u64,
+        /// The next utterance's measured first-word start, its new bullet start.
+        next_hull_start_ms: u64,
+    },
+    /// A same-speaker end overlap could not be resolved from measurement
+    /// alone: the words themselves interleave, or the next utterance has
+    /// none. The bullet and every previous-utterance word past the bound
+    /// were clamped.
+    EndClampedInterleavedWords {
+        /// The two utterances involved.
+        #[serde(flatten)]
+        edge: OverlapEdgeTrace,
         /// Following start used as the new end.
         clamped_to_ms: u64,
-        /// Following line that supplied the clamp boundary.
-        next_line_idx: usize,
-        /// Stable ordinal of the following timed utterance.
-        next_utterance_idx: usize,
-        /// Speaker on the following line.
-        next_speaker: String,
+        /// How many word timings were cut to fit the new bound.
+        words_clamped: usize,
     },
+}
+
+/// Wire form of `chat_ops::fa::orchestrate::OverlapEdge`: the same seven
+/// fields (`line_idx`, `utterance_idx`, `speaker`, `original_end_ms`,
+/// `next_line_idx`, `next_utterance_idx`, `next_speaker`), flattened into
+/// each `EndClamped*` variant above, unchanged in name and type from before
+/// the three arms shared this type (2026-09-01 review, item 5).
+///
+/// The WIRE SCHEMA as a whole is NOT unchanged from before this session's
+/// work, and this type does not claim it is (2026-09-01 review, item 14):
+/// the single pre-session `kind: "end_clamped"` became three tag values
+/// (`end_clamped_coverage_only` / `_boundary_from_words` /
+/// `_interleaved_words`), and `EndClampedBoundaryFromWords` /
+/// `EndClampedInterleavedWords` each carry fields the pre-session shape did
+/// not (`prev_hull_end_ms` + `next_hull_start_ms` on the former,
+/// `words_clamped` on the latter). Item 5's factoring, the change this
+/// comment is actually about, is scoped to the SEVEN shared fields only:
+/// it changed how they are DECLARED (one struct, flattened three times)
+/// without changing what any of the three already-three-way-split variants
+/// emitted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+pub struct OverlapEdgeTrace {
+    /// Affected (previous) line index, including headers.
+    pub line_idx: usize,
+    /// Stable ordinal of the affected (previous) utterance.
+    pub utterance_idx: usize,
+    /// Speaker on the affected (previous) utterance.
+    pub speaker: String,
+    /// The previous utterance's end before clamping.
+    pub original_end_ms: u64,
+    /// Following line that supplied the clamp boundary.
+    pub next_line_idx: usize,
+    /// Stable ordinal of the following timed utterance.
+    pub next_utterance_idx: usize,
+    /// Speaker on the following line.
+    pub next_speaker: String,
+}
+
+impl From<crate::chat_ops::fa::OverlapEdge> for OverlapEdgeTrace {
+    fn from(edge: crate::chat_ops::fa::OverlapEdge) -> Self {
+        Self {
+            line_idx: edge.line_idx,
+            utterance_idx: edge.utterance_idx.raw(),
+            speaker: edge.speaker,
+            original_end_ms: edge.original_end_ms,
+            next_line_idx: edge.next_line_idx,
+            next_utterance_idx: edge.next_utterance_idx.raw(),
+            next_speaker: edge.next_speaker,
+        }
+    }
 }
 
 impl From<crate::chat_ops::fa::MonotonicityEffect> for FaTimingDecisionTrace {
@@ -364,24 +436,30 @@ impl From<crate::chat_ops::fa::MonotonicityEffect> for FaTimingDecisionTrace {
                 next_utterance_idx: next_utterance_idx.raw(),
                 next_speaker,
             },
-            MonotonicityEffect::EndClamped {
-                line_idx,
-                utterance_idx,
-                speaker,
-                original_end_ms,
+            MonotonicityEffect::EndClampedCoverageOnly {
+                edge,
                 clamped_to_ms,
-                next_line_idx,
-                next_utterance_idx,
-                next_speaker,
-            } => Self::EndClamped {
-                line_idx,
-                utterance_idx: utterance_idx.raw(),
-                speaker,
-                original_end_ms,
+            } => Self::EndClampedCoverageOnly {
+                edge: edge.into(),
                 clamped_to_ms,
-                next_line_idx,
-                next_utterance_idx: next_utterance_idx.raw(),
-                next_speaker,
+            },
+            MonotonicityEffect::EndClampedBoundaryFromWords {
+                edge,
+                prev_hull_end_ms,
+                next_hull_start_ms,
+            } => Self::EndClampedBoundaryFromWords {
+                edge: edge.into(),
+                prev_hull_end_ms,
+                next_hull_start_ms,
+            },
+            MonotonicityEffect::EndClampedInterleavedWords {
+                edge,
+                clamped_to_ms,
+                words_clamped,
+            } => Self::EndClampedInterleavedWords {
+                edge: edge.into(),
+                clamped_to_ms,
+                words_clamped,
             },
         }
     }

@@ -1,5 +1,6 @@
 ---
 source: crates/batchalign/tests/json_compat.rs
+assertion_line: 92
 expression: sub
 ---
 {
@@ -33,7 +34,7 @@ expression: sub
     },
     "pauses": true,
     "existing_wor_boundaries": "preserve",
-    "end_overlap_policy": "clamp_all_adjacent",
+    "end_overlap_policy": "preserve_cross_speaker",
     "wor": true,
     "merge_abbrev": false,
     "bullet_repair": false,

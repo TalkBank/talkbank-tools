@@ -290,6 +290,23 @@ fn align_rebuild_boundary_flag_reaches_typed_options() {
 }
 
 #[test]
+fn align_default_end_overlap_policy_is_the_one_named_constant() {
+    // No `--end-overlap-policy` flag: the CLI's `default_value_t` and
+    // `AlignBoundaryOptions`'s own `Default` must both read
+    // `DEFAULT_END_OVERLAP_POLICY`, never an independent `EndOverlapPolicy`
+    // derive, so the two cannot disagree (2026-09-01 review, item 8).
+    let cli = Cli::parse_from(["batchalign3", "align", "input/"]);
+    let options = build_typed_options(&cli.command, &cli.global).expect("typed align options");
+    let CommandOptions::Align(options) = options else {
+        panic!("expected Align");
+    };
+    assert_eq!(
+        options.boundaries.end_overlap_policy,
+        crate::chat_ops::fa::DEFAULT_END_OVERLAP_POLICY
+    );
+}
+
+#[test]
 fn align_cross_speaker_overlap_flag_reaches_typed_options() {
     let cli = Cli::parse_from([
         "batchalign3",
@@ -304,7 +321,7 @@ fn align_cross_speaker_overlap_flag_reaches_typed_options() {
     };
     assert_eq!(
         options.boundaries.end_overlap_policy,
-        crate::chat_ops::fa::EndOverlapPolicy::PreserveCrossSpeaker
+        crate::chat_ops::fa::DEFAULT_END_OVERLAP_POLICY
     );
 }
 

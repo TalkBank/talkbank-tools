@@ -46,13 +46,20 @@ pub use self::grouping::{
 pub use self::injection::inject_timings_for_utterance;
 pub(crate) use self::orchestrate::WrittenFaDecisions;
 pub use self::orchestrate::{
-    FaApplied, FaDecisions, FaFinalized, MonotonicityEffect, MonotonicityResult, apply_fa_results,
-    apply_fa_results_with_projection_policy, enforce_monotonicity,
+    FaApplied, FaDecisions, FaFinalized, MonotonicityEffect, MonotonicityResult, OverlapEdge,
+    apply_fa_results, apply_fa_results_with_projection_policy, enforce_monotonicity,
     enforce_monotonicity_with_policy, finalize_without_injection,
-    has_reusable_wor_timing_for_utterance, refresh_existing_alignment,
-    refresh_existing_alignment_for_utterance, refresh_existing_alignment_with_boundary_policy,
+    has_reusable_wor_timing_for_utterance, projection_without_injection_with_touched,
+    refresh_existing_alignment_for_utterance, refresh_reusable_alignment,
     refresh_reusable_utterances, retain_decision_evidence, strip_e704_same_speaker_overlaps,
     strip_timing_from_content, strip_wor_from_monotonicity_stripped_utterances,
+};
+// `#[cfg(test)]` (2026-09-01 review, item 12): both names are test-fixture
+// convenience only, with no production caller; see their own doc comments
+// in `orchestrate.rs`.
+#[cfg(test)]
+pub use self::orchestrate::{
+    refresh_existing_alignment, refresh_existing_alignment_with_boundary_policy,
 };
 pub use self::postprocess::{
     postprocess_utterance_timings, postprocess_utterance_timings_with_boundary_policy,
@@ -555,15 +562,41 @@ pub enum ExistingWorBoundaryPolicy {
 /// This is downstream projection policy. It never changes the raw FA evidence
 /// or its cache key. Cross-speaker overlap can be ordinary conversation, while
 /// same-speaker overlap still indicates incompatible segmentation or timing.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum EndOverlapPolicy {
-    /// Preserve established behavior by clamping every adjacent overlap.
-    #[default]
+    /// Clamp every adjacent overlap regardless of speaker. Legacy
+    /// compatibility behavior; NOT the default (see
+    /// [`DEFAULT_END_OVERLAP_POLICY`]) because it also clamps ordinary
+    /// conversational overlap between two different speakers.
     ClampAllAdjacent,
     /// Preserve cross-speaker overlap, while retaining the existing clamp for
     /// adjacent utterances carrying the same speaker code.
     PreserveCrossSpeaker,
+}
+
+/// The one owner of `EndOverlapPolicy`'s default (2026-09-01 review, item 8).
+///
+/// `EndOverlapPolicy` deliberately does NOT derive `Default`: a `Default` on
+/// this enum is exactly the affordance CLAUDE.md's practice 14 warns about,
+/// and it was two independent, silently-agreeing-by-luck literals before this
+/// constant existed (the CLI's `default_value_t` reading the derive, and
+/// `AlignBoundaryOptions`'s own derived `Default` reading it too), so a plain
+/// `batchalign3 align` clamped every adjacent SAME- or CROSS-speaker overlap.
+/// Cross-speaker overlap is ordinary conversation (see the LIS-removal
+/// comment on `fa/repair.rs`'s `find_boundary_averages`), so the default
+/// leaves it alone. Every construction site that needs "the default", not an
+/// explicit deliberate choice, reads this constant; `rg
+/// 'EndOverlapPolicy::PreserveCrossSpeaker\b'` should show only this
+/// definition and this crate's own compatibility-shim call sites (which name
+/// `ClampAllAdjacent` explicitly, on purpose, for old behavior).
+pub const DEFAULT_END_OVERLAP_POLICY: EndOverlapPolicy = EndOverlapPolicy::PreserveCrossSpeaker;
+
+/// `serde(default = "...")` needs a function, not a const path; this is that
+/// function, reading the one constant so a deserialized job that omits the
+/// field gets the same default every other caller does.
+pub fn default_end_overlap_policy_serde() -> EndOverlapPolicy {
+    DEFAULT_END_OVERLAP_POLICY
 }
 
 impl EndOverlapPolicy {
@@ -769,7 +802,27 @@ pub fn remove_wor_tier(utterance: &mut Utterance) {
 /// originally sat before `%mor` / `%gra` or in some other non-default
 /// slot. The position-preserving replace fixes that entire class of
 /// diff noise.
-pub fn add_wor_tier(utterance: &mut Utterance) {
+///
+/// `pub(crate)`, not `pub` (2026-09-01 review, item 2): this crate's ONLY
+/// production route to a `%wor` WRITE for a real alignment or refresh run is
+/// `orchestrate::FaApplied::then_enforce_monotonicity`, reached through
+/// `then_finalize` or called directly, always AFTER monotonicity has
+/// resolved same-speaker overlaps (see `WorPlan`). Every whole-file refresh
+/// helper in `orchestrate.rs` that has a PRODUCTION caller
+/// (`refresh_reusable_alignment`, `refresh_reusable_utterances`) is
+/// mechanical only and returns its touched utterances for a caller to fold
+/// into that SAME write phase; neither calls this function directly.
+///
+/// The remaining direct callers: unit tests of `%wor` GENERATION shape
+/// itself (`chat_ops/fa/tests/replaced_word_and_compound.rs`,
+/// `chat_ops/morphosyntax_ops/tests.rs`), which build a fixture and are not
+/// claiming anything about monotonicity ordering; and
+/// `orchestrate::refresh_existing_alignment_with_boundary_policy` (and its
+/// `refresh_existing_alignment` wrapper), which have NO production caller
+/// and exist only to build test fixtures with `%wor` written from
+/// refreshed-but-not-yet-resolved state, documented at their own
+/// definition.
+pub(crate) fn add_wor_tier(utterance: &mut Utterance) {
     let wor_tier = utterance.main.generate_wor_tier();
     batchalign_transform::inject::replace_or_add_tier(
         &mut utterance.dependent_tiers,

@@ -72,7 +72,8 @@ impl DecisionModule {
 // The `as_str()` name on each per-module enum is the *label* that was
 // previously typed as a string literal. Migration rule: if downstream
 // consumers read `record.strategy == "end_clamped"`, their new read is
-// `matches!(record.strategy, DecisionStrategy::Monotonicity(MonotonicityStrategy::EndClamped))`.
+// `matches!(record.strategy, DecisionStrategy::Monotonicity(MonotonicityStrategy::EndClampedCoverageOnly
+// | MonotonicityStrategy::EndClampedBoundaryFromWords | MonotonicityStrategy::EndClampedInterleavedWords))`.
 // ---------------------------------------------------------------------------
 
 /// Forced-alignment repair strategies (`fa::repair`, `fa::orchestrate`).
@@ -144,10 +145,26 @@ impl UtrStrategy {
 }
 
 /// Monotonicity-enforcement strategies applied to utterance bullets.
+///
+/// The three `EndClamped*` variants (2026-09-01 review, item 4) replace a
+/// single `EndClamped` label that carried its real distinction only in the
+/// free-text `reason` string (`resolution=coverage_only|boundary_from_words
+/// |interleaved_words`), matching `chat_ops::fa::orchestrate`'s
+/// `EndOverlapResolution` and `MonotonicityEffect` one-for-one so a consumer
+/// filtering on `strategy` alone (not parsing `reason`) sees the same three
+/// cases those types do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MonotonicityStrategy {
-    /// End time was clamped down to fit under the next utterance's start.
-    EndClamped,
+    /// Only the bullet's inherited coverage overshot the next utterance's
+    /// start; no measured word conflicted. Words untouched.
+    EndClampedCoverageOnly,
+    /// Both bullets' inherited boundary replaced by their measured word
+    /// hulls; the words themselves never conflicted.
+    EndClampedBoundaryFromWords,
+    /// The words themselves interleave, or the next utterance has none: a
+    /// genuine conflict. The bullet and every word past the bound were
+    /// clamped together.
+    EndClampedInterleavedWords,
     /// Bullet timing stripped because monotonicity could not be restored.
     TimingStripped,
 }
@@ -156,7 +173,9 @@ impl MonotonicityStrategy {
     /// Stable wire/tracing label for structured evidence.
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::EndClamped => "end_clamped",
+            Self::EndClampedCoverageOnly => "end_clamped_coverage_only",
+            Self::EndClampedBoundaryFromWords => "end_clamped_boundary_from_words",
+            Self::EndClampedInterleavedWords => "end_clamped_interleaved_words",
             Self::TimingStripped => "timing_stripped",
         }
     }
@@ -449,13 +468,13 @@ mod tests {
         let d = DecisionRecord {
             line_idx: LineIdx::new(5),
             speaker: "CHI".into(),
-            strategy: DecisionStrategy::Monotonicity(MonotonicityStrategy::EndClamped),
+            strategy: DecisionStrategy::Monotonicity(MonotonicityStrategy::EndClampedCoverageOnly),
             reason: "overlap=1200ms prev_end=5000 next_start=3800".into(),
             needs_review: false,
         };
         assert_eq!(
             d.evidence_summary(),
-            "monotonicity:end_clamped overlap=1200ms prev_end=5000 next_start=3800"
+            "monotonicity:end_clamped_coverage_only overlap=1200ms prev_end=5000 next_start=3800"
         );
     }
 
