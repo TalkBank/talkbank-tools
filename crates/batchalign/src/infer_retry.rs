@@ -251,52 +251,55 @@ mod tests {
     }
 
     /// Outcome-type-level companion to the test above: a full dispatch
-    /// given `Cancellation::NotWired` must run exactly as long as its
-    /// underlying attempt takes, with nothing resolving it early. Reuses
-    /// the same unbounded-attempt property `cancelled_during_the_first_attempt_stops_the_loop`
-    /// establishes for `PoolConfig::default()` with no engine registered:
-    /// if `NotWired` could somehow still short-circuit the dispatch, this
-    /// task would finish well inside the 50ms window instead of still
-    /// running.
+    /// given `Cancellation::NotWired` must not resolve spuriously.
+    /// Established by a DETERMINISTIC gate, not elapsed time: a future's
+    /// first `poll` either returns the outcome or `Pending`, with no
+    /// ambiguity and no dependence on how fast the runner schedules
+    /// things. If `NotWired` could somehow still short-circuit the
+    /// dispatch, this poll would already observe `Ready` instead of
+    /// `Pending`.
     #[tokio::test]
     async fn not_wired_dispatch_is_not_spuriously_resolved() {
         let pool = WorkerPool::new(PoolConfig::default());
         let lang = LanguageCode3::eng();
         let request = minimal_asr_request();
 
-        let handle = tokio::spawn(async move {
-            dispatch_execute_v2_with_retry(
-                &pool,
-                &lang,
-                &request,
-                Cancellation::NotWired {
-                    reason: "test: no job token in scope",
-                },
-            )
-            .await
-        });
+        let mut fut = Box::pin(dispatch_execute_v2_with_retry(
+            &pool,
+            &lang,
+            &request,
+            Cancellation::NotWired {
+                reason: "test: no job token in scope",
+            },
+        ));
 
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        let first_poll = futures::poll!(&mut fut);
         assert!(
-            !handle.is_finished(),
-            "a NotWired dispatch must not resolve (as Cancelled or otherwise) before its \
-             underlying attempt does; nothing here should be able to finish it early"
+            matches!(first_poll, std::task::Poll::Pending),
+            "a NotWired dispatch must not resolve (as Cancelled or otherwise) on its very \
+             first poll; nothing here should be able to finish it early, got {first_poll:?}"
         );
 
         // The attempt genuinely never completes under this pool config (no
-        // engine registered); abort rather than await so this test does
+        // engine registered); drop rather than await so this test does
         // not itself hang.
-        handle.abort();
+        drop(fut);
     }
 
     /// A cancellation that fires while the FIRST attempt is still being
     /// awaited must win the race and stop the loop, not wait for that
     /// attempt to finish on its own. `PoolConfig::default()` with no
     /// engine registered makes the attempt itself take real, unbounded
-    /// time (spawning/loading a worker that cannot succeed), so this
-    /// proves the select against the in-flight attempt actually
-    /// interrupts it rather than merely winning a race against an
-    /// instantaneous failure.
+    /// time (spawning/loading a worker that cannot succeed).
+    ///
+    /// "Still in flight" is established by a DETERMINISTIC gate the test
+    /// controls, not by a sleep-then-check race: a single `poll` of the
+    /// dispatch future either returns its outcome immediately or
+    /// `Pending`. `Pending` after one poll proves the attempt is
+    /// genuinely suspended (parked on the real dispatch, not merely
+    /// not-yet-polled), independent of runner speed or scheduling, so the
+    /// cancellation that follows is provably racing an IN-FLIGHT attempt
+    /// rather than a call that had not started yet.
     #[tokio::test]
     async fn cancelled_during_the_first_attempt_stops_the_loop() {
         let pool = WorkerPool::new(PoolConfig::default());
@@ -304,31 +307,25 @@ mod tests {
         let request = minimal_asr_request();
         let cancel_token = CancellationToken::new();
 
-        let cancel_token_for_call = cancel_token.clone();
-        let handle = tokio::spawn(async move {
-            dispatch_execute_v2_with_retry(
-                &pool,
-                &lang,
-                &request,
-                Cancellation::Token(&cancel_token_for_call),
-            )
-            .await
-        });
+        let mut fut = Box::pin(dispatch_execute_v2_with_retry(
+            &pool,
+            &lang,
+            &request,
+            Cancellation::Token(&cancel_token),
+        ));
 
-        // Give the attempt a moment to actually start before cancelling,
-        // so this proves interruption of an in-flight attempt rather than
-        // a race against a call that had not started yet.
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        let first_poll = futures::poll!(&mut fut);
         assert!(
-            !handle.is_finished(),
-            "the dispatch attempt must still be in flight before cancellation"
+            matches!(first_poll, std::task::Poll::Pending),
+            "the dispatch attempt must still be in flight (Pending on its first poll) before \
+             cancellation for this test to prove anything, got {first_poll:?}"
         );
+
         cancel_token.cancel();
 
-        let result = tokio::time::timeout(Duration::from_secs(5), handle)
+        let result = tokio::time::timeout(Duration::from_secs(5), fut)
             .await
-            .expect("cancellation must stop the loop promptly, not hang")
-            .expect("task should not panic");
+            .expect("cancellation must stop the loop promptly, not hang");
 
         assert!(
             matches!(result, Err(ServerError::Cancelled)),

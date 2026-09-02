@@ -245,11 +245,18 @@ mod tests {
         let request = minimal_asr_request();
         {
             let mut attempt = Box::pin(worker.execute_v2_with_progress(&request, None));
-            tokio::select! {
-                biased;
-                () = tokio::time::sleep(std::time::Duration::from_millis(150)) => {}
-                _ = &mut attempt => panic!("stub must never respond"),
-            }
+            // Deterministic gate, not a sleep-based race: a single `poll`
+            // either returns the attempt's outcome or `Pending`. The stub
+            // never responds, so `Pending` here means the write already
+            // went through (it happens synchronously, before the first
+            // await point inside `write_request`) and the future is now
+            // genuinely parked waiting on a response that will never
+            // arrive -- proven by the poll itself, not by elapsed time.
+            let first_poll = futures::poll!(&mut attempt);
+            assert!(
+                matches!(first_poll, std::task::Poll::Pending),
+                "stub must never respond on the very first poll, got {first_poll:?}"
+            );
             // `attempt` (and the mutable borrow of `worker` it holds) is
             // dropped here at scope exit, exactly what `select!` does to
             // the losing branch's future in the real retry loop.
