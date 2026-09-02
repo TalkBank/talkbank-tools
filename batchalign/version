@@ -1,3 +1,3 @@
-0.4.3
-September 1st 2026
-Forced alignment resolves same-speaker overlap on measured words, writes %wor only after resolution, and no longer cuts cross-speaker overlap
+0.4.4
+September 2nd 2026
+Typed model-access failures, one owner of the decode time budget, cancellation honoured in every wait, and no blind daemon spawn
