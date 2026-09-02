@@ -46,9 +46,9 @@ pub use self::grouping::{
 pub use self::injection::inject_timings_for_utterance;
 pub(crate) use self::orchestrate::WrittenFaDecisions;
 pub use self::orchestrate::{
-    FaApplied, FaDecisions, FaFinalized, MonotonicityEffect, MonotonicityResult, OverlapEdge,
-    apply_fa_results, apply_fa_results_with_projection_policy, enforce_monotonicity,
-    enforce_monotonicity_with_policy, finalize_without_injection,
+    DroppedWordTiming, FaApplied, FaDecisions, FaFinalized, MonotonicityEffect, MonotonicityResult,
+    OverlapEdge, WordTier, apply_fa_results, apply_fa_results_with_projection_policy,
+    enforce_monotonicity, enforce_monotonicity_with_policy, finalize_without_injection,
     has_reusable_wor_timing_for_utterance, projection_without_injection_with_touched,
     refresh_existing_alignment_for_utterance, refresh_reusable_alignment,
     refresh_reusable_utterances, retain_decision_evidence, strip_e704_same_speaker_overlaps,

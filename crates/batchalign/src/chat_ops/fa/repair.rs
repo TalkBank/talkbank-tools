@@ -27,9 +27,9 @@ use talkbank_model::model::{ChatFile, Line, Utterance};
 
 use super::EndOverlapPolicy;
 use super::orchestrate::{
-    E704_TOLERANCE_MS, EndOverlapResolution, clamp_words_past_bound, classify_end_overlap,
-    earliest_word_timing_start, file_order_successor_start_ms, furthest_word_timing_end,
-    strip_utterance_timing,
+    ClampedWordCounts, DroppedWordTiming, E704_TOLERANCE_MS, EndOverlapResolution,
+    clamp_words_past_bound, classify_end_overlap, earliest_word_timing_start,
+    file_order_successor_start_ms, furthest_word_timing_end, strip_utterance_timing,
 };
 
 /// Maximum overlap (ms) eligible for boundary averaging (Strategy 1).
@@ -109,8 +109,21 @@ pub struct RepairDecision {
     /// this struct is FA-specific, so the strategy is constrained to
     /// `FaStrategy` at the point of construction.
     pub strategy: batchalign_transform::decisions::FaStrategy,
-    /// Human-readable reason string for evidence and tracing.
+    /// Human-readable reason string for evidence and tracing. Stays a
+    /// SUMMARY (a count, via `words_dropped.len()`, when this decision cut
+    /// any words at all): the full per-word records live in
+    /// `words_dropped` instead, which is where a reviewer actually needs
+    /// them, not duplicated into a string.
     pub reason: String,
+    /// Words whose timing was thrown away entirely by THIS decision
+    /// (empty for every strategy but `BoundaryAveraged`'s
+    /// `InterleavedWords` resolution, which is the only one that ever
+    /// clamps a word at all). Carries what `clamp_words_past_bound`
+    /// already returns via `ClampedWordCounts::dropped`, so the measured
+    /// span survives past this decision instead of being reduced to
+    /// `words_clamped.dropped.len()` in the reason string and nothing
+    /// else (2026-09-02 review).
+    pub words_dropped: Vec<DroppedWordTiming>,
     /// Whether this decision is low-confidence and needs human review.
     pub needs_review: bool,
 }
@@ -187,6 +200,9 @@ pub fn repair_bullets(
                 "gap_filled gap={}ms same_speaker machine={}_{} snapped_start={}",
                 gap, entry.start_ms, entry.end_ms, new_start_ms
             ),
+            // Gap filling only moves a bullet's START; it never touches a
+            // word's timing.
+            words_dropped: Vec::new(),
             needs_review: true,
         });
     }
@@ -245,6 +261,10 @@ pub fn repair_bullets(
             line_idx,
             speaker: entry.speaker.clone(),
             strategy: batchalign_transform::decisions::FaStrategy::LisRemoval,
+            // LIS removal strips a whole utterance's timing outright; it
+            // does not clamp individual words, so there is nothing to
+            // report here beyond the reason text below.
+            words_dropped: Vec::new(),
             reason: format!(
                 "lis_removal same_speaker_non_monotonic machine={}_{}",
                 entry.start_ms, entry.end_ms
@@ -464,7 +484,7 @@ fn resolve_boundary_average_pair(
     {
         bullet.timing.end_ms = earlier_new_end_ms;
     }
-    let mut words_clamped = 0usize;
+    let mut words_clamped = ClampedWordCounts::default();
     match resolution {
         EndOverlapResolution::InterleavedWords => {
             if let Some(utt) = get_utterance_mut(chat_file, earlier_line_idx) {
@@ -483,8 +503,11 @@ fn resolve_boundary_average_pair(
 
     let reason = match resolution {
         EndOverlapResolution::InterleavedWords => format!(
-            "boundary_averaged overlap={overlap}ms resolution=interleaved_words clamped_to={earlier_new_end_ms} machine={}_{} adjacent={earlier_speaker}:{earlier_line_idx} words_clamped={words_clamped}",
-            later_bullet.timing.start_ms, later_bullet.timing.end_ms,
+            "boundary_averaged overlap={overlap}ms resolution=interleaved_words clamped_to={earlier_new_end_ms} machine={}_{} adjacent={earlier_speaker}:{earlier_line_idx} words_trimmed={} words_dropped={}",
+            later_bullet.timing.start_ms,
+            later_bullet.timing.end_ms,
+            words_clamped.trimmed,
+            words_clamped.dropped.len(),
         ),
         EndOverlapResolution::CoverageOnly { .. }
         | EndOverlapResolution::BoundaryFromWords { .. } => format!(
@@ -498,6 +521,11 @@ fn resolve_boundary_average_pair(
         speaker: later_speaker.to_string(),
         strategy: batchalign_transform::decisions::FaStrategy::BoundaryAveraged,
         reason,
+        // The per-word records `clamp_words_past_bound` already collected
+        // (2026-09-02 review): a `CoverageOnly`/`BoundaryFromWords`
+        // resolution never calls it at all, so `words_clamped.dropped` is
+        // still its `Default`, empty `Vec`, here.
+        words_dropped: words_clamped.dropped,
         // A hull-respecting average never touches a measured word, same
         // as Pass 2's `CoverageOnly`/`BoundaryFromWords`; only a real
         // word conflict (`InterleavedWords`) needs a human's review.
@@ -1053,6 +1081,64 @@ mod tests {
                 .and_then(earliest_word_timing_start),
             Some(2850),
             "the later word is untouched"
+        );
+    }
+
+    /// 2026-09-02 review: repair's `InterleavedWords` resolution goes
+    /// through the same `clamp_words_past_bound` Pass 2 uses, so it must
+    /// carry the same per-word records forward into `RepairDecision`
+    /// rather than reducing them to `words_clamped.dropped.len()` in the
+    /// reason string and nothing else. `third` (4100-4300) sits wholly past
+    /// the clamp bound (4000: the later utterance's own start); `world`
+    /// (3000-4200) straddles it and is merely trimmed.
+    #[test]
+    fn interleaved_words_repair_decision_carries_the_dropped_word_record() {
+        use crate::chat_ops::fa::TimeSpan;
+        use crate::chat_ops::fa::orchestrate::WordTier;
+
+        // Overlap must stay within `BOUNDARY_AVERAGING_THRESHOLD_MS` (500ms)
+        // or `resolve_boundary_average_pair` skips the pair entirely; the
+        // earlier bullet's end (4400) is 400ms past the later bullet's
+        // start (4000).
+        let mut chat = parse(
+            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n\
+             @ID:\teng|x|CHI|||||Child|||\n\
+             *CHI:\thello world third . \u{15}1000_4400\u{15}\n\
+             %wor:\thello \u{15}1000_3000\u{15} world \u{15}3000_4200\u{15} third \u{15}4100_4300\u{15} .\n\
+             *CHI:\tnext . \u{15}4000_6000\u{15}\n%wor:\tnext \u{15}4000_6000\u{15} .\n@End\n",
+        );
+
+        let result = repair_bullets(&mut chat, false, EndOverlapPolicy::ClampAllAdjacent);
+
+        assert_eq!(result.stats.boundary_averaged, 1);
+        assert_eq!(result.decisions.len(), 1);
+        let decision = &result.decisions[0];
+        assert!(decision.needs_review, "a genuine word conflict");
+        assert!(
+            decision.reason.contains("words_trimmed=1"),
+            "reason stays a summary: {}",
+            decision.reason
+        );
+        assert!(
+            decision.reason.contains("words_dropped=1"),
+            "reason stays a summary: {}",
+            decision.reason
+        );
+
+        // The point of this test: the dropped side is not just a count in
+        // the reason string. `RepairDecision` itself must carry which word
+        // and what was lost.
+        assert_eq!(decision.words_dropped.len(), 1);
+        let dropped = &decision.words_dropped[0];
+        assert_eq!(
+            dropped.word_index, 2,
+            "third is the third %wor word, index 2 (0-based)"
+        );
+        assert_eq!(dropped.tier, WordTier::Wor);
+        assert_eq!(
+            dropped.measured,
+            TimeSpan::new(4_100, 4_300),
+            "the measured extent that was lost must survive to the RepairDecision"
         );
     }
 

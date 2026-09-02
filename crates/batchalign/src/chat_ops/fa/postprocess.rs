@@ -268,6 +268,30 @@ impl std::ops::Deref for PendingTiming {
     }
 }
 
+/// What clamping a transcript word's timing to a bound actually produced.
+///
+/// A word wholly past the bound cannot be trimmed to a positive extent, and
+/// the old signature (`Option<WordTiming>`) answered `None` for that case
+/// with no way for the caller to say what was lost. That is shape C (a total
+/// function silently discarding information): the span this crate already
+/// held before the clamp ran is a MEASURED fact (or, for a re-run word, the
+/// transcript's own prior account of the word, which this crate treats as an
+/// observation the same way `Origin::TranscriptBullet` does everywhere
+/// else), and it went nowhere. `DroppedPastBound` carries it, so a caller
+/// that counts drops can also say what each one was.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum WordClampOutcome {
+    /// The word kept a positive extent after clamping.
+    Trimmed(WordTiming),
+    /// The word's start was already at or past the bound: no positive
+    /// extent survives the cut. `measured` is the span as it sat in the
+    /// transcript immediately before this clamp ran.
+    DroppedPastBound {
+        /// The extent that was lost.
+        measured: TimeSpan,
+    },
+}
+
 /// Clamp a word's timing, as it already sits in the transcript AST, to
 /// `[start_ms, end_ms)`.
 ///
@@ -283,24 +307,27 @@ impl std::ops::Deref for PendingTiming {
 /// other clamp in this crate uses. The returned timing's end origin is
 /// therefore a real `Origin::ClampedTo { bound: ClampBound::UtteranceBullet,
 /// .. }` produced by the actual arithmetic, never a hand-written
-/// substitute, and a clamp that would leave no positive extent returns
-/// `None` rather than writing a degenerate span, exactly like every other
-/// caller of `clamped_to_bullet`.
+/// substitute, and a clamp that would leave no positive extent reports
+/// [`WordClampOutcome::DroppedPastBound`] with the span it lost, rather than
+/// writing a degenerate span or discarding the fact entirely.
 ///
 /// `talkbank-model`'s `Bullet` has no field for an `Origin` (it is two
-/// integers plus source metadata), so the caller cannot carry this timing's
-/// origin into the CHAT file it writes back to; the value exists so the
-/// CLAMP ITSELF runs through the real, invariant-checked route rather than
-/// a second hand-rolled `.max()`/`.min()`.
+/// integers plus source metadata), so the caller cannot carry a `Trimmed`
+/// timing's origin into the CHAT file it writes back to; the value exists so
+/// the CLAMP ITSELF runs through the real, invariant-checked route rather
+/// than a second hand-rolled `.max()`/`.min()`.
 pub(super) fn clamp_transcript_word_to_bullet(
     span: TimeSpan,
     start_ms: u64,
     end_ms: u64,
-) -> Option<WordTiming> {
-    PendingTiming::from_transcript(span)
-        .clamped_to_bullet(start_ms, end_ms)?
-        .settle()
-        .ok()
+) -> WordClampOutcome {
+    match PendingTiming::from_transcript(span).clamped_to_bullet(start_ms, end_ms) {
+        None => WordClampOutcome::DroppedPastBound { measured: span },
+        Some(pending) => match pending.settle() {
+            Ok(timing) => WordClampOutcome::Trimmed(timing),
+            Err(_degenerate) => WordClampOutcome::DroppedPastBound { measured: span },
+        },
+    }
 }
 
 /// Maximum internal gap (ms) that gap healing may collapse into the
@@ -1048,5 +1075,56 @@ mod moved_boundary_tests {
             }
         );
         assert_eq!(clamped.end_origin, measured("wav2vec_fa"));
+    }
+}
+
+#[cfg(test)]
+mod clamp_transcript_word_to_bullet_tests {
+    use super::*;
+
+    /// A word that starts at or past the bound cannot be trimmed to a
+    /// positive extent, and the extent it HAD is a fact this module already
+    /// possessed before the clamp ran. Throwing it away without recording it
+    /// is shape C (a total function silently discarding information); this
+    /// pins the cure: `DroppedPastBound` carries exactly the span the
+    /// transcript held.
+    #[test]
+    fn a_word_wholly_past_the_bound_reports_dropped_with_its_measured_span() {
+        let outcome = clamp_transcript_word_to_bullet(TimeSpan::new(4_200, 4_800), 4_200, 4_000);
+
+        assert_eq!(
+            outcome,
+            WordClampOutcome::DroppedPastBound {
+                measured: TimeSpan::new(4_200, 4_800),
+            }
+        );
+    }
+
+    /// A word straddling the bound keeps a positive extent, cut to it: the
+    /// ordinary case, unchanged by the type carrying the other one.
+    #[test]
+    fn a_word_straddling_the_bound_is_trimmed() {
+        let outcome = clamp_transcript_word_to_bullet(TimeSpan::new(3_000, 5_000), 3_000, 4_000);
+
+        let WordClampOutcome::Trimmed(timing) = outcome else {
+            panic!("a straddling word must trim, not drop: {outcome:?}");
+        };
+        assert_eq!(timing.start_ms, 3_000);
+        assert_eq!(timing.end_ms, 4_000);
+    }
+
+    /// A word whose start already sits exactly at the bound has no positive
+    /// extent left either, same as one further past it: the boundary case
+    /// for the `end_ms > start_ms` cut.
+    #[test]
+    fn a_word_starting_exactly_at_the_bound_is_dropped_not_zero_length() {
+        let outcome = clamp_transcript_word_to_bullet(TimeSpan::new(4_000, 4_500), 4_000, 4_000);
+
+        assert_eq!(
+            outcome,
+            WordClampOutcome::DroppedPastBound {
+                measured: TimeSpan::new(4_000, 4_500),
+            }
+        );
     }
 }

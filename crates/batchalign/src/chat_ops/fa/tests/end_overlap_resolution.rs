@@ -162,13 +162,100 @@ fn interleaved_words_clamps_bullet_and_every_word_past_the_bound() {
         .find(|d| d.strategy.strategy_name() == "end_clamped_interleaved_words")
         .expect("overlap should produce an end clamp");
     assert!(clamp.needs_review, "a real word conflict needs review");
-    assert!(matches!(
-        result.effects(),
-        [MonotonicityEffect::EndClampedInterleavedWords {
-            words_clamped: 1,
+    let [
+        MonotonicityEffect::EndClampedInterleavedWords {
+            words_trimmed,
+            words_dropped,
             ..
-        }]
-    ));
+        },
+    ] = result.effects()
+    else {
+        panic!(
+            "expected exactly one EndClampedInterleavedWords effect: {:?}",
+            result.effects()
+        );
+    };
+    assert_eq!(*words_trimmed, 1);
+    assert!(
+        words_dropped.is_empty(),
+        "no word is wholly past the bound here: {words_dropped:?}"
+    );
+}
+
+/// Case 3, split-count regression (2026-09-02): a MEASURED timing dropped
+/// wholly past the bound is a different fact than one merely trimmed to fit,
+/// and the effect, decision reason and trace must all say so separately
+/// rather than folding both into one `words_clamped` total. `third` starts
+/// (4200) and ends (4800) entirely past the bound (4000), so nothing of it
+/// survives the cut; `world` straddles the bound and keeps a shorter extent.
+#[test]
+fn interleaved_words_reports_trimmed_and_dropped_separately() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|x|CHI|||||Child|||\n*CHI:\thello world third . \u{15}1000_5000\u{15}\n%wor:\thello \u{15}1000_3000\u{15} world \u{15}3000_5000\u{15} third \u{15}4200_4800\u{15} .\n*CHI:\tnext . \u{15}4000_6000\u{15}\n%wor:\tnext \u{15}4000_6000\u{15} .\n@End\n";
+    let mut chat = parse_chat(input);
+
+    let result = enforce_monotonicity(&mut chat);
+
+    assert_eq!(
+        wor_word_timing(&chat, 0, 0),
+        Some((1000, 3000)),
+        "a word entirely before the bound is untouched"
+    );
+    assert_eq!(
+        wor_word_timing(&chat, 0, 1),
+        Some((3000, 4000)),
+        "a word straddling the bound is trimmed, not dropped"
+    );
+    assert_eq!(
+        wor_word_timing(&chat, 0, 2),
+        None,
+        "a word wholly past the bound has no positive extent left: dropped"
+    );
+
+    let decision = result
+        .records()
+        .iter()
+        .find(|d| d.strategy.strategy_name() == "end_clamped_interleaved_words")
+        .expect("overlap should produce an end clamp");
+    assert!(
+        decision.reason.contains("words_trimmed=1"),
+        "reason must name the trimmed count: {}",
+        decision.reason
+    );
+    assert!(
+        decision.reason.contains("words_dropped=1"),
+        "reason must name the dropped count, separately: {}",
+        decision.reason
+    );
+
+    // The whole point of this test: the dropped side is not just a count.
+    // A reviewer (or the dashboard) must be able to see WHICH word and WHAT
+    // was lost, not only how many words were dropped.
+    let [
+        MonotonicityEffect::EndClampedInterleavedWords {
+            words_trimmed,
+            words_dropped,
+            ..
+        },
+    ] = result.effects()
+    else {
+        panic!(
+            "expected exactly one EndClampedInterleavedWords effect: {:?}",
+            result.effects()
+        );
+    };
+    assert_eq!(*words_trimmed, 1);
+    assert_eq!(words_dropped.len(), 1);
+    let dropped = &words_dropped[0];
+    assert_eq!(
+        dropped.word_index, 2,
+        "third is the third %wor word, index 2 (0-based)"
+    );
+    assert_eq!(dropped.tier, WordTier::Wor);
+    assert_eq!(
+        dropped.measured,
+        TimeSpan::new(4_200, 4_800),
+        "the measured extent that was lost must survive to the effect"
+    );
 }
 
 /// Case 3, the second trigger: the next utterance has no measured word at

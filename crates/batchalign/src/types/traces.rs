@@ -336,9 +336,52 @@ pub enum FaTimingDecisionTrace {
         edge: OverlapEdgeTrace,
         /// Following start used as the new end.
         clamped_to_ms: u64,
-        /// How many word timings were cut to fit the new bound.
-        words_clamped: usize,
+        /// Words cut to a shorter positive extent, still keeping a timing.
+        words_trimmed: usize,
+        /// Words whose start was at or past the bound: no timing survived.
+        /// One record per word (2026-09-02), not just a count: each is a
+        /// MEASURED extent this run threw away, not the same fact as
+        /// `words_trimmed` (formerly folded into one `words_clamped` count
+        /// that could not tell the two apart, then briefly into a
+        /// `words_dropped: usize` that could say how many but not which).
+        words_dropped: Vec<DroppedWordTimingTrace>,
     },
+}
+
+/// Wire form of `chat_ops::fa::orchestrate::DroppedWordTiming`: a word whose
+/// timing was thrown away entirely, past the clamp bound, with the extent
+/// it lost. `tier` follows the same convention as `OriginTrace::ClampedTo`'s
+/// `bound` field: a plain string rather than a nested enum, since nothing
+/// downstream of this wire boundary needs to match on it structurally.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+pub struct DroppedWordTimingTrace {
+    /// This word's position among the words visited on its own tier, in
+    /// document order.
+    pub word_index: usize,
+    /// Which tier this word's dropped timing lived on: `"main_tier"` or
+    /// `"wor"`.
+    pub tier: String,
+    /// Start of the extent that was lost.
+    pub start_ms: u64,
+    /// End of the extent that was lost.
+    pub end_ms: u64,
+}
+
+impl From<&crate::chat_ops::fa::DroppedWordTiming> for DroppedWordTimingTrace {
+    fn from(dropped: &crate::chat_ops::fa::DroppedWordTiming) -> Self {
+        use crate::chat_ops::fa::WordTier;
+        Self {
+            word_index: dropped.word_index,
+            tier: match dropped.tier {
+                WordTier::MainTier => "main_tier",
+                WordTier::Wor => "wor",
+            }
+            .to_owned(),
+            start_ms: dropped.measured.start_ms,
+            end_ms: dropped.measured.end_ms,
+        }
+    }
 }
 
 /// Wire form of `chat_ops::fa::orchestrate::OverlapEdge`: the same seven
@@ -455,11 +498,16 @@ impl From<crate::chat_ops::fa::MonotonicityEffect> for FaTimingDecisionTrace {
             MonotonicityEffect::EndClampedInterleavedWords {
                 edge,
                 clamped_to_ms,
-                words_clamped,
+                words_trimmed,
+                words_dropped,
             } => Self::EndClampedInterleavedWords {
                 edge: edge.into(),
                 clamped_to_ms,
-                words_clamped,
+                words_trimmed,
+                words_dropped: words_dropped
+                    .iter()
+                    .map(DroppedWordTimingTrace::from)
+                    .collect(),
             },
         }
     }
@@ -731,5 +779,58 @@ mod tests {
         assert_eq!(json["start_origin"]["was"]["engine"], "wav2vec_fa");
         assert_eq!(json["end_origin"]["kind"], "repaired_for_order");
         assert_eq!(json["end_origin"]["was"]["kind"], "engine_measured");
+    }
+
+    /// A trimmed word and a dropped word are different facts (2026-09-02):
+    /// the trace must carry both separately, and the dropped side must
+    /// carry the full per-word record (which word, what was measured), not
+    /// merely how many, since that is exactly the information practice 15
+    /// says must not die at a `usize` boundary.
+    #[test]
+    fn interleaved_words_trace_carries_trimmed_count_and_dropped_records() {
+        use crate::chat_ops::fa::TimeSpan;
+        use crate::chat_ops::fa::{DroppedWordTiming, MonotonicityEffect, OverlapEdge, WordTier};
+        use talkbank_model::UtteranceIdx;
+
+        let effect = MonotonicityEffect::EndClampedInterleavedWords {
+            edge: OverlapEdge {
+                line_idx: 5,
+                utterance_idx: UtteranceIdx::new(2),
+                speaker: "CHI".to_string(),
+                original_end_ms: 5_000,
+                next_line_idx: 7,
+                next_utterance_idx: UtteranceIdx::new(3),
+                next_speaker: "CHI".to_string(),
+            },
+            clamped_to_ms: 4_000,
+            words_trimmed: 1,
+            words_dropped: vec![DroppedWordTiming {
+                word_index: 2,
+                tier: WordTier::Wor,
+                measured: TimeSpan::new(4_200, 4_800),
+            }],
+        };
+
+        let trace: FaTimingDecisionTrace = effect.into();
+        let json = serde_json::to_value(trace).expect("trace should serialize");
+
+        assert_eq!(json["kind"], "end_clamped_interleaved_words");
+        assert_eq!(json["clamped_to_ms"], 4_000);
+        assert_eq!(
+            json["words_trimmed"], 1,
+            "the trimmed count must be present and separate: {json}"
+        );
+        assert_eq!(
+            json["words_dropped"].as_array().map(Vec::len),
+            Some(1),
+            "the dropped side is a list of records, not a count: {json}"
+        );
+        assert_eq!(json["words_dropped"][0]["word_index"], 2);
+        assert_eq!(json["words_dropped"][0]["tier"], "wor");
+        assert_eq!(
+            json["words_dropped"][0]["start_ms"], 4_200,
+            "the dropped word's measured span must survive to the trace: {json}"
+        );
+        assert_eq!(json["words_dropped"][0]["end_ms"], 4_800);
     }
 }

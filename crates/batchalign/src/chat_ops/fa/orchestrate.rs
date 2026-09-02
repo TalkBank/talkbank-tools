@@ -270,8 +270,14 @@ pub enum MonotonicityEffect {
         edge: OverlapEdge,
         /// Following start used as the new end.
         clamped_to_ms: u64,
-        /// How many word timings were cut to fit the new bound.
-        words_clamped: usize,
+        /// Words cut to a shorter positive extent, still keeping a timing.
+        words_trimmed: usize,
+        /// Words whose start was at or past the bound: no timing survived.
+        /// One record per word, not just a count (2026-09-02): each is a
+        /// MEASURED (or transcript-carried) extent this run threw away, not
+        /// the same fact as `words_trimmed`, and a reviewer needs to see
+        /// WHICH words and WHAT was lost, not only how many.
+        words_dropped: Vec<DroppedWordTiming>,
     },
 }
 
@@ -937,6 +943,96 @@ fn wor_tier_mut(utterance: &mut Utterance) -> Option<&mut WorTier> {
         })
 }
 
+/// Which tier a dropped word's timing lived on.
+///
+/// Main-tier inline bullets and `%wor` are walked, and indexed, completely
+/// independently (a re-run transcript may carry durable timing only on
+/// `%wor`), each numbering starting at 0. A bare `word_index` alone cannot
+/// say which numbering it counts against, so [`DroppedWordTiming`] carries
+/// this alongside it rather than leaving the tier to be inferred from
+/// context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WordTier {
+    /// The main tier's own inline bullet.
+    MainTier,
+    /// The `%wor` tier.
+    Wor,
+}
+
+/// One word whose timing was thrown away entirely, because its start
+/// already sat at or past the clamp bound and
+/// [`super::postprocess::clamp_transcript_word_to_bullet`] could not trim it
+/// to a positive extent.
+///
+/// This is the caller-facing half of
+/// [`super::postprocess::WordClampOutcome::DroppedPastBound`]: that variant
+/// already carries the lost span at the point the loss is decided, but the
+/// span used to die one layer up, at `clamp_words_past_bound`, which folded
+/// every drop into a bare `usize`. Carrying the record itself instead of a
+/// count is practice 15 (a return type too weak to hold what was learned)
+/// applied at the NEXT boundary the same fact crosses, not a new instance of
+/// the defect: a `usize` still answers "how many", `.len()` on the `Vec`
+/// this type populates, but only this carries "which words, and what they
+/// measured".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DroppedWordTiming {
+    /// This word's position among the words visited on its OWN tier, in
+    /// document order (see [`WordTier`]: not a single index shared across
+    /// both tiers).
+    pub word_index: usize,
+    /// Which tier this word's dropped timing lived on.
+    pub tier: WordTier,
+    /// The extent that was lost.
+    pub measured: TimeSpan,
+}
+
+/// How many words `clamp_words_past_bound` cut, split by what actually
+/// happened to each.
+///
+/// The former return type (`usize`) conflated two different facts: a word
+/// TRIMMED to a shorter positive extent, which still carries its own new
+/// timing in the AST, so a count is all a caller needs; and a word DROPPED
+/// because nothing past the bound survived, which is a MEASURED timing this
+/// pass threw away with nothing else left to reconstruct it from. `dropped`
+/// is therefore a `Vec`, not a second `usize`: a caller that only needs
+/// "how many" reads `.len()`, and nothing keeps a separately-incremented
+/// count that could drift from the list it is supposedly counting (shape D).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct ClampedWordCounts {
+    /// Words cut to a shorter positive extent. A count only: the AST itself
+    /// still holds each one's new timing.
+    pub trimmed: usize,
+    /// Words whose start was at or past the bound: no positive extent
+    /// survived. One record per dropped word.
+    pub dropped: Vec<DroppedWordTiming>,
+}
+
+impl ClampedWordCounts {
+    /// Record what happened to one word, returning the inline bullet it
+    /// should now carry (`None` when its timing was dropped).
+    fn record(
+        &mut self,
+        word_index: usize,
+        tier: WordTier,
+        outcome: super::postprocess::WordClampOutcome,
+    ) -> Option<Bullet> {
+        match outcome {
+            super::postprocess::WordClampOutcome::Trimmed(timing) => {
+                self.trimmed += 1;
+                Some(Bullet::new(timing.start_ms, timing.end_ms))
+            }
+            super::postprocess::WordClampOutcome::DroppedPastBound { measured } => {
+                self.dropped.push(DroppedWordTiming {
+                    word_index,
+                    tier,
+                    measured,
+                });
+                None
+            }
+        }
+    }
+}
+
 /// Clamp every word timing in `utterance` that ends after `bound_ms`, on
 /// whichever representation currently carries real per-word timing (main-tier
 /// inline bullets, a `%wor` tier, or both, a word can be cut on one, the
@@ -947,12 +1043,17 @@ fn wor_tier_mut(utterance: &mut Utterance) -> Option<&mut WorTier> {
 /// is dropped rather than written with no extent, exactly like every other
 /// clamp in this crate.
 ///
-/// Returns the number of words actually cut, for the caller's decision
-/// record; this is the measured fact the former `cuts_word_timing` boolean
-/// stood in for; here it is counted, not guessed.
-pub(super) fn clamp_words_past_bound(utterance: &mut Utterance, bound_ms: u64) -> usize {
-    let mut clamped = 0usize;
+/// Returns the number of words actually cut, split by [`ClampedWordCounts`],
+/// for the caller's decision record; this is the measured fact the former
+/// `cuts_word_timing` boolean stood in for; here it is counted, not guessed,
+/// and counted by KIND rather than folded into one total.
+pub(super) fn clamp_words_past_bound(
+    utterance: &mut Utterance,
+    bound_ms: u64,
+) -> ClampedWordCounts {
+    let mut clamped = ClampedWordCounts::default();
 
+    let mut main_word_idx = 0usize;
     walk_words_mut(
         utterance.main.content.content.as_mut_slice(),
         None,
@@ -962,40 +1063,43 @@ pub(super) fn clamp_words_past_bound(utterance: &mut Utterance, bound_ms: u64) -
                 WordItemMut::ReplacedWord(replaced) => &mut replaced.word,
                 WordItemMut::Separator(_) => return,
             };
+            let idx = main_word_idx;
+            main_word_idx += 1;
             let Some(bullet) = word.inline_bullet.as_ref() else {
                 return;
             };
             if bullet.timing.end_ms <= bound_ms {
                 return;
             }
-            clamped += 1;
-            word.inline_bullet = super::postprocess::clamp_transcript_word_to_bullet(
+            let outcome = super::postprocess::clamp_transcript_word_to_bullet(
                 TimeSpan::new(bullet.timing.start_ms, bullet.timing.end_ms),
                 bullet.timing.start_ms,
                 bound_ms,
-            )
-            .map(|timing| Bullet::new(timing.start_ms, timing.end_ms));
+            );
+            word.inline_bullet = clamped.record(idx, WordTier::MainTier, outcome);
         },
     );
 
     if let Some(wor) = wor_tier_mut(utterance) {
+        let mut wor_word_idx = 0usize;
         for item in &mut wor.items {
             let WorItem::Word(word) = item else {
                 continue;
             };
+            let idx = wor_word_idx;
+            wor_word_idx += 1;
             let Some(bullet) = word.inline_bullet.as_ref() else {
                 continue;
             };
             if bullet.timing.end_ms <= bound_ms {
                 continue;
             }
-            clamped += 1;
-            word.inline_bullet = super::postprocess::clamp_transcript_word_to_bullet(
+            let outcome = super::postprocess::clamp_transcript_word_to_bullet(
                 TimeSpan::new(bullet.timing.start_ms, bullet.timing.end_ms),
                 bullet.timing.start_ms,
                 bound_ms,
-            )
-            .map(|timing| Bullet::new(timing.start_ms, timing.end_ms));
+            );
+            word.inline_bullet = clamped.record(idx, WordTier::Wor, outcome);
         }
     }
 
@@ -1117,10 +1221,19 @@ impl EndOverlapResolution {
     /// `clamped_to_ms` (both knowable before classification: the raw
     /// overlap and the bullet-level boundary that triggered the pass) and
     /// `words_clamped` (knowable only after an `InterleavedWords` clamp
-    /// actually runs; `0` for the other two variants, which never touch a
-    /// word). The text is READ OFF the variant, never the other way round:
-    /// nothing here decides a fact the variant does not already hold.
-    fn reason(&self, overlap_ms: u64, clamped_to_ms: u64, words_clamped: usize) -> String {
+    /// actually runs; `ClampedWordCounts::default()` for the other two
+    /// variants, which never touch a word). The text is READ OFF the
+    /// variant, never the other way round: nothing here decides a fact the
+    /// variant does not already hold. This stays a SUMMARY (counts only,
+    /// via `.dropped.len()`): the full per-word records travel in the
+    /// effect and trace instead, which is where a reviewer actually needs
+    /// them, not duplicated into a decision-reason string.
+    fn reason(
+        &self,
+        overlap_ms: u64,
+        clamped_to_ms: u64,
+        words_clamped: &ClampedWordCounts,
+    ) -> String {
         match self {
             Self::CoverageOnly { hull_end_ms } => {
                 let clamped_to = hull_end_ms.unwrap_or(clamped_to_ms);
@@ -1135,7 +1248,9 @@ impl EndOverlapResolution {
                 "end_truncated_by={overlap_ms}ms clamped_to={prev_hull_end_ms}                  cuts_word_timing=false resolution=boundary_from_words                  next_hull_start={next_hull_start_ms} cause=adjacent_utterance_overlap"
             ),
             Self::InterleavedWords => format!(
-                "end_truncated_by={overlap_ms}ms clamped_to={clamped_to_ms}                  cuts_word_timing=true resolution=interleaved_words                  words_clamped={words_clamped} cause=adjacent_utterance_overlap"
+                "end_truncated_by={overlap_ms}ms clamped_to={clamped_to_ms}                  cuts_word_timing=true resolution=interleaved_words                  words_trimmed={} words_dropped={} cause=adjacent_utterance_overlap",
+                words_clamped.trimmed,
+                words_clamped.dropped.len()
             ),
         }
     }
@@ -1564,7 +1679,7 @@ fn resolve_end_overlap_pair(
                 batchalign_transform::decisions::DecisionStrategy::Monotonicity(
                     resolution.strategy(),
                 ),
-                resolution.reason(overlap_ms, next_start, 0),
+                resolution.reason(overlap_ms, next_start, &ClampedWordCounts::default()),
                 resolution.needs_review(),
             ));
             effects.push(MonotonicityEffect::EndClampedCoverageOnly {
@@ -1587,7 +1702,7 @@ fn resolve_end_overlap_pair(
                 batchalign_transform::decisions::DecisionStrategy::Monotonicity(
                     resolution.strategy(),
                 ),
-                resolution.reason(overlap_ms, next_start, 0),
+                resolution.reason(overlap_ms, next_start, &ClampedWordCounts::default()),
                 resolution.needs_review(),
             ));
             effects.push(MonotonicityEffect::EndClampedBoundaryFromWords {
@@ -1607,7 +1722,7 @@ fn resolve_end_overlap_pair(
             }
         }
         EndOverlapResolution::InterleavedWords => {
-            let mut words_clamped = 0usize;
+            let mut words_clamped = ClampedWordCounts::default();
             if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx] {
                 if let Some(bullet) = prev_utt.main.content.bullet.as_mut() {
                     bullet.timing.end_ms = next_start;
@@ -1620,13 +1735,14 @@ fn resolve_end_overlap_pair(
                 batchalign_transform::decisions::DecisionStrategy::Monotonicity(
                     resolution.strategy(),
                 ),
-                resolution.reason(overlap_ms, next_start, words_clamped),
+                resolution.reason(overlap_ms, next_start, &words_clamped),
                 resolution.needs_review(),
             ));
             effects.push(MonotonicityEffect::EndClampedInterleavedWords {
                 edge,
                 clamped_to_ms: next_start,
-                words_clamped,
+                words_trimmed: words_clamped.trimmed,
+                words_dropped: words_clamped.dropped,
             });
         }
     }

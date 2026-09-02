@@ -801,11 +801,21 @@ on both sides) rather than repeating those seven fields per variant:
 WARN monotonicity: strategy="end_clamped_interleaved_words" speaker=PAR line_idx=59
      reason="end_truncated_by=2160ms clamped_to=136005
              cuts_word_timing=true resolution=interleaved_words
-             words_clamped=1 cause=adjacent_utterance_overlap"
+             words_trimmed=1 words_dropped=0 cause=adjacent_utterance_overlap"
 
 WARN monotonicity: strategy="start_stripped" speaker=INV line_idx=23
      reason="start_before_previous=130000 previous_start=131500"
 ```
+
+`words_trimmed` and `words_dropped` are two different facts, not one count: a
+trimmed word kept a shorter positive extent and still has a timing; a dropped
+word's start was already at or past the bound, so nothing survives the cut
+and a MEASURED (or transcript-carried) timing is thrown away. The prior
+single `words_clamped` count could not tell these apart, so a caller reading
+the log could not tell whether a review was looking at a word that merely
+got shorter or one that lost its timing outright. Both counts are carried
+the same way through `MonotonicityEffect::EndClampedInterleavedWords` and its
+`FaTimingDecisionTrace` wire form.
 
 Neither `end_clamped_coverage_only` nor `end_clamped_boundary_from_words`
 records identify an alignment defect. They are routine: the bullet's
