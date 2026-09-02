@@ -367,6 +367,7 @@ async fn dispatch_direct_mode(
     };
 
     eprintln!("Found {} file(s) to process.\n", prepared.total_files);
+    crate::cli::discover::print_passthrough_skips(&prepared.passthrough);
     eprintln!("Running locally (direct mode)...\n");
 
     let direct_workers = prepare_workers(

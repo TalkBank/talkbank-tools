@@ -321,24 +321,128 @@ pub const GENERATION_COMMANDS: &[ReleasedCommand] = &[
     ReleasedCommand::Opensmile,
 ];
 
+/// Why a non-matching file traveled through to the output directory
+/// unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CopyReason {
+    /// Not one of this command's input extensions, and not a record about
+    /// the input directory itself (media alongside a `.cha` input, a
+    /// README, or any other file the command does not consume).
+    NotCommandInput,
+}
+
+/// Why a non-matching file was withheld from the output directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkipReason {
+    /// Named as a record describing the INPUT directory as a whole (a
+    /// provenance manifest written by an upstream pipeline stage, for
+    /// example). Copying it unchanged into the output directory would leave
+    /// a record there that describes a different artifact than the one this
+    /// run actually produced: exactly the misattribution a provenance
+    /// record exists to prevent.
+    InputDirectoryRecord,
+}
+
+/// The passthrough decision for one non-matching file found while walking
+/// the input directory.
+///
+/// A sum type rather than a bool: "does this file travel through" and "why"
+/// are one fact, and a caller reporting what was withheld needs the reason,
+/// not a bit stripped of its provenance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PassthroughDecision {
+    /// Copied unchanged into the output directory.
+    CopiedThrough(CopyReason),
+    /// Withheld: never written into the output directory.
+    NotCopied(SkipReason),
+}
+
+/// One non-matching file discovered during a `copy_nonmatching` walk,
+/// paired with the decision made about it, relative to the input directory
+/// that was walked.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PassthroughEntry {
+    /// The file's path relative to the input directory that was walked.
+    pub relative_path: PathBuf,
+    /// What happened to it.
+    pub decision: PassthroughDecision,
+}
+
+/// The full record of a `copy_nonmatching` run: every non-matching file it
+/// found and what happened to each one.
+///
+/// Returned rather than only logged, so a caller can state in its own
+/// report what was withheld and why.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PassthroughReport {
+    /// Every non-matching file this walk found, in the order encountered.
+    pub entries: Vec<PassthroughEntry>,
+}
+
+impl PassthroughReport {
+    /// Entries this run withheld from the output directory.
+    pub fn skipped(&self) -> impl Iterator<Item = &PassthroughEntry> {
+        self.entries
+            .iter()
+            .filter(|entry| matches!(entry.decision, PassthroughDecision::NotCopied(_)))
+    }
+
+    /// Fold another run's report into this one (used when several input
+    /// directories are walked for one command invocation).
+    pub fn extend_from(&mut self, other: PassthroughReport) {
+        self.entries.extend(other.entries);
+    }
+}
+
+/// Classify one file that `input_kind` does not accept as this command's
+/// input, deciding whether it travels through to the output directory.
+fn classify_nonmatching(path: &Path) -> PassthroughDecision {
+    if is_input_directory_record(path) {
+        PassthroughDecision::NotCopied(SkipReason::InputDirectoryRecord)
+    } else {
+        PassthroughDecision::CopiedThrough(CopyReason::NotCommandInput)
+    }
+}
+
+/// Whether `path`'s name marks it as a record describing the input
+/// directory as a whole, rather than content belonging to one session.
+///
+/// Matched by name because these records are written by pipeline stages
+/// outside this crate, not by anything under our control; a byte-content
+/// sniff would have to trust the same producers this check exists to
+/// distrust.
+fn is_input_directory_record(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    // Case-folded, the way filter_files_for_command matches name-based
+    // rules: a record spelled Provenance.json is the same record.
+    let lower = name.to_ascii_lowercase();
+    lower == "provenance.json" || lower.ends_with(".provenance.json")
+}
+
 /// Copy files that are not inputs for `input_kind` from `in_dir` to `out_dir`.
 ///
 /// Preserves relative directory structure. Skipped for in-place mode and
-/// generation commands.
+/// generation commands. A non-matching file that is itself a record about
+/// the input directory (a provenance manifest) is never copied through: see
+/// [`PassthroughDecision`].
 pub fn copy_nonmatching(
     in_dir: &Path,
     out_dir: &Path,
     input_kind: InputKind,
     command: ReleasedCommand,
-) -> Result<(), CliError> {
+) -> Result<PassthroughReport, CliError> {
     if GENERATION_COMMANDS.contains(&command) {
-        return Ok(());
+        return Ok(PassthroughReport::default());
     }
     if let (Ok(a), Ok(b)) = (fs::canonicalize(in_dir), fs::canonicalize(out_dir))
         && a == b
     {
-        return Ok(());
+        return Ok(PassthroughReport::default());
     }
+
+    let mut report = PassthroughReport::default();
 
     for entry in WalkDir::new(in_dir) {
         let entry = entry.map_err(walkdir_error)?;
@@ -351,7 +455,10 @@ pub fn copy_nonmatching(
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
-        if !input_kind.accepts(&ext) {
+        // A record describing the input directory is withheld BEFORE the
+        // input-kind gate, so a command whose input kind accepts every
+        // extension can never take the record as one of its inputs.
+        if !input_kind.accepts(&ext) || is_input_directory_record(path) {
             let rel = path.strip_prefix(in_dir).map_err(|err| {
                 invalid_data(format!(
                     "failed to derive non-matching relative path from {} for {}: {err}",
@@ -359,17 +466,46 @@ pub fn copy_nonmatching(
                     path.display()
                 ))
             })?;
-            let dest = out_dir.join(rel);
-            if let Some(parent) = dest.parent() {
-                fs::create_dir_all(parent).map_err(|err| {
-                    io_with_path("create output directory for copied file", parent, err)
-                })?;
+            let decision = classify_nonmatching(path);
+            match decision {
+                PassthroughDecision::CopiedThrough(_) => {
+                    let dest = out_dir.join(rel);
+                    if let Some(parent) = dest.parent() {
+                        fs::create_dir_all(parent).map_err(|err| {
+                            io_with_path("create output directory for copied file", parent, err)
+                        })?;
+                    }
+                    fs::copy(path, &dest)
+                        .map_err(|err| io_with_path("copy non-matching file", &dest, err))?;
+                }
+                PassthroughDecision::NotCopied(_) => {}
             }
-            fs::copy(path, &dest)
-                .map_err(|err| io_with_path("copy non-matching file", &dest, err))?;
+            report.entries.push(PassthroughEntry {
+                relative_path: rel.to_path_buf(),
+                decision,
+            });
         }
     }
-    Ok(())
+    Ok(report)
+}
+
+/// Render a run's skip decisions for the operator, one line per withheld
+/// file. A no-op when nothing was withheld.
+pub fn print_passthrough_skips(report: &PassthroughReport) {
+    for entry in report.skipped() {
+        let PassthroughDecision::NotCopied(reason) = entry.decision else {
+            continue;
+        };
+        let reason_text = match reason {
+            SkipReason::InputDirectoryRecord => {
+                "describes the input directory, not this run's output"
+            }
+        };
+        eprintln!(
+            "note: not copying {} to output ({reason_text})",
+            entry.relative_path.display()
+        );
+    }
 }
 
 fn canonicalize_path(path: &Path, action: &'static str) -> Result<PathBuf, CliError> {

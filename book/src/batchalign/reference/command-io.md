@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-08-31 22:01 EDT
+**Last updated:** 2026-09-02 00:33 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -97,7 +97,10 @@ Existing `%mor`, `%gra` tiers preserved. Media file is read but never modified.
 **Non-matching files:** For directory inputs, the current Rust CLI copies
 non-`.cha` files and dummy CHAT files from `IN_DIR` to `OUT_DIR` before
 submitting matching files, in both explicit-server content mode and local
-paths-mode preparation.
+paths-mode preparation. Input-directory provenance records
+(`PROVENANCE.json`, `*.provenance.json`) are the one exception and are never
+copied through; see [Non-Matching File Handling](#non-matching-file-handling)
+below.
 
 ---
 
@@ -591,7 +594,7 @@ direct host. No HTTP hop, no staging directory, no body limit.
 `crates/batchalign/src/cli/dispatch/single.rs`,
 `crates/batchalign/src/cli/dispatch/paths.rs`):
 - Files that don't match the command's extensions are copied from `IN_DIR` to
-  `OUT_DIR` for directory inputs.
+  `OUT_DIR` for directory inputs, **with one exception below.**
 - Dummy CHAT files (`@Options: dummy`) are copied unchanged and are not
   submitted for processing.
 - Matching files are sorted by size descending before submission to reduce
@@ -600,6 +603,23 @@ direct host. No HTTP hop, no staging directory, no body limit.
 This means current single-server content mode and direct local paths mode are
 closer than the older Python split: both preserve non-matching files and both
 filter dummy CHAT locally.
+
+**Exception: input-directory provenance records are never copied through.** A
+non-matching file named `PROVENANCE.json` or `*.provenance.json` is not a
+piece of session content, it is a record describing the *input* directory as
+a whole (written by an upstream pipeline stage, for example). Copying it
+unchanged into `OUT_DIR` would leave a provenance record in the output that
+describes a different artifact than what the run actually produced there:
+exactly the misattribution a provenance record exists to prevent. Every other
+non-matching file (media alongside a `.cha` input, a README, anything else
+the command does not consume) still passes through unchanged.
+
+`copy_nonmatching` (`crates/batchalign/src/cli/discover/mod.rs`) makes this a
+typed decision per file, `PassthroughDecision::CopiedThrough(_)` or
+`PassthroughDecision::NotCopied(SkipReason::InputDirectoryRecord)`, and
+returns a `PassthroughReport` naming every file it withheld; the CLI prints
+one line per withheld file so the operator sees what did not travel through
+and why.
 
 ---
 

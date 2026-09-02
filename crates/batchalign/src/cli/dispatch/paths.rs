@@ -6,7 +6,9 @@ use crate::ReleasedCommand;
 use crate::api::{JobSubmission, LanguageSpec};
 use crate::options::CommandOptions;
 
-use crate::cli::discover::{build_server_names, copy_nonmatching, infer_base_dir};
+use crate::cli::discover::{
+    PassthroughReport, build_server_names, copy_nonmatching, infer_base_dir,
+};
 use crate::cli::error::CliError;
 
 use super::helpers::{filter_files_for_command, inject_lexicon};
@@ -16,6 +18,7 @@ pub(super) struct PreparedPathsSubmission {
     pub submission: JobSubmission,
     pub effective_out: PathBuf,
     pub total_files: usize,
+    pub passthrough: PassthroughReport,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -35,10 +38,13 @@ pub(super) fn prepare_paths_submission(
         crate::cli::discover::discover_server_inputs(inputs, out_dir, input_kind)?;
     let (files, outputs) = filter_files_for_command(command, files, outputs);
 
+    let mut passthrough = PassthroughReport::default();
     if let Some(od) = out_dir {
         for inp in inputs {
             if Path::new(inp).is_dir() {
-                copy_nonmatching(Path::new(inp), Path::new(od), input_kind, command)?;
+                let dir_report =
+                    copy_nonmatching(Path::new(inp), Path::new(od), input_kind, command)?;
+                passthrough.extend_from(dir_report);
             }
         }
     }
@@ -179,6 +185,7 @@ pub(super) fn prepare_paths_submission(
         },
         effective_out,
         total_files: files.len(),
+        passthrough,
     }))
 }
 
@@ -259,6 +266,44 @@ mod tests {
         assert_eq!(
             prepared.submission.media_subdir.as_str(),
             "French/Newcastle/Discussion/12"
+        );
+    }
+
+    #[test]
+    fn paths_submission_withholds_provenance_json_from_output() {
+        let root = tempfile::tempdir().unwrap();
+        let input_dir = root.path().join("in");
+        let output_dir = root.path().join("out");
+        std::fs::create_dir_all(&input_dir).unwrap();
+        std::fs::create_dir_all(&output_dir).unwrap();
+        std::fs::write(input_dir.join("a.cha"), "@Begin\n@End\n").unwrap();
+        std::fs::write(
+            input_dir.join("PROVENANCE.json"),
+            r#"{"inputs":["some other run"]}"#,
+        )
+        .unwrap();
+
+        let prepared = prepare_paths_submission(
+            ReleasedCommand::Align,
+            "eng",
+            1,
+            InputKind::Chat,
+            std::slice::from_ref(&input_dir),
+            Some(output_dir.as_path()),
+            None,
+            None,
+            None,
+            &[],
+        )
+        .unwrap()
+        .expect("expected one prepared submission");
+
+        assert!(!output_dir.join("PROVENANCE.json").exists());
+        let skipped: Vec<_> = prepared.passthrough.skipped().collect();
+        assert_eq!(skipped.len(), 1);
+        assert_eq!(
+            skipped[0].relative_path,
+            std::path::PathBuf::from("PROVENANCE.json")
         );
     }
 }

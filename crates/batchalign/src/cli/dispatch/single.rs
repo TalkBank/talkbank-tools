@@ -208,6 +208,7 @@ pub(super) async fn dispatch_single_server(
         };
 
         eprintln!("Found {} file(s) to submit.\n", prepared.total_files);
+        crate::cli::discover::print_passthrough_skips(&prepared.passthrough);
         eprintln!("Submitting shared-filesystem job to {server_url}...");
         eprintln!(
             "note: the server must be able to read these input paths. Successful outputs will also be copied back to this machine.\n"
@@ -225,11 +226,15 @@ pub(super) async fn dispatch_single_server(
         let (files, outputs) = filter_files_for_command(command, files, outputs);
 
         if let Some(od) = out_dir {
+            let mut passthrough = crate::cli::discover::PassthroughReport::default();
             for inp in inputs {
                 if Path::new(inp).is_dir() {
-                    copy_nonmatching(Path::new(inp), Path::new(od), input_kind, command)?;
+                    let dir_report =
+                        copy_nonmatching(Path::new(inp), Path::new(od), input_kind, command)?;
+                    passthrough.extend_from(dir_report);
                 }
             }
+            crate::cli::discover::print_passthrough_skips(&passthrough);
         }
 
         let base_dir = infer_base_dir(inputs)?;

@@ -102,6 +102,125 @@ fn copy_nonmatching_preserves_structure() {
 }
 
 #[test]
+fn copy_nonmatching_withholds_provenance_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("a.cha"), "cha").unwrap();
+    fs::write(
+        dir.path().join("PROVENANCE.json"),
+        r#"{"inputs":["some other run"]}"#,
+    )
+    .unwrap();
+
+    let report = copy_nonmatching(
+        dir.path(),
+        out.path(),
+        InputKind::Chat,
+        ReleasedCommand::Morphotag,
+    )
+    .unwrap();
+
+    // The provenance record must never land in the output directory: it
+    // describes the INPUT, and copying it unchanged would misattribute it
+    // to whatever this run actually produced.
+    assert!(!out.path().join("PROVENANCE.json").exists());
+
+    // The withheld file is named in the report, not only logged.
+    let skipped: Vec<_> = report.skipped().collect();
+    assert_eq!(skipped.len(), 1);
+    assert_eq!(skipped[0].relative_path, PathBuf::from("PROVENANCE.json"));
+    assert_eq!(
+        skipped[0].decision,
+        PassthroughDecision::NotCopied(SkipReason::InputDirectoryRecord)
+    );
+}
+
+#[test]
+fn copy_nonmatching_withholds_dotted_provenance_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("a.cha"), "cha").unwrap();
+    fs::write(dir.path().join("stage-output.provenance.json"), "{}").unwrap();
+
+    copy_nonmatching(
+        dir.path(),
+        out.path(),
+        InputKind::Chat,
+        ReleasedCommand::Morphotag,
+    )
+    .unwrap();
+
+    assert!(!out.path().join("stage-output.provenance.json").exists());
+}
+
+#[test]
+fn copy_nonmatching_withholds_provenance_json_in_any_case() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("a.cha"), "cha").unwrap();
+    fs::write(dir.path().join("Stage-Output.Provenance.JSON"), "{}").unwrap();
+
+    copy_nonmatching(
+        dir.path(),
+        out.path(),
+        InputKind::Chat,
+        ReleasedCommand::Morphotag,
+    )
+    .unwrap();
+
+    assert!(!out.path().join("Stage-Output.Provenance.JSON").exists());
+}
+
+#[test]
+fn copy_nonmatching_still_copies_media_alongside_chat_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("a.cha"), "cha").unwrap();
+    fs::write(dir.path().join("a.mp3"), b"fake audio").unwrap();
+
+    let report = copy_nonmatching(
+        dir.path(),
+        out.path(),
+        InputKind::Chat,
+        ReleasedCommand::Align,
+    )
+    .unwrap();
+
+    // Media alongside a CHAT input is a legitimate passthrough (needed for
+    // playback next to the aligned transcript), unlike a provenance record.
+    assert!(out.path().join("a.mp3").exists());
+    let copied: Vec<_> = report
+        .entries
+        .iter()
+        .filter(|e| matches!(e.decision, PassthroughDecision::CopiedThrough(_)))
+        .collect();
+    assert_eq!(copied.len(), 1);
+    assert_eq!(copied[0].relative_path, PathBuf::from("a.mp3"));
+}
+
+#[test]
+fn copy_nonmatching_never_copies_the_chat_file_itself() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("a.cha"), "cha").unwrap();
+
+    let report = copy_nonmatching(
+        dir.path(),
+        out.path(),
+        InputKind::Chat,
+        ReleasedCommand::Align,
+    )
+    .unwrap();
+
+    // The CHAT file is this command's real input: it gets processed by the
+    // pipeline, never copied through by the passthrough policy, and it does
+    // not appear in the report at all (the report only covers non-matching
+    // files).
+    assert!(!out.path().join("a.cha").exists());
+    assert!(report.entries.is_empty());
+}
+
+#[test]
 fn copy_nonmatching_skips_generation() {
     let dir = tempfile::tempdir().unwrap();
     let out = tempfile::tempdir().unwrap();
