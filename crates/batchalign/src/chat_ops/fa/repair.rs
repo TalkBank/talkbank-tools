@@ -27,13 +27,21 @@ use talkbank_model::model::{ChatFile, Line, Utterance};
 
 use super::EndOverlapPolicy;
 use super::orchestrate::{
-    EndOverlapResolution, clamp_words_past_bound, classify_end_overlap, earliest_word_timing_start,
-    furthest_word_timing_end, strip_utterance_timing,
+    E704_TOLERANCE_MS, EndOverlapResolution, clamp_words_past_bound, classify_end_overlap,
+    earliest_word_timing_start, file_order_successor_start_ms, furthest_word_timing_end,
+    strip_utterance_timing,
 };
 
 /// Maximum overlap (ms) eligible for boundary averaging (Strategy 1).
 /// Beyond this, the overlap is either genuine or a real alignment failure.
-const BOUNDARY_AVERAGING_THRESHOLD_MS: u64 = 500;
+/// This IS chatter's own E704 tolerance (2026-09-01 review, item 15): not a
+/// second, independently hand-typed 500, but the same shared constant Pass
+/// 2 of monotonicity would check the overlap against, if it were
+/// threshold-gated (it is not: monotonicity resolves every same-speaker
+/// overlap regardless of size; only THIS repair strategy is threshold-gated,
+/// on purpose, since a large overlap is repair's OWN signal to leave it for
+/// monotonicity's blunter but always-correct resolution, or for LIS removal).
+const BOUNDARY_AVERAGING_THRESHOLD_MS: u64 = E704_TOLERANCE_MS;
 
 /// Gap range (ms) eligible for same-speaker gap filling (Strategy 3).
 const GAP_FILL_MAX_MS: u64 = 1000;
@@ -268,25 +276,42 @@ pub fn repair_bullets(
 /// (`orchestrate::enforce_monotonicity_with_policy`), and for the same
 /// reason: a two-phase "compute every pair from one snapshot, apply
 /// afterward" design lets (A,B) move B's edge and then (B,C) classify
-/// against B's STALE, pre-move state. `next_successor_start_ms` is read
-/// live too, giving `classify_end_overlap`'s `BoundaryFromWords` guard the
-/// same protection against creating a fresh three-utterance conflict that
-/// Pass 2 has.
+/// against B's STALE, pre-move state. The successor guard input is read
+/// live too, via `orchestrate::file_order_successor_start_ms` (2026-09-01
+/// review, item 16: the FILE-order successor, any speaker, shared with
+/// Pass 2, not a per-sweep substitute), giving `classify_end_overlap`'s
+/// `BoundaryFromWords` guard the same protection against creating a fresh
+/// file-order start violation that Pass 2 has.
+///
+/// Two sweeps (2026-09-01 review, item 15), same order and proof as Pass
+/// 2's: the per-speaker-stream sweep runs FIRST and UNCONDITIONALLY (E704
+/// same-speaker overlap must be caught regardless of policy, and is defined
+/// on the speaker's OWN sequence, not on file adjacency); the file-adjacent
+/// sweep runs SECOND, honoring `end_overlap_policy`. Every resolution this
+/// pass makes only SHRINKS the pair it touches, so a pair the per-speaker
+/// sweep already resolved satisfies the file-adjacent sweep's own entry
+/// guard (`later.start_ms >= earlier.end_ms`) and is a no-op there; see
+/// `orchestrate::enforce_monotonicity_with_policy`'s own doc for the full
+/// argument, identical here.
 ///
 /// Returns the number of pairs resolved and their decision records.
 fn resolve_boundary_averages(
     chat_file: &mut ChatFile,
     end_overlap_policy: EndOverlapPolicy,
 ) -> (usize, Vec<RepairDecision>) {
-    // IDENTITY ONLY (line index, speaker), never a timing value: every
-    // timing this sweep needs is read live, at the point it is used.
+    let mut decisions = Vec::new();
+    let mut resolved = 0usize;
+
+    resolved += resolve_boundary_averages_same_speaker_stream(chat_file, &mut decisions);
+
+    // IDENTITY ONLY (line index, speaker), never a timing value, and
+    // captured AFTER the per-speaker sweep so it reflects anything that
+    // sweep already moved. Every timing this sweep needs is read live, at
+    // the point it is used.
     let identity: Vec<(usize, String)> = collect_bullet_entries(chat_file)
         .into_iter()
         .map(|entry| (entry.line_idx, entry.speaker))
         .collect();
-
-    let mut decisions = Vec::new();
-    let mut resolved = 0usize;
 
     for window_idx in 0..identity.len().saturating_sub(1) {
         let (earlier_line_idx, earlier_speaker) = &identity[window_idx];
@@ -297,118 +322,187 @@ fn resolve_boundary_averages(
             continue;
         }
 
-        let Some(earlier_bullet) = get_utterance_mut(chat_file, earlier_line_idx)
-            .and_then(|utt| utt.main.content.bullet.clone())
-        else {
-            continue;
-        };
-        let Some(later_bullet) = get_utterance_mut(chat_file, later_line_idx)
-            .and_then(|utt| utt.main.content.bullet.clone())
-        else {
-            continue;
-        };
-
-        if later_bullet.timing.start_ms >= earlier_bullet.timing.end_ms {
-            continue;
+        if let Some(decision) = resolve_boundary_average_pair(
+            chat_file,
+            earlier_line_idx,
+            earlier_speaker,
+            later_line_idx,
+            later_speaker,
+        ) {
+            decisions.push(decision);
+            resolved += 1;
         }
-        let overlap = earlier_bullet.timing.end_ms - later_bullet.timing.start_ms;
-        if overlap > BOUNDARY_AVERAGING_THRESHOLD_MS {
-            continue;
-        }
-
-        let earlier_hull_end_ms = get_utterance_mut(chat_file, earlier_line_idx)
-            .and_then(|utt| furthest_word_timing_end(utt));
-        let later_hull_start_ms = get_utterance_mut(chat_file, later_line_idx)
-            .and_then(|utt| earliest_word_timing_start(utt));
-        // Live, like Pass 2: nothing before this pair in the sweep could
-        // have touched the successor, since an utterance is mutated only
-        // when it is `later`, which for the successor has not happened yet.
-        let next_successor_start_ms = identity.get(window_idx + 2).and_then(|(idx, _)| {
-            get_utterance_mut(chat_file, *idx)
-                .and_then(|utt| utt.main.content.bullet.as_ref().map(|b| b.timing.start_ms))
-        });
-
-        let resolution = classify_end_overlap(
-            earlier_hull_end_ms,
-            later_bullet.timing.start_ms,
-            later_hull_start_ms,
-            next_successor_start_ms,
-        );
-
-        let (earlier_new_end_ms, later_new_start_ms) = match resolution {
-            EndOverlapResolution::InterleavedWords => {
-                // A genuine word conflict: clamp fully to the later
-                // utterance's own original start, exactly like Pass 2's
-                // `InterleavedWords`. The later utterance is not moved.
-                (later_bullet.timing.start_ms, later_bullet.timing.start_ms)
-            }
-            EndOverlapResolution::BoundaryFromWords {
-                prev_hull_end_ms,
-                next_hull_start_ms,
-            } => {
-                // Both hulls measured; assign them DIRECTLY (2026-09-01
-                // review, item 10), never a midpoint (see that item's own
-                // record for the fresh-overlap bug a midpoint produced
-                // here).
-                (prev_hull_end_ms, next_hull_start_ms)
-            }
-            EndOverlapResolution::CoverageOnly { hull_end_ms } => match hull_end_ms {
-                Some(hull_end_ms) => (hull_end_ms, later_bullet.timing.start_ms),
-                None => {
-                    let midpoint = later_bullet.timing.start_ms + overlap / 2;
-                    (midpoint, midpoint)
-                }
-            },
-        };
-
-        // Apply immediately, before the next pair in this sweep is read.
-        if let Some(utt) = get_utterance_mut(chat_file, earlier_line_idx)
-            && let Some(ref mut bullet) = utt.main.content.bullet
-        {
-            bullet.timing.end_ms = earlier_new_end_ms;
-        }
-        let mut words_clamped = 0usize;
-        match resolution {
-            EndOverlapResolution::InterleavedWords => {
-                if let Some(utt) = get_utterance_mut(chat_file, earlier_line_idx) {
-                    words_clamped = clamp_words_past_bound(utt, earlier_new_end_ms);
-                }
-            }
-            EndOverlapResolution::CoverageOnly { .. }
-            | EndOverlapResolution::BoundaryFromWords { .. } => {
-                if let Some(utt) = get_utterance_mut(chat_file, later_line_idx)
-                    && let Some(ref mut bullet) = utt.main.content.bullet
-                {
-                    bullet.timing.start_ms = later_new_start_ms;
-                }
-            }
-        }
-
-        let reason = match resolution {
-            EndOverlapResolution::InterleavedWords => format!(
-                "boundary_averaged overlap={overlap}ms resolution=interleaved_words clamped_to={earlier_new_end_ms} machine={}_{} adjacent={earlier_speaker}:{earlier_line_idx} words_clamped={words_clamped}",
-                later_bullet.timing.start_ms, later_bullet.timing.end_ms,
-            ),
-            EndOverlapResolution::CoverageOnly { .. }
-            | EndOverlapResolution::BoundaryFromWords { .. } => format!(
-                "boundary_averaged overlap={overlap}ms resolution=hull_respecting earlier_new_end={earlier_new_end_ms} later_new_start={later_new_start_ms} machine={}_{} adjacent={earlier_speaker}:{earlier_line_idx}",
-                later_bullet.timing.start_ms, later_bullet.timing.end_ms,
-            ),
-        };
-        decisions.push(RepairDecision {
-            line_idx: later_line_idx,
-            speaker: later_speaker.clone(),
-            strategy: batchalign_transform::decisions::FaStrategy::BoundaryAveraged,
-            reason,
-            // A hull-respecting average never touches a measured word, same
-            // as Pass 2's `CoverageOnly`/`BoundaryFromWords`; only a real
-            // word conflict (`InterleavedWords`) needs a human's review.
-            needs_review: matches!(resolution, EndOverlapResolution::InterleavedWords),
-        });
-        resolved += 1;
     }
 
     (resolved, decisions)
+}
+
+/// The per-speaker-stream sweep (2026-09-01 review, item 15): each
+/// speaker's own bulleted utterances, in file order, paired and resolved
+/// consecutively WITHIN that speaker's own stream, skipping any
+/// intervening other-speaker utterance -- exactly
+/// `orchestrate::resolve_same_speaker_stream_overlaps`, for the same
+/// reason (E704 is defined on the speaker's OWN sequence). Speakers are
+/// visited in first-appearance order for deterministic decision ordering;
+/// a pair is always same-speaker by construction, so the order across
+/// speakers cannot change what either speaker's own resolution computes.
+///
+/// Returns the number of pairs resolved.
+fn resolve_boundary_averages_same_speaker_stream(
+    chat_file: &mut ChatFile,
+    decisions: &mut Vec<RepairDecision>,
+) -> usize {
+    let mut speaker_order: Vec<String> = Vec::new();
+    let mut streams: std::collections::HashMap<String, Vec<usize>> =
+        std::collections::HashMap::new();
+    for entry in collect_bullet_entries(chat_file) {
+        if !streams.contains_key(&entry.speaker) {
+            speaker_order.push(entry.speaker.clone());
+        }
+        streams
+            .entry(entry.speaker)
+            .or_default()
+            .push(entry.line_idx);
+    }
+
+    let mut resolved = 0usize;
+    for speaker in &speaker_order {
+        // SAFETY: `speaker` came from `speaker_order`, built from the same
+        // insertion the `streams` entry itself was.
+        #[allow(clippy::unwrap_used)]
+        let stream = streams.get(speaker).unwrap().clone();
+        for window_idx in 0..stream.len().saturating_sub(1) {
+            let earlier_line_idx = stream[window_idx];
+            let later_line_idx = stream[window_idx + 1];
+            if let Some(decision) = resolve_boundary_average_pair(
+                chat_file,
+                earlier_line_idx,
+                speaker,
+                later_line_idx,
+                speaker,
+            ) {
+                decisions.push(decision);
+                resolved += 1;
+            }
+        }
+    }
+    resolved
+}
+
+/// Resolve one eligible small-overlap PAIR, live, against `chat_file`.
+/// Shared (2026-09-01 review, item 15) by both sweeps above; only how the
+/// pair and its successor are FOUND differs between them. Returns `None`
+/// when there is no overlap, the overlap exceeds
+/// [`BOUNDARY_AVERAGING_THRESHOLD_MS`], or either utterance has no bullet.
+fn resolve_boundary_average_pair(
+    chat_file: &mut ChatFile,
+    earlier_line_idx: usize,
+    earlier_speaker: &str,
+    later_line_idx: usize,
+    later_speaker: &str,
+) -> Option<RepairDecision> {
+    let earlier_bullet = get_utterance_mut(chat_file, earlier_line_idx)
+        .and_then(|utt| utt.main.content.bullet.clone())?;
+    let later_bullet = get_utterance_mut(chat_file, later_line_idx)
+        .and_then(|utt| utt.main.content.bullet.clone())?;
+
+    if later_bullet.timing.start_ms >= earlier_bullet.timing.end_ms {
+        return None;
+    }
+    let overlap = earlier_bullet.timing.end_ms - later_bullet.timing.start_ms;
+    if overlap > BOUNDARY_AVERAGING_THRESHOLD_MS {
+        return None;
+    }
+
+    let earlier_hull_end_ms = get_utterance_mut(chat_file, earlier_line_idx)
+        .as_deref()
+        .and_then(furthest_word_timing_end);
+    let later_hull_start_ms = get_utterance_mut(chat_file, later_line_idx)
+        .as_deref()
+        .and_then(earliest_word_timing_start);
+    // The FILE-ORDER successor, live, any speaker (2026-09-01 review, item
+    // 16): the only correct guard input for `BoundaryFromWords`, shared
+    // with Pass 2 rather than a second, weaker per-caller substitute.
+    let next_successor_start_ms = file_order_successor_start_ms(chat_file, later_line_idx);
+
+    let resolution = classify_end_overlap(
+        earlier_hull_end_ms,
+        later_bullet.timing.start_ms,
+        later_hull_start_ms,
+        next_successor_start_ms,
+    );
+
+    let (earlier_new_end_ms, later_new_start_ms) = match resolution {
+        EndOverlapResolution::InterleavedWords => {
+            // A genuine word conflict: clamp fully to the later
+            // utterance's own original start, exactly like Pass 2's
+            // `InterleavedWords`. The later utterance is not moved.
+            (later_bullet.timing.start_ms, later_bullet.timing.start_ms)
+        }
+        EndOverlapResolution::BoundaryFromWords {
+            prev_hull_end_ms,
+            next_hull_start_ms,
+        } => {
+            // Both hulls measured; assign them DIRECTLY (2026-09-01
+            // review, item 10), never a midpoint (see that item's own
+            // record for the fresh-overlap bug a midpoint produced
+            // here).
+            (prev_hull_end_ms, next_hull_start_ms)
+        }
+        EndOverlapResolution::CoverageOnly { hull_end_ms } => match hull_end_ms {
+            Some(hull_end_ms) => (hull_end_ms, later_bullet.timing.start_ms),
+            None => {
+                let midpoint = later_bullet.timing.start_ms + overlap / 2;
+                (midpoint, midpoint)
+            }
+        },
+    };
+
+    // Apply immediately, before the next pair in this sweep is read.
+    if let Some(utt) = get_utterance_mut(chat_file, earlier_line_idx)
+        && let Some(ref mut bullet) = utt.main.content.bullet
+    {
+        bullet.timing.end_ms = earlier_new_end_ms;
+    }
+    let mut words_clamped = 0usize;
+    match resolution {
+        EndOverlapResolution::InterleavedWords => {
+            if let Some(utt) = get_utterance_mut(chat_file, earlier_line_idx) {
+                words_clamped = clamp_words_past_bound(utt, earlier_new_end_ms);
+            }
+        }
+        EndOverlapResolution::CoverageOnly { .. }
+        | EndOverlapResolution::BoundaryFromWords { .. } => {
+            if let Some(utt) = get_utterance_mut(chat_file, later_line_idx)
+                && let Some(ref mut bullet) = utt.main.content.bullet
+            {
+                bullet.timing.start_ms = later_new_start_ms;
+            }
+        }
+    }
+
+    let reason = match resolution {
+        EndOverlapResolution::InterleavedWords => format!(
+            "boundary_averaged overlap={overlap}ms resolution=interleaved_words clamped_to={earlier_new_end_ms} machine={}_{} adjacent={earlier_speaker}:{earlier_line_idx} words_clamped={words_clamped}",
+            later_bullet.timing.start_ms, later_bullet.timing.end_ms,
+        ),
+        EndOverlapResolution::CoverageOnly { .. }
+        | EndOverlapResolution::BoundaryFromWords { .. } => format!(
+            "boundary_averaged overlap={overlap}ms resolution=hull_respecting earlier_new_end={earlier_new_end_ms} later_new_start={later_new_start_ms} machine={}_{} adjacent={earlier_speaker}:{earlier_line_idx}",
+            later_bullet.timing.start_ms, later_bullet.timing.end_ms,
+        ),
+    };
+
+    Some(RepairDecision {
+        line_idx: later_line_idx,
+        speaker: later_speaker.to_string(),
+        strategy: batchalign_transform::decisions::FaStrategy::BoundaryAveraged,
+        reason,
+        // A hull-respecting average never touches a measured word, same
+        // as Pass 2's `CoverageOnly`/`BoundaryFromWords`; only a real
+        // word conflict (`InterleavedWords`) needs a human's review.
+        needs_review: matches!(resolution, EndOverlapResolution::InterleavedWords),
+    })
 }
 
 /// Collect bullet entries from all main-tier utterances in document order.
@@ -844,6 +938,79 @@ mod tests {
             "pair (b,c) must not be left overlapping: {} > {}",
             entries[1].end_ms,
             entries[2].start_ms
+        );
+    }
+
+    /// 2026-09-01 review, item 15: the real-data shape, for repair's own
+    /// resolver. A small (within-tolerance) same-speaker overlap separated
+    /// by an intervening other-speaker utterance must still be resolved by
+    /// the per-speaker-stream sweep; the intervening utterance is untouched.
+    #[test]
+    fn boundary_averaging_resolves_same_speaker_pair_across_an_intervening_speaker() {
+        let mut chat = parse(
+            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, PAR Parent\n\
+             @ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|PAR|||||Parent|||\n\
+             *CHI:\tearlier . \u{15}1000_2000\u{15}\n%wor:\tearlier \u{15}1000_1900\u{15} .\n\
+             *PAR:\tinterjection . \u{15}1500_1600\u{15}\n\
+             *CHI:\tlater . \u{15}1950_3000\u{15}\n%wor:\tlater \u{15}1950_2900\u{15} .\n\
+             @End\n",
+        );
+
+        let result = repair_bullets(&mut chat, false, EndOverlapPolicy::PreserveCrossSpeaker);
+
+        assert_eq!(result.stats.boundary_averaged, 1);
+        let entries = collect_bullet_entries(&chat);
+        assert_eq!(
+            (entries[1].start_ms, entries[1].end_ms),
+            (1500, 1600),
+            "the intervening PAR utterance must be untouched"
+        );
+        assert_eq!(
+            entries[0].end_ms, 1900,
+            "utterance 0's own measured hull end"
+        );
+        assert_eq!(
+            entries[2].start_ms, 1950,
+            "utterance 2's own measured hull start"
+        );
+    }
+
+    /// 2026-09-01 review, item 16: repair's own boundary-averaging must
+    /// carry the SAME file-order successor guard Pass 2 does. CHI's own
+    /// speaker stream has no utterance after "later" at all, so a
+    /// speaker-stream-only guard would see no successor and wrongly permit
+    /// the move; PAR, immediately after "later" in FILE order, starts
+    /// before that would-be new start.
+    #[test]
+    fn boundary_from_words_guard_reads_file_order_successor_in_repair_too() {
+        let mut chat = parse(
+            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, PAR Parent\n\
+             @ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|PAR|||||Parent|||\n\
+             *CHI:\tearlier . \u{15}1000_2200\u{15}\n%wor:\tearlier \u{15}1000_2150\u{15} .\n\
+             *CHI:\tlater . \u{15}2000_3000\u{15}\n%wor:\tlater \u{15}2150_2900\u{15} .\n\
+             *PAR:\tresponse . \u{15}2100_2500\u{15}\n\
+             @End\n",
+        );
+
+        let result = repair_bullets(&mut chat, false, EndOverlapPolicy::PreserveCrossSpeaker);
+
+        assert_eq!(result.stats.boundary_averaged, 1);
+        assert!(
+            result.decisions[0].needs_review,
+            "a real conflict, not hull-respecting"
+        );
+        let entries = collect_bullet_entries(&chat);
+        assert_eq!(
+            entries[1].start_ms, 2000,
+            "CHI's later utterance must not be moved to 2150 (past PAR's 2100)"
+        );
+        assert_eq!(
+            entries[0].end_ms, 2000,
+            "CHI's earlier utterance is clamped to the later utterance's ORIGINAL start instead"
+        );
+        assert!(
+            entries[0].start_ms <= entries[0].end_ms && entries[1].start_ms <= entries[2].start_ms,
+            "file order stays monotonic"
         );
     }
 

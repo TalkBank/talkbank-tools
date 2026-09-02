@@ -1238,7 +1238,43 @@ pub fn enforce_monotonicity_with_policy(
         }
     }
 
-    // Pass 2: clamp end-time overlaps.
+    // Pass 2a: resolve every SAME-SPEAKER end overlap by walking each
+    // speaker's OWN stream of bulleted utterances in file order, regardless
+    // of file adjacency (2026-09-01 review, item 15). E704 (CLAN 133: a
+    // speaker may not overlap themself) is defined on the speaker's OWN
+    // sequence, not on physically adjacent lines: an intervening
+    // other-speaker utterance (ordinary A-B-A dialogue) must not hide a
+    // same-speaker overlap from resolution. Runs UNCONDITIONALLY, under
+    // EITHER `EndOverlapPolicy`: the policy governs CROSS-speaker overlap
+    // only (Pass 2b, below); same-speaker overlap is always resolved.
+    resolve_same_speaker_stream_overlaps(chat_file, &mut decisions, &mut effects);
+
+    // Pass 2b: additionally resolve FILE-ADJACENT pairs, honoring
+    // `end_overlap_policy` for cross-speaker adjacency. `timed` is captured
+    // AFTER Pass 2a so it reflects any utterance Pass 2a stripped outright
+    // (a stripped utterance carries no bullet and must not enter this pass
+    // at all) or moved.
+    //
+    // ORDER AND WHY (2026-09-01 review, item 15): Pass 2a always runs
+    // first. Pass 2b runs second and, under `PreserveCrossSpeaker`, revisits
+    // every pair Pass 2a already resolved that happens to ALSO be file
+    // adjacent (`should_clamp` returns `true` for a same-speaker pair
+    // regardless of policy) plus every genuinely cross-speaker pair (which
+    // it skips under `PreserveCrossSpeaker`, resolves under
+    // `ClampAllAdjacent`).
+    //
+    // PROOF Pass 2b cannot undo Pass 2a's resolution: every `EndOverlapResolution`
+    // arm only SHRINKS the pair it resolves -- `CoverageOnly` and
+    // `BoundaryFromWords` pull the earlier utterance's end DOWN toward its
+    // own measured hull and/or push the later utterance's start UP toward
+    // its own hull; `InterleavedWords` pulls the earlier utterance's end
+    // DOWN to the later utterance's (unmoved) start. A pair Pass 2a already
+    // resolved therefore satisfies `prev_bullet.end_ms <= next_start`
+    // (`resolve_end_overlap_pair`'s own entry guard) by construction, so
+    // Pass 2b's re-visit of that SAME pair finds no overlap and is a no-op:
+    // it neither re-clamps nor reverts anything Pass 2a did. This is an
+    // idempotence argument, not a policy exclusion: Pass 2b is not taught to
+    // skip same-speaker pairs, because it does not need to be.
     //
     // `timed` is IDENTITY ONLY (line index, utterance ordinal, speaker), not
     // a snapshot of any timing value. A resolution below (`BoundaryFromWords`)
@@ -1267,198 +1303,332 @@ pub fn enforce_monotonicity_with_policy(
     for window_idx in 0..timed.len().saturating_sub(1) {
         let (prev_idx, prev_utterance_idx, prev_speaker) = &timed[window_idx];
         let (next_idx, next_utterance_idx, next_speaker) = &timed[window_idx + 1];
-        let (prev_idx, next_idx) = (*prev_idx, *next_idx);
 
         if !end_overlap_policy.should_clamp(prev_speaker, next_speaker) {
             continue;
         }
 
-        // `next`'s CURRENT start (may have moved via an earlier pair's
-        // `BoundaryFromWords`), and, when it exists, `next`'s OWN successor's
-        // start (never touched yet at this point in the sweep: an utterance
-        // is mutated only when it is `next`, which for the successor has not
-        // happened). Both read live, per the comment above.
-        let Line::Utterance(next_utt_ref0) = &chat_file.lines.as_slice()[next_idx] else {
-            continue;
-        };
-        let Some(next_start) = next_utt_ref0
-            .main
-            .content
-            .bullet
-            .as_ref()
-            .map(|bullet| bullet.timing.start_ms)
-        else {
-            continue;
-        };
-        let next_successor_start_ms =
-            timed.get(window_idx + 2).and_then(|(successor_idx, _, _)| {
-                match &chat_file.lines.as_slice()[*successor_idx] {
-                    Line::Utterance(successor) => successor
-                        .main
-                        .content
-                        .bullet
-                        .as_ref()
-                        .map(|b| b.timing.start_ms),
-                    _ => None,
-                }
-            });
-
-        // Read what is true of the previous utterance's bullet before
-        // touching anything: whether an overlap exists at all is decided
-        // read-only, and prev/next share one Vec so only one of them can be
-        // borrowed mutably at a time.
-        let Line::Utterance(prev_utt_ref) = &chat_file.lines.as_slice()[prev_idx] else {
-            continue;
-        };
-        let Some(prev_bullet) = prev_utt_ref.main.content.bullet.as_ref() else {
-            continue;
-        };
-        if prev_bullet.timing.end_ms <= next_start {
-            continue;
-        }
-        let original_end = prev_bullet.timing.end_ms;
-        let overlap_ms = original_end - next_start;
-        let start_ms = prev_bullet.timing.start_ms;
-        let speaker = prev_utt_ref.main.speaker.as_str().to_string();
-
-        if next_start <= start_ms {
-            // Clamping would produce a zero-or-negative-duration bullet
-            // (next_start <= prev.start), which fails E362. Strip the
-            // bullet entirely; untimed is safer than invalid.
-            decisions.push(DecisionRecord::new_and_trace(
-                prev_idx,
-                speaker.clone(),
-                batchalign_transform::decisions::DecisionStrategy::Monotonicity(
-                    batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
-                ),
-                format!(
-                    "zero_duration_clamp original_end={original_end} \
-                     next_start={next_start} start_ms={start_ms} \
-                     cause=utr_identical_start_times"
-                ),
-                true,
-            ));
-            effects.push(MonotonicityEffect::ZeroDurationClampStripped {
-                line_idx: prev_idx,
-                utterance_idx: *prev_utterance_idx,
-                speaker,
-                start_ms,
-                original_end_ms: original_end,
-                next_start_ms: next_start,
-                next_line_idx: next_idx,
+        resolve_end_overlap_pair(
+            chat_file,
+            OverlapPairIdentity {
+                prev_line_idx: *prev_idx,
+                prev_utterance_idx: *prev_utterance_idx,
+                next_line_idx: *next_idx,
                 next_utterance_idx: *next_utterance_idx,
-                next_speaker: next_speaker.clone(),
-            });
-            if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx] {
-                strip_utterance_timing(prev_utt);
-            }
-            continue;
-        }
-
-        // Classify from what is MEASURED (word timings), never from the
-        // coverage-extended bullet alone: see `EndOverlapResolution`.
-        let prev_hull_end_ms = furthest_word_timing_end(prev_utt_ref);
-        let next_hull_start_ms = match &chat_file.lines.as_slice()[next_idx] {
-            Line::Utterance(next_utt_ref) => earliest_word_timing_start(next_utt_ref),
-            _ => None,
-        };
-        let resolution = classify_end_overlap(
-            prev_hull_end_ms,
-            next_start,
-            next_hull_start_ms,
-            next_successor_start_ms,
+            },
+            next_speaker,
+            &mut decisions,
+            &mut effects,
         );
-
-        let edge = OverlapEdge {
-            line_idx: prev_idx,
-            utterance_idx: *prev_utterance_idx,
-            speaker: speaker.clone(),
-            original_end_ms: original_end,
-            next_line_idx: next_idx,
-            next_utterance_idx: *next_utterance_idx,
-            next_speaker: next_speaker.clone(),
-        };
-
-        match resolution {
-            EndOverlapResolution::CoverageOnly { hull_end_ms } => {
-                let clamped_to_ms = hull_end_ms.unwrap_or(next_start);
-                decisions.push(DecisionRecord::new_and_trace(
-                    prev_idx,
-                    speaker,
-                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
-                        resolution.strategy(),
-                    ),
-                    resolution.reason(overlap_ms, next_start, 0),
-                    resolution.needs_review(),
-                ));
-                effects.push(MonotonicityEffect::EndClampedCoverageOnly {
-                    edge,
-                    clamped_to_ms,
-                });
-                if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
-                    && let Some(bullet) = prev_utt.main.content.bullet.as_mut()
-                {
-                    bullet.timing.end_ms = clamped_to_ms;
-                }
-            }
-            EndOverlapResolution::BoundaryFromWords {
-                prev_hull_end_ms,
-                next_hull_start_ms,
-            } => {
-                decisions.push(DecisionRecord::new_and_trace(
-                    prev_idx,
-                    speaker,
-                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
-                        resolution.strategy(),
-                    ),
-                    resolution.reason(overlap_ms, next_start, 0),
-                    resolution.needs_review(),
-                ));
-                effects.push(MonotonicityEffect::EndClampedBoundaryFromWords {
-                    edge,
-                    prev_hull_end_ms,
-                    next_hull_start_ms,
-                });
-                if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
-                    && let Some(bullet) = prev_utt.main.content.bullet.as_mut()
-                {
-                    bullet.timing.end_ms = prev_hull_end_ms;
-                }
-                if let Line::Utterance(next_utt) = &mut chat_file.lines.as_mut_slice()[next_idx]
-                    && let Some(bullet) = next_utt.main.content.bullet.as_mut()
-                {
-                    bullet.timing.start_ms = next_hull_start_ms;
-                }
-            }
-            EndOverlapResolution::InterleavedWords => {
-                let mut words_clamped = 0usize;
-                if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx] {
-                    if let Some(bullet) = prev_utt.main.content.bullet.as_mut() {
-                        bullet.timing.end_ms = next_start;
-                    }
-                    words_clamped = clamp_words_past_bound(prev_utt, next_start);
-                }
-                decisions.push(DecisionRecord::new_and_trace(
-                    prev_idx,
-                    speaker,
-                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
-                        resolution.strategy(),
-                    ),
-                    resolution.reason(overlap_ms, next_start, words_clamped),
-                    resolution.needs_review(),
-                ));
-                effects.push(MonotonicityEffect::EndClampedInterleavedWords {
-                    edge,
-                    clamped_to_ms: next_start,
-                    words_clamped,
-                });
-            }
-        }
     }
 
     MonotonicityResult {
         records: decisions,
         effects,
+    }
+}
+
+/// Pass 2a's own sweep (2026-09-01 review, item 15): every speaker's
+/// bulleted utterances, in file order, paired and resolved consecutively
+/// WITHIN that speaker's own stream -- skipping over any intervening
+/// other-speaker utterance, which the file-adjacent Pass 2b cannot do.
+///
+/// Deterministic decision order: speakers are visited in FIRST-APPEARANCE
+/// order, and each speaker's own pairs are resolved in file order. Two
+/// different speakers' pairs never share an utterance on both sides (a pair
+/// is always same-speaker by construction here), so the relative order
+/// across speakers cannot change what either speaker's resolution computes,
+/// only the order their decisions/effects are recorded in.
+fn resolve_same_speaker_stream_overlaps(
+    chat_file: &mut ChatFile,
+    decisions: &mut Vec<batchalign_transform::decisions::DecisionRecord>,
+    effects: &mut Vec<MonotonicityEffect>,
+) {
+    let mut speaker_order: Vec<String> = Vec::new();
+    let mut streams: HashMap<String, Vec<(usize, UtteranceIdx)>> = HashMap::new();
+    let mut utterance_ordinal = 0usize;
+    for (line_idx, line) in chat_file.lines.iter().enumerate() {
+        let Line::Utterance(utterance) = line else {
+            continue;
+        };
+        let utterance_idx = UtteranceIdx::new(utterance_ordinal);
+        utterance_ordinal += 1;
+        if utterance.main.content.bullet.is_none() {
+            continue;
+        }
+        let speaker = utterance.main.speaker.as_str().to_string();
+        if !streams.contains_key(&speaker) {
+            speaker_order.push(speaker.clone());
+        }
+        streams
+            .entry(speaker)
+            .or_default()
+            .push((line_idx, utterance_idx));
+    }
+
+    for speaker in &speaker_order {
+        // SAFETY: `speaker` came from `speaker_order`, which is built from
+        // the same insertion the `streams` entry itself was.
+        #[allow(clippy::unwrap_used)]
+        let stream = streams.get(speaker).unwrap();
+        for window_idx in 0..stream.len().saturating_sub(1) {
+            let (prev_idx, prev_utterance_idx) = stream[window_idx];
+            let (next_idx, next_utterance_idx) = stream[window_idx + 1];
+            resolve_end_overlap_pair(
+                chat_file,
+                OverlapPairIdentity {
+                    prev_line_idx: prev_idx,
+                    prev_utterance_idx,
+                    next_line_idx: next_idx,
+                    next_utterance_idx,
+                },
+                speaker,
+                decisions,
+                effects,
+            );
+        }
+    }
+}
+
+/// Which two utterances one call to [`resolve_end_overlap_pair`] resolves.
+/// Grouped into one type (2026-09-01 review, item 15) rather than four loose
+/// parameters, both because the four values are one cohesive fact (a pair,
+/// not four independent ones) and because a bare four-`usize`-ish argument
+/// list is exactly the primitive-obsession shape this workspace's own
+/// coding standards ban at a boundary like this one.
+#[derive(Debug, Clone, Copy)]
+struct OverlapPairIdentity {
+    prev_line_idx: usize,
+    prev_utterance_idx: UtteranceIdx,
+    next_line_idx: usize,
+    next_utterance_idx: UtteranceIdx,
+}
+
+/// The FILE-ORDER successor's start, live (2026-09-01 review, item 16): the
+/// next utterance, ANY speaker, after `after_line_idx` that CURRENTLY has a
+/// bullet. Walking forward live (never from a cached position) is what lets
+/// this see a strip an earlier pair in the SAME sweep already performed.
+///
+/// This is the ONLY correct guard input for `BoundaryFromWords` moving a
+/// start forward, and it replaced two WRONG per-caller substitutes: the
+/// per-speaker-stream sweep used to read that speaker's own next-next
+/// utterance (missing an intervening different-speaker line entirely), and
+/// the file-adjacent sweep read the next entry in its own already-file-order
+/// snapshot (correct by construction, but duplicated the same idea instead
+/// of sharing this one). Pass 1 enforces file-order start monotonicity
+/// across every speaker BEFORE Pass 2 runs; this is that SAME rule, read
+/// fresh, so Pass 2 cannot undo what Pass 1 already established. Real-data
+/// regression: chatter's E362 fired 1,353 times across 178 files when a
+/// same-speaker `BoundaryFromWords` moved a start past an intervening
+/// different-speaker line's start (2026-09-01 review, item 16).
+pub(super) fn file_order_successor_start_ms(
+    chat_file: &ChatFile,
+    after_line_idx: usize,
+) -> Option<u64> {
+    chat_file
+        .lines
+        .iter()
+        .skip(after_line_idx + 1)
+        .find_map(|line| match line {
+            Line::Utterance(utt) => utt.main.content.bullet.as_ref().map(|b| b.timing.start_ms),
+            _ => None,
+        })
+}
+
+/// Resolve one end-overlap PAIR, live, against `chat_file`. Shared
+/// (2026-09-01 review, item 15) by both Pass 2 sweeps: the per-speaker
+/// stream sweep, which pairs a speaker's own consecutive utterances
+/// regardless of file adjacency, and the file-adjacent sweep, which
+/// additionally (under `ClampAllAdjacent`) pairs any two physically
+/// adjacent utterances. Both need the EXACT same per-pair resolution
+/// (classification, application, decision, effect) AND the exact same
+/// successor guard input, [`file_order_successor_start_ms`] (2026-09-01
+/// review, item 16) -- computed HERE, not passed in, so neither caller can
+/// substitute a weaker one.
+fn resolve_end_overlap_pair(
+    chat_file: &mut ChatFile,
+    pair: OverlapPairIdentity,
+    next_speaker: &str,
+    decisions: &mut Vec<batchalign_transform::decisions::DecisionRecord>,
+    effects: &mut Vec<MonotonicityEffect>,
+) {
+    use batchalign_transform::decisions::DecisionRecord;
+    let OverlapPairIdentity {
+        prev_line_idx: prev_idx,
+        prev_utterance_idx,
+        next_line_idx: next_idx,
+        next_utterance_idx,
+    } = pair;
+
+    // `next`'s CURRENT start (may have moved via an earlier pair's
+    // `BoundaryFromWords` in the SAME sweep), read live.
+    let Line::Utterance(next_utt_ref0) = &chat_file.lines.as_slice()[next_idx] else {
+        return;
+    };
+    let Some(next_start) = next_utt_ref0
+        .main
+        .content
+        .bullet
+        .as_ref()
+        .map(|bullet| bullet.timing.start_ms)
+    else {
+        return;
+    };
+
+    // Read what is true of the previous utterance's bullet before touching
+    // anything: whether an overlap exists at all is decided read-only, and
+    // prev/next share one Vec so only one of them can be borrowed mutably
+    // at a time.
+    let Line::Utterance(prev_utt_ref) = &chat_file.lines.as_slice()[prev_idx] else {
+        return;
+    };
+    let Some(prev_bullet) = prev_utt_ref.main.content.bullet.as_ref() else {
+        return;
+    };
+    if prev_bullet.timing.end_ms <= next_start {
+        return;
+    }
+    let original_end = prev_bullet.timing.end_ms;
+    let overlap_ms = original_end - next_start;
+    let start_ms = prev_bullet.timing.start_ms;
+    let speaker = prev_utt_ref.main.speaker.as_str().to_string();
+
+    if next_start <= start_ms {
+        // Clamping would produce a zero-or-negative-duration bullet
+        // (next_start <= prev.start), which fails E362. Strip the
+        // bullet entirely; untimed is safer than invalid.
+        decisions.push(DecisionRecord::new_and_trace(
+            prev_idx,
+            speaker.clone(),
+            batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
+            ),
+            format!(
+                "zero_duration_clamp original_end={original_end} \
+                 next_start={next_start} start_ms={start_ms} \
+                 cause=utr_identical_start_times"
+            ),
+            true,
+        ));
+        effects.push(MonotonicityEffect::ZeroDurationClampStripped {
+            line_idx: prev_idx,
+            utterance_idx: prev_utterance_idx,
+            speaker,
+            start_ms,
+            original_end_ms: original_end,
+            next_start_ms: next_start,
+            next_line_idx: next_idx,
+            next_utterance_idx,
+            next_speaker: next_speaker.to_string(),
+        });
+        if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx] {
+            strip_utterance_timing(prev_utt);
+        }
+        return;
+    }
+
+    // Classify from what is MEASURED (word timings), never from the
+    // coverage-extended bullet alone: see `EndOverlapResolution`.
+    let prev_hull_end_ms = furthest_word_timing_end(prev_utt_ref);
+    let next_hull_start_ms = match &chat_file.lines.as_slice()[next_idx] {
+        Line::Utterance(next_utt_ref) => earliest_word_timing_start(next_utt_ref),
+        _ => None,
+    };
+    // The FILE-ORDER successor, live, any speaker (2026-09-01 review, item
+    // 16): the only correct guard input, regardless of which sweep formed
+    // this pair. See `file_order_successor_start_ms`'s own doc.
+    let next_successor_start_ms = file_order_successor_start_ms(chat_file, next_idx);
+    let resolution = classify_end_overlap(
+        prev_hull_end_ms,
+        next_start,
+        next_hull_start_ms,
+        next_successor_start_ms,
+    );
+
+    let edge = OverlapEdge {
+        line_idx: prev_idx,
+        utterance_idx: prev_utterance_idx,
+        speaker: speaker.clone(),
+        original_end_ms: original_end,
+        next_line_idx: next_idx,
+        next_utterance_idx,
+        next_speaker: next_speaker.to_string(),
+    };
+
+    match resolution {
+        EndOverlapResolution::CoverageOnly { hull_end_ms } => {
+            let clamped_to_ms = hull_end_ms.unwrap_or(next_start);
+            decisions.push(DecisionRecord::new_and_trace(
+                prev_idx,
+                speaker,
+                batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                    resolution.strategy(),
+                ),
+                resolution.reason(overlap_ms, next_start, 0),
+                resolution.needs_review(),
+            ));
+            effects.push(MonotonicityEffect::EndClampedCoverageOnly {
+                edge,
+                clamped_to_ms,
+            });
+            if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
+                && let Some(bullet) = prev_utt.main.content.bullet.as_mut()
+            {
+                bullet.timing.end_ms = clamped_to_ms;
+            }
+        }
+        EndOverlapResolution::BoundaryFromWords {
+            prev_hull_end_ms,
+            next_hull_start_ms,
+        } => {
+            decisions.push(DecisionRecord::new_and_trace(
+                prev_idx,
+                speaker,
+                batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                    resolution.strategy(),
+                ),
+                resolution.reason(overlap_ms, next_start, 0),
+                resolution.needs_review(),
+            ));
+            effects.push(MonotonicityEffect::EndClampedBoundaryFromWords {
+                edge,
+                prev_hull_end_ms,
+                next_hull_start_ms,
+            });
+            if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx]
+                && let Some(bullet) = prev_utt.main.content.bullet.as_mut()
+            {
+                bullet.timing.end_ms = prev_hull_end_ms;
+            }
+            if let Line::Utterance(next_utt) = &mut chat_file.lines.as_mut_slice()[next_idx]
+                && let Some(bullet) = next_utt.main.content.bullet.as_mut()
+            {
+                bullet.timing.start_ms = next_hull_start_ms;
+            }
+        }
+        EndOverlapResolution::InterleavedWords => {
+            let mut words_clamped = 0usize;
+            if let Line::Utterance(prev_utt) = &mut chat_file.lines.as_mut_slice()[prev_idx] {
+                if let Some(bullet) = prev_utt.main.content.bullet.as_mut() {
+                    bullet.timing.end_ms = next_start;
+                }
+                words_clamped = clamp_words_past_bound(prev_utt, next_start);
+            }
+            decisions.push(DecisionRecord::new_and_trace(
+                prev_idx,
+                speaker,
+                batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                    resolution.strategy(),
+                ),
+                resolution.reason(overlap_ms, next_start, words_clamped),
+                resolution.needs_review(),
+            ));
+            effects.push(MonotonicityEffect::EndClampedInterleavedWords {
+                edge,
+                clamped_to_ms: next_start,
+                words_clamped,
+            });
+        }
     }
 }
 
@@ -1529,11 +1699,18 @@ pub fn strip_wor_from_monotonicity_stripped_utterances(
     }
 }
 
-/// Enforce E704: strip timing from the EARLIER utterance when consecutive
-/// same-speaker utterances overlap by more than 500ms tolerance.
-pub fn strip_e704_same_speaker_overlaps(chat_file: &mut ChatFile) {
-    const E704_TOLERANCE_MS: u64 = 500;
+/// chatter's own E704 tolerance (CLAN 133: a speaker may not overlap
+/// themself), as ONE typed, shared value (2026-09-01 review, item 15): a
+/// same-speaker overlap this size or smaller is within chatter's own
+/// leniency. Before this constant, `repair.rs`'s
+/// `BOUNDARY_AVERAGING_THRESHOLD_MS` independently hand-typed the SAME
+/// number with no shared owner (shape D: knowledge duplicated with no
+/// owner); it now reads this constant instead of restating it.
+pub(super) const E704_TOLERANCE_MS: u64 = 500;
 
+/// Enforce E704: strip timing from the EARLIER utterance when consecutive
+/// same-speaker utterances overlap by more than [`E704_TOLERANCE_MS`].
+pub fn strip_e704_same_speaker_overlaps(chat_file: &mut ChatFile) {
     let utt_info: Vec<(usize, String, u64, u64)> = chat_file
         .lines
         .iter()

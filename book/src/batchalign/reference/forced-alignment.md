@@ -24,7 +24,7 @@ flowchart TD
     fa["execute_v2('fa', prepared_audio + prepared_text)\n→ Whisper/Wave2Vec"]
     dp["DP alignment\n(Hirschberg O(n+m) space)\ntokens → transcript words"]
     inject["Inject timings\n+ generate %wor tier"]
-    mono["Enforce document order\nstrip backward starts; clamp adjacent ends"]
+    mono["Enforce document order\nstrip backward starts; resolve same-speaker\noverlap by speaker stream, not file adjacency"]
     out["Serialize → CHAT"]
     retry{"FA failed +\nuntimed?"}
     fallback["Fallback UTR:\nrun_utr_pass() (once)"]
@@ -330,29 +330,65 @@ generating it adds noise that CA researchers must manually remove. The
 
 #### End-Time Overlap Clamping
 
-After alignment, `enforce_monotonicity()`'s Pass 2 resolves adjacent-utterance
-end overlap for every same-speaker pair (and, under `--end-overlap-policy
-clamp-all-adjacent`, every pair regardless of speaker; the DEFAULT is
-`preserve-cross-speaker`, which leaves a cross-speaker pair untouched
-entirely, since that overlap is ordinary conversation). The resolution is
-classified from MEASURED word timings, never guessed, into one of three
-cases (`coverage_only`, `boundary_from_words`, `interleaved_words`; see
-[Monotonicity warnings](#monotonicity-warnings) below for the full
-breakdown). UTR token-range assignment is one source of overlap, but a rerun
+After alignment, `enforce_monotonicity()`'s Pass 2 resolves end overlap in
+TWO sweeps, in this order (2026-09-01 review, item 15):
+
+1. **Same-speaker, by SPEAKER STREAM, unconditionally.** Each speaker's own
+   bulleted utterances, in file order, are paired and resolved
+   CONSECUTIVELY WITHIN THAT SPEAKER'S OWN STREAM -- an intervening
+   other-speaker utterance is skipped, never breaks the pairing. This runs
+   regardless of `--end-overlap-policy`: E704 (CLAN 133, a speaker may not
+   overlap themself) is defined on the speaker's own sequence, not on
+   physical line adjacency, and an intervening line (ordinary A-B-A
+   dialogue) must not hide a same-speaker overlap from resolution. The word
+   "adjacent" does NOT describe this sweep's pairing; only file position
+   within one speaker's own stream does.
+2. **Then, additionally under `--end-overlap-policy clamp-all-adjacent`
+   only** (the default is `preserve-cross-speaker`), every PHYSICALLY
+   adjacent pair regardless of speaker. This sweep cannot undo sweep 1: every
+   resolution below only SHRINKS the pair it touches, so a pair sweep 1
+   already resolved satisfies sweep 2's own entry guard (no overlap left) and
+   is silently skipped, not re-clamped.
+
+Either sweep classifies from MEASURED word timings, never guessed, into one
+of three cases (`coverage_only`, `boundary_from_words`, `interleaved_words`;
+see [Monotonicity warnings](#monotonicity-warnings) below for the full
+breakdown), and either sweep's `BoundaryFromWords` guards against creating a
+fresh FILE-ORDER start violation the SAME way, regardless of which sweep
+formed the pair (2026-09-01 review, item 16; see below): the next BULLETED
+utterance in file order, any speaker, not "whatever this sweep would pair
+`next` with" -- that narrower reading was itself the item-16 regression,
+since sweep 1's own next same-speaker utterance can sit well past an
+intervening different-speaker line the move would actually violate. UTR
+token-range assignment is one source of overlap, but a rerun
 can also expose stale prior bullets, segmentation conflict, conversational
 overlap, or fresh FA evidence that crosses the next main-tier boundary. The
-decision records the neutral cause `adjacent_utterance_overlap` plus which of
-the three resolutions applied. Only `interleaved_words` (a genuine word
-conflict) requests review; the other two never touch a measured word and
-never need one. This is current behavior, not evidence that a clamped
-boundary is acoustically correct.
+decision records the neutral cause `adjacent_utterance_overlap` (a legacy
+name predating sweep 1; it names the CAUSE category, not the pairing rule)
+plus which of the three resolutions applied. Only `interleaved_words` (a
+genuine word conflict) requests review; the other two never touch a measured
+word and never need one. This is current behavior, not evidence that a
+clamped boundary is acoustically correct.
 
 A `BoundaryFromWords` resolution can also move the FOLLOWING utterance's
 start forward, to its own measured word hull. When doing so would push it
-past its own next successor's start (a fresh three-utterance conflict Pass 1
-already ran and cannot see), the resolution falls back to
-`interleaved_words` for that pair instead, so the move never happens and
-nothing is stripped.
+to or past the start of the next BULLETED utterance IN FILE ORDER, ANY
+SPEAKER (2026-09-01 review, item 16 -- not that speaker's own next
+utterance, corrected from an earlier, narrower guard), the resolution falls
+back to `interleaved_words` for that pair instead, so the move never
+happens and nothing is stripped. This is Pass 1's own rule (file-order
+start monotonicity across every speaker) applied to Pass 2's own output:
+Pass 1 already ran and cannot see a start Pass 2 is about to create, so
+Pass 2 must not undo what Pass 1 established. `orchestrate::file_order_successor_start_ms`
+is the ONE function both Pass 2 sweeps and repair's own boundary-averaging
+call for this (2026-09-01 review, item 16): it walks forward from the pair's
+`next` utterance, live, to the first utterance that CURRENTLY has a bullet,
+regardless of speaker, so an earlier pair's strip in the SAME sweep is
+already reflected. Real-data regression this closed: chatter's E362 fired
+1,353 times across 178 files when a same-speaker `BoundaryFromWords` moved
+a start past an intervening different-speaker line's start, because the
+per-speaker-stream sweep's guard (item 15) checked only that speaker's OWN
+next utterance, missing the intervening line entirely.
 
 Source: strategy selection in `crates/batchalign/src/chat_ops/fa/utr.rs`,
 two-pass config and algorithm in `crates/batchalign/src/chat_ops/fa/utr/two_pass.rs`.
@@ -702,14 +738,21 @@ WARN fa_transport: Whisper FA fallback also failed with model RuntimeFailure;
 
 #### Monotonicity warnings
 
-After all groups are resolved, monotonicity enforcement makes two passes over
-the utterance list. Pass 2 resolves same-speaker end overlap by default
-(`--end-overlap-policy preserve-cross-speaker`); `clamp-all-adjacent` resolves
-every adjacent pair regardless of speaker. Each stripping or resolving
-decision is recorded in structured evidence and emits a `WARN` log line. BA3
-does not project these records into `%xalign` or `%xrev` (see
-[Decision evidence](../user-guide/review-tiers-guide.md)). The decision
-strategies have different severity and review priority:
+After all groups are resolved, monotonicity enforcement makes Pass 1
+(strip backward starts) then Pass 2, itself two sweeps (2026-09-01 review,
+item 15): sweep 2a resolves same-speaker end overlap by SPEAKER STREAM
+(unconditionally, any `--end-overlap-policy`, skipping intervening
+other-speaker lines rather than requiring physical adjacency); sweep 2b
+additionally resolves every physically adjacent pair, regardless of speaker,
+under `--end-overlap-policy clamp-all-adjacent` only (the default,
+`preserve-cross-speaker`, runs sweep 2b too, but it then skips every
+cross-speaker pair and finds every same-speaker pair already resolved by
+sweep 2a). See [End-Time Overlap Clamping](#end-time-overlap-clamping) above
+for the full account and the proof sweep 2b cannot undo sweep 2a. Each
+stripping or resolving decision is recorded in structured evidence and emits
+a `WARN` log line. BA3 does not project these records into `%xalign` or
+`%xrev` (see [Decision evidence](../user-guide/review-tiers-guide.md)). The
+decision strategies have different severity and review priority:
 
 | Decision | Cause | Needs review? | Action needed? |
 |----------|-------|:---:|---|
@@ -739,10 +782,12 @@ on both sides) rather than repeating those seven fields per variant:
   their word-hull edges instead of the arbitrary next-start clamp; the far
   side of each bullet is untouched. Words are untouched. This resolution is
   refused, falling back to `end_clamped_interleaved_words` instead, when
-  moving the next utterance's start to its measured hull would push it past
-  its OWN next successor's start: that would be a fresh three-utterance
-  monotonicity conflict Pass 1 already ran and cannot see, so the move never
-  happens and nothing is stripped.
+  moving the next utterance's start to its measured hull would reach or
+  pass the start of the next BULLETED utterance in FILE ORDER, ANY SPEAKER
+  (2026-09-01 review, item 16): that would undo Pass 1's own file-order
+  start-monotonicity guarantee, which already ran and cannot see a start
+  Pass 2 is about to create, so the move never happens and nothing is
+  stripped.
 - **`end_clamped_interleaved_words`**: the two utterances' measured words
   genuinely overlap in time, or the next utterance has no measured word to
   fix a boundary against (or the boundary-from-words move above was
@@ -1271,7 +1316,7 @@ prevent output from being written.  Only file-level errors prevent output.
 | `crates/batchalign/src/chat_ops/fa/mod.rs` | `Failed to deserialize cached FA timings` | Cache entry written by a different schema version | Wipe FA cache: `rm ~/Library/Caches/batchalign3/cache.db*` |
 | `fa/mod.rs` | `Failed to cache FA result` | SQLite cache write error (non-fatal; inference result still used) | Check disk space |
 | `fa/mod.rs` | `Post-validation warnings` | CHAT structural issues after injection | Review structured decision evidence and output |
-| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped_coverage_only"\|"end_clamped_boundary_from_words"\|"end_clamped_interleaved_words"` | Same-speaker (default) or every adjacent (`clamp-all-adjacent`) end overlap resolved from measured word timings; the last variant's reason carries how many words were cut | Review only `end_clamped_interleaved_words` (`needs_review=true`); the other two are automatic and informational |
+| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped_coverage_only"\|"end_clamped_boundary_from_words"\|"end_clamped_interleaved_words"` | Same-speaker BY STREAM, i.e. skipping intervening other-speaker lines (default), or additionally every physically adjacent pair (`clamp-all-adjacent`); end overlap resolved from measured word timings, the last variant's reason carries how many words were cut | Review only `end_clamped_interleaved_words` (`needs_review=true`); the other two are automatic and informational |
 | `fa/orchestrate.rs` | `monotonicity: strategy="start_stripped"` | Utterance start precedes previous accepted start, full timing stripped | Review utterance; structured decision has `needs_review=true` |
 | `fa_pipeline` | `FA failed with untimed utterances; attempting fallback UTR` | FA error on file that still has untimed utterances | Informational; fallback UTR retry follows |
 | `fa_pipeline` | `Fallback UTR recovered timing` | Fallback UTR succeeded before retry | Informational; timing injected, FA retry queued |

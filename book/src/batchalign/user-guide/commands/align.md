@@ -119,10 +119,10 @@ flowchart TD
     backoff --> cache_check
 
     overlap_policy{"--end-overlap-policy?\n(default: preserve-cross-speaker)"}
-    overlap_policy -->|preserve-cross-speaker default| resolve_same[Resolve same-speaker overlap\nCoverageOnly / BoundaryFromWords /\nInterleavedWords, from measured word hulls\ncross-speaker overlap untouched]
-    overlap_policy -->|clamp-all-adjacent| resolve_all[Resolve every adjacent overlap\nsame rule, any speaker pair]
+    overlap_policy -->|preserve-cross-speaker default, ALWAYS| resolve_same[Resolve same-speaker overlap BY SPEAKER STREAM\nnot file adjacency: skips an intervening\nother-speaker line. CoverageOnly / BoundaryFromWords /\nInterleavedWords, from measured word hulls.\ncross-speaker overlap untouched]
+    resolve_same -->|clamp-all-adjacent ADDITIONALLY| resolve_all[Also resolve every PHYSICALLY adjacent overlap\nsame rule, any speaker pair\ncannot undo resolve_same: only shrinks]
 
-    resolve_same --> wor_check
+    resolve_same -->|preserve-cross-speaker| wor_check
     resolve_all --> wor_check
 
     wor_check{--wor / --nowor?}
@@ -300,9 +300,17 @@ back into the output:
 
 6. **The default is `preserve-cross-speaker`: cross-speaker overlap is
    ordinary conversation and is left alone.** `--end-overlap-policy` governs
-   same-speaker (and, under `clamp-all-adjacent`, cross-speaker) end overlap
-   between adjacent utterances. A same-speaker overlap is resolved from
-   MEASURED word timings, never guessed, into one of three cases:
+   same-speaker (and, under `clamp-all-adjacent`, additionally cross-speaker)
+   end overlap. Same-speaker overlap is resolved BY SPEAKER STREAM, not by
+   file adjacency (2026-09-01 review, item 15): each speaker's own bulleted
+   utterances, in file order, are paired and resolved consecutively WITHIN
+   THAT SPEAKER'S OWN STREAM, skipping any intervening other-speaker line
+   rather than letting it break the pairing. This runs UNCONDITIONALLY,
+   under either policy value: E704 (CLAN 133, a speaker may not overlap
+   themself) is defined on the speaker's own sequence, not on physical line
+   adjacency, so an ordinary A-B-A dialogue must not hide a same-speaker
+   overlap from resolution. A pair is resolved from MEASURED word timings,
+   never guessed, into one of three cases:
    - The earlier utterance's last measured word already ends before the
      next utterance starts: only the bullet's inherited coverage overshot,
      so the bullet end moves back to the word; no word moves, no review is
@@ -315,9 +323,13 @@ back into the output:
      utterance's start AND every word past that bound is clamped with it,
      and the decision is flagged for review, since this is a real conflict
      between segmentation and FA evidence that only a person can adjudicate.
-   `clamp-all-adjacent` applies the same three-way resolution to a
-   cross-speaker pair too, instead of leaving it alone. Neither value relaxes
-   start-order enforcement or changes raw FA cache identity.
+   `clamp-all-adjacent` ADDITIONALLY applies the same three-way resolution to
+   every PHYSICALLY adjacent pair, cross-speaker included, instead of
+   leaving cross-speaker overlap alone; it cannot undo the speaker-stream
+   resolution above, since every resolution only SHRINKS the pair it
+   touches, so a pair already resolved there satisfies this pass's own
+   overlap check and is silently skipped. Neither value relaxes start-order
+   enforcement or changes raw FA cache identity.
 
 7. **Execution shape does not change the declared projection.** The same
    prior-boundary, optional-repair, and end-overlap policies now apply whether
@@ -460,13 +472,15 @@ hand-linked by an annotator), the bullet is **expanded but never shrunk**:
   the admitted word evidence.
 - The raw FA cache key remains unchanged, so a cache-required comparison can
   vary this projection without rerunning the model.
-- A later document-order monotonicity pass applies the selected
-  `--end-overlap-policy`, resolving each same-speaker (and, under
-  `clamp-all-adjacent`, cross-speaker) pair from measured word hulls into one
-  of three cases (see above); the default, `preserve-cross-speaker`, leaves a
-  cross-speaker pair alone entirely. A genuine word conflict remains explicit
-  evidence for adjudication; do not equate CHAT validity or word containment
-  counts with boundary accuracy.
+- A later monotonicity pass applies the selected `--end-overlap-policy`,
+  resolving each same-speaker pair -- by that speaker's OWN stream, not file
+  order, so an intervening other-speaker line never hides the pair -- (and,
+  under `clamp-all-adjacent`, additionally each physically adjacent pair,
+  cross-speaker included) from measured word hulls into one of three cases
+  (see above); the default, `preserve-cross-speaker`, leaves a cross-speaker
+  pair alone entirely. A genuine word conflict remains explicit evidence for
+  adjudication; do not equate CHAT validity or word containment counts with
+  boundary accuracy.
 
 **FA failure fallback:**
 

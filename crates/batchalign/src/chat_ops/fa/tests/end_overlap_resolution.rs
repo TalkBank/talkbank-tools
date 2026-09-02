@@ -319,3 +319,190 @@ fn three_utterance_boundary_conflict_is_not_stripped() {
             .all(|e| matches!(e, MonotonicityEffect::EndClampedInterleavedWords { .. }))
     );
 }
+
+/// 2026-09-01 review, item 15. The real-data regression shape: a CHI
+/// utterance (88) overlaps a LATER CHI utterance (90) by 1303 ms, with a
+/// PAR utterance (89) sitting between them in file order. Under
+/// `PreserveCrossSpeaker` (the default), the file-adjacent pass alone can
+/// never form the (88, 90) pair at all -- it only ever pairs (88, 89) and
+/// (89, 90), both cross-speaker and both skipped. The per-speaker-stream
+/// pass must pair 88 directly with 90 (skipping 89), resolve their overlap,
+/// and leave 89 completely untouched.
+#[test]
+fn same_speaker_pair_resolves_across_an_intervening_other_speaker() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, PAR Parent\n\
+         @ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|PAR|||||Parent|||\n\
+         *CHI:\tearlier . \u{15}208000_210496\u{15}\n%wor:\tearlier \u{15}208000_210000\u{15} .\n\
+         *PAR:\tinterjection . \u{15}209000_209500\u{15}\n\
+         *CHI:\tnow I have to make it over . \u{15}209193_211557\u{15}\n%wor:\tnow \u{15}210100_210300\u{15} I have to make it over .\n\
+         @End\n";
+    let mut chat = parse_chat(input);
+
+    // The default policy: this is the scenario item 15 is about.
+    let result =
+        enforce_monotonicity_with_policy(&mut chat, EndOverlapPolicy::PreserveCrossSpeaker);
+
+    // Utterance 1 (PAR, index 1) is completely untouched: never part of any
+    // same-speaker pair, and `PreserveCrossSpeaker` never resolves a
+    // cross-speaker pair, adjacent or not.
+    assert_eq!(
+        get_utterance_bullet(&chat, 1),
+        Some((209000, 209500)),
+        "the intervening PAR utterance must be untouched"
+    );
+
+    // The CHI pair (0, 2) resolves via measured hulls: BoundaryFromWords.
+    assert_eq!(
+        get_utterance_bullet(&chat, 0),
+        Some((208000, 210000)),
+        "utterance 0's end moves to its own measured hull"
+    );
+    assert_eq!(
+        get_utterance_bullet(&chat, 2),
+        Some((210100, 211557)),
+        "utterance 2's start moves to its own measured hull"
+    );
+    assert!(
+        result
+            .effects()
+            .iter()
+            .any(|e| matches!(e, MonotonicityEffect::EndClampedBoundaryFromWords { edge, .. } if edge.utterance_idx.raw() == 0 && edge.next_utterance_idx.raw() == 2)),
+        "the resolved pair must be (0, 2), the same speaker's own stream, not any file-adjacent pair: {:?}",
+        result.effects()
+    );
+}
+
+/// 2026-09-01 review, item 15: the three-utterance `BoundaryFromWords`
+/// successor guard (finding 1) must hold across an intervening
+/// other-speaker utterance too: the guard's "successor" is the SAME
+/// speaker's own next-next utterance, not the file-adjacent one.
+#[test]
+fn boundary_from_words_successor_guard_holds_across_an_intervening_speaker() {
+    // CHI0/CHI1 hulls would agree on a boundary (2900/2950), but CHI1's
+    // own successor in ITS speaker stream, CHI2 (with a PAR utterance
+    // between CHI1 and CHI2 in file order), starts at 2400 -- before that
+    // boundary. The move must be refused, exactly like the file-adjacent
+    // case, falling back to `InterleavedWords` so nothing is stripped.
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, PAR Parent\n\
+         @ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|PAR|||||Parent|||\n\
+         *CHI:\thello world . \u{15}1000_3000\u{15}\n%wor:\thello \u{15}1000_1500\u{15} world \u{15}1500_2900\u{15} .\n\
+         *CHI:\tnext . \u{15}2000_3500\u{15}\n%wor:\tnext \u{15}2950_3200\u{15} .\n\
+         *PAR:\taside . \u{15}2100_2200\u{15}\n\
+         *CHI:\tthird . \u{15}2400_5000\u{15}\n\
+         @End\n";
+    let mut chat = parse_chat(input);
+
+    let result =
+        enforce_monotonicity_with_policy(&mut chat, EndOverlapPolicy::PreserveCrossSpeaker);
+
+    assert!(
+        get_utterance_bullet(&chat, 0).is_some(),
+        "utterance 0 must survive, not be stripped"
+    );
+    assert!(
+        get_utterance_bullet(&chat, 1).is_some(),
+        "utterance 1 must survive, not be stripped"
+    );
+    assert_eq!(
+        get_utterance_bullet(&chat, 1),
+        Some((2000, 2400)),
+        "utterance 1 keeps its own original start; its end is clamped against utterance 3 (its own next-next same-speaker successor)"
+    );
+    assert_eq!(get_utterance_bullet(&chat, 0), Some((1000, 2000)));
+    assert!(
+        result
+            .records()
+            .iter()
+            .all(|d| d.strategy.strategy_name() != "timing_stripped"),
+        "no strip anywhere: {:?}",
+        result.records()
+    );
+}
+
+/// 2026-09-01 review, item 15: `ClampAllAdjacent` still resolves a
+/// genuinely cross-speaker FILE-ADJACENT overlap, unaffected by the new
+/// per-speaker-stream pass (which never touches a cross-speaker pair at
+/// all).
+#[test]
+fn clamp_all_adjacent_still_resolves_cross_speaker_file_adjacency() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n\
+         @ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|MOT|||||Mother|||\n\
+         *CHI:\tone . \u{15}1000_5000\u{15}\n*MOT:\ttwo . \u{15}4000_8000\u{15}\n@End\n";
+    let mut chat = parse_chat(input);
+
+    let result = enforce_monotonicity_with_policy(&mut chat, EndOverlapPolicy::ClampAllAdjacent);
+
+    assert_eq!(
+        get_utterance_bullet(&chat, 0),
+        Some((1000, 4000)),
+        "cross-speaker adjacency is still clamped under ClampAllAdjacent"
+    );
+    assert!(matches!(
+        result.effects(),
+        [MonotonicityEffect::EndClampedCoverageOnly { .. }]
+    ));
+}
+
+/// 2026-09-01 review, item 16: the real-data E362 regression. CHI 88 and
+/// CHI 90 are consecutive in CHI's own speaker stream (and here also file
+/// adjacent); CHI 90 has no later same-speaker utterance at all, so the
+/// item-15 speaker-stream successor guard alone would see no successor and
+/// wrongly permit `BoundaryFromWords` to move CHI 90's start up to its
+/// hull start (2950). PAR 89, immediately after CHI 90 in FILE order, only
+/// starts at 2900 -- before that would-be new start. Pass 1 already
+/// enforced file-order start monotonicity across every speaker before Pass
+/// 2 ran; Pass 2 must not be able to undo it. The guard must therefore
+/// read the FILE-order successor (any speaker), not the speaker's own.
+///
+/// The final assertion (no bullet start precedes its file predecessor's
+/// start) restates Pass 1's own rule against Pass 2's output. That is
+/// legitimate here specifically because Pass 1 and Pass 2 are two steps of
+/// ONE phase (`enforce_monotonicity_with_policy`) with a single documented
+/// obligation -- Pass 2 must preserve what Pass 1 established -- not a
+/// general invariant check bolted onto an unrelated function.
+#[test]
+fn boundary_from_words_guard_reads_file_order_successor_not_speaker_stream() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, PAR Parent\n\
+         @ID:\teng|x|CHI|||||Child|||\n@ID:\teng|x|PAR|||||Parent|||\n\
+         *CHI:\tearlier . \u{15}1000_3000\u{15}\n%wor:\tearlier \u{15}1000_2950\u{15} .\n\
+         *CHI:\tlater . \u{15}2000_4000\u{15}\n%wor:\tlater \u{15}2950_3800\u{15} .\n\
+         *PAR:\tresponse . \u{15}2900_3500\u{15}\n\
+         @End\n";
+    let mut chat = parse_chat(input);
+
+    let result =
+        enforce_monotonicity_with_policy(&mut chat, EndOverlapPolicy::PreserveCrossSpeaker);
+
+    // CHI 90 ("later") must NOT have been moved to its hull start (2950):
+    // that would land past PAR 89's start (2900), undoing Pass 1.
+    assert_eq!(
+        get_utterance_bullet(&chat, 1).unwrap().0,
+        2000,
+        "CHI 90's start must be untouched, not moved to 2950"
+    );
+    assert!(
+        matches!(
+            result.effects(),
+            [MonotonicityEffect::EndClampedInterleavedWords { .. }]
+        ),
+        "must fall back to InterleavedWords, not BoundaryFromWords: {:?}",
+        result.effects()
+    );
+
+    // Pass 1's own rule, restated against Pass 2's output (see this test's
+    // doc comment for why that is legitimate here): no bulleted
+    // utterance's start may precede its immediate FILE predecessor's start.
+    let mut previous_start_ms: Option<u64> = None;
+    for idx in 0..3 {
+        let Some((start_ms, _)) = get_utterance_bullet(&chat, idx) else {
+            continue;
+        };
+        if let Some(previous) = previous_start_ms {
+            assert!(
+                start_ms >= previous,
+                "utterance {idx} starts at {start_ms}, before its file predecessor's {previous}"
+            );
+        }
+        previous_start_ms = Some(start_ms);
+    }
+}
