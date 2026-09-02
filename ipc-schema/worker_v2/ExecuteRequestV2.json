@@ -166,12 +166,23 @@
       ]
     },
     "AsrRequestV2": {
-      "description": "V2 ASR request payload.",
+      "description": "V2 ASR request payload.\n\nNo `Eq`: `decode_budget_seconds` is derived from a floating-point audio\nduration, and `f64` cannot support a total-equality contract (NaN != NaN).",
       "type": "object",
       "properties": {
         "backend": {
           "description": "Backend selected by Rust.",
           "$ref": "#/$defs/AsrBackendV2"
+        },
+        "decode_budget_seconds": {
+          "description": "The request's own wall-clock decode budget, derived once at\nrequest-build time from the audio's duration and\n[`DEADLINE_REALTIME_FACTOR`].\n\n`None` means the audio duration was not knowable to Rust before\ndispatch (see the request builder in\n`batchalign::worker::asr_request_v2`), never \"no budget applies\";\nthe transport ceiling falls back to\n[`PROVIDER_MEDIA_ASR_TRANSPORT_CEILING_SECONDS`] in that case. When\npresent, this is also the value Python's native Qwen3-ASR decode\nloop uses in place of re-deriving its own budget from the file it\nis given (`_qwen_chunking.DecodeBudget`), so the two ceilings are\ncomputed from one duration instead of drifting apart.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DecodeBudgetSeconds"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "extras": {
           "description": "Per-engine configuration extras (e.g. `qwen_model`,\n`qwen_device`, `funaudio_model`). Opaque string-keyed map carried\nverbatim from the user's `--engine-overrides` JSON through every\ndispatch layer down to the worker spawn argv and the Python\nengine-load function. Empty when no per-engine knob is set.\n\nWhy this lives on the typed V2 request rather than only on\n`EngineOverrides`: a CLI override like\n`{\"asr\":\"qwen\",\"qwen_model\":\"Qwen/Qwen3-ASR-0.6B\"}` would otherwise\nbe silently truncated to `{\"asr\":\"qwen\"}` at this typed boundary,\nand the worker would default to the 1.7B model regardless of what\nthe user asked for, the bug fixed 2026-05-27. The `#[serde(default)]`\nkeeps older daemons that don't emit the field forward-compatible.",
@@ -256,6 +267,11 @@
         "payload_ref_id",
         "item_count"
       ]
+    },
+    "DecodeBudgetSeconds": {
+      "description": "Wall-clock decode budget for one ASR request, in seconds.\n\nNamed apart from a bare `DurationSeconds` because this quantity\ncarries a specific provenance contract: it is derived once, at\nrequest-build time, from the audio's own duration and\n[`DEADLINE_REALTIME_FACTOR`], and it is the value both the Python\ndecode loop (`_qwen_chunking.DecodeBudget`) and the Rust transport\nceiling (`TaskRequestV2::timeout_seconds_with_config`) are computed\nFROM. A generic duration carries no such contract, so reusing one\nhere would let a caller pass an unrelated seconds value where this\none is required.\n\nHAND-WRITTEN rather than built with `numeric_id!`: that macro gives its\ntype a PUBLIC inner field plus `From<f64>` and `Default` (a zero budget\nany caller could construct from nothing), which would make the \"only\nsanctioned constructor\" claim on [`Self::for_audio`] false -- a\n`DecodeBudgetSeconds(1.0)` or `DecodeBudgetSeconds::default()` written\nanywhere in the crate would compile and produce a budget with no\naudio duration behind it. The field here is private; [`Self::for_audio`]\nand [`Self::for_duration_ms`] are the only ways to construct one, and\n[`Self::as_seconds`] is the only way to read one back out.\n\nThe tuple constructor is unreachable from outside this module (proved\nby the compile_fail doctest below); `Default` and `From<f64>` are\nproved absent crate-wide by a `static_assertions::assert_not_impl_any!`\nbeneath this type, which runs on every `cargo test --lib`.\n\n```compile_fail\nuse batchalign_types::worker_v2::DecodeBudgetSeconds;\n// The inner field is private: this must not compile from outside\n// `batchalign_types::worker_v2::requests`.\nlet _ = DecodeBudgetSeconds(1.0);\n```",
+      "type": "number",
+      "format": "double"
     },
     "FaBackendV2": {
       "description": "Forced-alignment backend selected by the Rust control plane.",
@@ -694,7 +710,7 @@
       ]
     },
     "TaskRequestV2": {
-      "description": "Typed execute payload carried by one V2 request.",
+      "description": "Typed execute payload carried by one V2 request.\n\nNo `Eq`: the `Asr` variant carries a floating-point decode budget (see\n`AsrRequestV2`).",
       "oneOf": [
         {
           "description": "Automatic speech recognition request.",

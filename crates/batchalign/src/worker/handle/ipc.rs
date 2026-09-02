@@ -30,6 +30,12 @@ impl WorkerHandle {
         let mut line = serde_json::to_string(request)
             .map_err(|e| WorkerError::Protocol(format!("failed to encode request: {e}")))?;
         line.push('\n');
+        // Set BEFORE the write, not after: a write that itself fails or is
+        // interrupted partway (dropped future) can leave the worker's
+        // stdin parser desynchronized too, so it is not safe to reuse
+        // either. Only a fully-read terminal response clears this (see
+        // `RequestFlight`).
+        self.request_flight = super::RequestFlight::InFlight;
         self.stdin.write_all(line.as_bytes()).await?;
         self.stdin.flush().await?;
         Ok(())
@@ -360,8 +366,15 @@ impl WorkerHandle {
                     }
                     continue;
                 }
-                WorkerResponse::ExecuteV2 { response } => return Ok(response),
+                WorkerResponse::ExecuteV2 { response } => {
+                    // A complete terminal response was read: safe to reuse.
+                    self.request_flight = super::RequestFlight::Idle;
+                    return Ok(response);
+                }
                 WorkerResponse::Error { error, kind } => {
+                    // Also a complete, well-formed terminal message: the
+                    // stream is not desynchronized, only the WORK failed.
+                    self.request_flight = super::RequestFlight::Idle;
                     let err = kind.into_worker_error(error);
                     dump_failed_ipc_request(
                         self.pid,
@@ -373,6 +386,9 @@ impl WorkerHandle {
                     return Err(err);
                 }
                 other => {
+                    // Same reasoning: a full line was read and parsed, it
+                    // just didn't match an expected variant.
+                    self.request_flight = super::RequestFlight::Idle;
                     let err = WorkerError::Protocol(format!(
                         "unexpected response for execute_v2: {other:?}"
                     ));

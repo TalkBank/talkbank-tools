@@ -24,7 +24,7 @@ use batchalign_transform::validate::ValidityLevel;
 use tracing::info;
 
 use crate::error::ServerError;
-use crate::infer_retry::dispatch_execute_v2_with_retry;
+use crate::infer_retry::{Cancellation, dispatch_execute_v2_with_retry};
 use crate::pipeline::PipelineServices;
 use crate::pipeline::text_infer::{
     TextBatchHooks, TextPipelineHooks, run_text_batch_pipeline, run_text_pipeline,
@@ -37,11 +37,6 @@ use crate::text_batch::{
 /// Command-specific parameters for the translate workflow family.
 ///
 /// Retained as a zero-field struct so the `TextBatchOperation` shape stays
-/// symmetric with morphotag/utseg; may grow again when translate acquires
-/// real command-specific options.
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct TranslateWorkflowParams;
-
 /// Typed workflow operation for translate.
 pub(crate) struct TranslateOperation;
 
@@ -56,7 +51,7 @@ impl TextBatchOperation for TranslateOperation {
         Self: 'a;
 
     type Params<'a>
-        = TranslateWorkflowParams
+        = Cancellation<'a>
     where
         Self: 'a;
 
@@ -64,7 +59,7 @@ impl TextBatchOperation for TranslateOperation {
         chat_text: ChatText<'_>,
         lang: &LanguageCode3,
         shared: Self::Shared<'_>,
-        _params: Self::Params<'_>,
+        params: Self::Params<'_>,
     ) -> Result<String, ServerError> {
         run_translate_impl(
             chat_text.as_ref(),
@@ -72,6 +67,7 @@ impl TextBatchOperation for TranslateOperation {
             shared.pool,
             shared.cache,
             shared.engine_version,
+            params,
         )
         .await
     }
@@ -80,9 +76,9 @@ impl TextBatchOperation for TranslateOperation {
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
         shared: Self::Shared<'_>,
-        _params: Self::Params<'_>,
+        params: Self::Params<'_>,
     ) -> TextBatchFileResults {
-        run_translate_batch_impl(files, lang, shared.pool).await
+        run_translate_batch_impl(files, lang, shared.pool, params).await
     }
 }
 
@@ -99,13 +95,14 @@ pub async fn process_translate(
     pool: &WorkerPool,
     cache: &crate::cache::UtteranceCache,
     engine_version: &EngineVersion,
+    cancellation: Cancellation<'_>,
 ) -> Result<String, ServerError> {
     TranslateWorkflow::new()
         .run_per_file(TextPerFileWorkflowRequest {
             chat_text: ChatText::from(chat_text),
             lang,
             shared: PipelineServices::new(pool, cache, engine_version),
-            params: TranslateWorkflowParams,
+            params: cancellation,
         })
         .await
 }
@@ -124,13 +121,14 @@ pub(crate) async fn process_translate_batch(
     pool: &WorkerPool,
     cache: &crate::cache::UtteranceCache,
     engine_version: &EngineVersion,
+    cancellation: Cancellation<'_>,
 ) -> TextBatchFileResults {
     TranslateWorkflow::new()
         .run_batch_files(TextBatchWorkflowRequest {
             files,
             lang,
             shared: PipelineServices::new(pool, cache, engine_version),
-            params: TranslateWorkflowParams,
+            params: cancellation,
         })
         .await
 }
@@ -141,6 +139,7 @@ async fn run_translate_impl(
     pool: &WorkerPool,
     cache: &crate::cache::UtteranceCache,
     engine_version: &EngineVersion,
+    cancellation: Cancellation<'_>,
 ) -> Result<String, ServerError> {
     run_text_pipeline(
         chat_text,
@@ -153,7 +152,7 @@ async fn run_translate_impl(
             integrate: integrate_translations,
             apply: apply_translate_results,
         },
-        infer_batch,
+        async move |pool, items, lang| infer_batch(pool, items, lang, cancellation).await,
         |_, _| Ok(()),
     )
     .await
@@ -163,6 +162,7 @@ async fn run_translate_batch_impl(
     files: &[TextBatchFileInput],
     lang: &LanguageCode3,
     pool: &WorkerPool,
+    cancellation: Cancellation<'_>,
 ) -> TextBatchFileResults {
     run_text_batch_pipeline(
         files,
@@ -174,7 +174,7 @@ async fn run_translate_batch_impl(
             collect: collect_translate_payloads,
             apply: apply_translate_file,
         },
-        infer_batch,
+        async move |pool, items, lang| infer_batch(pool, items, lang, cancellation).await,
     )
     .await
 }
@@ -210,6 +210,7 @@ async fn infer_batch(
     pool: &WorkerPool,
     items: &[(usize, TranslateBatchItem)],
     lang: &LanguageCode3,
+    cancellation: Cancellation<'_>,
 ) -> Result<Vec<Result<TranslateResponse, String>>, ServerError> {
     // Fallible in chatter 0.3.0; stringified error (`LanguageCodeError` not
     // re-exported upstream).
@@ -253,7 +254,7 @@ async fn infer_batch(
         "Dispatching translate execute_v2 batch"
     );
 
-    let response = dispatch_execute_v2_with_retry(pool, lang, &request).await?;
+    let response = dispatch_execute_v2_with_retry(pool, lang, &request, cancellation).await?;
     let result = parse_translate_result_v2(&response).map_err(|error| {
         ServerError::Validation(format!("invalid translate V2 result: {error}"))
     })?;

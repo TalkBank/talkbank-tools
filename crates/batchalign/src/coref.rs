@@ -30,7 +30,7 @@ use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to
 use tracing::{info, warn};
 
 use crate::error::ServerError;
-use crate::infer_retry::dispatch_execute_v2_with_retry;
+use crate::infer_retry::{Cancellation, dispatch_execute_v2_with_retry};
 use crate::text_batch::{
     TextBatchFileInput, TextBatchFileResult, TextBatchFileResults, TextBatchOperation,
     TextBatchWorkflow, TextBatchWorkflowRequest, TextPerFileWorkflowRequest,
@@ -74,7 +74,7 @@ impl TextBatchOperation for CorefOperation {
         Self: 'a;
 
     type Params<'a>
-        = ()
+        = Cancellation<'a>
     where
         Self: 'a;
 
@@ -82,18 +82,18 @@ impl TextBatchOperation for CorefOperation {
         chat_text: ChatText<'_>,
         lang: &LanguageCode3,
         pool: Self::Shared<'_>,
-        _params: Self::Params<'_>,
+        params: Self::Params<'_>,
     ) -> Result<String, ServerError> {
-        run_coref_impl(chat_text.as_ref(), lang, pool).await
+        run_coref_impl(chat_text.as_ref(), lang, pool, params).await
     }
 
     async fn run_batch(
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
         pool: Self::Shared<'_>,
-        _params: Self::Params<'_>,
+        params: Self::Params<'_>,
     ) -> TextBatchFileResults {
-        run_coref_batch_impl(files, lang, pool).await
+        run_coref_batch_impl(files, lang, pool, params).await
     }
 }
 
@@ -109,13 +109,14 @@ pub async fn process_coref(
     chat_text: &str,
     lang: &LanguageCode3,
     pool: &WorkerPool,
+    cancellation: Cancellation<'_>,
 ) -> Result<String, ServerError> {
     CorefWorkflow::new()
         .run_per_file(TextPerFileWorkflowRequest {
             chat_text: ChatText::from(chat_text),
             lang,
             shared: pool,
-            params: (),
+            params: cancellation,
         })
         .await
 }
@@ -124,6 +125,7 @@ async fn run_coref_impl(
     chat_text: &str,
     lang: &LanguageCode3,
     pool: &WorkerPool,
+    cancellation: Cancellation<'_>,
 ) -> Result<String, ServerError> {
     let parser = crate::chat_parser();
     // 1. Parse
@@ -177,6 +179,7 @@ async fn run_coref_impl(
         pool,
         std::slice::from_ref(&coref_item),
         &LanguageCode3::eng(),
+        cancellation,
     )
     .await?;
     let mut unwrapped = crate::text_batch::unwrap_per_item_results("coref", coref_responses)
@@ -233,13 +236,14 @@ pub(crate) async fn process_coref_batch(
     files: &[TextBatchFileInput],
     lang: &LanguageCode3,
     pool: &WorkerPool,
+    cancellation: Cancellation<'_>,
 ) -> TextBatchFileResults {
     CorefWorkflow::new()
         .run_batch_files(TextBatchWorkflowRequest {
             files,
             lang,
             shared: pool,
-            params: (),
+            params: cancellation,
         })
         .await
 }
@@ -248,6 +252,7 @@ async fn run_coref_batch_impl(
     files: &[TextBatchFileInput],
     _lang: &LanguageCode3,
     pool: &WorkerPool,
+    cancellation: Cancellation<'_>,
 ) -> TextBatchFileResults {
     // `_lang` is intentionally unused. Coref is English-only (BA2 parity),
     // so per-file English-ness is read from each file's `@Languages:` header
@@ -348,7 +353,7 @@ async fn run_coref_batch_impl(
             "Dispatching coref execute_v2 batch"
         );
 
-        match infer_batch(pool, &batch_items, &LanguageCode3::eng()).await {
+        match infer_batch(pool, &batch_items, &LanguageCode3::eng(), cancellation).await {
             Ok(responses) => responses,
             Err(e) => {
                 warn!(error = %e, "Batch coref execute_v2 failed for all files");
@@ -459,6 +464,7 @@ async fn infer_batch(
     pool: &WorkerPool,
     items: &[CorefBatchItem],
     lang: &LanguageCode3,
+    cancellation: Cancellation<'_>,
 ) -> Result<Vec<Result<CorefResponse, String>>, ServerError> {
     let artifacts = PreparedArtifactRuntimeV2::new("coref_v2").map_err(|error| {
         ServerError::Validation(format!(
@@ -471,7 +477,7 @@ async fn infer_batch(
             ServerError::Validation(format!("failed to build coref V2 worker request: {error}"))
         })?;
 
-    let response = dispatch_execute_v2_with_retry(pool, lang, &request).await?;
+    let response = dispatch_execute_v2_with_retry(pool, lang, &request, cancellation).await?;
     let result = parse_coref_result_v2(&response)
         .map_err(|error| ServerError::Validation(format!("invalid coref V2 result: {error}")))?;
     if result.items.len() != items.len() {

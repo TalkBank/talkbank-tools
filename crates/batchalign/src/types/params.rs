@@ -13,6 +13,7 @@ use crate::chat_ops::fa::coordinates::{Ms, Recording};
 use crate::chat_ops::fa::{AudioIdentity, WordGapHealing};
 use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
 use crate::error::ServerError;
+use crate::infer_retry::Cancellation;
 use crate::types::engines::FaEngineName;
 use serde::{Deserialize, Serialize};
 
@@ -244,6 +245,13 @@ pub struct MorphosyntaxParams<'a> {
     /// `pub(crate)`, unlike its neighbours: the port is internal wiring between
     /// the dispatcher and the worker call, not part of any published surface.
     pub(crate) progress: Option<&'a crate::execution::morphotag::progress::BackendProgressPort>,
+    /// The job's cancellation token, when this dispatch has one.
+    ///
+    /// Carried in the params bundle rather than as another positional
+    /// argument, same rationale as `progress`: it travels the same route
+    /// as every other per-file morphotag input, all the way down to
+    /// `infer_batch`'s retry loop.
+    pub cancellation: Cancellation<'a>,
 }
 
 /// Audio file context for forced alignment and transcription.

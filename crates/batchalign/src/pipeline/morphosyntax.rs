@@ -79,6 +79,8 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
     pub batch_items: Vec<BatchItemWithPosition>,
     /// Where to report backend progress for this file, if anyone is listening.
     pub progress: Option<&'a crate::execution::morphotag::progress::BackendProgressPort>,
+    /// The job's cancellation token, when this dispatch has one.
+    pub cancellation: crate::infer_retry::Cancellation<'a>,
     /// Inferred worker responses.
     pub ud_responses: Vec<UdResponse>,
     /// Final serialized output.
@@ -100,6 +102,7 @@ impl<'a> MorphosyntaxPipelineContext<'a> {
             mwt: params.mwt,
             l2_morphotag: params.l2_morphotag,
             progress: params.progress,
+            cancellation: params.cancellation,
             chat_file: None,
             parse_errors: Vec::new(),
             is_ca: false,
@@ -391,6 +394,7 @@ fn stage_infer<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> Stag
             ctx.mwt,
             retokenize,
             ctx.progress,
+            ctx.cancellation,
         )
         .await?;
         Ok(())
@@ -551,6 +555,9 @@ mod tests {
             respect_pos_hints: false,
             review_level: crate::chat_ops::fa::ReviewLevel::None,
             progress: None,
+            cancellation: crate::infer_retry::Cancellation::NotWired {
+                reason: "unit test fixture, no job",
+            },
         }
     }
     use crate::api::EngineVersion;

@@ -292,6 +292,7 @@ pub(crate) async fn process_morphosyntax_incremental(
             params.mwt,
             retokenize,
             params.progress,
+            params.cancellation,
         )
         .await
         {

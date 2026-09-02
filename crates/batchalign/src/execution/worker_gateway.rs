@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use crate::api::{EngineVersion, LanguageCode3};
 use crate::cache::UtteranceCache;
 use crate::error::ServerError;
+use crate::infer_retry::Cancellation;
 use crate::params::MorphosyntaxParams;
 use crate::pipeline::PipelineServices;
 use crate::text_batch::{TextBatchFileInput, TextBatchFileResults};
@@ -41,6 +42,7 @@ pub(crate) trait WorkerGateway: Send + Sync {
         chat_text: &str,
         lang: &LanguageCode3,
         mwt: &MwtDict,
+        cancellation: Cancellation<'_>,
     ) -> Result<String, ServerError>;
 
     /// Run morphotag on one CHAT file.
@@ -57,6 +59,7 @@ pub(crate) trait WorkerGateway: Send + Sync {
         lang: &LanguageCode3,
         options: MorphotagRuntimeOptions,
         progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
+        cancellation: Cancellation<'_>,
     ) -> Result<String, ServerError>;
 
     /// Run utterance segmentation over one cross-file batch of CHAT inputs.
@@ -72,6 +75,7 @@ pub(crate) trait WorkerGateway: Send + Sync {
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
         allow_stanza_fallback: bool,
+        cancellation: Cancellation<'_>,
     ) -> TextBatchFileResults;
 
     /// Run translation over one cross-file batch of CHAT inputs.
@@ -79,6 +83,7 @@ pub(crate) trait WorkerGateway: Send + Sync {
         &self,
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
+        cancellation: Cancellation<'_>,
     ) -> TextBatchFileResults;
 
     /// Run coreference resolution over one cross-file batch of CHAT inputs.
@@ -86,6 +91,7 @@ pub(crate) trait WorkerGateway: Send + Sync {
         &self,
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
+        cancellation: Cancellation<'_>,
     ) -> TextBatchFileResults;
 }
 
@@ -119,6 +125,7 @@ impl WorkerGateway for PooledWorkerGateway {
         chat_text: &str,
         lang: &LanguageCode3,
         mwt: &MwtDict,
+        cancellation: Cancellation<'_>,
     ) -> Result<String, ServerError> {
         let params = MorphosyntaxParams {
             lang,
@@ -132,6 +139,7 @@ impl WorkerGateway for PooledWorkerGateway {
             // Compare runs morphotag on its own inputs, not on the job's files,
             // so there is no file row to report utterance counts against.
             progress: None,
+            cancellation,
         };
         crate::morphosyntax::process_morphosyntax(
             chat_text,
@@ -148,6 +156,7 @@ impl WorkerGateway for PooledWorkerGateway {
         lang: &LanguageCode3,
         options: MorphotagRuntimeOptions,
         progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
+        cancellation: Cancellation<'_>,
     ) -> Result<String, ServerError> {
         let params = MorphosyntaxParams {
             lang,
@@ -158,6 +167,7 @@ impl WorkerGateway for PooledWorkerGateway {
             respect_pos_hints: options.respect_pos_hints,
             review_level: options.review_level,
             progress,
+            cancellation,
         };
         let services = PipelineServices::new(&self.pool, &self.cache, &self.engine_version);
         if let Some(before) = before_text {
@@ -175,6 +185,7 @@ impl WorkerGateway for PooledWorkerGateway {
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
         allow_stanza_fallback: bool,
+        cancellation: Cancellation<'_>,
     ) -> TextBatchFileResults {
         crate::utseg::process_utseg_batch(
             files,
@@ -183,6 +194,7 @@ impl WorkerGateway for PooledWorkerGateway {
             &self.cache,
             &self.engine_version,
             allow_stanza_fallback,
+            cancellation,
         )
         .await
     }
@@ -191,6 +203,7 @@ impl WorkerGateway for PooledWorkerGateway {
         &self,
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
+        cancellation: Cancellation<'_>,
     ) -> TextBatchFileResults {
         crate::translate::process_translate_batch(
             files,
@@ -198,6 +211,7 @@ impl WorkerGateway for PooledWorkerGateway {
             &self.pool,
             &self.cache,
             &self.engine_version,
+            cancellation,
         )
         .await
     }
@@ -206,7 +220,8 @@ impl WorkerGateway for PooledWorkerGateway {
         &self,
         files: &[TextBatchFileInput],
         lang: &LanguageCode3,
+        cancellation: Cancellation<'_>,
     ) -> TextBatchFileResults {
-        crate::coref::process_coref_batch(files, lang, &self.pool).await
+        crate::coref::process_coref_batch(files, lang, &self.pool, cancellation).await
     }
 }

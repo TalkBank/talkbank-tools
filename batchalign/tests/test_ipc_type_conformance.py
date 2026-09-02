@@ -195,3 +195,30 @@ class TestWorkerV2Conformance:
         _assert_fields_match(
             schema, AsrRequestV2, known_extra_python=frozenset({"kind"})
         )
+
+    def test_decode_budget_realtime_factor_matches_rust(self) -> None:
+        """Pin Python's realtime factor to Rust's copy of the same constant.
+
+        The two are hand-written in different languages (see the module
+        docstring: Python V2 models are deliberately hand-written, so there
+        is no codegen seam that would carry a bare numeric constant across
+        the boundary the way a schema field carries a type shape). This
+        test is the conformance check the field's own doc comments on both
+        sides point at; if either constant changes, this fails until the
+        other is updated to match.
+        """
+        from batchalign.inference.languages.cantonese._qwen_chunking import (
+            DEADLINE_REALTIME_FACTOR,
+        )
+
+        # Mirrors `DEADLINE_REALTIME_FACTOR` in
+        # `crates/batchalign-types/src/worker_v2/requests.rs`. Update both
+        # together.
+        rust_deadline_realtime_factor = 12.8
+        assert DEADLINE_REALTIME_FACTOR == rust_deadline_realtime_factor, (
+            "Python's DEADLINE_REALTIME_FACTOR "
+            f"({DEADLINE_REALTIME_FACTOR}) has drifted from Rust's "
+            f"({rust_deadline_realtime_factor}); the two ceilings this "
+            "factor drives (Python's decode budget, Rust's transport "
+            "ceiling) must be computed from the same number."
+        )

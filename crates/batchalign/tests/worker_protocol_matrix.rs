@@ -738,6 +738,7 @@ fn mismatched_execute_request(request_id: &str, task: InferenceTaskV2) -> Execut
                 num_speakers: NumSpeakers(2),
             }),
             extras: std::collections::BTreeMap::new(),
+            decode_budget_seconds: None,
         }),
         attachments: vec![],
     }

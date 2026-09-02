@@ -10,6 +10,13 @@ use crate::text_batch::TextBatchFileResults;
 
 use super::text_io::{load_text_inputs, write_text_results};
 
+/// `batch_fn` closes over `job` (and so `job.cancel_token`) from its
+/// caller's scope rather than receiving a `Cancellation` parameter here:
+/// threading a per-call lifetime-parameterized `Cancellation<'_>` through
+/// an `FnOnce(..) -> Fut` bound runs into the classic higher-ranked async
+/// closure inference wall (the `Fut` associated type cannot vary with an
+/// elided lifetime named only at the call site). Capturing `job` directly
+/// in the closure, as `dispatch_coref_job` does, sidesteps it entirely.
 pub(crate) async fn dispatch_simple_batched_text_job<F, Fut>(
     job: &RunnerJobSnapshot,
     host: &DispatchHostContext,

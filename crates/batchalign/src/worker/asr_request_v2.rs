@@ -16,13 +16,38 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use thiserror::Error;
 
 use crate::api::{NumSpeakers, WorkerLanguage};
+use crate::media::probe::MediaProbe;
 use crate::types::worker_v2::{
-    ArtifactRefV2, AsrBackendV2, AsrInputV2, AsrRequestV2, ExecuteRequestV2, InferenceTaskV2,
-    PreparedAudioInputV2, ProviderMediaInputV2, TaskRequestV2, WorkerArtifactIdV2,
+    ArtifactRefV2, AsrBackendV2, AsrInputV2, AsrRequestV2, DecodeBudgetSeconds, ExecuteRequestV2,
+    InferenceTaskV2, PreparedAudioInputV2, ProviderMediaInputV2, TaskRequestV2, WorkerArtifactIdV2,
     WorkerRequestIdV2,
 };
 
 use super::artifacts_v2::{PreparedArtifactErrorV2, PreparedArtifactStoreV2};
+
+/// Derive a request's decode budget from a media file's probed duration.
+///
+/// `None` when the duration could not be probed (ffprobe missing, refused
+/// the file, or could not be started): this is the honest "unknown to
+/// Rust" case, not a fabricated budget, and callers fall back to
+/// [`crate::types::worker_v2::PROVIDER_MEDIA_ASR_TRANSPORT_CEILING_SECONDS`]
+/// for it (see `TaskRequestV2::timeout_seconds_with_config`). A probe
+/// failure never blocks request construction: ASR still runs, it just
+/// gets the generous named fallback ceiling instead of a duration-derived
+/// one.
+async fn probe_decode_budget_seconds(media_path: &Path) -> Option<DecodeBudgetSeconds> {
+    match MediaProbe::new(media_path).duration().await {
+        Ok(duration_ms) => Some(DecodeBudgetSeconds::for_duration_ms(duration_ms.0)),
+        Err(error) => {
+            tracing::debug!(
+                path = %media_path.display(),
+                %error,
+                "could not probe ASR provider-media duration; falling back to the named ceiling",
+            );
+            None
+        }
+    }
+}
 
 /// Stable ids for the prepared artifacts and envelope of one V2 ASR request.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,7 +152,7 @@ pub async fn build_asr_request_v2(
     store: &PreparedArtifactStoreV2,
     input: AsrBuildInputV2<'_>,
 ) -> Result<ExecuteRequestV2, AsrRequestBuildErrorV2> {
-    let (asr_input, attachments) = match input.input {
+    let (asr_input, attachments, decode_budget_seconds) = match input.input {
         AsrInputSourceV2::PreparedAudio { audio_path } => {
             if audio_path.as_os_str().is_empty() {
                 return Err(AsrRequestBuildErrorV2::MissingAudioPath);
@@ -137,11 +162,21 @@ pub async fn build_asr_request_v2(
                 .prepare_audio_file_f32le(&input.ids.audio_ref_id, audio_path)
                 .await?;
 
+            // Born from the very attachment Rust just prepared: the
+            // sanctioned way to derive a decode budget for a PreparedAudio
+            // request, no re-probing needed since the duration is already
+            // known exactly.
+            let decode_budget_seconds = Some(DecodeBudgetSeconds::for_audio(
+                audio_attachment.frame_count,
+                audio_attachment.sample_rate_hz,
+            ));
+
             (
                 AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
                     audio_ref_id: audio_attachment.id.clone(),
                 }),
                 vec![ArtifactRefV2::PreparedAudio(audio_attachment)],
+                decode_budget_seconds,
             )
         }
         AsrInputSourceV2::ProviderMedia {
@@ -152,12 +187,19 @@ pub async fn build_asr_request_v2(
                 return Err(AsrRequestBuildErrorV2::MissingAudioPath);
             }
 
+            // No prepared attachment carries this input's duration (Rust
+            // never decodes provider media locally), so it is probed
+            // directly from the file. `None` on probe failure, never a
+            // fabricated budget; see `probe_decode_budget_seconds`.
+            let decode_budget_seconds = probe_decode_budget_seconds(media_path).await;
+
             (
                 AsrInputV2::ProviderMedia(ProviderMediaInputV2 {
                     media_path: media_path.to_string_lossy().as_ref().into(),
                     num_speakers,
                 }),
                 Vec::new(),
+                decode_budget_seconds,
             )
         }
     };
@@ -170,6 +212,7 @@ pub async fn build_asr_request_v2(
             backend: input.backend,
             input: asr_input,
             extras: input.extras.clone(),
+            decode_budget_seconds,
         }),
         attachments,
     })

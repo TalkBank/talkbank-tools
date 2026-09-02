@@ -10,6 +10,7 @@ use crate::runner::DispatchHostContext;
 use crate::scheduling::{FailureCategory, WorkUnitKind};
 use crate::worker::pool::WorkerPool;
 use async_trait::async_trait;
+use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
 use crate::store::{RunnerJobSnapshot, unix_now};
@@ -17,7 +18,7 @@ use crate::transcribe::TranscribeOptions;
 
 use super::super::util::{
     FileRunTracker, FileStage, FileTaskOutcome, RunnerEventSink, drain_supervised_file_tasks,
-    spawn_supervised_file_task,
+    record_file_cancelled_before_dispatch, spawn_supervised_file_task,
 };
 use super::TranscribeDispatchPlan;
 use super::asr_media::{
@@ -40,6 +41,49 @@ pub(crate) struct TranscribeDispatchRuntime {
     pub engine_version: EngineVersion,
     /// Maximum number of file tasks to run concurrently for this job.
     pub num_workers: NumWorkers,
+}
+
+/// Outcome of waiting for one file's dispatch slot on the per-job
+/// file-parallelism semaphore.
+///
+/// Named apart from a bare `Result<OwnedSemaphorePermit, _>` because there
+/// are two distinct reasons the wait can end without a permit
+/// (cancellation, a closed semaphore) and callers must react differently to
+/// each: a cancellation means the remaining files get an explicit typed
+/// `Cancelled` outcome recorded (see `record_file_cancelled_before_dispatch`),
+/// a closed semaphore is an unrelated shutdown condition that is only
+/// logged.
+enum DispatchSlot {
+    /// A dispatch slot was acquired; the file may proceed.
+    Acquired(tokio::sync::OwnedSemaphorePermit),
+    /// The job's cancellation token fired before a slot was acquired.
+    Cancelled,
+    /// The semaphore was closed (all senders dropped) before a slot was
+    /// acquired.
+    SemaphoreClosed,
+}
+
+/// Wait for one file's dispatch slot, racing the semaphore acquire against
+/// the job's cancellation token.
+///
+/// A plain `.await` on the semaphore alone cannot observe a cancellation
+/// while it is pending: the wait can block arbitrarily long (every slot
+/// busy on a long-running file), so a cancellation issued during that wait
+/// would otherwise be invisible until the semaphore finally admits the
+/// waiter. Racing the two futures means a cancellation observed mid-wait
+/// takes effect immediately.
+async fn acquire_dispatch_slot(
+    file_sem: &Arc<tokio::sync::Semaphore>,
+    cancel_token: &CancellationToken,
+) -> DispatchSlot {
+    tokio::select! {
+        biased;
+        () = cancel_token.cancelled() => DispatchSlot::Cancelled,
+        acquired = file_sem.clone().acquire_owned() => match acquired {
+            Ok(permit) => DispatchSlot::Acquired(permit),
+            Err(_) => DispatchSlot::SemaphoreClosed,
+        },
+    }
 }
 
 /// Dispatch transcribe via the server-side infer path.
@@ -69,15 +113,36 @@ pub(crate) async fn dispatch_transcribe_infer(
     let file_sem = Arc::new(tokio::sync::Semaphore::new(file_parallelism));
     let mut tasks = Vec::new();
 
-    for file in &job.pending_files {
-        // Check cancellation before spawning
-        if job.cancel_token.is_cancelled() {
-            break;
-        }
-
-        let Ok(permit) = file_sem.clone().acquire_owned().await else {
-            tracing::warn!("file semaphore closed during shutdown");
-            break;
+    let mut pending_iter = job.pending_files.iter();
+    while let Some(file) = pending_iter.next() {
+        // The wait for a dispatch slot can block arbitrarily long (every
+        // slot busy on a long-running file); a plain `.await` on the
+        // semaphore alone means a cancellation issued during that wait is
+        // invisible until the waiting file finally acquires a permit and
+        // starts anyway. `acquire_dispatch_slot` races the acquire against
+        // the cancellation token so a cancellation observed HERE, mid-wait,
+        // takes effect immediately instead of after one more file gets
+        // dispatched.
+        let permit = match acquire_dispatch_slot(&file_sem, &job.cancel_token).await {
+            DispatchSlot::Acquired(permit) => permit,
+            DispatchSlot::Cancelled => {
+                // Every file still waiting, including this one, is
+                // recorded as cancelled rather than silently dropped from
+                // the run: see `record_file_cancelled_before_dispatch`.
+                for skipped in std::iter::once(file).chain(pending_iter.clone()) {
+                    record_file_cancelled_before_dispatch(
+                        sink.as_ref(),
+                        job_id,
+                        skipped.filename.as_ref(),
+                    )
+                    .await;
+                }
+                break;
+            }
+            DispatchSlot::SemaphoreClosed => {
+                tracing::warn!("file semaphore closed during shutdown");
+                break;
+            }
         };
         let sink = sink.clone();
         let pool = runtime.pool.clone();
@@ -477,5 +542,52 @@ mod tests {
             Some("interview"),
             "CHAT @Media should preserve the original media basename after conversion"
         );
+    }
+
+    /// A cancellation that arrives while a file is genuinely blocked
+    /// waiting for a dispatch slot (zero permits available) must win the
+    /// race and be reported, not leave the waiter hanging or silently let
+    /// it through.
+    #[tokio::test]
+    async fn acquire_dispatch_slot_reports_cancellation_during_the_wait() {
+        let file_sem = Arc::new(tokio::sync::Semaphore::new(0));
+        let cancel_token = CancellationToken::new();
+
+        let waiting_sem = file_sem.clone();
+        let waiting_token = cancel_token.clone();
+        let handle =
+            tokio::spawn(async move { acquire_dispatch_slot(&waiting_sem, &waiting_token).await });
+
+        // Hand control to the scheduler so the spawned task actually
+        // reaches its pending point (blocked on both the empty semaphore
+        // and the not-yet-cancelled token) before cancellation fires.
+        // Without this, the cancellation could race ahead of the task
+        // ever being polled, which would prove nothing about the WAIT
+        // being interrupted.
+        tokio::task::yield_now().await;
+        assert!(
+            !handle.is_finished(),
+            "the task must still be genuinely waiting on the semaphore before cancellation"
+        );
+
+        cancel_token.cancel();
+
+        let outcome = handle.await.expect("task should not panic");
+        assert!(
+            matches!(outcome, DispatchSlot::Cancelled),
+            "a cancellation observed mid-wait must be reported as Cancelled, not silently \
+             dropped or treated as an acquired slot"
+        );
+    }
+
+    /// The ordinary, uncancelled path: a slot becomes available and is
+    /// reported as acquired.
+    #[tokio::test]
+    async fn acquire_dispatch_slot_reports_acquired_when_a_permit_is_free() {
+        let file_sem = Arc::new(tokio::sync::Semaphore::new(1));
+        let cancel_token = CancellationToken::new();
+
+        let outcome = acquire_dispatch_slot(&file_sem, &cancel_token).await;
+        assert!(matches!(outcome, DispatchSlot::Acquired(_)));
     }
 }

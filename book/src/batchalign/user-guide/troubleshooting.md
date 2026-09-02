@@ -1,7 +1,7 @@
 # Troubleshooting
 
 **Status:** Current
-**Last updated:** 2026-05-02 02:00 EDT
+**Last updated:** 2026-09-02 07:45 EDT
 
 ## Start with verbose output
 
@@ -69,6 +69,28 @@ batchalign3 serve stop
 rm -f ~/.batchalign3/daemon.json
 batchalign3 morphotag corpus/ -o output/
 ```
+
+### `warning: port <N> is already in use by ...`
+
+**Symptom:** the auto-daemon path refuses to start with a message naming
+the configured port and, when it could identify one, the process holding
+it (`process <pid> (<name>)`), instead of spawning a daemon that would
+have failed with "Address already in use".
+
+**Cause:** before spawning, the CLI probes the configured fixed port
+(`crates/batchalign/src/cli/daemon.rs::probe_fixed_port`): a single bind
+attempt, never a retry loop. If the bind fails, it sends one short
+`/health` request. A batchalign3 daemon that answers is adopted instead of
+spawning a competing process (`... daemon already running on port <N>
+(<build>); reusing it.`); anything else (a foreign service, or a
+batchalign3 process that is alive but not answering `/health`) gets this
+refusal rather than a spawn attempt that is guaranteed to fail the same
+way every time.
+
+**Remediation.** Free the named port, or configure a different one in
+`server.yaml` (`port: <N>`). If the message names a process, `kill` it
+(or investigate why it is holding a port batchalign3 expects to own) before
+retrying.
 
 ## Cache looks stale
 

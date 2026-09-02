@@ -786,6 +786,12 @@ async fn process_asr_with_prechat_segmentation(
         &items,
         ctx.opts.allow_stanza_fallback_utseg,
         pre_chat_policy,
+        // `TranscribePipelineContext` has no job cancellation token wired
+        // yet (see `stage_run_morphosyntax`'s identical note); genuinely
+        // NotWired rather than a fabricated stand-in.
+        crate::infer_retry::Cancellation::NotWired {
+            reason: "TranscribePipelineContext has no job cancellation token wired yet",
+        },
     )
     .await?;
     let split_chunks = apply_prechat_assignments(&prepared_chunks, &predictions);
@@ -1161,6 +1167,9 @@ fn stage_run_utseg<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
                 decision_policy: post_chat_policy,
                 evidence_filename: evidence_filename.as_ref(),
                 evidence_sink: &ctx.utseg_evidence_sink,
+                cancellation: crate::infer_retry::Cancellation::NotWired {
+                    reason: "TranscribePipelineContext has no job cancellation token wired yet",
+                },
             },
         )
         .await?;
@@ -1197,6 +1206,16 @@ fn stage_run_morphosyntax<'a, 'ctx>(
             review_level: crate::chat_ops::fa::ReviewLevel::None,
             // No job-level reporter on this path: see the field doc.
             progress: None,
+            // `TranscribePipelineContext` does not carry the job's
+            // cancellation token yet (see `process_one_transcribe_file`,
+            // which has one, and the several wrapper layers between it and
+            // here that would need a new field each); genuinely NotWired
+            // rather than a fabricated stand-in. Follow-up: thread a real
+            // token through `TranscribePipelineContext` the same way
+            // `services`/`opts` are threaded.
+            cancellation: crate::infer_retry::Cancellation::NotWired {
+                reason: "TranscribePipelineContext has no job cancellation token wired yet",
+            },
         };
         ctx.chat_text = Some(
             crate::morphosyntax::process_morphosyntax(input, ctx.services, &mor_params).await?,

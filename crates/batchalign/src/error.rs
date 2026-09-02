@@ -329,6 +329,19 @@ pub enum ServerError {
     /// nothing about batchalign was broken.
     #[error("model access required: {0}")]
     ModelAccessDenied(String),
+
+    /// A worker-protocol V2 retry loop
+    /// ([`crate::infer_retry::dispatch_execute_v2_with_retry_and_progress`])
+    /// observed job cancellation before returning a definite outcome.
+    ///
+    /// **Internal signal, not expected to reach HTTP**: this dispatch path
+    /// runs from background job execution, not a request handler. Distinct
+    /// from [`Worker`](Self::Worker): a cancellation is a deliberate stop,
+    /// never a transient engine failure, and must never be classified by
+    /// [`crate::runner::util::classify_worker_error`]'s retry logic, the
+    /// same logic that a stop needs to interrupt.
+    #[error("execute_v2 retry cancelled by job cancellation")]
+    Cancelled,
 }
 
 #[cfg(feature = "server")]
@@ -362,6 +375,9 @@ impl ServerError {
             // The server's own machine lacks Hub access/credentials; the
             // caller's request was fine.
             Self::ModelAccessDenied(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            // Internal cancellation signal from a background retry loop;
+            // never returned as an HTTP response (see the variant's doc).
+            Self::Cancelled => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

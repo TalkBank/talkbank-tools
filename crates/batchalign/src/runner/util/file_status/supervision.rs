@@ -169,6 +169,48 @@ pub(crate) async fn force_terminal_file_states(
 }
 
 // ---------------------------------------------------------------------------
+// record_file_cancelled_before_dispatch: never-started files on cancellation
+// ---------------------------------------------------------------------------
+
+/// Record a file's dispatch as cancelled before its task was ever spawned.
+///
+/// A cancellation observed while a file is still waiting for a dispatch slot
+/// (the per-job file-parallelism semaphore) must not leave the file silently
+/// absent from the run's accounting: this gives it the same typed
+/// `Cancelled` outcome a task that started and was then cancelled gets from
+/// [`record_abnormal_file_task_exit`]'s cancelled branch, so a cancelled
+/// job's file list always accounts for every pending file, not just the
+/// ones whose task actually started.
+pub(crate) async fn record_file_cancelled_before_dispatch(
+    sink: &dyn RunnerEventSink,
+    job_id: &JobId,
+    filename: &str,
+) {
+    let finished_at = unix_now();
+    let message = "dispatch cancelled before this file's task was ever started".to_owned();
+
+    sink.finish_file_attempt(
+        job_id,
+        filename,
+        AttemptOutcome::Cancelled,
+        Some(FailureCategory::Cancelled),
+        RetryDisposition::TerminalFailure,
+        finished_at,
+    )
+    .await;
+
+    set_file_error(
+        sink,
+        job_id,
+        filename,
+        &message,
+        FailureCategory::Cancelled,
+        finished_at,
+    )
+    .await;
+}
+
+// ---------------------------------------------------------------------------
 // record_abnormal_file_task_exit: internal helper
 // ---------------------------------------------------------------------------
 

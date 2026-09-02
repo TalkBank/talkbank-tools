@@ -77,6 +77,14 @@ struct NamedStructInfo {
 /// picks it up does not have to re-derive it.
 const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
+        path: "crates/batchalign/src/worker/handle/mod.rs",
+        struct_name: "WorkerHandle",
+        max_fields: 10,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::RealAggregate,
+        reason: "one live child process: its config, handle, pid, runtime identity, the two pipes, the activity clock, the loaded-task set, and the request-flight state the checkout's Drop decides from; the tenth field is that state, added so a cancelled attempt's worker is discarded rather than requeued",
+    },
+    WideStructAllowance {
         path: "crates/batchalign-transform/src/morphosyntax/ud_types.rs",
         struct_name: "UdWord",
         max_fields: 10,

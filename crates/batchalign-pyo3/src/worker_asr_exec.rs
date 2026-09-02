@@ -188,6 +188,18 @@ fn build_provider_media_item<'py>(
     kwargs
         .set_item("num_speakers", provider_input.num_speakers.0)
         .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
+    // Forward the request's own decode budget verbatim: `None` when Rust
+    // could not derive one (see `AsrRequestV2::decode_budget_seconds`),
+    // never a fabricated value. The native Qwen3-ASR engine is the only
+    // consumer today; other providers ignore the extra kwarg.
+    kwargs
+        .set_item(
+            "decode_budget_seconds",
+            asr_request
+                .decode_budget_seconds
+                .map(|budget| budget.as_seconds()),
+        )
+        .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
     asr_batch_item
         .call((), Some(&kwargs))
         .map_err(|error| ExecuteFailure::Runtime(error.to_string()))

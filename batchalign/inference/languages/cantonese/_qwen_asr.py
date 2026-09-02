@@ -213,7 +213,9 @@ def _transcribe_to_monologues(item: AsrBatchItem) -> MonologueAsrResponse:
     if _recognizer is None:
         raise RuntimeError("Qwen3-ASR recognizer not initialized")
 
-    payload, _timed_words = _recognizer.transcribe(item.audio_path)
+    payload, _timed_words = _recognizer.transcribe(
+        item.audio_path, decode_budget_seconds=item.decode_budget_seconds
+    )
 
     return MonologueAsrResponse(
         lang=item.lang,

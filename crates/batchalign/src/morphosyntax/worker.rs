@@ -7,7 +7,7 @@ use crate::chat_ops::morphosyntax_ops::{BatchItemWithPosition, MwtDict};
 use crate::chat_ops::nlp::UdResponse;
 use crate::error::ServerError;
 use crate::execution::morphotag::progress::BackendProgressPort;
-use crate::infer_retry::dispatch_execute_v2_with_retry_and_progress;
+use crate::infer_retry::{Cancellation, dispatch_execute_v2_with_retry_and_progress};
 use crate::runner::util::batch_progress::BatchChunkIndex;
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::pool::WorkerPool;
@@ -69,8 +69,10 @@ pub(crate) async fn infer_batch(
     mwt: &MwtDict,
     retokenize: bool,
     progress: Option<&BackendProgressPort>,
+    cancellation: Cancellation<'_>,
 ) -> Result<Vec<UdResponse>, ServerError> {
-    let item_results = infer_batch_per_item(pool, items, lang, mwt, retokenize, progress).await?;
+    let item_results =
+        infer_batch_per_item(pool, items, lang, mwt, retokenize, progress, cancellation).await?;
     crate::text_batch::unwrap_per_item_results("morphotag", item_results)
         .map_err(|err| ServerError::Validation(err.to_string()))
 }
@@ -90,6 +92,7 @@ pub(crate) async fn infer_batch_per_item(
     mwt: &MwtDict,
     retokenize: bool,
     progress: Option<&BackendProgressPort>,
+    cancellation: Cancellation<'_>,
 ) -> Result<Vec<Result<UdResponse, String>>, ServerError> {
     if items.is_empty() {
         return Ok(Vec::new());
@@ -106,7 +109,8 @@ pub(crate) async fn infer_batch_per_item(
     if !needs_grouping {
         // Single homogeneous supported group matching the caller's
         // fallback lang: the simple fast path.
-        return infer_batch_homogeneous(pool, items, lang, mwt, retokenize, progress).await;
+        return infer_batch_homogeneous(pool, items, lang, mwt, retokenize, progress, cancellation)
+            .await;
     }
 
     info!(
@@ -144,9 +148,16 @@ pub(crate) async fn infer_batch_per_item(
             .iter()
             .map(|&idx| items[idx].clone())
             .collect();
-        let responses =
-            infer_batch_homogeneous(pool, &group_items, &group.lang, mwt, retokenize, progress)
-                .await?;
+        let responses = infer_batch_homogeneous(
+            pool,
+            &group_items,
+            &group.lang,
+            mwt,
+            retokenize,
+            progress,
+            cancellation,
+        )
+        .await?;
         for (original_idx, response) in group.indices.into_iter().zip(responses) {
             merged[original_idx] = Some(response);
         }
@@ -205,6 +216,7 @@ async fn infer_batch_homogeneous(
     mwt: &MwtDict,
     retokenize: bool,
     progress: Option<&BackendProgressPort>,
+    cancellation: Cancellation<'_>,
 ) -> Result<Vec<Result<UdResponse, String>>, ServerError> {
     // Progress reporting for this batch.
     //
@@ -240,7 +252,16 @@ async fn infer_batch_homogeneous(
 
     if num_chunks <= 1 {
         let bridge = ChunkProgressBridge::install(progress, lang, BatchChunkIndex(0));
-        let result = infer_batch_single(pool, items, lang, mwt, retokenize, bridge.sender()).await;
+        let result = infer_batch_single(
+            pool,
+            items,
+            lang,
+            mwt,
+            retokenize,
+            bridge.sender(),
+            cancellation,
+        )
+        .await;
         bridge.close().await;
         return result;
     }
@@ -265,8 +286,16 @@ async fn infer_batch_homogeneous(
                 lang,
                 BatchChunkIndex(u32::try_from(index).unwrap_or(u32::MAX)),
             );
-            let result =
-                infer_batch_single(pool, chunk, lang, mwt, retokenize, bridge.sender()).await;
+            let result = infer_batch_single(
+                pool,
+                chunk,
+                lang,
+                mwt,
+                retokenize,
+                bridge.sender(),
+                cancellation,
+            )
+            .await;
             bridge.close().await;
             result
         })
@@ -347,6 +376,7 @@ async fn infer_batch_single(
     mwt: &MwtDict,
     retokenize: bool,
     progress_tx: Option<&tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
+    cancellation: Cancellation<'_>,
 ) -> Result<Vec<Result<UdResponse, String>>, ServerError> {
     let payload_items: Vec<_> = items.iter().map(|(_, _, item, _)| item.clone()).collect();
 
@@ -376,8 +406,14 @@ async fn infer_batch_single(
         "Dispatching morphosyntax execute_v2 batch"
     );
 
-    let response =
-        dispatch_execute_v2_with_retry_and_progress(pool, lang, &request, progress_tx).await?;
+    let response = dispatch_execute_v2_with_retry_and_progress(
+        pool,
+        lang,
+        &request,
+        progress_tx,
+        cancellation,
+    )
+    .await?;
     let result = parse_morphosyntax_result_v2(&response).map_err(|error| {
         ServerError::Validation(format!("invalid morphosyntax V2 result: {error}"))
     })?;

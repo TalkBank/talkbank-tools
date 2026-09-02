@@ -77,6 +77,148 @@ numeric_id!(
     pub ByteLengthV2(u64) [Eq]
 );
 
+/// Wall-clock decode budget for one ASR request, in seconds.
+///
+/// Named apart from a bare `DurationSeconds` because this quantity
+/// carries a specific provenance contract: it is derived once, at
+/// request-build time, from the audio's own duration and
+/// [`DEADLINE_REALTIME_FACTOR`], and it is the value both the Python
+/// decode loop (`_qwen_chunking.DecodeBudget`) and the Rust transport
+/// ceiling (`TaskRequestV2::timeout_seconds_with_config`) are computed
+/// FROM. A generic duration carries no such contract, so reusing one
+/// here would let a caller pass an unrelated seconds value where this
+/// one is required.
+///
+/// HAND-WRITTEN rather than built with `numeric_id!`: that macro gives its
+/// type a PUBLIC inner field plus `From<f64>` and `Default` (a zero budget
+/// any caller could construct from nothing), which would make the "only
+/// sanctioned constructor" claim on [`Self::for_audio`] false -- a
+/// `DecodeBudgetSeconds(1.0)` or `DecodeBudgetSeconds::default()` written
+/// anywhere in the crate would compile and produce a budget with no
+/// audio duration behind it. The field here is private; [`Self::for_audio`]
+/// and [`Self::for_duration_ms`] are the only ways to construct one, and
+/// [`Self::as_seconds`] is the only way to read one back out.
+///
+/// The tuple constructor is unreachable from outside this module (proved
+/// by the compile_fail doctest below); `Default` and `From<f64>` are
+/// proved absent crate-wide by a `static_assertions::assert_not_impl_any!`
+/// beneath this type, which runs on every `cargo test --lib`.
+///
+/// ```compile_fail
+/// use batchalign_types::worker_v2::DecodeBudgetSeconds;
+/// // The inner field is private: this must not compile from outside
+/// // `batchalign_types::worker_v2::requests`.
+/// let _ = DecodeBudgetSeconds(1.0);
+/// ```
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    PartialOrd,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(transparent)]
+pub struct DecodeBudgetSeconds(f64);
+
+// Compile-time proof, checked on every `cargo test`/`cargo check --tests`
+// (dev-dependency, so `#[cfg(test)]`; the plain `cargo build`/library path
+// does not compile this crate's dev-dependencies at all): neither
+// `Default` nor `From<f64>` exists for this type. Either would let a
+// caller fabricate a budget with no audio duration behind it -- `Default`
+// a silent zero, `From<f64>` an arbitrary one -- exactly the hole
+// `numeric_id!` used to leave open. If either is ever (re)implemented,
+// this line stops compiling, immediately, the next time anyone runs
+// `cargo test -p batchalign-types --lib` (already one of this crate's
+// standing gates, not a separate harness to remember).
+#[cfg(test)]
+static_assertions::assert_not_impl_any!(DecodeBudgetSeconds: Default, From<f64>);
+
+/// Wall-clock decode-budget seconds per second of audio.
+///
+/// Must equal Python's `DEADLINE_REALTIME_FACTOR` in
+/// `batchalign/inference/languages/cantonese/_qwen_chunking.py`
+/// (`_MEASURED_REALTIME_FACTOR * _REALTIME_FACTOR_SAFETY_MARGIN` there).
+/// The two definitions are pinned together by a conformance test in
+/// `batchalign/tests/test_ipc_type_conformance.py`
+/// (`test_decode_budget_realtime_factor_matches_rust`) rather than by a
+/// single generated source: the Python V2 models are deliberately
+/// hand-written (see `scripts/generate_ipc_types.sh`), so there is no
+/// existing codegen seam that would carry a bare numeric constant across
+/// the language boundary. Update both together.
+pub const DEADLINE_REALTIME_FACTOR: f64 = 12.8;
+
+/// Seconds added atop a request's own decode budget when deriving the
+/// worker-transport read timeout.
+///
+/// The decode budget alone bounds only the model's own decode loop; the
+/// transport ceiling additionally has to cover audio load, alignment
+/// postprocessing, and IPC framing around that loop, so it must always be
+/// strictly larger than the budget it was computed from.
+pub const TRANSPORT_CEILING_MARGIN_SECONDS: u64 = 300;
+
+/// Transport ceiling used for an ASR request whose audio duration is not
+/// knowable to Rust before dispatch (a provider-media request whose file
+/// could not be probed).
+///
+/// Generous on purpose, the same posture the flat 1800s ceiling this
+/// replaces used to take for every request: this is a fallback for the
+/// case where [`DecodeBudgetSeconds`] genuinely cannot be derived, not a
+/// normal-case value, so it errs toward "wait longer" rather than toward a
+/// tight number a real long file could exceed.
+pub const PROVIDER_MEDIA_ASR_TRANSPORT_CEILING_SECONDS: u64 = 3600;
+
+impl DecodeBudgetSeconds {
+    /// Derive a request's decode budget from a prepared audio artifact's
+    /// own duration.
+    ///
+    /// The only sanctioned constructor: every caller with a known audio
+    /// duration goes through this so the budget and the realtime factor it
+    /// was computed from can never drift apart at different call sites. A
+    /// zero sample rate (never a real artifact, but not excluded by
+    /// [`SampleRateHzV2`]'s own type) yields a zero budget rather than
+    /// dividing by zero.
+    pub fn for_audio(frame_count: FrameCountV2, sample_rate_hz: SampleRateHzV2) -> Self {
+        let audio_seconds = if sample_rate_hz.0 == 0 {
+            0.0
+        } else {
+            frame_count.0 as f64 / f64::from(sample_rate_hz.0)
+        };
+        Self(audio_seconds * DEADLINE_REALTIME_FACTOR)
+    }
+
+    /// Derive a request's decode budget from a probed duration in
+    /// milliseconds (the shape [`crate::api::DurationMs`]-probing call
+    /// sites already have).
+    pub fn for_duration_ms(duration_ms: u64) -> Self {
+        Self((duration_ms as f64 / 1000.0) * DEADLINE_REALTIME_FACTOR)
+    }
+
+    /// The transport read-timeout ceiling for a request carrying this
+    /// budget: the budget itself plus the named margin, rounded up to the
+    /// next whole second so the transport is never shorter than the
+    /// fractional-second budget it was computed from.
+    pub fn transport_ceiling_seconds(self) -> u64 {
+        let budget_seconds = self.as_seconds().max(0.0).ceil() as u64;
+        budget_seconds.saturating_add(TRANSPORT_CEILING_MARGIN_SECONDS)
+    }
+
+    /// The budget's raw seconds value.
+    ///
+    /// The only sanctioned way to read a budget back out: needed by
+    /// `transport_ceiling_seconds` above and by the PyO3 bridge
+    /// (`batchalign-pyo3::worker_asr_exec`), which forwards this number
+    /// to Python's `AsrBatchItem.decode_budget_seconds` verbatim. A read
+    /// accessor does not reopen the construction hole the private field
+    /// closes: it cannot manufacture a budget, only report one that was
+    /// already built by `for_audio` or `for_duration_ms`.
+    pub fn as_seconds(self) -> f64 {
+        self.0
+    }
+}
+
 /// Worker role selected during the protocol handshake.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -450,7 +592,10 @@ pub enum AsrInputV2 {
 }
 
 /// V2 ASR request payload.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+///
+/// No `Eq`: `decode_budget_seconds` is derived from a floating-point audio
+/// duration, and `f64` cannot support a total-equality contract (NaN != NaN).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 pub struct AsrRequestV2 {
     /// Worker-runtime language hint for the transcript.
     ///
@@ -480,6 +625,21 @@ pub struct AsrRequestV2 {
         skip_serializing_if = "std::collections::BTreeMap::is_empty"
     )]
     pub extras: std::collections::BTreeMap<String, String>,
+    /// The request's own wall-clock decode budget, derived once at
+    /// request-build time from the audio's duration and
+    /// [`DEADLINE_REALTIME_FACTOR`].
+    ///
+    /// `None` means the audio duration was not knowable to Rust before
+    /// dispatch (see the request builder in
+    /// `batchalign::worker::asr_request_v2`), never "no budget applies";
+    /// the transport ceiling falls back to
+    /// [`PROVIDER_MEDIA_ASR_TRANSPORT_CEILING_SECONDS`] in that case. When
+    /// present, this is also the value Python's native Qwen3-ASR decode
+    /// loop uses in place of re-deriving its own budget from the file it
+    /// is given (`_qwen_chunking.DecodeBudget`), so the two ceilings are
+    /// computed from one duration instead of drifting apart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decode_budget_seconds: Option<DecodeBudgetSeconds>,
 }
 
 /// Deserialize an optional string map where JSON `null` means "empty".
@@ -624,7 +784,10 @@ pub enum SpeakerInputV2 {
 }
 
 /// Typed execute payload carried by one V2 request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+///
+/// No `Eq`: the `Asr` variant carries a floating-point decode budget (see
+/// `AsrRequestV2`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TaskRequestV2 {
     /// Automatic speech recognition request.
@@ -720,10 +883,25 @@ impl TaskRequestV2 {
             Self::Utseg(request) => batched_text_timeout_seconds(request.item_count),
             Self::Translate(request) => batched_text_timeout_seconds(request.item_count),
             Self::Coref(request) => batched_text_timeout_seconds(request.item_count),
-            // Audio-based tasks can process files of arbitrary length.
-            // A 30-minute recording can take 5+ minutes for Whisper inference;
-            // a 2-hour file can take 20+ minutes.  Use a generous ceiling.
-            Self::Asr(_) | Self::ForcedAlignment(_) | Self::Speaker(_) => {
+            // The ASR request carries its own decode budget, derived from
+            // the audio's actual duration (see `DecodeBudgetSeconds`), so
+            // its transport ceiling scales with the file rather than using
+            // one flat number for a 30s clip and a 2-hour recording alike.
+            // `audio_timeout_s` remains available as an operator override,
+            // but it can only RAISE the ceiling above what the request's
+            // own budget needs, never lower it below.
+            Self::Asr(request) => {
+                let derived = match request.decode_budget_seconds {
+                    Some(budget) => budget.transport_ceiling_seconds(),
+                    None => PROVIDER_MEDIA_ASR_TRANSPORT_CEILING_SECONDS,
+                };
+                derived.max(audio_timeout_s)
+            }
+            // Forced alignment and speaker diarization do not yet carry a
+            // request-level duration the way ASR now does. A generous flat
+            // ceiling remains here as their transport bound; scoped out of
+            // the ASR decode-budget change (2026-09-02).
+            Self::ForcedAlignment(_) | Self::Speaker(_) => {
                 if audio_timeout_s > 0 {
                     audio_timeout_s
                 } else {
@@ -808,5 +986,110 @@ mod tests {
             "retokenize must default to false for backward compat"
         );
         Ok(())
+    }
+
+    fn asr_request(decode_budget_seconds: Option<DecodeBudgetSeconds>) -> AsrRequestV2 {
+        AsrRequestV2 {
+            lang: crate::api::WorkerLanguage::from(LanguageCode3::eng()),
+            backend: AsrBackendV2::LocalWhisper,
+            input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
+                audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
+            }),
+            extras: std::collections::BTreeMap::new(),
+            decode_budget_seconds,
+        }
+    }
+
+    #[test]
+    fn asr_ceiling_scales_with_decode_budget_not_a_flat_1800() {
+        let short = asr_request(Some(DecodeBudgetSeconds::for_audio(
+            FrameCountV2(30 * 16_000),
+            SampleRateHzV2(16_000),
+        )));
+        let long = asr_request(Some(DecodeBudgetSeconds::for_audio(
+            FrameCountV2(900 * 16_000),
+            SampleRateHzV2(16_000),
+        )));
+        let short_ceiling = TaskRequestV2::Asr(short).timeout_seconds_with_config(0, 0);
+        let long_ceiling = TaskRequestV2::Asr(long).timeout_seconds_with_config(0, 0);
+        assert!(
+            short_ceiling < long_ceiling,
+            "a 30s file's ceiling ({short_ceiling}) must be below a 900s file's ({long_ceiling})"
+        );
+        assert_ne!(
+            short_ceiling, 1800,
+            "the flat 1800 ceiling must be gone for a request with a known decode budget"
+        );
+        assert_ne!(
+            long_ceiling, 1800,
+            "the flat 1800 ceiling must be gone for a request with a known decode budget"
+        );
+    }
+
+    #[test]
+    fn asr_ceiling_never_below_the_sent_budget() {
+        let request = asr_request(Some(DecodeBudgetSeconds::for_audio(
+            FrameCountV2(400 * 16_000),
+            SampleRateHzV2(16_000),
+        )));
+        let sent_budget = request.decode_budget_seconds.expect("budget set above");
+        let ceiling = TaskRequestV2::Asr(request).timeout_seconds_with_config(0, 0);
+        assert!(
+            (ceiling as f64) >= sent_budget.as_seconds(),
+            "transport ceiling ({ceiling}) must never be shorter than the decode budget it sent ({})",
+            sent_budget.as_seconds()
+        );
+    }
+
+    #[test]
+    fn asr_ceiling_falls_back_to_named_constant_when_budget_unknown() {
+        let request = asr_request(None);
+        let ceiling = TaskRequestV2::Asr(request).timeout_seconds_with_config(0, 0);
+        assert_eq!(ceiling, PROVIDER_MEDIA_ASR_TRANSPORT_CEILING_SECONDS);
+    }
+
+    #[test]
+    fn asr_operator_override_can_only_raise_the_ceiling() {
+        let request = asr_request(Some(DecodeBudgetSeconds::for_audio(
+            FrameCountV2(30 * 16_000),
+            SampleRateHzV2(16_000),
+        )));
+        let task = TaskRequestV2::Asr(request);
+        let derived = task.timeout_seconds_with_config(0, 0);
+
+        // A tiny override below the derived ceiling must not lower it.
+        let overridden_low = task.timeout_seconds_with_config(1, 0);
+        assert_eq!(
+            overridden_low, derived,
+            "an operator override below the derived ceiling must not shorten it"
+        );
+
+        // A large override must raise the ceiling.
+        let overridden_high = task.timeout_seconds_with_config(derived + 500, 0);
+        assert_eq!(overridden_high, derived + 500);
+    }
+
+    #[test]
+    fn decode_budget_seconds_round_trips_over_json() {
+        let request = asr_request(Some(DecodeBudgetSeconds::for_audio(
+            FrameCountV2(60 * 16_000),
+            SampleRateHzV2(16_000),
+        )));
+        let json = serde_json::to_string(&request).expect("serializes");
+        let round_tripped: AsrRequestV2 = serde_json::from_str(&json).expect("deserializes");
+        assert_eq!(
+            round_tripped.decode_budget_seconds,
+            request.decode_budget_seconds
+        );
+    }
+
+    #[test]
+    fn decode_budget_seconds_absent_from_wire_when_none() {
+        let request = asr_request(None);
+        let json = serde_json::to_string(&request).expect("serializes");
+        assert!(
+            !json.contains("decode_budget_seconds"),
+            "an unknown budget must not be serialized as a fabricated value on the wire"
+        );
     }
 }

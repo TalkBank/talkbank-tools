@@ -686,6 +686,24 @@ async fn detect_manual_server(layout: &RuntimeLayout) -> Result<Option<String>, 
     }
 }
 
+/// Whether a reported build hash proves the daemon that reported it is
+/// running the SAME build as this CLI invocation.
+///
+/// The single owner of this comparison: [`check_manual_server_staleness`]
+/// (the manual-server path) and [`probe_fixed_port`]'s adoption decision
+/// (the auto-daemon path) both call this rather than each spelling out
+/// `!reported.is_empty() && reported == crate::cli::build_hash()`
+/// independently, which is how the auto-daemon path came to skip the
+/// comparison entirely.
+///
+/// The empty string ("unknown", a pre-build-hash daemon, or a health check
+/// that could not be parsed strictly) can never prove a match: absence of
+/// evidence is not evidence of a match, and a caller that treated it as
+/// one would adopt a daemon it cannot actually vouch for.
+fn build_hash_matches_ours(reported: &str) -> bool {
+    !reported.is_empty() && reported == crate::cli::build_hash()
+}
+
 /// Best-effort check: warn if a manual server's build hash differs from ours.
 async fn check_manual_server_staleness(port: u16) {
     let Ok(client) = BatchalignClient::new() else {
@@ -695,7 +713,7 @@ async fn check_manual_server_staleness(port: u16) {
         .health_check(&format!("http://127.0.0.1:{port}"))
         .await
         && !health.build_hash.is_empty()
-        && health.build_hash != crate::cli::build_hash()
+        && !build_hash_matches_ours(&health.build_hash)
     {
         eprintln!(
             "warning: manual server on port {port} has a different build ({}). \
@@ -703,6 +721,164 @@ async fn check_manual_server_staleness(port: u16) {
             health.build_hash,
         );
     }
+}
+
+/// What a probe of the daemon's configured fixed port found, immediately
+/// before a spawn attempt.
+///
+/// There are four facts a caller must react to differently, so a bare
+/// `bool` (or a bind `Result` alone) is the wrong type here: whether the
+/// port is free (safe to spawn into), already held by a healthy batchalign3
+/// daemon on OUR OWN build (adopt it, never spawn a second one), held by a
+/// batchalign3 daemon on a DIFFERENT build (refuse and say so, exactly the
+/// posture [`check_manual_server_staleness`] already takes for a manually
+/// started server), or held by something else entirely (refuse rather than
+/// spawn into a bind that is guaranteed to fail).
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PortOccupant {
+    /// The port was free at probe time: a bind attempt succeeded and was
+    /// released immediately so the daemon about to be spawned can bind it
+    /// itself.
+    ///
+    /// This still leaves a TOCTOU window between the probe and the actual
+    /// spawn (another process could bind in between); the probe's job is
+    /// to avoid the COMMON case of blindly spawning into a port a healthy
+    /// daemon or an unrelated process already holds, never to make that
+    /// window zero. The spawned child's own bind failure, if the window is
+    /// lost, is still handled where `cmd.spawn()` and the handshake wait
+    /// report their own errors.
+    Free,
+    /// A batchalign3 daemon on OUR OWN build answered a health check on
+    /// the port. Only this variant is safe to adopt: reusing a daemon
+    /// means every subsequent request in this CLI invocation is answered
+    /// by code this binary can vouch for.
+    ExistingDaemon {
+        /// The responding daemon's build identity (`HealthResponse::build_hash`),
+        /// proven equal to `crate::cli::build_hash()` by construction
+        /// (see [`build_hash_matches_ours`]): never empty.
+        build_hash: String,
+    },
+    /// A batchalign3 daemon answered a health check on the port, but its
+    /// build does not match ours (including the empty "unknown" sentinel,
+    /// which cannot prove a match either way). Adopting it silently would
+    /// mean this invocation's requests are served by code this binary did
+    /// not build and cannot vouch for; refuse and name the exact restart
+    /// command, the same posture `check_manual_server_staleness` already
+    /// takes for a manually started server.
+    StaleDaemon {
+        /// The responding daemon's reported build (possibly empty).
+        theirs: String,
+        /// This CLI invocation's own build.
+        ours: String,
+    },
+    /// The port is held by something that did not answer a batchalign3
+    /// health check: a foreign process, or a batchalign3 process that is
+    /// alive but not (yet, or any longer) healthy.
+    Occupied,
+}
+
+/// Probe a fixed port immediately before spawning a daemon on it.
+///
+/// This is a SINGLE bind attempt, deliberately not a retry loop: retrying a
+/// bind against a port a healthy daemon or an unrelated process already
+/// holds cannot succeed no matter how many times it is tried, so the fix
+/// for a failed bind is to stop retrying and branch on what is actually
+/// there, not to try again. This is what closes the incident where a
+/// cancelled/racing dispatch caused eight auto-spawn attempts to fail
+/// identically against the same occupied port.
+///
+/// The follow-up health check is deliberately the SAME short, single-shot
+/// client `startup_health_check` uses (3s request, 1s connect), never
+/// [`BatchalignClient`]: that client's `request_with_retry` exists to
+/// tolerate a slow-starting daemon and retries connect/timeout failures
+/// with backoff, which is exactly the wrong shape for a probe whose whole
+/// point is answering "what is here" in one shot before a spawn decision.
+async fn probe_fixed_port(port: NonZeroU16) -> PortOccupant {
+    match tokio::net::TcpListener::bind(("127.0.0.1", port.get())).await {
+        Ok(listener) => {
+            drop(listener);
+            PortOccupant::Free
+        }
+        Err(_) => match fast_single_shot_health_check(port.get()).await {
+            Some(health) => {
+                if build_hash_matches_ours(&health.build_hash) {
+                    PortOccupant::ExistingDaemon {
+                        build_hash: health.build_hash,
+                    }
+                } else {
+                    PortOccupant::StaleDaemon {
+                        theirs: health.build_hash,
+                        ours: crate::cli::build_hash().to_owned(),
+                    }
+                }
+            }
+            None => PortOccupant::Occupied,
+        },
+    }
+}
+
+/// One-shot, short-timeout `/health` check that parses the full typed
+/// response (unlike [`startup_health_check`], which only needs success/
+/// failure). `None` covers every way this can fail to identify a daemon:
+/// no response, a non-success status, or a body that does not parse as
+/// [`crate::types::response::HealthResponse`] (which is REQUIRED-field
+/// strict specifically so an unrelated service on the port cannot be
+/// misidentified as a batchalign3 daemon).
+async fn fast_single_shot_health_check(
+    port: u16,
+) -> Option<crate::types::response::HealthResponse> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .connect_timeout(Duration::from_secs(1))
+        .build()
+        .ok()?;
+    let response = client
+        .get(format!("http://127.0.0.1:{port}/health"))
+        .send()
+        .await
+        .ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    response.json().await.ok()
+}
+
+/// Best-effort description of whatever holds a port, for an operator-facing
+/// refusal message. `None` when nothing more specific than the port number
+/// itself could be determined (no `lsof`, or it reported nothing usable).
+#[cfg(unix)]
+fn describe_port_holder(port: u16) -> Option<String> {
+    let pid_output = std::process::Command::new("lsof")
+        .args(["-i", &format!("tcp:{port}"), "-sTCP:LISTEN", "-t"])
+        .output()
+        .ok()?;
+    if !pid_output.status.success() {
+        return None;
+    }
+    let pid = String::from_utf8_lossy(&pid_output.stdout)
+        .lines()
+        .next()?
+        .trim()
+        .to_owned();
+    if pid.is_empty() {
+        return None;
+    }
+    let name = std::process::Command::new("ps")
+        .args(["-p", &pid, "-o", "comm="])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        .filter(|name| !name.is_empty());
+    Some(match name {
+        Some(name) => format!("process {pid} ({name})"),
+        None => format!("process {pid}"),
+    })
+}
+
+#[cfg(not(unix))]
+fn describe_port_holder(_port: u16) -> Option<String> {
+    None
 }
 
 /// `flags` carries the raw CLI switches (which control the spawned
@@ -725,6 +901,50 @@ async fn start_daemon(
              Set BATCHALIGN_SIDECAR_PYTHON to a Python with transcribe deps."
         );
         return Ok(None);
+    }
+
+    // A fixed port can already be held by a healthy daemon (a sibling
+    // invocation that won the race to spawn one, or a manually started
+    // server `detect_manual_server` did not catch) or by something
+    // unrelated. An ephemeral request (`port.fixed() == None`) has nothing
+    // to probe: the OS assigns a free port by construction, so there is no
+    // collision to check for.
+    if let Some(fixed_port) = port.fixed() {
+        match probe_fixed_port(fixed_port).await {
+            PortOccupant::Free => {}
+            PortOccupant::ExistingDaemon { build_hash } => {
+                eprintln!(
+                    "{} daemon already running on port {fixed_port} ({build_hash}); reusing it.",
+                    profile.label(),
+                );
+                return Ok(Some(format!("http://127.0.0.1:{fixed_port}")));
+            }
+            PortOccupant::StaleDaemon { theirs, ours } => {
+                let theirs_label = if theirs.is_empty() {
+                    "unknown build".to_owned()
+                } else {
+                    theirs
+                };
+                eprintln!(
+                    "warning: a {} daemon is already running on port {fixed_port}, but on a \
+                     different build ({theirs_label} != {ours}). Refusing to reuse it silently. \
+                     Restart with `batchalign3 serve stop && batchalign3 serve start`.",
+                    profile.label(),
+                );
+                return Ok(None);
+            }
+            PortOccupant::Occupied => {
+                let holder = describe_port_holder(fixed_port.get())
+                    .unwrap_or_else(|| "an unidentified process".to_owned());
+                eprintln!(
+                    "warning: port {fixed_port} is already in use by {holder}, which did not \
+                     answer a batchalign3 health check. Refusing to start the {} daemon there. \
+                     Configure a different port in server.yaml, or free the port and retry.",
+                    profile.label(),
+                );
+                return Ok(None);
+            }
+        }
     }
 
     eprintln!("{}", profile.startup_message());
@@ -1363,6 +1583,134 @@ mod tests {
             "the default must be a fixed port, so the auto-daemon path works \
              with no server.yaml: got {}",
             request.describe()
+        );
+    }
+
+    /// The adversarial case this whole change exists for: a listener is
+    /// already bound on the chosen port (nothing answering `/health`, just
+    /// a raw socket, the same shape a stray or unrelated process would
+    /// present), so a bind attempt is guaranteed to fail. The probe must
+    /// classify this as `Occupied`, never as `Free` (which would let the
+    /// caller spawn straight into the guaranteed-failing bind) and never
+    /// as `ExistingDaemon` (which would wrongly adopt a process that never
+    /// answered a batchalign3 health check, the exact 2026-08-27
+    /// misidentification `HealthResponse`'s strict parsing was built to
+    /// prevent).
+    #[tokio::test]
+    async fn probe_fixed_port_reports_occupied_for_a_bound_non_daemon_listener() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a free port");
+        let port = NonZeroU16::new(listener.local_addr().expect("local addr").port())
+            .expect("OS-assigned port is never 0");
+
+        let outcome = probe_fixed_port(port).await;
+
+        assert_eq!(
+            outcome,
+            PortOccupant::Occupied,
+            "a port held by a listener that never answers /health must be Occupied"
+        );
+        // Keep the listener alive for the whole probe so the test actually
+        // exercises the "bind fails" branch rather than a race where the
+        // listener happened to be dropped first.
+        drop(listener);
+    }
+
+    /// The ordinary case: nothing is listening, so the probe finds the port
+    /// free and releases it immediately (never holding it open itself,
+    /// which would turn the probe into the very collision it exists to
+    /// avoid).
+    #[tokio::test]
+    async fn probe_fixed_port_reports_free_and_releases_the_port() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a free port");
+        let port = NonZeroU16::new(listener.local_addr().expect("local addr").port())
+            .expect("OS-assigned port is never 0");
+        drop(listener);
+
+        let outcome = probe_fixed_port(port).await;
+        assert_eq!(outcome, PortOccupant::Free);
+
+        // The probe must have released the port: binding it again here
+        // must succeed. Proves `Free` did not leak the listener it used
+        // to test the port.
+        let rebound = std::net::TcpListener::bind(("127.0.0.1", port.get()));
+        assert!(
+            rebound.is_ok(),
+            "probe_fixed_port must release the port it found free, not hold it open"
+        );
+    }
+
+    /// Spin up a minimal `/health` responder reporting the given build
+    /// hash, bound to an OS-assigned port. Returns the port and a handle
+    /// the caller must keep alive for the probe's duration (dropping it
+    /// stops the server).
+    async fn spawn_fake_health_server(
+        build_hash: &'static str,
+    ) -> (NonZeroU16, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind fake health server");
+        let port = NonZeroU16::new(listener.local_addr().expect("local addr").port())
+            .expect("OS-assigned port is never 0");
+        let router = axum::Router::new().route(
+            "/health",
+            axum::routing::get(move || async move {
+                axum::Json(serde_json::json!({
+                    "status": "ok",
+                    "version": "test",
+                    "build_hash": build_hash,
+                }))
+            }),
+        );
+        let handle = tokio::spawn(async move {
+            axum::serve(listener, router.into_make_service())
+                .await
+                .expect("serve fake health server");
+        });
+        (port, handle)
+    }
+
+    /// The adversarial case this rule exists for: a batchalign3 daemon
+    /// really is listening and really does answer `/health`, but on a
+    /// DIFFERENT build than this CLI invocation. Adopting it silently
+    /// (the pre-fix behavior: any answering daemon was `ExistingDaemon`)
+    /// would mean every request this invocation submits is served by code
+    /// this binary did not build and cannot vouch for. The probe must
+    /// refuse to adopt and report `StaleDaemon`, not `ExistingDaemon`.
+    #[tokio::test]
+    async fn probe_fixed_port_refuses_to_adopt_a_daemon_on_a_different_build() {
+        let their_build = "definitely-not-our-build-hash";
+        assert_ne!(
+            their_build,
+            crate::cli::build_hash(),
+            "test fixture must actually differ from our real build hash"
+        );
+        let (port, _server) = spawn_fake_health_server(their_build).await;
+
+        let outcome = probe_fixed_port(port).await;
+
+        assert_eq!(
+            outcome,
+            PortOccupant::StaleDaemon {
+                theirs: their_build.to_owned(),
+                ours: crate::cli::build_hash().to_owned(),
+            },
+            "a daemon on a different build must never be reported as ExistingDaemon"
+        );
+    }
+
+    /// The companion positive case: a daemon on OUR OWN build is safe to
+    /// adopt, and is still reported as `ExistingDaemon`.
+    #[tokio::test]
+    async fn probe_fixed_port_adopts_a_daemon_on_our_own_build() {
+        let (port, _server) = spawn_fake_health_server(crate::cli::build_hash()).await;
+
+        let outcome = probe_fixed_port(port).await;
+
+        assert_eq!(
+            outcome,
+            PortOccupant::ExistingDaemon {
+                build_hash: crate::cli::build_hash().to_owned(),
+            }
         );
     }
 }

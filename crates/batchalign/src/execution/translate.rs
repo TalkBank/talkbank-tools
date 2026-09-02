@@ -68,7 +68,11 @@ pub(crate) async fn dispatch_translate_job(
                 // cross-file pooling on purpose: per-file lang correctness
                 // > batching speedup.
                 let mut results = gateway
-                    .translate_batch(std::slice::from_ref(&file_input), &src_lang)
+                    .translate_batch(
+                        std::slice::from_ref(&file_input),
+                        &src_lang,
+                        crate::infer_retry::Cancellation::Token(&job.cancel_token),
+                    )
                     .await;
                 all_results.append(&mut results);
             }
@@ -135,6 +139,7 @@ mod tests {
             _chat_text: &str,
             _lang: &LanguageCode3,
             _mwt: &MwtDict,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> Result<String, crate::error::ServerError> {
             unreachable!()
         }
@@ -146,6 +151,7 @@ mod tests {
             _lang: &LanguageCode3,
             _options: MorphotagRuntimeOptions,
             _progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> Result<String, crate::error::ServerError> {
             unreachable!()
         }
@@ -155,6 +161,7 @@ mod tests {
             _files: &[TextBatchFileInput],
             _lang: &LanguageCode3,
             _allow_stanza_fallback: bool,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> TextBatchFileResults {
             unreachable!()
         }
@@ -163,6 +170,7 @@ mod tests {
             &self,
             files: &[TextBatchFileInput],
             _lang: &LanguageCode3,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> TextBatchFileResults {
             let mut state = self.state.lock().unwrap();
             state.batch_calls += 1;
@@ -180,6 +188,7 @@ mod tests {
             &self,
             _files: &[TextBatchFileInput],
             _lang: &LanguageCode3,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> TextBatchFileResults {
             unreachable!()
         }

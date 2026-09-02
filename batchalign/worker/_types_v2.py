@@ -278,6 +278,13 @@ class AsrRequestV2(BaseModel):
     # currently read these knobs from the worker spawn argv; the field
     # exists for wire conformance, not dispatch.
     extras: dict[str, str] | None = None
+    # The request's own wall-clock decode budget in seconds, derived by
+    # Rust from the audio's duration (see `DecodeBudgetSeconds` in
+    # `crates/batchalign-types/src/worker_v2/requests.rs`). ``None`` means
+    # Rust could not derive one (a provider-media request whose duration
+    # could not be probed); the receiving engine then derives its own from
+    # the file it is given, exactly the pre-existing fallback.
+    decode_budget_seconds: float | None = None
 
 
 class ForcedAlignmentRequestV2(BaseModel):

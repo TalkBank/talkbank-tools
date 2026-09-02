@@ -110,6 +110,11 @@ async fn build_comparison_artifacts(
         review_level: crate::chat_ops::fa::ReviewLevel::None,
         // No job-level reporter on this path: see the field doc.
         progress: None,
+        // compare-runs is an offline analysis command with no job and no
+        // job-level cancellation token; genuinely NotWired, not a stand-in.
+        cancellation: crate::infer_retry::Cancellation::NotWired {
+            reason: "compare-runs has no job-level cancellation",
+        },
     };
     let morphotagged_main =
         crate::morphosyntax::process_morphosyntax(main_text, services, &mor_params).await?;

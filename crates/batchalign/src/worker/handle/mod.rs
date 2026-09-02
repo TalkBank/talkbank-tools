@@ -31,6 +31,35 @@ use tokio::io::BufReader;
 use tokio::process::{Child, ChildStdin, ChildStdout};
 use tracing::{debug, info};
 
+/// Whether a [`WorkerHandle`] has a request written to the worker's stdin
+/// whose response has not yet been fully read back.
+///
+/// Set the instant a request is written (`write_request`), cleared only
+/// once a COMPLETE terminal response for it has been read (the shared
+/// [`WorkerHandle::read_response_skipping_progress_via_self`] loop and
+/// `execute_v2_with_progress`'s own loop both clear it at their terminal
+/// match arms, never at an intermediate `ProgressV2` line).
+///
+/// This exists because dropping the FUTURE of an in-flight dispatch
+/// (a job cancellation racing `pool.dispatch_execute_v2_with_progress` in
+/// `infer_retry::dispatch_execute_v2_with_retry_and_progress`'s `select!`)
+/// does not stop the worker process: it may have already written a
+/// response to stdout that nobody read, or may still be about to. A
+/// `CheckedOutWorker` dropped while `InFlight` must therefore be
+/// DISCARDED, never returned to the idle queue, exactly the way
+/// `dispatch_batch_infer` already discards a worker after an Io/Protocol
+/// error; see `CheckedOutWorker::drop`. Returning it would let the NEXT
+/// dispatch on this worker read that stale response and misattribute it
+/// to an unrelated request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RequestFlight {
+    /// No request is outstanding; safe to reuse.
+    Idle,
+    /// A request has been written and its response has not been fully
+    /// read; NOT safe to reuse if dropped in this state.
+    InFlight,
+}
+
 /// Manages a single Python worker child process.
 pub struct WorkerHandle {
     config: WorkerConfig,
@@ -50,6 +79,8 @@ pub struct WorkerHandle {
     /// On worker crash, [`drain_stderr_tail`](Self::drain_stderr_tail) reads
     /// remaining lines to attach to the [`WorkerError::ProcessExited`] error.
     stderr_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    /// See [`RequestFlight`].
+    request_flight: RequestFlight,
 }
 
 /// Raw parts extracted from a [`WorkerHandle`] via [`WorkerHandle::into_parts`].
@@ -226,7 +257,83 @@ impl WorkerHandle {
             last_activity: tokio::time::Instant::now(),
             loaded_tasks: std::collections::HashSet::new(),
             stderr_rx,
+            request_flight: RequestFlight::Idle,
         })
+    }
+
+    /// See [`RequestFlight`]. Read by `CheckedOutWorker::drop` to decide
+    /// whether this worker is safe to return to the idle queue.
+    pub(crate) fn request_flight(&self) -> RequestFlight {
+        self.request_flight
+    }
+}
+
+#[cfg(test)]
+impl WorkerHandle {
+    /// Spawn a trivial `sh` stub in place of the real Python worker.
+    ///
+    /// For tests that need a REAL child process's stdin/stdout pipes to
+    /// exercise `write_request`/`read_response`/[`RequestFlight`] honestly
+    /// (a fake in-memory reader cannot reproduce "the write succeeded, the
+    /// response never arrived, then the future was dropped"), without a
+    /// Python interpreter or the `batchalign` package: neither is a
+    /// dependency this crate's own unit tests should need.
+    ///
+    /// `script` runs under `sh -c`; it must print a valid ready line (see
+    /// [`Self::read_ready_line`]) as its first line of stdout. Skips the
+    /// memory-guard permit and orphan-PID recording `spawn()` does for a
+    /// real worker: irrelevant to what these tests assert, and pulling
+    /// them in would make a unit test depend on host memory state.
+    pub(crate) async fn spawn_stub_for_test(script: &str) -> Self {
+        let mut cmd = tokio::process::Command::new("sh");
+        cmd.arg("-c")
+            .arg(script)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        #[allow(clippy::expect_used)]
+        let mut child = cmd.spawn().expect("spawn sh stub for test");
+
+        #[allow(clippy::expect_used)]
+        let stdout = child.stdout.take().expect("stub stdout captured");
+        let mut stdout_reader = BufReader::new(stdout);
+        #[allow(clippy::expect_used)]
+        let stderr_reader = BufReader::new(child.stderr.take().expect("stub stderr captured"));
+
+        #[allow(clippy::expect_used)]
+        let ready = Self::read_ready_line(&mut stdout_reader)
+            .await
+            .expect("stub must emit a valid ready line as its first stdout line");
+
+        #[allow(clippy::expect_used)]
+        let stdin = child.stdin.take().expect("stub stdin captured");
+
+        let (_stderr_tx, stderr_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        // Drain stderr in the background so a stub that writes anything to
+        // it cannot block on a full pipe. Nothing in these tests inspects
+        // stub stderr, so the sender is dropped immediately; the drain
+        // loop just discards lines until EOF.
+        tokio::spawn(async move {
+            use tokio::io::AsyncBufReadExt;
+            let mut reader = stderr_reader;
+            let mut line = String::new();
+            while reader.read_line(&mut line).await.unwrap_or(0) > 0 {
+                line.clear();
+            }
+        });
+
+        Self {
+            config: WorkerConfig::default(),
+            child,
+            pid: WorkerPid(ready.pid),
+            runtime: ready.runtime,
+            stdin,
+            stdout: stdout_reader,
+            last_activity: tokio::time::Instant::now(),
+            loaded_tasks: std::collections::HashSet::new(),
+            stderr_rx,
+            request_flight: RequestFlight::Idle,
+        }
     }
 }
 

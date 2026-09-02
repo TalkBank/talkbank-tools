@@ -139,7 +139,11 @@ impl WorkerHandle {
                     }
                     continue;
                 }
-                other => return Ok(other),
+                other => {
+                    // A complete terminal response was read: safe to reuse.
+                    self.request_flight = super::RequestFlight::Idle;
+                    return Ok(other);
+                }
             }
         }
     }

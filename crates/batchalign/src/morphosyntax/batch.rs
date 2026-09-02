@@ -105,7 +105,23 @@ pub(crate) async fn dispatch_secondary_l2(
         let empty_mwt: std::collections::BTreeMap<String, Vec<String>> =
             std::collections::BTreeMap::new();
 
-        match infer_batch(services.pool, &batch_items, &lang3, &empty_mwt, true, None).await {
+        match infer_batch(
+            services.pool,
+            &batch_items,
+            &lang3,
+            &empty_mwt,
+            true,
+            None,
+            // Secondary L2 dispatch has no job or `MorphosyntaxParams` in
+            // scope here (see the module doc: this splices @s-word results
+            // back into an already-parsed `ChatFile`, several layers below
+            // any job-carrying caller); genuinely NotWired.
+            crate::infer_retry::Cancellation::NotWired {
+                reason: "secondary L2 dispatch has no job or params in scope",
+            },
+        )
+        .await
+        {
             Ok(responses) => {
                 for (span, ud_resp) in lang_spans.iter().copied().zip(responses.iter()) {
                     if let Some(sentence) = ud_resp.sentences.first() {

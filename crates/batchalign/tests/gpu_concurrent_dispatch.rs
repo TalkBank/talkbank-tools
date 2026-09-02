@@ -87,6 +87,7 @@ fn gpu_execute_request_for_lang(request_id: &str, lang: LanguageCode3) -> Execut
                 audio_ref_id: WorkerArtifactIdV2::from("audio-test"),
             }),
             extras: std::collections::BTreeMap::new(),
+            decode_budget_seconds: None,
         }),
         attachments: Vec::new(),
     }

@@ -544,6 +544,7 @@ dependencies = [
  "schemars 1.2.2",
  "serde",
  "serde_json",
+ "static_assertions",
  "sysinfo 0.39.6",
  "thiserror 2.0.20",
  "utoipa",

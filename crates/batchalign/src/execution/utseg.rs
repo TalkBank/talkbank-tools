@@ -112,7 +112,12 @@ pub(crate) async fn dispatch_utseg_job(
             let _permit = permit; // released on drop after the task completes
             let single = vec![file_input];
             let results = gateway_for_task
-                .utseg_batch(&single, &lang, allow_stanza_fallback)
+                .utseg_batch(
+                    &single,
+                    &lang,
+                    allow_stanza_fallback,
+                    crate::infer_retry::Cancellation::Token(&job_for_task.cancel_token),
+                )
                 .await;
             write_text_results(
                 &job_for_task,
@@ -182,6 +187,7 @@ mod tests {
             _chat_text: &str,
             _lang: &LanguageCode3,
             _mwt: &MwtDict,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> Result<String, crate::error::ServerError> {
             unreachable!()
         }
@@ -193,6 +199,7 @@ mod tests {
             _lang: &LanguageCode3,
             _options: MorphotagRuntimeOptions,
             _progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> Result<String, crate::error::ServerError> {
             unreachable!()
         }
@@ -202,6 +209,7 @@ mod tests {
             files: &[TextBatchFileInput],
             _lang: &LanguageCode3,
             _allow_stanza_fallback: bool,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> TextBatchFileResults {
             let mut state = self.state.lock().unwrap();
             state.batch_calls += 1;
@@ -216,6 +224,7 @@ mod tests {
             &self,
             _files: &[TextBatchFileInput],
             _lang: &LanguageCode3,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> TextBatchFileResults {
             unreachable!()
         }
@@ -224,6 +233,7 @@ mod tests {
             &self,
             _files: &[TextBatchFileInput],
             _lang: &LanguageCode3,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> TextBatchFileResults {
             unreachable!()
         }

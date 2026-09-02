@@ -179,6 +179,7 @@ mod tests {
                     audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 }),
                 extras: std::collections::BTreeMap::new(),
+                decode_budget_seconds: None,
             }),
         );
 
@@ -221,6 +222,7 @@ mod tests {
                     audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 }),
                 extras: std::collections::BTreeMap::new(),
+                decode_budget_seconds: None,
             }),
         );
 
@@ -270,6 +272,7 @@ mod tests {
                     num_speakers: crate::api::NumSpeakers(1),
                 }),
                 extras: extras.clone(),
+                decode_budget_seconds: None,
             }),
         );
 
@@ -301,6 +304,7 @@ mod tests {
                     audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 }),
                 extras: extras.clone(),
+                decode_budget_seconds: None,
             }),
         );
 
@@ -386,6 +390,7 @@ mod tests {
                     audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 }),
                 extras: std::collections::BTreeMap::new(),
+                decode_budget_seconds: None,
             }),
         );
 
@@ -442,6 +447,7 @@ mod tests {
                     audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 }),
                 extras: std::collections::BTreeMap::new(),
+                decode_budget_seconds: None,
             }),
         );
 

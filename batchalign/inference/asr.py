@@ -42,6 +42,15 @@ class AsrBatchItem(BaseModel):
     lang: LanguageCode = "eng"
     num_speakers: NumSpeakers = 1
     rev_job_id: RevAiJobId | None = None
+    # The request's own wall-clock decode budget, forwarded verbatim from
+    # the Rust worker-protocol V2 request's ``decode_budget_seconds``
+    # (`AsrRequestV2` in `crates/batchalign-types/src/worker_v2/requests.rs`).
+    # ``None`` means Rust could not derive one (see that field's doc) and
+    # this engine must derive its own from the file it is given, exactly
+    # the pre-existing fallback path. Only the native Qwen3-ASR engine
+    # reads this today (`_qwen_common.QwenRecognizer._run_model`); other
+    # engines carry it unused.
+    decode_budget_seconds: float | None = None
 
 
 class AsrElement(BaseModel):

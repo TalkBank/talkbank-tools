@@ -2,7 +2,7 @@
 
 **Status:** Current
 **Last verified:** 2026-08-31 07:13 EDT
-**Last updated:** 2026-08-31 07:13 EDT
+**Last updated:** 2026-09-02 07:45 EDT
 
 This document is the implementation spec for the live typed worker boundary
 currently named `worker_v2`.
@@ -417,9 +417,24 @@ InferenceTask =
 AsrRequest {
   lang: iso639_3,
   backend: AsrBackend,
-  input: AsrInput
+  input: AsrInput,
+  decode_budget_seconds: f64 | null
 }
 ```
+
+`decode_budget_seconds`, added 2026-09-02, is the request's own wall-clock
+decode budget, derived once by Rust from the audio's duration and a named
+realtime factor (`DecodeBudgetSeconds`,
+`crates/batchalign-types/src/worker_v2/requests.rs`). `null` means Rust could
+not derive one for this request (a `ProviderMediaInput` whose duration could
+not be probed); the receiving engine then derives its own, exactly the
+pre-existing fallback. Two consumers read it from one value rather than
+computing two independent numbers that can drift apart: Python's native
+Qwen3-ASR decode loop (`_qwen_chunking.DecodeBudget`) bounds decode time with
+it, and Rust's own worker-transport read timeout
+(`TaskRequestV2::timeout_seconds_with_config`) is the same value plus a fixed
+margin, so the transport ceiling can never be shorter than the budget it just
+sent.
 
 ```text
 AsrBackend =

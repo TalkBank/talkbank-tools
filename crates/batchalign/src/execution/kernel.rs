@@ -300,7 +300,12 @@ impl StageExecutor for CompareStageExecutor {
                 });
                 state.morphotagged_main = Some(
                     ctx.gateway
-                        .morphotag_for_compare(main_text, lang, ctx.mwt)
+                        .morphotag_for_compare(
+                            main_text,
+                            lang,
+                            ctx.mwt,
+                            crate::infer_retry::Cancellation::Token(&ctx.job.cancel_token),
+                        )
                         .await?,
                 );
                 Ok(())
@@ -550,6 +555,7 @@ mod tests {
             chat_text: &str,
             _lang: &crate::api::LanguageCode3,
             _mwt: &MwtDict,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> Result<String, crate::error::ServerError> {
             Ok(chat_text.to_string())
         }
@@ -561,6 +567,7 @@ mod tests {
             _lang: &crate::api::LanguageCode3,
             _options: crate::execution::MorphotagRuntimeOptions,
             _progress: Option<&crate::execution::morphotag::progress::BackendProgressPort>,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> Result<String, crate::error::ServerError> {
             unreachable!("compare tests do not call morphotag_single")
         }
@@ -570,6 +577,7 @@ mod tests {
             _files: &[crate::text_batch::TextBatchFileInput],
             _lang: &crate::api::LanguageCode3,
             _allow_stanza_fallback: bool,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> crate::text_batch::TextBatchFileResults {
             unreachable!("compare tests do not call utseg_batch")
         }
@@ -578,6 +586,7 @@ mod tests {
             &self,
             _files: &[crate::text_batch::TextBatchFileInput],
             _lang: &crate::api::LanguageCode3,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> crate::text_batch::TextBatchFileResults {
             unreachable!("compare tests do not call translate_batch")
         }
@@ -586,6 +595,7 @@ mod tests {
             &self,
             _files: &[crate::text_batch::TextBatchFileInput],
             _lang: &crate::api::LanguageCode3,
+            _cancellation: crate::infer_retry::Cancellation<'_>,
         ) -> crate::text_batch::TextBatchFileResults {
             unreachable!("compare tests do not call coref_batch")
         }

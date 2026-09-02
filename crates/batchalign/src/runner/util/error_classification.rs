@@ -103,6 +103,10 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         // (which reads as "contact your administrator") or `Validation`
         // (which reads as "you sent bad input").
         ServerError::ModelAccessDenied(_) => FailureCategory::ModelAccessDenied,
+        // A deliberate stop, never a transient or infrastructure failure:
+        // see `ServerError::Cancelled`'s own doc for why this must stay
+        // distinct from `System`.
+        ServerError::Cancelled => FailureCategory::Cancelled,
     }
 }
 

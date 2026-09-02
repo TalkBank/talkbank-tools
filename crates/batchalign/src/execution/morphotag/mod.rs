@@ -168,6 +168,7 @@ pub(crate) async fn dispatch_morphotag_job(
                     &file_lang,
                     options_for_task.clone(),
                     progress_port.as_ref(),
+                    crate::infer_retry::Cancellation::Token(&job_for_task.cancel_token),
                 )
                 .await;
             let file_result = match result {
