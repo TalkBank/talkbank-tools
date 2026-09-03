@@ -220,3 +220,52 @@ def test_tcp_concurrent_emits_bootstrap_kind(monkeypatch):
     env = bootstrap_envs[0]
     assert env["op"] == "error"
     assert env["kind"] == "bootstrap"
+
+
+def test_tcp_sequential_error_names_the_execute_v2_request_it_belongs_to(monkeypatch):
+    """The TCP transport reaches the same reader loop, so it owes the same tag.
+
+    A GPU worker discovered over TCP and one spawned over stdio share
+    ``reader_loop_generic`` on the Rust side, which routes an ``op=error`` by
+    ``request_id``. Fixing only the stdio emitter would have left the TCP
+    worker stalling its callers in exactly the way the stdio one used to.
+    """
+
+    def fake_dispatch(_message):
+        raise RuntimeError("speaker embedding host is not loaded")
+
+    monkeypatch.setattr(
+        "batchalign.worker._protocol.dispatch_protocol_message",
+        fake_dispatch,
+    )
+
+    client, server = _make_connected_pair()
+    t = threading.Thread(
+        target=_handle_tcp_connection_sequential,
+        args=(server, ("127.0.0.1", 0)),
+    )
+    t.start()
+
+    client.sendall(
+        json.dumps(
+            {
+                "op": "execute_v2",
+                "request": {
+                    "request_id": "speaker-embedding-v2-request-4",
+                    "task": "speaker_embedding",
+                },
+            }
+        ).encode()
+        + b"\n"
+    )
+    client.shutdown(socket.SHUT_WR)
+
+    lines = _drain_lines(client)
+    client.close()
+    t.join(timeout=3.0)
+
+    assert len(lines) == 1, f"expected one error envelope, got: {lines}"
+    env = json.loads(lines[0])
+    assert env["op"] == "error"
+    assert env["kind"] == "runtime"
+    assert env["request_id"] == "speaker-embedding-v2-request-4"

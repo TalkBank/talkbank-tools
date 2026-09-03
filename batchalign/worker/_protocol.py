@@ -28,6 +28,7 @@ import socket
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -122,7 +123,87 @@ def write_progress_event(
     _write_json(payload)
 
 
-def _write_error(message: str, kind: str = "runtime") -> None:
+@dataclass(frozen=True, slots=True)
+class ErrorCorrelation:
+    """Which request an error envelope belongs to.
+
+    The Rust reader routes ``{"op": "error"}`` by ``request_id``. Tagged, it
+    fails that dispatch's pending oneshot at once. Untagged, it goes to the
+    single-slot sequential control channel, where a V2 caller has registered no
+    receiver, so the envelope is absorbed and the caller waits out its whole
+    per-request timeout (1800 s for an audio task by default) for a fault the
+    worker diagnosed in milliseconds. That is the 2026-09-02 ``speaker-identify``
+    stall, and the correlation was in the dispatcher's hand the whole time.
+
+    So it is a REQUIRED argument of :func:`error_envelope` rather than an
+    optional field of the dict: an emitter has to say which of the two cases it
+    is in, and neither spelling is the shorter one.
+    """
+
+    request_id: str | None
+
+    @classmethod
+    def uncorrelated(cls) -> ErrorCorrelation:
+        """No request owns this error, and that is a fact, not an omission.
+
+        Two real cases: the line never parsed, so there is no message to read
+        an id out of; and the failing op is a sequential one (health,
+        capabilities, ensure_task) whose caller waits on the control channel,
+        where a tagged error would be routed to a pending map that has no such
+        entry and the caller would wait forever.
+        """
+        return cls(request_id=None)
+
+    @classmethod
+    def of_message(cls, message: object) -> ErrorCorrelation:
+        """Read the correlation out of the message the dispatcher was handed.
+
+        The id lives on the request body (``{"op": ..., "request": {"request_id":
+        ...}}``), which is the same place the Rust-owned dispatcher reads it
+        from when it refuses a payload; see
+        ``crates/batchalign-pyo3/src/worker_protocol.rs::extract_request_id``.
+        A message that carries none is uncorrelated, which every sequential op
+        legitimately is.
+        """
+        if not isinstance(message, dict):
+            return cls.uncorrelated()
+        request = message.get("request")
+        if not isinstance(request, dict):
+            return cls.uncorrelated()
+        request_id = request.get("request_id")
+        if isinstance(request_id, str) and request_id:
+            return cls(request_id=request_id)
+        return cls.uncorrelated()
+
+
+def error_envelope(
+    message: str,
+    kind: str,
+    correlation: ErrorCorrelation,
+) -> dict[str, WorkerJSONValue]:
+    """Build the one error envelope every transport emits.
+
+    The single owner of this shape. It was written out by hand at five call
+    sites across stdio and TCP, and none of them could carry a correlation,
+    so adding the field to one would have left the other four silently
+    uncorrelated.
+    """
+    payload: dict[str, WorkerJSONValue] = {
+        "op": "error",
+        "error": message,
+        "kind": kind,
+    }
+    if correlation.request_id is not None:
+        payload["request_id"] = correlation.request_id
+    return payload
+
+
+def _write_error(
+    message: str,
+    *,
+    correlation: ErrorCorrelation,
+    kind: str = "runtime",
+) -> None:
     """Emit a protocol-level error response.
 
     Two kinds:
@@ -141,7 +222,7 @@ def _write_error(message: str, kind: str = "runtime") -> None:
     side, so existing call sites that omit ``kind`` keep their previous
     semantics.
     """
-    _write_json({"op": "error", "error": message, "kind": kind})
+    _write_json(error_envelope(message, kind, correlation))
 
 
 def _classify_dispatch_exception(exc: BaseException) -> str:
@@ -217,7 +298,10 @@ def _serve_stdio() -> None:
         try:
             message = json.loads(line)
         except json.JSONDecodeError as exc:
-            _write_error(f"invalid JSON request: {exc}")
+            _write_error(
+                f"invalid JSON request: {exc}",
+                correlation=ErrorCorrelation.uncorrelated(),
+            )
             continue
 
         try:
@@ -235,7 +319,11 @@ def _serve_stdio() -> None:
                 f"--- worker dispatch exception ({kind}) ---\n" + traceback.format_exc()
             )
             sys.stderr.flush()
-            _write_error(str(exc) or exc.__class__.__name__, kind=kind)
+            _write_error(
+                str(exc) or exc.__class__.__name__,
+                correlation=ErrorCorrelation.of_message(message),
+                kind=kind,
+            )
             # Bootstrap-class failures may have left the worker in a
             # partially-initialized state; safest to exit so the pool
             # tears the worker down. The Rust side classifies the typed
@@ -284,7 +372,11 @@ def _serve_stdio_concurrent(max_threads: int = 4) -> None:
             )
             sys.stderr.flush()
             with _stdout_lock:
-                _write_error(str(exc) or exc.__class__.__name__, kind=kind)
+                _write_error(
+                    str(exc) or exc.__class__.__name__,
+                    correlation=ErrorCorrelation.of_message(message),
+                    kind=kind,
+                )
             if kind == "bootstrap":
                 shutdown_event.set()
             return
@@ -305,7 +397,10 @@ def _serve_stdio_concurrent(max_threads: int = 4) -> None:
             message = json.loads(line)
         except json.JSONDecodeError as exc:
             with _stdout_lock:
-                _write_error(f"invalid JSON request: {exc}")
+                _write_error(
+                    f"invalid JSON request: {exc}",
+                    correlation=ErrorCorrelation.uncorrelated(),
+                )
             continue
 
         pool.submit(_handle_and_respond, message)
@@ -365,11 +460,11 @@ def _handle_tcp_connection_sequential(
                 message = json.loads(line)
             except json.JSONDecodeError as exc:
                 error_payload = json.dumps(
-                    {
-                        "op": "error",
-                        "error": f"invalid JSON request: {exc}",
-                        "kind": "runtime",
-                    }
+                    error_envelope(
+                        f"invalid JSON request: {exc}",
+                        "runtime",
+                        ErrorCorrelation.uncorrelated(),
+                    )
                 )
                 wfile.write(error_payload + "\n")
                 wfile.flush()
@@ -396,11 +491,11 @@ def _handle_tcp_connection_sequential(
                 )
                 sys.stderr.flush()
                 error_payload = json.dumps(
-                    {
-                        "op": "error",
-                        "error": str(exc) or exc.__class__.__name__,
-                        "kind": kind,
-                    }
+                    error_envelope(
+                        str(exc) or exc.__class__.__name__,
+                        kind,
+                        ErrorCorrelation.of_message(message),
+                    )
                 )
                 wfile.write(error_payload + "\n")
                 wfile.flush()
@@ -459,11 +554,11 @@ def _handle_tcp_connection_concurrent(
             sys.stderr.flush()
             with write_lock:
                 error_payload = json.dumps(
-                    {
-                        "op": "error",
-                        "error": str(exc) or exc.__class__.__name__,
-                        "kind": kind,
-                    }
+                    error_envelope(
+                        str(exc) or exc.__class__.__name__,
+                        kind,
+                        ErrorCorrelation.of_message(message),
+                    )
                 )
                 try:
                     wfile.write(error_payload + "\n")
@@ -496,11 +591,11 @@ def _handle_tcp_connection_concurrent(
             except json.JSONDecodeError as exc:
                 with write_lock:
                     error_payload = json.dumps(
-                        {
-                            "op": "error",
-                            "error": f"invalid JSON request: {exc}",
-                            "kind": "runtime",
-                        }
+                        error_envelope(
+                            f"invalid JSON request: {exc}",
+                            "runtime",
+                            ErrorCorrelation.uncorrelated(),
+                        )
                     )
                     wfile.write(error_payload + "\n")
                     wfile.flush()

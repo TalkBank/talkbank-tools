@@ -23,6 +23,87 @@ use super::envelopes::{
     HealthResponseEnvelope,
 };
 
+/// Who an `op=error` envelope belongs to.
+///
+/// Naming the two cases is what keeps the routing exhaustive. Written as an
+/// `Option<WorkerRequestIdV2>` guarded by an `if let`, the two failure routes
+/// out of that shape (a tagged error with no pending entry, and an untagged
+/// error with no sequential op waiting) both read as "nothing to do here", and
+/// the second of them silently dropped a worker's own diagnosis on the floor.
+enum ErrorCorrelation {
+    /// The worker named the V2 dispatch this failure belongs to.
+    Dispatch(WorkerRequestIdV2),
+    /// The worker did not, or could not: the line never parsed, or the failing
+    /// op is a sequential one answered through the control channel.
+    Uncorrelated,
+}
+
+/// Offer an error to a sequential op, and hand it back if none is waiting.
+///
+/// Returns the message rather than swallowing it, so a caller has to say what
+/// happens when nobody was listening. The empty control slot absorbing an
+/// error nobody could see is the whole of the 2026-09-02 `speaker-identify`
+/// stall.
+async fn offer_to_sequential_op(
+    control: &Arc<tokio::sync::Mutex<Option<oneshot::Sender<WorkerControlResponse>>>>,
+    error_msg: String,
+) -> Option<String> {
+    // `control` is an async mutex, so the receiver is taken in its own scope
+    // and no caller of this function holds the std `pending` lock across it.
+    let waiter = {
+        let mut ctrl = control.lock().await;
+        ctrl.take()
+    };
+    match waiter {
+        Some(tx) => {
+            let _ = tx.send(WorkerControlResponse::Error(error_msg));
+            None
+        }
+        None => Some(error_msg),
+    }
+}
+
+/// Fail every V2 dispatch in flight with one error.
+///
+/// The right answer only for an error that names NO request: it belongs to one
+/// of them and the envelope does not say which, and a stream that has produced
+/// an uncorrelated failure cannot be trusted to answer the requests already on
+/// it. Deliberately NOT applied to a tagged error whose id has no pending
+/// entry, which means that one caller already gave up and says nothing about
+/// the others.
+fn fail_every_dispatch_in_flight(
+    pending: &Arc<std::sync::Mutex<HashMap<String, oneshot::Sender<ExecuteResponseV2>>>>,
+    pid: WorkerPid,
+    error_msg: &str,
+) {
+    let stranded: Vec<(String, oneshot::Sender<ExecuteResponseV2>)> = {
+        let mut pending = super::super::lock_recovered(pending);
+        pending.drain().collect()
+    };
+    if stranded.is_empty() {
+        warn!(
+            pid = %pid,
+            error = %error_msg,
+            "GPU worker: error names no request and nothing is waiting for one"
+        );
+        return;
+    }
+    warn!(
+        pid = %pid,
+        error = %error_msg,
+        failed_requests = stranded.len(),
+        "GPU worker: error names no request; failing every dispatch in flight"
+    );
+    for (request_id, tx) in stranded {
+        let _ = tx.send(ExecuteResponseV2::failure(
+            WorkerRequestIdV2::from(request_id),
+            ProtocolErrorCodeV2::InvalidPayload,
+            error_msg.to_owned(),
+            DurationSeconds(0.0),
+        ));
+    }
+}
+
 /// Generic reader loop that works with any `AsyncBufRead`, shared between
 /// stdio ([`super::SharedGpuWorker`]) and TCP ([`super::SharedGpuTcpWorker`]).
 pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
@@ -169,47 +250,65 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
                         // ensure_task) register a single-slot control receiver
                         // instead. The worker tags errors with `request_id`
                         // when the failure belongs to a V2 dispatch, untagged
-                        // otherwise. Routing tagged errors to `pending` (and
-                        // untagged to `control`) keeps each consumer's
-                        // receiver semantics intact: otherwise a V2 dispatch
-                        // would block on its per-request timeout while the
-                        // error was silently absorbed by the empty control
-                        // slot.
-                        let request_id = parsed
+                        // otherwise, so the correlation is read out of the
+                        // envelope and every case of it is written out below.
+                        let correlation = match parsed
                             .get("request_id")
                             .and_then(|v| v.as_str())
-                            .map(WorkerRequestIdV2::from);
-                        if let Some(request_id) = request_id {
-                            let routed = {
-                                let mut pending = super::super::lock_recovered(&pending);
-                                pending.remove(request_id.as_ref())
-                            };
-                            if let Some(tx) = routed {
-                                debug!(
-                                    pid = %pid,
-                                    request_id = %request_id,
-                                    error = %error_msg,
-                                    "GPU worker: routing tagged error to pending V2 dispatch"
-                                );
-                                let _ = tx.send(ExecuteResponseV2::failure(
-                                    request_id,
-                                    ProtocolErrorCodeV2::InvalidPayload,
-                                    error_msg,
-                                    DurationSeconds(0.0),
-                                ));
-                                continue;
+                            .map(WorkerRequestIdV2::from)
+                        {
+                            Some(request_id) => ErrorCorrelation::Dispatch(request_id),
+                            None => ErrorCorrelation::Uncorrelated,
+                        };
+
+                        match correlation {
+                            ErrorCorrelation::Dispatch(request_id) => {
+                                let routed = {
+                                    let mut pending = super::super::lock_recovered(&pending);
+                                    pending.remove(request_id.as_ref())
+                                };
+                                match routed {
+                                    Some(tx) => {
+                                        debug!(
+                                            pid = %pid,
+                                            request_id = %request_id,
+                                            error = %error_msg,
+                                            "GPU worker: routing tagged error to pending V2 \
+                                             dispatch"
+                                        );
+                                        let _ = tx.send(ExecuteResponseV2::failure(
+                                            request_id,
+                                            ProtocolErrorCodeV2::InvalidPayload,
+                                            error_msg,
+                                            DurationSeconds(0.0),
+                                        ));
+                                    }
+                                    None => {
+                                        // That caller already gave up (its
+                                        // per-request timeout removed the
+                                        // entry) or was answered. It says
+                                        // nothing about the other dispatches
+                                        // in flight, so none of them is
+                                        // failed on it.
+                                        warn!(
+                                            pid = %pid,
+                                            request_id = %request_id,
+                                            error = %error_msg,
+                                            "GPU worker: tagged error has no matching pending \
+                                             dispatch (worker may have processed it \
+                                             asynchronously)"
+                                        );
+                                        let _ = offer_to_sequential_op(&control, error_msg).await;
+                                    }
+                                }
                             }
-                            warn!(
-                                pid = %pid,
-                                request_id = %request_id,
-                                error = %error_msg,
-                                "GPU worker: tagged error has no matching pending dispatch \
-                                 (worker may have processed it asynchronously)"
-                            );
-                        }
-                        let mut ctrl = control.lock().await;
-                        if let Some(tx) = ctrl.take() {
-                            let _ = tx.send(WorkerControlResponse::Error(error_msg));
+                            ErrorCorrelation::Uncorrelated => {
+                                if let Some(unclaimed) =
+                                    offer_to_sequential_op(&control, error_msg).await
+                                {
+                                    fail_every_dispatch_in_flight(&pending, pid, &unclaimed);
+                                }
+                            }
                         }
                     }
                     _ => {
@@ -346,6 +445,97 @@ mod tests {
         // The pending map should have been drained so a retry can rebind
         // the request_id without colliding.
         assert!(super::super::super::lock_recovered(&pending).is_empty());
+    }
+
+    /// An untagged `op=error` that NO sequential op is waiting for must still
+    /// fail every pending V2 dispatch.
+    ///
+    /// This is the 2026-09-02 `speaker-identify` stall. The worker raised
+    /// during dispatch, `_serve_stdio` emitted `{"op":"error"}` with no
+    /// `request_id`, the empty control slot swallowed it, and the caller sat
+    /// on its whole per-request timeout for a fault the worker had already
+    /// diagnosed and reported two milliseconds after the request was written.
+    /// An error nobody is waiting for is not an error nobody needs: a stream
+    /// that has produced an uncorrelated failure cannot be trusted to answer
+    /// the requests already on it, so every one of them is failed here.
+    #[tokio::test]
+    async fn untagged_error_with_no_sequential_op_fails_pending_v2_dispatches() {
+        let pid = WorkerPid(12347);
+        let pending = Arc::new(std::sync::Mutex::new(HashMap::<
+            String,
+            oneshot::Sender<ExecuteResponseV2>,
+        >::new()));
+        let control = Arc::new(tokio::sync::Mutex::new(
+            None::<oneshot::Sender<WorkerControlResponse>>,
+        ));
+
+        let (tx, rx) = oneshot::channel();
+        let request_id = "speaker-embedding-v2-request-1";
+        super::super::super::lock_recovered(&pending).insert(request_id.into(), tx);
+
+        let envelope = "{\"op\":\"error\",\"error\":\"module has no attribute                         execute_speaker_embedding_request_v2\",\"kind\":\"runtime\"}\n";
+        let mut reader = BufReader::new(envelope.as_bytes());
+
+        reader_loop_generic(&mut reader, pending.clone(), control.clone(), pid).await;
+
+        let response = rx
+            .await
+            .expect("an uncorrelated worker error must still resolve the pending dispatch");
+        assert_eq!(response.request_id().as_ref(), request_id);
+        match response.read() {
+            ExecuteOutcomeRef::Failed { code, message } => {
+                assert_eq!(code, ProtocolErrorCodeV2::InvalidPayload);
+                assert!(
+                    message.contains("execute_speaker_embedding_request_v2"),
+                    "the worker's own diagnosis must reach the caller, got: {message}"
+                );
+            }
+            ExecuteOutcomeRef::Success(_) => {
+                panic!("an uncorrelated worker error must produce a Failed outcome")
+            }
+        }
+
+        assert!(super::super::super::lock_recovered(&pending).is_empty());
+    }
+
+    /// A TAGGED error for a request nobody is waiting for must NOT take the
+    /// other dispatches down with it.
+    ///
+    /// The adversarial case for the fix above: that caller already gave up on
+    /// its own timeout, so its late error says nothing about its neighbours,
+    /// and the mass failure that is right for an UNCORRELATED error is wrong
+    /// here. Written after a review of the fix found it failing this case.
+    #[tokio::test]
+    async fn tagged_error_for_an_unknown_request_leaves_other_dispatches_alone() {
+        let pid = WorkerPid(12348);
+        let pending = Arc::new(std::sync::Mutex::new(HashMap::<
+            String,
+            oneshot::Sender<ExecuteResponseV2>,
+        >::new()));
+        let control = Arc::new(tokio::sync::Mutex::new(
+            None::<oneshot::Sender<WorkerControlResponse>>,
+        ));
+
+        let (tx, rx) = oneshot::channel();
+        let survivor = "asr-v2-request-99";
+        super::super::super::lock_recovered(&pending).insert(survivor.into(), tx);
+
+        let envelope = "{\"op\":\"error\",\"error\":\"late failure\",\
+                        \"request_id\":\"asr-v2-request-98\"}\n";
+        let mut reader = BufReader::new(envelope.as_bytes());
+
+        reader_loop_generic(&mut reader, pending.clone(), control.clone(), pid).await;
+
+        // The loop runs to EOF, which drops every still-pending sender, so
+        // the surviving dispatch must see a CLOSED channel (the worker went
+        // away) and not a routed failure carrying somebody else's error.
+        match rx.await {
+            Err(_) => {}
+            Ok(response) => panic!(
+                "an unrelated dispatch was failed on another request's error: {:?}",
+                response.read()
+            ),
+        }
     }
 
     /// Untagged `op=error` envelopes (no `request_id`) still flow through

@@ -247,3 +247,72 @@ def test_serve_stdio_exits_after_bootstrap_error():
     env = json.loads(lines[0])
     assert env["op"] == "error"
     assert env["kind"] == "bootstrap"
+
+
+# ---------------------------------------------------------------------------
+# Correlation: an error raised while dispatching an execute_v2 message must
+# name the request it belongs to.
+# ---------------------------------------------------------------------------
+
+
+def test_serve_stdio_error_names_the_execute_v2_request_it_belongs_to():
+    """A dispatch exception must carry the failed request's ``request_id``.
+
+    The Rust reader routes an ``op=error`` envelope by ``request_id``: tagged,
+    it fails that dispatch's pending oneshot at once; untagged, it goes to the
+    single-slot sequential control channel, where a V2 caller has no receiver
+    registered and the envelope is absorbed. So an untagged error costs the
+    caller its whole per-request timeout for a fault the worker diagnosed
+    immediately, which is exactly what stalled ``speaker-identify`` on
+    2026-09-02: the worker answered in two milliseconds and the caller waited
+    out the audio-task ceiling.
+
+    The dispatcher is handed the message, so the id is in its hand when the
+    exception is caught; dropping it is the defect.
+    """
+
+    def fake_dispatch(_message):
+        raise RuntimeError(
+            "module 'batchalign_core' has no attribute "
+            "'execute_speaker_embedding_request_v2'"
+        )
+
+    envelopes = _run_serve_stdio_with_one_message(
+        json.dumps(
+            {
+                "op": "execute_v2",
+                "request": {
+                    "request_id": "speaker-embedding-v2-request-1",
+                    "task": "speaker_embedding",
+                },
+            }
+        ),
+        fake_dispatch,
+    )
+
+    assert len(envelopes) == 1
+    env = envelopes[0]
+    assert env["op"] == "error"
+    assert env["kind"] == "runtime"
+    assert env["request_id"] == "speaker-embedding-v2-request-1"
+
+
+def test_serve_stdio_error_for_a_message_with_no_request_id_stays_uncorrelated():
+    """A sequential op carries no request id, and the envelope must not invent one.
+
+    ``health`` / ``capabilities`` / ``ensure_task`` are answered through the
+    control channel, which is where an untagged error belongs. Tagging one
+    with a fabricated id would route it to a pending map that has no such
+    entry, and the sequential caller would then wait forever.
+    """
+
+    def fake_dispatch(_message):
+        raise RuntimeError("transient inference error")
+
+    envelopes = _run_serve_stdio_with_one_message(
+        '{"op": "health"}',
+        fake_dispatch,
+    )
+
+    assert len(envelopes) == 1
+    assert "request_id" not in envelopes[0]
