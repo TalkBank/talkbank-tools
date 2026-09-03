@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-09-01 06:49 EDT
+**Last updated:** 2026-09-02 20:07 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -411,8 +411,12 @@ filename contains directories, Batchalign appends a short digest of that full
 identity so equal basenames from different corpus branches cannot overwrite
 one another.
 
-Version 0.3.0 writes evidence schema version 2. Version 0.4.0 writes schema
-version 3. Both record the selected
+Version 0.3.0 writes evidence schema version 2, version 0.4.0 schema version 3,
+and the release after 0.4.4 schema version 4, which adds a flat `dropped_word_timings`
+section listing every word timing the run measured and then discarded (with the
+speaker, utterance, tier, word position, measured span, and the bound it
+exceeded). That section is always present, and empty when nothing was
+discarded. All of them record the selected
 engine and build/model version,
 the cache key and evidence source for every group (`wor_reuse`, `cache`, or
 `inference`), stable word identifiers, pre-injection timings, Wave2Vec-family

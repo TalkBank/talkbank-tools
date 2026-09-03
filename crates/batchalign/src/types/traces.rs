@@ -173,7 +173,7 @@ pub struct UtteranceTrace {
 // ---------------------------------------------------------------------------
 
 /// Schema written by the current [`FaTimelineTrace`] producer.
-pub const CURRENT_FA_EVIDENCE_SCHEMA_VERSION: u32 = 3;
+pub const CURRENT_FA_EVIDENCE_SCHEMA_VERSION: u32 = 4;
 
 /// Forced alignment trace: grouping, timing injection, and post-processing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -183,8 +183,11 @@ pub struct FaTimelineTrace {
     /// confidence, and full boundary provenance. Version 2 additionally
     /// records the typed post-injection decisions that altered or removed
     /// timing. Version 3 adds stable utterance ordinals to numeric
-    /// monotonicity effects; `post_injection_timings` remains reserved for a
-    /// later complete per-word outcome projection.
+    /// monotonicity effects. Version 4 adds the flat `dropped_word_timings`
+    /// section, so a discarded measurement is readable without walking the
+    /// tagged effect union and joining each drop back to its parent;
+    /// `post_injection_timings` remains reserved for a later complete
+    /// per-word outcome projection.
     #[serde(default)]
     pub evidence_schema_version: u32,
     /// Forced-alignment engine selected for this run.
@@ -213,6 +216,24 @@ pub struct FaTimelineTrace {
     /// deliberately separate from the human-readable decision reason.
     #[serde(default)]
     pub timing_decisions: Vec<FaTimingDecisionTrace>,
+    /// Every word timing this run discarded outright, flattened out of
+    /// [`Self::timing_decisions`] so each measurement stands on its own.
+    ///
+    /// DERIVED, never assembled by hand: `FaResult::into_timeline_trace`
+    /// builds it from the timing decisions above via
+    /// [`FaTimingDecisionTrace::dropped_word_timings`], so the two cannot
+    /// disagree and no producer can add a drop to one without the other.
+    /// What it adds over the nested form is the JOIN a reviewer would
+    /// otherwise do by hand: the speaker, the utterance and the bound live
+    /// on the parent effect, so a dropped span read out of `timing_decisions`
+    /// cannot say whose word it was or what it exceeded.
+    ///
+    /// Always written, empty when nothing was discarded. An absent key and an
+    /// empty one read identically to a consumer that does not know which
+    /// schema version produced the file, and "this run discarded nothing" is
+    /// a fact worth stating rather than one to infer from silence.
+    #[serde(default)]
+    pub dropped_word_timings: Vec<DroppedWordTimingRecord>,
     /// Gap-healing policy, as the `Debug` spelling of `WordGapHealing`
     /// (`"Heal"` / `"PreserveMeasured"`). A string because this trace is a
     /// serialization boundary shared with the dashboard.
@@ -380,6 +401,75 @@ impl From<&crate::chat_ops::fa::DroppedWordTiming> for DroppedWordTimingTrace {
             .to_owned(),
             start_ms: dropped.measured.start_ms,
             end_ms: dropped.measured.end_ms,
+        }
+    }
+}
+
+/// One word timing this run threw away, as a record that needs no parent.
+///
+/// [`DroppedWordTimingTrace`] carries the extent and the position but lives
+/// nested inside one variant of [`FaTimingDecisionTrace`], so the speaker,
+/// the utterance and the bound that cut it are only reachable from the
+/// enclosing effect. This is the same fact with that join already done, which
+/// is what makes it usable: a reviewer asking "what did this run measure and
+/// then discard?" reads one flat list instead of walking a tagged union.
+///
+/// Not a second source of truth: it is derived from the effects by
+/// [`FaTimingDecisionTrace::dropped_word_timings`] at the moment the trace is
+/// assembled, and there is no constructor that takes a bare span.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
+pub struct DroppedWordTimingRecord {
+    /// Index into `ChatFile.lines` of the utterance that lost the timing.
+    pub line_idx: usize,
+    /// Stable ordinal among utterances only.
+    pub utterance_idx: usize,
+    /// Speaker code on that utterance.
+    pub speaker: String,
+    /// Which tier the dropped timing lived on: `"main_tier"` or `"wor"`.
+    pub tier: String,
+    /// This word's position among the words on its own tier, in document
+    /// order.
+    pub word_index: usize,
+    /// Start of the measured extent that was lost.
+    pub start_ms: u64,
+    /// End of the measured extent that was lost.
+    pub end_ms: u64,
+    /// The clamp bound this measurement exceeded, which is why it was cut.
+    pub bound_ms: u64,
+}
+
+impl FaTimingDecisionTrace {
+    /// The word timings this one decision discarded outright.
+    ///
+    /// Written as an exhaustive match with every non-dropping variant named,
+    /// rather than a catch-all: a future effect that CAN discard a
+    /// measurement must then fail to compile here instead of silently
+    /// reporting none.
+    pub fn dropped_word_timings(&self) -> Vec<DroppedWordTimingRecord> {
+        match self {
+            Self::StartRegressionStripped { .. }
+            | Self::ZeroDurationClampStripped { .. }
+            | Self::EndClampedCoverageOnly { .. }
+            | Self::EndClampedBoundaryFromWords { .. } => Vec::new(),
+            Self::EndClampedInterleavedWords {
+                edge,
+                clamped_to_ms,
+                words_trimmed: _,
+                words_dropped,
+            } => words_dropped
+                .iter()
+                .map(|dropped| DroppedWordTimingRecord {
+                    line_idx: edge.line_idx,
+                    utterance_idx: edge.utterance_idx,
+                    speaker: edge.speaker.clone(),
+                    tier: dropped.tier.clone(),
+                    word_index: dropped.word_index,
+                    start_ms: dropped.start_ms,
+                    end_ms: dropped.end_ms,
+                    bound_ms: *clamped_to_ms,
+                })
+                .collect(),
         }
     }
 }

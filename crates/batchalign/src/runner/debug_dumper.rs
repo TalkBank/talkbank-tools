@@ -737,6 +737,9 @@ mod tests {
                 previous_utterance_idx: 1,
                 previous_speaker: "PAR1".to_owned(),
             }],
+            // A start regression discards no word timing, so this stays
+            // empty; the artifact still carries the section.
+            dropped_word_timings: Vec::new(),
             gap_healing: "Heal".to_owned(),
             violations: Vec::new(),
             fallback_events: Vec::new(),
@@ -787,6 +790,7 @@ mod tests {
             post_injection_timings: Vec::new(),
             decisions: Vec::new(),
             timing_decisions: Vec::new(),
+            dropped_word_timings: Vec::new(),
             gap_healing: "Heal".to_owned(),
             violations: Vec::new(),
             fallback_events: Vec::new(),
@@ -831,6 +835,7 @@ mod tests {
             post_injection_timings: Vec::new(),
             decisions: Vec::new(),
             timing_decisions: Vec::new(),
+            dropped_word_timings: Vec::new(),
             gap_healing: "Heal".to_owned(),
             violations: Vec::new(),
             fallback_events: Vec::new(),

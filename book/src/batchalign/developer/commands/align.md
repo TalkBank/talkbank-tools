@@ -1,7 +1,7 @@
 # align: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-08-31 00:52 EDT
+**Last updated:** 2026-09-02 20:07 EDT
 
 Implementation guide for the `align` command. For user-facing documentation,
 see [User Guide: align](../../user-guide/commands/align.md).
@@ -390,6 +390,11 @@ fail-closed when requested and includes:
 - pre-injection valid timings, optional model score, and exhaustive origin
   chains for both boundaries;
 - the exact typed decision records retained independently of CHAT output;
+- `dropped_word_timings`: every word timing the run discarded outright, one
+  self-describing record each (line, utterance, speaker, tier, word position,
+  measured span, and the bound it exceeded). Derived from the timing decisions
+  at assembly time by `FaTimingDecisionTrace::dropped_word_timings`, so it
+  cannot drift from them, and always written, empty when nothing was dropped;
 - fallback events and post-validation violations.
 
 The indexed alignment algorithm temporarily needs separate vectors while

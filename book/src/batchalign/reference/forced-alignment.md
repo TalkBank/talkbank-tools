@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-09-01 06:49 EDT
+**Last updated:** 2026-09-02 20:07 EDT
 
 ## Overview
 
@@ -813,9 +813,28 @@ word's start was already at or past the bound, so nothing survives the cut
 and a MEASURED (or transcript-carried) timing is thrown away. The prior
 single `words_clamped` count could not tell these apart, so a caller reading
 the log could not tell whether a review was looking at a word that merely
-got shorter or one that lost its timing outright. Both counts are carried
-the same way through `MonotonicityEffect::EndClampedInterleavedWords` and its
-`FaTimingDecisionTrace` wire form.
+got shorter or one that lost its timing outright. Both are carried the same
+way through `MonotonicityEffect::EndClampedInterleavedWords` and its
+`FaTimingDecisionTrace` wire form, and the dropped side is not a count at all:
+it is one record per word, carrying the extent that was lost.
+
+Those discarded extents are also written to the run's evidence artifact as a
+flat `dropped_word_timings` section, so a reviewer can recover every
+measurement this pass threw away without walking the tagged effect union. Each
+entry names the line and utterance, the speaker, the tier, the word's position
+on that tier, the measured start and end, and the bound it exceeded. See
+[Decision provenance](../developer/decision-provenance.md).
+
+A note on why the words are cut rather than kept and marked: the natural
+alternative is to preserve the timing and annotate the overlap. No typed CHAT
+construct expresses that here. The discarded timings live on `%wor`, which is a
+flat list of words and separators that carries no annotations at all; and
+CHAT's overlap annotations `[<]` / `[>]` assert simultaneous speech by two
+DIFFERENT speakers, while under the default policy this resolution only fires
+on a pair sharing one speaker code, where a speaker overlapping themself is
+exactly what the validator's speaker-self-overlap rule rejects. An untimed
+`%wor` slot honestly says the moment is unknown; the evidence artifact is where
+the measurement survives.
 
 Neither `end_clamped_coverage_only` nor `end_clamped_boundary_from_words`
 records identify an alignment defect. They are routine: the bullet's

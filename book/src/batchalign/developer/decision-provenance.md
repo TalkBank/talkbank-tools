@@ -1,7 +1,7 @@
 # Decision Evidence
 
 **Status:** Current
-**Last updated:** 2026-08-31 00:52 EDT
+**Last updated:** 2026-09-02 20:07 EDT
 
 ## Current policy
 
@@ -88,6 +88,29 @@ With `--debug-dir`, the resulting `<stem>_fa_evidence.json` contains typed
 decision records alongside group windows, word identities, cache keys, source
 classification, raw/pre-injection timings, fallback events, and validation
 violations. The evidence file is the research and replay surface; CHAT is not.
+
+### Discarded measurements: `dropped_word_timings`
+
+One decision does not adjust a timing, it removes one. When two utterances'
+measured words genuinely interleave, the resolver clamps the earlier bullet
+and every word past the bound; a word lying wholly past the bound keeps no
+positive extent, so its measured span is discarded and the `%wor` slot is left
+untimed. That span is a measurement, and losing it silently would be the
+defect.
+
+The artifact therefore carries a flat `dropped_word_timings` section: one
+entry per discarded span, each naming the line and utterance it came from, the
+speaker, the tier (`main_tier` or `wor`), the word's position on that tier, the
+measured `start_ms`/`end_ms`, and the `bound_ms` it exceeded. The join is
+already done, so an entry is readable on its own; the nested form inside
+`timing_decisions` only knows the span and the position, and needs its parent
+effect for everything else.
+
+The section is DERIVED from `timing_decisions` when the trace is assembled
+(`FaTimingDecisionTrace::dropped_word_timings`), never maintained beside it, so
+the two cannot disagree. It is always present, and empty when the run discarded
+nothing: an absent key and an empty one read identically to a consumer that does
+not know which schema version wrote the file.
 
 The full, incremental, complete-`%wor`, and grouping-empty paths all produce
 the same `FaFinalized` typestate. Optional repair is therefore always before

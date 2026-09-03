@@ -37,6 +37,7 @@ use talkbank_model::model::{Line, UtteranceContent, WriteChat};
 use talkbank_parser::TreeSitterParser;
 
 mod bullet_rerun;
+mod dropped_timing_evidence;
 mod end_overlap_resolution;
 mod find_reusable;
 mod grouping_and_wor;

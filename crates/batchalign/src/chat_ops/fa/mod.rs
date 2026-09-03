@@ -562,6 +562,31 @@ pub enum ExistingWorBoundaryPolicy {
 /// This is downstream projection policy. It never changes the raw FA evidence
 /// or its cache key. Cross-speaker overlap can be ordinary conversation, while
 /// same-speaker overlap still indicates incompatible segmentation or timing.
+///
+/// # Why there is no "flag the overlap instead of cutting it" policy
+///
+/// Assessed 2026-09-02 and recorded here so it is not re-derived: when
+/// `EndOverlapResolution::InterleavedWords` cuts a measured word, the natural
+/// alternative is to keep the timing and mark the overlap in the transcript.
+/// No typed CHAT construct expresses that, for two independent reasons.
+///
+/// First, the discarded timings live on `%wor`, and a `%wor` tier is a flat
+/// list of words and tag-marker separators: it carries no annotations,
+/// groups or events at all, so the slot whose timing is dropped has nowhere
+/// to say why. Second, CHAT's overlap annotations (`[<]` and `[>]`, typed in
+/// the model as scoped content annotations on a main-tier word) assert
+/// simultaneous speech by two DIFFERENT speakers. Under the default policy
+/// this resolution only ever fires on a pair sharing one speaker code, and a
+/// speaker overlapping themself is exactly what the validator's
+/// speaker-self-overlap rule exists to reject. Writing the marker there would
+/// state something the recording does not support.
+///
+/// So the cut stays, and the information it removes is preserved where it can
+/// be: every discarded extent is recorded in the run's evidence artifact (see
+/// the `dropped_word_timings` section of the FA timeline trace), rather than
+/// surviving only as a count. An untimed `%wor` slot honestly says "we do not
+/// know when this was said", which is true when segmentation and alignment
+/// disagree, and is better than a timing asserting an answer we know is wrong.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum EndOverlapPolicy {

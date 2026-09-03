@@ -107,6 +107,15 @@ impl FaResult {
             pre_injection_timings,
             post_injection_timings: Vec::new(), // TODO Phase 4
             decisions: self.decisions,
+            // Derived from the effects immediately above, never carried
+            // beside them: one producer, so the flat section and the tagged
+            // union cannot drift, and no drop can reach one without the
+            // other. Present and empty when this run discarded nothing.
+            dropped_word_timings: self
+                .timing_decisions
+                .iter()
+                .flat_map(FaTimingDecisionTrace::dropped_word_timings)
+                .collect(),
             timing_decisions: self.timing_decisions,
             gap_healing: format!("{:?}", self.gap_healing),
             violations: self.violations,
