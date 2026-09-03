@@ -548,6 +548,38 @@ fn default_standalone_speaker_engine() -> SpeakerEngineName {
     SpeakerEngineName::Pyannote
 }
 
+/// Options for the `speaker-identify` command.
+///
+/// # Why there is no default threshold, and no `Default` on this struct
+///
+/// The threshold is a decision about how much acoustic agreement counts as
+/// the same person. It depends on the recording, the microphone, how much
+/// enrollment audio there is, and what the caller intends to do with a wrong
+/// answer, and nothing in this crate knows any of that. A default would make
+/// every run produce confident verdicts under a number nobody chose, with no
+/// way for a reader to tell it had been chosen by accident.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SpeakerIdentifyOptions {
+    /// Shared options.
+    #[serde(flatten)]
+    pub common: CommonOptions,
+
+    /// Every enrolled span, already validated.
+    ///
+    /// An `EnrollmentSet` rather than a list of raw arguments: reading a
+    /// persisted job goes through the same construction a command line takes,
+    /// so a job row cannot reconstitute a set the CLI would have refused
+    /// (empty, duplicate-labelled, or overlapping).
+    pub enrollments: crate::chat_ops::speaker_identity::EnrollmentSet,
+
+    /// The similarity at or above which an enrolled voice is called a match.
+    pub threshold: crate::chat_ops::speaker_identity::MatchThreshold,
+
+    /// Speaker tiers whose utterances are scored; empty means every tier.
+    #[serde(default)]
+    pub tiers: Vec<String>,
+}
+
 /// Options for the `compare` command.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompareOptions {
@@ -605,6 +637,9 @@ pub enum CommandOptions {
     Avqi(AvqiOptions),
     /// `diarize`: standalone speaker diarization to turns JSON.
     Diarize(DiarizeOptions),
+    /// `speaker_identify`: score utterances against enrolled voices.
+    #[serde(rename = "speaker_identify")]
+    SpeakerIdentify(SpeakerIdentifyOptions),
 }
 
 impl CommandOptions {
@@ -622,6 +657,7 @@ impl CommandOptions {
             Self::Compare(o) => &o.common,
             Self::Avqi(o) => &o.common,
             Self::Diarize(o) => &o.common,
+            Self::SpeakerIdentify(o) => &o.common,
         }
     }
 
@@ -639,6 +675,7 @@ impl CommandOptions {
             Self::Compare(o) => &mut o.common,
             Self::Avqi(o) => &mut o.common,
             Self::Diarize(o) => &mut o.common,
+            Self::SpeakerIdentify(o) => &mut o.common,
         }
     }
 
@@ -655,7 +692,11 @@ impl CommandOptions {
             Self::Utseg(o) => o.merge_abbrev,
             Self::Benchmark(o) => o.merge_abbrev,
             Self::Compare(o) => o.merge_abbrev,
-            Self::Opensmile(_) | Self::Avqi(_) | Self::Diarize(_) => MergeAbbrevPolicy::Keep,
+            // Never merges: this command does not write CHAT at all, so
+            // there is no document for the policy to apply to.
+            Self::Opensmile(_) | Self::Avqi(_) | Self::Diarize(_) | Self::SpeakerIdentify(_) => {
+                MergeAbbrevPolicy::Keep
+            }
         }
     }
 
@@ -691,6 +732,7 @@ impl CommandOptions {
             Self::Compare(_) => "compare",
             Self::Avqi(_) => "avqi",
             Self::Diarize(_) => "diarize",
+            Self::SpeakerIdentify(_) => "speaker_identify",
         }
     }
 }

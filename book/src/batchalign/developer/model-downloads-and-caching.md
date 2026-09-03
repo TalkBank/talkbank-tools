@@ -1,7 +1,7 @@
 # Model Downloads and Caching (Developer Reference)
 
 **Status:** Current
-**Last updated:** 2026-08-31 22:01 EDT
+**Last updated:** 2026-09-02 20:59 EDT
 
 This page documents how batchalign3 downloads, caches, and verifies ML
 models, the contributor-facing complement to the
@@ -55,6 +55,7 @@ Source verified by reading code on 2026-05-06.
 | 9 | SeamlessM4T translation | `batchalign/worker/_model_loading/translation.py::_load_seamless_translate` | `AutoProcessor.from_pretrained` + `SeamlessM4TModel.from_pretrained` | HF |
 | 9b | NLLB-200 translation | `batchalign/worker/_model_loading/translation.py::_load_nllb_translate` | `AutoTokenizer.from_pretrained` + `AutoModelForSeq2SeqLM.from_pretrained` (`facebook/nllb-200-distilled-1.3B`, ~5 GB) | HF |
 | 10 | pyannote diarization | `batchalign/inference/speaker.py:350` | `Pipeline.from_pretrained("talkbank/dia-fork")` | HF |
+| 10b | Pyannote speaker embedding | `batchalign/inference/speaker_embedding.py::load_speaker_embedding_model` | `PretrainedSpeakerEmbedding(<pinned local ONNX path>)` | HF |
 | 11 | NeMo speaker (fallback) | `batchalign/inference/speaker.py` (NeMo branch) | `EncDecSpeakerLabelModel.from_pretrained(...)` | NeMo cache |
 | 12 | BERT utterance | `batchalign/models/utterance/infer.py:120-128` | `AutoTokenizer.from_pretrained` + `BertForTokenClassification.from_pretrained` | HF |
 | 13 | PyCantonese | (bundled) |, | (none, wheel) |
@@ -209,6 +210,16 @@ lookup instead of inventing producer provenance. Correctly labelled schema-1
 rows remain replayable under their explicit `legacy_cache_namespace` origin.
 The cache-stats command reports quarantined counts by reason without counting
 them as live hits.
+
+Row 10b downloads NOTHING new. It resolves the `embedding` node of the same
+manifest row 10 uses, by the same exact Hub commit, through the same
+pinned-artifact loader. The difference is that it constructs the embedding
+model STANDALONE instead of as part of a `SpeakerDiarization` pipeline. That
+matters operationally rather than only architecturally: the diarization
+pipeline class unconditionally loads a PLDA calibration artifact from a gated
+repository (see the [diarize page](../user-guide/commands/diarize.md)), so
+diarization needs a Hugging Face token where embedding does not. A machine with
+no Hugging Face account can embed and cannot diarize.
 
 Local Pyannote has an additional cross-language identity rule. The JSON
 manifest at `batchalign/inference/local_pyannote_model.json` is the single

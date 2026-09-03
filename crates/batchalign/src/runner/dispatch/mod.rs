@@ -55,6 +55,7 @@ mod media_analysis_v2;
 mod media_search;
 mod options;
 mod plan;
+pub(crate) mod speaker_identity_pipeline;
 mod transcribe_pipeline;
 mod utr;
 

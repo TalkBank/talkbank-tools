@@ -74,6 +74,10 @@
     },
     {
       "schema": "execute_request",
+      "file": "execute_request_speaker_embedding_prepared_audio.json"
+    },
+    {
+      "schema": "execute_request",
       "file": "execute_request_opensmile_prepared_audio.json"
     },
     {
@@ -119,6 +123,10 @@
     {
       "schema": "execute_response",
       "file": "execute_response_speaker_segments.json"
+    },
+    {
+      "schema": "execute_response",
+      "file": "execute_response_speaker_embedding_spans.json"
     },
     {
       "schema": "execute_response",

@@ -46,6 +46,7 @@ pub enum ReleasedCommand {
     Compare,
     Avqi,
     Diarize,
+    SpeakerIdentify,
 }
 
 /// Error returned when one string is not a released command name.
@@ -55,7 +56,7 @@ pub struct InvalidReleasedCommand(pub String);
 
 impl ReleasedCommand {
     /// All released commands in a stable contributor-facing order.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Align,
         Self::Transcribe,
         Self::TranscribeS,
@@ -68,6 +69,7 @@ impl ReleasedCommand {
         Self::Compare,
         Self::Avqi,
         Self::Diarize,
+        Self::SpeakerIdentify,
     ];
 
     /// Parse one untrusted released-command token.
@@ -90,6 +92,7 @@ impl ReleasedCommand {
             Self::Compare => "compare",
             Self::Avqi => "avqi",
             Self::Diarize => "diarize",
+            Self::SpeakerIdentify => "speaker_identify",
         }
     }
 
@@ -102,7 +105,12 @@ impl ReleasedCommand {
     pub const fn uses_local_audio(self) -> bool {
         matches!(
             self,
-            Self::Transcribe | Self::TranscribeS | Self::Benchmark | Self::Avqi | Self::Diarize
+            Self::Transcribe
+                | Self::TranscribeS
+                | Self::Benchmark
+                | Self::Avqi
+                | Self::Diarize
+                | Self::SpeakerIdentify
         )
     }
 }
@@ -142,6 +150,7 @@ impl TryFrom<&str> for ReleasedCommand {
             "compare" => Ok(Self::Compare),
             "avqi" => Ok(Self::Avqi),
             "diarize" => Ok(Self::Diarize),
+            "speaker_identify" => Ok(Self::SpeakerIdentify),
             other => Err(InvalidReleasedCommand(other.to_owned())),
         }
     }

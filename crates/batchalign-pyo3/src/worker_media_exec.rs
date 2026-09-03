@@ -5,9 +5,12 @@
 //! - Section "5. Media Analysis V2: AVQI" → `batchalign/worker/_avqi_v2.py`
 //! - Section "6. Media Analysis V2: Speaker Diarization" → `batchalign/worker/_speaker_v2.py`
 
+use std::collections::BTreeSet;
+
 use batchalign_types::worker_v2::{
-    AvqiResultV2, OpenSmileResultV2, SpeakerBackendV2, SpeakerInferenceEvidenceV2, SpeakerInputV2,
-    SpeakerResultV2, TaskRequestV2, TaskResultV2,
+    AvqiResultV2, OpenSmileResultV2, SpeakerBackendV2, SpeakerEmbeddingBackendV2,
+    SpeakerEmbeddingRequestV2, SpeakerEmbeddingResultV2, SpeakerInferenceEvidenceV2,
+    SpeakerInputV2, SpeakerResultV2, TaskRequestV2, TaskResultV2,
 };
 use numpy::IntoPyArray;
 use pyo3::prelude::*;
@@ -207,6 +210,96 @@ fn run_speaker(
     )?))
 }
 
+/// Check that the host answered about EXACTLY the spans it was asked about.
+///
+/// The request and the response are two sequences of the same length carrying
+/// the same ids, which is the shape that misattributes one speaker's acoustic
+/// evidence to another utterance when the two drift apart. An arity check
+/// alone does not catch a reordering or a substitution, so the ids are
+/// compared as sets and any disagreement is refused rather than reconciled.
+fn require_answers_for_exactly_the_requested_spans(
+    request: &SpeakerEmbeddingRequestV2,
+    result: &SpeakerEmbeddingResultV2,
+) -> Result<(), ExecuteFailure> {
+    let asked: BTreeSet<&str> = request
+        .spans
+        .iter()
+        .map(|span| span.span_id.as_ref())
+        .collect();
+    let answered: BTreeSet<&str> = result
+        .spans
+        .iter()
+        .map(|span| span.span_id.as_ref())
+        .collect();
+    if asked != answered {
+        return Err(ExecuteFailure::Runtime(format!(
+            "speaker embedding host answered about {} span(s) and was asked about {}",
+            answered.len(),
+            asked.len()
+        )));
+    }
+    if answered.len() != result.spans.len() {
+        return Err(ExecuteFailure::Runtime(
+            "speaker embedding host answered about one span more than once".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn run_speaker_embedding(
+    py: Python<'_>,
+    request: ValidatedRequestV2<'_>,
+    pyannote_span_runner: Option<Py<PyAny>>,
+) -> Result<TaskResultV2, ExecuteFailure> {
+    let embedding_request = extract_task_payload(
+        &request,
+        |payload| match payload {
+            TaskRequestV2::SpeakerEmbedding(value) => Some(value),
+            _ => None,
+        },
+        "speaker embedding",
+    )?;
+    let audio = require_mono_prepared_audio(
+        &request.attachments,
+        embedding_request.audio_ref_id.as_ref(),
+        "worker protocol V2 speaker embedding",
+    )?;
+    let runner = match embedding_request.backend {
+        SpeakerEmbeddingBackendV2::Pyannote => require_runner(
+            pyannote_span_runner,
+            "no pyannote speaker-embedding host loaded for prepared-audio V2",
+        )?,
+    };
+
+    // Spans travel as `(span_id, start_frame, end_frame)` triples rather than
+    // as bare index pairs, so the host echoes the name back and the pairing
+    // above is by identity rather than by position.
+    let spans: Vec<(String, u64, u64)> = embedding_request
+        .spans
+        .iter()
+        .map(|span| {
+            (
+                span.span_id.as_ref().to_owned(),
+                span.start_frame.0,
+                span.end_frame.0,
+            )
+        })
+        .collect();
+
+    let audio_array = audio.samples()?.into_pyarray(py);
+    let response = runner
+        .bind(py)
+        .call1((audio_array, audio.descriptor().sample_rate_hz.0, spans))
+        // The same reclassification the diarization executor uses: a gated
+        // repository or a missing credential must reach the operator as
+        // `model_access_denied`, not as an anonymous runtime failure.
+        .map_err(|error| classify_runner_error(py, error))?;
+
+    let parsed: SpeakerEmbeddingResultV2 = parse_host_output(&response, "speaker embedding")?;
+    require_answers_for_exactly_the_requested_spans(embedding_request, &parsed)?;
+    Ok(TaskResultV2::SpeakerEmbeddingResult(parsed))
+}
+
 #[pyfunction]
 #[pyo3(signature = (request, prepared_audio_runner=None))]
 pub(crate) fn execute_opensmile_request_v2(
@@ -248,5 +341,17 @@ pub(crate) fn execute_speaker_request_v2(
             pyannote_prepared_audio_runner,
             nemo_prepared_audio_runner,
         )
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (request, pyannote_span_runner=None))]
+pub(crate) fn execute_speaker_embedding_request_v2(
+    py: Python<'_>,
+    request: &Bound<'_, PyAny>,
+    pyannote_span_runner: Option<Py<PyAny>>,
+) -> PyResult<String> {
+    execute_request_v2(request, |request| {
+        run_speaker_embedding(py, request, pyannote_span_runner)
     })
 }

@@ -57,6 +57,7 @@ class InferenceTaskV2(str, Enum):
     ASR = "asr"
     FORCED_ALIGNMENT = "forced_alignment"
     SPEAKER = "speaker"
+    SPEAKER_EMBEDDING = "speaker_embedding"
     OPENSMILE = "opensmile"
     AVQI = "avqi"
 
@@ -93,6 +94,16 @@ class SpeakerBackendV2(str, Enum):
     PYANNOTE_AI = "pyannote_ai"
     PYANNOTE = "pyannote"
     NEMO = "nemo"
+
+
+class SpeakerEmbeddingBackendV2(str, Enum):
+    """Speaker-embedding backend selected by Rust.
+
+    One variant, and still an enum: a vector's meaning depends on which
+    acoustic model produced it, so the wire has to say.
+    """
+
+    PYANNOTE = "pyannote"
 
 
 class WorkerAttachmentKindV2(str, Enum):
@@ -351,6 +362,29 @@ class SpeakerRequestV2(BaseModel):
     expected_speakers: NumSpeakers | None = None
 
 
+class SpeakerEmbeddingSpanV2(BaseModel):
+    """One span to embed, in frames of the prepared recording."""
+
+    span_id: str
+    start_frame: int = Field(ge=0)
+    end_frame: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _validate_range(self) -> SpeakerEmbeddingSpanV2:
+        if self.end_frame < self.start_frame:
+            raise ValueError("Speaker embedding span end_frame must be >= start_frame")
+        return self
+
+
+class SpeakerEmbeddingRequestV2(BaseModel):
+    """V2 speaker-embedding request payload (tagged ``"speaker_embedding"``)."""
+
+    kind: Literal["speaker_embedding"] = "speaker_embedding"
+    backend: SpeakerEmbeddingBackendV2
+    audio_ref_id: WorkerArtifactIdV2
+    spans: list[SpeakerEmbeddingSpanV2]
+
+
 class OpenSmileRequestV2(BaseModel):
     """V2 openSMILE request payload (internally tagged as ``"opensmile"``)."""
 
@@ -393,6 +427,7 @@ TaskRequestV2: TypeAlias = Annotated[
     | TranslateRequestV2
     | CorefRequestV2
     | SpeakerRequestV2
+    | SpeakerEmbeddingRequestV2
     | OpenSmileRequestV2
     | AvqiRequestV2,
     Field(discriminator="kind"),
@@ -704,6 +739,47 @@ class SpeakerResultPayloadV2(BaseModel):
     evidence: SpeakerInferenceEvidenceV2
 
 
+class EmbeddedSpanV2(BaseModel):
+    """A span the model measured."""
+
+    kind: Literal["embedded"] = "embedded"
+    vector: list[FiniteFloat]
+
+
+class SpanTooShortForEmbeddingV2(BaseModel):
+    """A span below the model's own minimum input length.
+
+    Its own variant rather than an empty vector: the pinned model returns an
+    all-NaN vector for such a span, which reads as a measurement and compares
+    false against every threshold.
+    """
+
+    kind: Literal["too_short"] = "too_short"
+    frame_count: int = Field(ge=0)
+
+
+SpeakerEmbeddingOutcomeV2: TypeAlias = Annotated[
+    EmbeddedSpanV2 | SpanTooShortForEmbeddingV2,
+    Field(discriminator="kind"),
+]
+
+
+class SpeakerEmbeddingSpanResultV2(BaseModel):
+    """One requested span's outcome, echoing the id it was requested under."""
+
+    span_id: str
+    outcome: SpeakerEmbeddingOutcomeV2
+
+
+class SpeakerEmbeddingResultPayloadV2(BaseModel):
+    """Embeddings for every requested span, plus the model's own bounds."""
+
+    kind: Literal["speaker_embedding_result"] = "speaker_embedding_result"
+    dimension: int = Field(gt=0)
+    minimum_frames: int = Field(gt=0)
+    spans: list[SpeakerEmbeddingSpanResultV2]
+
+
 class OpenSmileResultPayloadV2(BaseModel):
     """Raw openSMILE tabular output returned by the model host (internally tagged)."""
 
@@ -746,6 +822,7 @@ UtsegResultV2 = UtsegResultPayloadV2
 TranslationResultV2 = TranslationResultPayloadV2
 CorefResultV2 = CorefResultPayloadV2
 SpeakerResultV2 = SpeakerResultPayloadV2
+SpeakerEmbeddingResultV2 = SpeakerEmbeddingResultPayloadV2
 OpenSmileResultV2 = OpenSmileResultPayloadV2
 AvqiResultV2 = AvqiResultPayloadV2
 
@@ -759,6 +836,7 @@ TaskResultV2: TypeAlias = Annotated[
     | TranslationResultPayloadV2
     | CorefResultPayloadV2
     | SpeakerResultPayloadV2
+    | SpeakerEmbeddingResultPayloadV2
     | OpenSmileResultPayloadV2
     | AvqiResultPayloadV2,
     Field(discriminator="kind"),

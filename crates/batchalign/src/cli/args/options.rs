@@ -6,10 +6,12 @@
 use crate::chat_ops::CacheTaskName;
 use crate::chat_ops::cache_key::CacheOverrideTaskName;
 use crate::chat_ops::fa::CaMarkerPolicy as AppCaMarkerPolicy;
+use crate::chat_ops::speaker_identity::InvalidEnrollmentSet;
 use crate::options::{
     AlignOptions, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions, CompareOptions,
     CorefOptions, DiarizeOptions, EngineOverrides, MorphotagOptions, OpensmileOptions,
-    TranscribeOptions, TranslateOptions, UtrOverlapStrategy as AppUtrOverlapStrategy, UtsegOptions,
+    SpeakerIdentifyOptions, TranscribeOptions, TranslateOptions,
+    UtrOverlapStrategy as AppUtrOverlapStrategy, UtsegOptions,
 };
 use crate::params::{CacheOverrides, MergeAbbrevPolicy, WorTierPolicy};
 
@@ -134,8 +136,28 @@ fn canonicalize_debug_dir(p: &std::path::Path) -> std::path::PathBuf {
 
 /// Build typed command options from parsed CLI args.
 ///
-/// Returns `None` for non-processing commands (serve, jobs, version, etc.).
-pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<CommandOptions> {
+/// `Ok(None)` for non-processing commands (serve, jobs, version, etc.).
+///
+/// # Why this returns a `Result`
+///
+/// One command's options cannot be built from arguments clap accepted.
+/// `speaker-identify` takes several `--enroll` spans, and clap validates each
+/// on its own; that two of them share a label, or claim the same audio for
+/// different speakers, is a relation BETWEEN them that only
+/// [`SpeakerIdentifyArgs::enrollment_set`] sees.
+///
+/// That used to be handled by discarding the error here with `.ok()` and
+/// relying on `cli::run_command` having run the same check first. The ordering
+/// was real and the comment describing it was true, and it was still the wrong
+/// shape: nothing stopped a second caller reaching this function directly and
+/// silently receiving `None`, which every other arm uses to mean "not a
+/// processing command". A failing validation and an absent command were the
+/// same value. They are different types now, so the confusion has no
+/// representation and the check cannot be skipped.
+pub fn build_typed_options(
+    cmd: &Commands,
+    global: &GlobalOpts,
+) -> Result<Option<CommandOptions>, InvalidEnrollmentSet> {
     let common = CommonOptions {
         override_media_cache: global.media_cache.override_media_cache,
         require_media_cache: global.media_cache.require_media_cache,
@@ -145,7 +167,7 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
         ..Default::default()
     };
 
-    match cmd {
+    Ok(match cmd {
         Commands::Align(a) => {
             // Resolution lives on `AlignArgs`, with the flags whose invariants
             // it depends on, and is infallible. It used to live here as two
@@ -292,13 +314,28 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
         })),
         Commands::Avqi(_) => Some(CommandOptions::Avqi(AvqiOptions { common })),
+        // `?`, not `.ok()`. Clap validates each `--enroll` on its own; that
+        // two of them share a label, or claim the same audio, is a relation
+        // BETWEEN them that only `enrollment_set` sees. This used to discard
+        // that error and lean on `cli::run_command` having checked first,
+        // which is an ordering held by a comment. Now the only way to reach
+        // the options is through the validation, and a caller that skips it
+        // has no signature to travel through.
+        Commands::SpeakerIdentify(a) => {
+            Some(CommandOptions::SpeakerIdentify(SpeakerIdentifyOptions {
+                common,
+                enrollments: a.enrollment_set()?,
+                threshold: a.threshold,
+                tiers: a.tiers.clone(),
+            }))
+        }
         Commands::Diarize(a) => Some(CommandOptions::Diarize(DiarizeOptions {
             common,
             speaker_engine: a.speaker_engine,
             expected_speakers: a.num_speakers.map(crate::api::NumSpeakers),
         })),
         _ => None,
-    }
+    })
 }
 
 /// Extract `CommonOpts` from a processing command, if present.
@@ -313,6 +350,7 @@ pub fn common_opts(cmd: &Commands) -> Option<&CommonOpts> {
         Commands::Benchmark(a) => Some(&a.common),
         Commands::Compare(a) => Some(&a.common),
         Commands::Diarize(a) => Some(&a.common),
+        Commands::SpeakerIdentify(a) => Some(&a.common),
         _ => None,
     }
 }

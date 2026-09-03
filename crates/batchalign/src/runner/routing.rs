@@ -302,6 +302,14 @@ pub(super) async fn dispatch_job_with_execution_context(
         );
 
         match runner_dispatch_kind {
+            RunnerDispatchKind::SpeakerIdentity => {
+                crate::runner::dispatch::speaker_identity_pipeline::dispatch_speaker_identity(
+                    &job,
+                    host,
+                    pool.clone(),
+                )
+                .await;
+            }
             RunnerDispatchKind::ForcedAlignment => {
                 dispatch_forced_alignment_command(
                     &job,
@@ -560,6 +568,7 @@ mod tests {
                 | ReleasedCommand::Opensmile
                 | ReleasedCommand::Avqi
                 | ReleasedCommand::Diarize
+                | ReleasedCommand::SpeakerIdentify
                 | ReleasedCommand::Align => false,
             };
 

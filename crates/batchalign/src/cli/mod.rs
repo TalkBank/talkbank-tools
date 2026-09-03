@@ -413,7 +413,12 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
                 std::fs::create_dir_all(od)?;
             }
 
-            let options = args::build_typed_options(cmd, &cli.global);
+            // The cross-argument check happens INSIDE `build_typed_options`,
+            // once, and its failure arrives here as a typed error rather than
+            // as an absent value. There is no separate pre-check to keep in
+            // step with it, and no ordering for a later caller to get wrong.
+            let options = args::build_typed_options(cmd, &cli.global)
+                .map_err(|error| error::CliError::InvalidArgument(error.to_string()))?;
             let bank = args::extract_bank(cmd);
             let subdir = args::extract_subdir(cmd);
             let lexicon = args::extract_lexicon(cmd);

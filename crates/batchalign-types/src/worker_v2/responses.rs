@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{DurationMs, DurationSeconds, LanguageCode3};
 
-use super::requests::{ProtocolErrorCodeV2, WhisperChunkSpanV2, WorkerRequestIdV2};
+use super::requests::{
+    FrameCountV2, ProtocolErrorCodeV2, SpeakerEmbeddingSpanIdV2, WhisperChunkSpanV2,
+    WorkerRequestIdV2,
+};
 use super::utseg_evidence::UtsegBoundaryModelEvidenceV2;
 
 /// One ASR result built from raw Whisper chunks.
@@ -275,6 +278,56 @@ pub struct SpeakerResultV2 {
     pub evidence: SpeakerInferenceEvidenceV2,
 }
 
+/// What the embedding model had to say about one requested span.
+///
+/// Two variants, because "we could not measure this" and "we measured this"
+/// are different facts and only one of them is a vector. Below its own minimum
+/// input length the pinned model does not raise: it returns a correctly shaped
+/// float array whose every component is NaN, which no type can distinguish
+/// from a real embedding and which compares false against every threshold. A
+/// caller handed that would report an utterance as UNMATCHED when the honest
+/// answer is UNMEASURABLE. The worker refuses instead, and says how short.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SpeakerEmbeddingOutcomeV2 {
+    /// The model measured this span.
+    Embedded {
+        /// Fixed-width acoustic vector, whose width the envelope declares.
+        vector: Vec<f64>,
+    },
+    /// The span is shorter than the model's own minimum input length.
+    TooShort {
+        /// How many frames the span held. The minimum it fell short of is on
+        /// the envelope, which owns that fact once for the whole response.
+        frame_count: FrameCountV2,
+    },
+}
+
+/// One requested span's outcome, echoing the id it was requested under.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+pub struct SpeakerEmbeddingSpanResultV2 {
+    /// The requested span's name, echoed verbatim.
+    pub span_id: SpeakerEmbeddingSpanIdV2,
+    /// What the model had to say about it.
+    pub outcome: SpeakerEmbeddingOutcomeV2,
+}
+
+/// Speaker embeddings for every requested span, plus the model's own bounds.
+///
+/// `dimension` and `minimum_frames` are REPORTED by the worker rather than
+/// assumed by the reader. They are properties of the loaded model file, so a
+/// constant on this side would be a second place the truth lives and would go
+/// on agreeing with a model that had moved.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+pub struct SpeakerEmbeddingResultV2 {
+    /// Width of every `Embedded` vector in this response.
+    pub dimension: u32,
+    /// Shortest span the model will measure, in prepared-audio frames.
+    pub minimum_frames: FrameCountV2,
+    /// One outcome per requested span, in the order requested.
+    pub spans: Vec<SpeakerEmbeddingSpanResultV2>,
+}
+
 /// Raw openSMILE output returned by the model host.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 pub struct OpenSmileResultV2 {
@@ -347,6 +400,8 @@ pub enum TaskResultV2 {
     CorefResult(CorefResultV2),
     /// Raw speaker diarization result.
     SpeakerResult(SpeakerResultV2),
+    /// Speaker embeddings for named spans of one prepared recording.
+    SpeakerEmbeddingResult(SpeakerEmbeddingResultV2),
     /// Raw openSMILE result.
     OpensmileResult(OpenSmileResultV2),
     /// Raw AVQI result.
@@ -644,6 +699,68 @@ mod tests {
         assert_eq!(value["evidence"]["kind"], "pyannote_ai");
         assert_eq!(value["evidence"]["job_id"], "job-1");
         assert!(value["evidence"]["output"]["exclusiveDiarization"].is_array());
+    }
+
+    /// WIRE FORMAT: a speaker-embedding response roundtrips, and the two
+    /// span outcomes stay distinguishable on the wire.
+    ///
+    /// This is a wire-format test rather than something a type could delete:
+    /// Rust and a hand-written Pydantic model on the other side are two
+    /// separate functions that have to agree, and only a roundtrip says so.
+    /// What it pins beyond shape: a span the model could not measure
+    /// serializes as its own tagged variant carrying the length that was too
+    /// short, and never as an empty, zero or NaN-filled vector.
+    #[test]
+    fn speaker_embedding_result_keeps_unmeasurable_spans_distinguishable() {
+        let result = SpeakerEmbeddingResultV2 {
+            dimension: 3,
+            minimum_frames: FrameCountV2(1680),
+            spans: vec![
+                SpeakerEmbeddingSpanResultV2 {
+                    span_id: SpeakerEmbeddingSpanIdV2::from("enroll-INV"),
+                    outcome: SpeakerEmbeddingOutcomeV2::Embedded {
+                        vector: vec![0.5, -0.25, 0.125],
+                    },
+                },
+                SpeakerEmbeddingSpanResultV2 {
+                    span_id: SpeakerEmbeddingSpanIdV2::from("utt-7"),
+                    outcome: SpeakerEmbeddingOutcomeV2::TooShort {
+                        frame_count: FrameCountV2(400),
+                    },
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&result).expect("embedding result serializes");
+        let back: SpeakerEmbeddingResultV2 =
+            serde_json::from_str(&json).expect("embedding result deserializes");
+        assert_eq!(back, result);
+
+        let value: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+        assert_eq!(value["spans"][0]["outcome"]["kind"], "embedded");
+        assert_eq!(value["spans"][1]["outcome"]["kind"], "too_short");
+        assert_eq!(value["spans"][1]["outcome"]["frame_count"], 400);
+        assert!(
+            value["spans"][1]["outcome"].get("vector").is_none(),
+            "an unmeasurable span must not carry a vector field at all"
+        );
+    }
+
+    /// WIRE FORMAT: the embedding result travels inside the shared task-result
+    /// envelope under its own tag, so a reader cannot mistake it for
+    /// diarization evidence.
+    #[test]
+    fn speaker_embedding_result_has_its_own_task_result_tag() {
+        let payload = TaskResultV2::SpeakerEmbeddingResult(SpeakerEmbeddingResultV2 {
+            dimension: 1,
+            minimum_frames: FrameCountV2(1680),
+            spans: Vec::new(),
+        });
+        let value = serde_json::to_value(&payload).expect("task result serializes");
+        assert_eq!(value["kind"], "speaker_embedding_result");
+
+        let back: TaskResultV2 = serde_json::from_value(value).expect("task result deserializes");
+        assert_eq!(back, payload);
     }
 
     /// WIRE FORMAT: both legal response shapes roundtrip byte-stably through

@@ -21,7 +21,11 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use tracing::info;
+
 use crate::media::MediaExtensions;
+use crate::runner::DispatchHostContext;
+use crate::store::RunnerJobSnapshot;
 
 /// One place resolution looked.
 ///
@@ -326,4 +330,270 @@ mod tests {
             "adjacency without --media-dir names only the transcript"
         );
     }
+}
+
+/// Return the parent directory of a filename as a `Path`, or `None` if the
+/// filename has no directory component (i.e. it is a bare name like `foo.cha`).
+///
+/// Used when constructing the `infer_client` path for `infer_media_mapping`:
+/// joining this onto `source_dir` makes the repo key visible when `source_dir`
+/// is a top-level data root and the filename carries a repo-key prefix.
+pub(super) fn filename_parent_dir(filename: &str) -> Option<&Path> {
+    Path::new(filename)
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+}
+
+pub(super) fn media_search_subdir(filename: &str, media_subdir: &str) -> String {
+    let file_parent = Path::new(filename)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if file_parent.is_empty() {
+        media_subdir.to_string()
+    } else if media_subdir.is_empty() {
+        file_parent
+    } else {
+        format!("{media_subdir}/{file_parent}")
+    }
+}
+
+/// Media the six-rung search could not find, with the places it looked.
+///
+/// A typed refusal rather than a lifecycle side effect, so the same search can
+/// serve a per-file task shell that owns its own failure reporting. The message
+/// is built here because only the search knows what it looked at, and only the
+/// transcript's own `@Media` header distinguishes "the recording is missing"
+/// from "this transcript was published without one".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct UnresolvedMedia {
+    /// The operator-facing explanation, naming every place searched.
+    pub message: String,
+}
+
+/// Find the recording for one transcript, by the one search every audio-backed
+/// command uses.
+///
+/// Extracted from `fa_pipeline::process_one_fa_file` on 2026-09-02, unchanged,
+/// when `speaker-identify` needed the same six rungs. Copying them would have
+/// been the third place this workspace states where a corpus keeps its media,
+/// and the copies would have drifted the first time a rung was added.
+pub(crate) async fn resolve_transcript_media(
+    job: &RunnerJobSnapshot,
+    host: &DispatchHostContext,
+    filename: &str,
+    read_path: &Path,
+    chat_text: &str,
+    media_dir: Option<&str>,
+) -> Result<PathBuf, UnresolvedMedia> {
+    let media_mapping = job.filesystem.media_mapping.clone();
+    let media_subdir = job.filesystem.media_subdir.clone();
+    let source_dir = job.filesystem.source_dir.clone();
+    // Resolve audio path.
+    //
+    // Everything is local to the execution host now, but the corpus root and
+    // media root can still differ on that host, so what varies between these
+    // is WHICH ROOT to look under. The name is the same in every one of them:
+    // the transcript's stem, which valid CHAT requires to equal the @Media
+    // basename (chatter reports a mismatch as an error). Search order:
+    //   1. explicit --media-dir root replacement using the known corpus subdir
+    //   2. paths_mode adjacency (or content-mode source_dir when shared)
+    //   3. local media_mappings root replacement on the execution host
+    //   4. media mapping INFERRED from the client's source path
+    //   5. server media_roots fallback
+    //   6. flat --media-dir / staged adjacency fallback
+    //
+    // This list said five for as long as it had six; derive it by reading the
+    // `searched` pushes below, which are the same order and cannot drift.
+    let stem = Path::new(filename)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let mapped_subdir = media_search_subdir(filename, media_subdir.as_str());
+    let media_dir_path = media_dir.map(Path::new);
+
+    // Every rung goes through `search.try_place`, which records the place and
+    // then looks. There is no separate push to forget, which is what went
+    // wrong when the two were kept in step by hand.
+    let mut search = MediaSearch::for_stem(&stem);
+    let mut original_audio_path = None;
+
+    if let Some(root) = media_dir_path {
+        original_audio_path = search
+            .try_place(SearchedPlace::MediaDirRoot {
+                root: root.to_path_buf(),
+                subdir: mapped_subdir.clone(),
+            })
+            .await;
+        if original_audio_path.is_some() {
+            info!(
+                filename,
+                media_dir = %root.display(),
+                mapped_subdir = %mapped_subdir,
+                "Resolved audio via --media-dir root mapping"
+            );
+        }
+    }
+
+    if original_audio_path.is_none() && job.filesystem.paths_mode {
+        original_audio_path = search
+            .try_place(SearchedPlace::TranscriptAdjacent {
+                transcript: read_path.to_path_buf(),
+                media_dir: None,
+            })
+            .await;
+    }
+
+    if original_audio_path.is_none() && !source_dir.is_empty() {
+        // paths_mode is active here, convert to a ServerPath for I/O.
+        let server_source_dir = source_dir.assume_shared_filesystem();
+        let source_path =
+            server_source_dir.join(Path::new(filename).file_name().unwrap_or_default());
+        original_audio_path = search
+            .try_place(SearchedPlace::ClientSourceDir {
+                source_dir: source_dir.to_string(),
+                transcript: source_path.as_path().to_path_buf(),
+                media_dir: media_dir_path.map(Path::to_path_buf),
+            })
+            .await;
+        if original_audio_path.is_some() {
+            info!(
+                filename,
+                source_dir = %source_dir,
+                "Resolved audio via client source directory"
+            );
+        }
+    }
+
+    if original_audio_path.is_none()
+        && !media_mapping.is_empty()
+        && let Some(root) = host.media_mapping_root(media_mapping.as_str())
+    {
+        original_audio_path = search
+            .try_place(SearchedPlace::LocalMediaMapping {
+                key: media_mapping.to_string(),
+                root: root.as_path().to_path_buf(),
+                subdir: mapped_subdir.clone(),
+            })
+            .await;
+        if original_audio_path.is_some() {
+            info!(
+                filename,
+                media_mapping = %media_mapping,
+                mapped_subdir = %mapped_subdir,
+                "Resolved audio via local media mapping"
+            );
+        }
+    }
+
+    // Auto-detect a media mapping from the client's source path.
+    // `infer_media_mapping()` is a pure string operation on the ClientPath: it
+    // extracts the repo-name component and the repo-relative subdir with no
+    // filesystem I/O, so it works for a local daemon (paths_mode) AND for
+    // remote `--server` jobs whose client path is not on this filesystem.
+    //
+    // Do NOT join `repo_subdir` with `mapped_subdir` afterwards. `infer_client`
+    // already embeds the file's parent, so `repo_subdir` is the complete
+    // media-volume-relative path and joining again double-counts it.
+    if original_audio_path.is_none() && media_mapping.is_empty() {
+        // The inferred path must contain the repo key as a component. When
+        // `source_dir` is a top-level data root (content mode / `--server`),
+        // filenames carry the key as a prefix, so joining the filename's parent
+        // exposes it; when `source_dir` already embeds a subdir (paths_mode),
+        // the join is a no-op for bare names and still correct for nested ones.
+        let infer_client: Option<batchalign_types::paths::ClientPath> = if !source_dir.is_empty() {
+            Some(match filename_parent_dir(filename) {
+                Some(parent) => source_dir.join(parent),
+                None => source_dir.clone(),
+            })
+        } else if job.filesystem.paths_mode {
+            // read_path is server-local; its parent contains the repo key.
+            read_path
+                .parent()
+                .map(|p| batchalign_types::paths::ClientPath::new(p.to_string_lossy()))
+        } else {
+            None
+        };
+
+        if let Some(client_path) = infer_client
+            && let Some((inferred_key, inferred_root, repo_subdir)) =
+                batchalign_types::paths::infer_media_mapping(
+                    &client_path,
+                    &host.config().media_mappings,
+                )
+        {
+            let search_dir = repo_subdir.resolve_on_server(&inferred_root);
+            original_audio_path = search
+                .try_place(SearchedPlace::InferredMediaMapping {
+                    dir: search_dir.as_path().to_path_buf(),
+                })
+                .await;
+            if original_audio_path.is_some() {
+                info!(
+                    filename,
+                    inferred_key = %inferred_key,
+                    repo_subdir = %repo_subdir,
+                    "Resolved audio via auto-detected media mapping"
+                );
+            }
+        }
+    }
+
+    if original_audio_path.is_none() {
+        for root in host.media_roots() {
+            original_audio_path = search
+                .try_place(SearchedPlace::ServerMediaRoot {
+                    root: root.as_path().to_path_buf(),
+                })
+                .await;
+            if original_audio_path.is_some() {
+                break;
+            }
+        }
+    }
+
+    if original_audio_path.is_none() {
+        // Identical to the paths_mode rung above when no `--media-dir` was
+        // given, and `try_place` skips a place it has already searched, so the
+        // nine probes that pair used to repeat no longer happen.
+        original_audio_path = search
+            .try_place(SearchedPlace::TranscriptAdjacent {
+                transcript: read_path.to_path_buf(),
+                media_dir: media_dir_path.map(Path::to_path_buf),
+            })
+            .await;
+    }
+
+    let original_audio_path = match original_audio_path {
+        Some(p) => p,
+        None => {
+            // Asked only now, never before the search: a transcript declaring
+            // its media absent may still have it on disk (2,618 do, corpus
+            // wide), and those align today.
+            // Always non-empty: the final fallback rung runs unconditionally
+            // when nothing else matched, and records itself. It did not, which
+            // made a branch here print "nowhere" for a file that had just been
+            // searched under nine extensions alongside its own transcript.
+            let places = search.describe();
+            let err_msg = match crate::media::DeclaredMedia::read(chat_text) {
+                crate::media::DeclaredMedia::Absent { as_written } => format!(
+                    "{filename} declares its own media absent (@Media status \
+                     '{as_written}') and none was found. This is a fact about the \
+                     transcript, not a misconfigured run. Searched: {places}."
+                ),
+                crate::media::DeclaredMedia::Undeclared => format!(
+                    "Cannot find audio file for {filename}, which declares no \
+                     @Media header at all, so it may be a transcript published \
+                     without a recording rather than one whose media went \
+                     astray. Searched: {places}."
+                ),
+                crate::media::DeclaredMedia::Expected => {
+                    format!("Cannot find audio file for {filename}. Searched: {places}.")
+                }
+            };
+            return Err(UnresolvedMedia { message: err_msg });
+        }
+    };
+    Ok(original_audio_path)
 }

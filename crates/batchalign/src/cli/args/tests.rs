@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 
 fn typed_options_for(args: &[&str]) -> CommandOptions {
     let cli = Cli::parse_from(args);
-    build_typed_options(&cli.command, &cli.global).unwrap()
+    build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap()
 }
 
 fn assert_typed_options_equivalent(lhs: &[&str], rhs: &[&str], note: &str) {
@@ -279,7 +281,9 @@ fn align_rebuild_boundary_flag_reaches_typed_options() {
         "--existing-wor-boundaries",
         "rebuild-from-evidence",
     ]);
-    let options = build_typed_options(&cli.command, &cli.global).expect("typed align options");
+    let options = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .expect("typed align options");
     let CommandOptions::Align(options) = options else {
         panic!("expected Align");
     };
@@ -296,7 +300,9 @@ fn align_default_end_overlap_policy_is_the_one_named_constant() {
     // `DEFAULT_END_OVERLAP_POLICY`, never an independent `EndOverlapPolicy`
     // derive, so the two cannot disagree (2026-09-01 review, item 8).
     let cli = Cli::parse_from(["batchalign3", "align", "input/"]);
-    let options = build_typed_options(&cli.command, &cli.global).expect("typed align options");
+    let options = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .expect("typed align options");
     let CommandOptions::Align(options) = options else {
         panic!("expected Align");
     };
@@ -315,7 +321,9 @@ fn align_cross_speaker_overlap_flag_reaches_typed_options() {
         "--end-overlap-policy",
         "preserve-cross-speaker",
     ]);
-    let options = build_typed_options(&cli.command, &cli.global).expect("typed align options");
+    let options = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .expect("typed align options");
     let CommandOptions::Align(options) = options else {
         panic!("expected Align");
     };
@@ -966,7 +974,9 @@ fn build_options_morphotag() {
         "--retokenize",
         "corpus/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     assert!(opts.common().override_media_cache);
     match opts {
         CommandOptions::Morphotag(m) => assert!(m.retokenize),
@@ -981,7 +991,9 @@ fn build_options_morphotag() {
 #[test]
 fn build_options_align_defaults() {
     let cli = Cli::parse_from(["batchalign3", "align", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Align(a) => {
             // Derived, not restated: this test is about the default being
@@ -1139,7 +1151,9 @@ fn legacy_align_alias_precedence_matches_documented_order() {
 #[test]
 fn build_options_transcribe_defaults() {
     let cli = Cli::parse_from(["batchalign3", "transcribe", "audio/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Transcribe(t) => {
             assert_eq!(t.asr_engine, AsrEngineName::RevAi);
@@ -1168,7 +1182,9 @@ fn build_options_transcribe_asr_engine(#[case] args: &[&str], #[case] expected: 
 #[test]
 fn build_options_transcribe_diarize() {
     let cli = Cli::parse_from(["batchalign3", "transcribe", "--diarize", "audio/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::TranscribeS(t) => assert!(t.diarize),
         _ => panic!("expected TranscribeS"),
@@ -1185,7 +1201,9 @@ fn build_options_transcribe_accepts_explicit_speaker_engine() {
         "pyannote",
         "audio/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::TranscribeS(t) => assert_eq!(
             t.common.engine_overrides.speaker,
@@ -1198,7 +1216,9 @@ fn build_options_transcribe_accepts_explicit_speaker_engine() {
 #[test]
 fn build_options_transcribe_diarize_matches_batchalign2_baseline_defaults() {
     let cli = Cli::parse_from(["batchalign3", "transcribe", "--diarize", "audio/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     let profile = CommonOpts::command_profile(&cli.command);
 
     match opts {
@@ -1389,7 +1409,9 @@ fn legacy_transcribe_alias_precedence_matches_documented_order() {
 #[test]
 fn build_options_translate() {
     let cli = Cli::parse_from(["batchalign3", "translate", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Translate(t) => {
             assert!(!t.merge_abbrev.should_merge());
@@ -1584,7 +1606,9 @@ fn build_options_wor_matrix_for_processing_commands() {
 #[test]
 fn build_options_coref_merge_abbrev() {
     let cli = Cli::parse_from(["batchalign3", "coref", "--merge-abbrev", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Coref(c) => assert!(c.merge_abbrev.should_merge()),
         _ => panic!("expected Coref"),
@@ -1594,7 +1618,9 @@ fn build_options_coref_merge_abbrev() {
 #[test]
 fn build_options_utseg() {
     let cli = Cli::parse_from(["batchalign3", "utseg", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Utseg(u) => {
             assert!(!u.merge_abbrev.should_merge());
@@ -1606,7 +1632,9 @@ fn build_options_utseg() {
 #[test]
 fn build_options_benchmark_defaults() {
     let cli = Cli::parse_from(["batchalign3", "benchmark", "audio/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Benchmark(b) => {
             assert_eq!(b.asr_engine, AsrEngineName::RevAi);
@@ -1704,7 +1732,9 @@ fn legacy_benchmark_alias_precedence_matches_documented_order() {
 #[test]
 fn build_options_opensmile_defaults() {
     let cli = Cli::parse_from(["batchalign3", "opensmile", "in/", "out/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Opensmile(o) => assert_eq!(o.feature_set, "eGeMAPSv02"),
         _ => panic!("expected Opensmile"),
@@ -1721,7 +1751,9 @@ fn build_options_opensmile_compare() {
         "in/",
         "out/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Opensmile(o) => assert_eq!(o.feature_set, "ComParE_2016"),
         _ => panic!("expected Opensmile"),
@@ -1742,21 +1774,27 @@ fn build_options_avqi_defaults() {
 #[test]
 fn build_options_override_media_cache_global() {
     let cli = Cli::parse_from(["batchalign3", "--override-media-cache", "align", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     assert!(opts.common().override_media_cache);
 }
 
 #[test]
 fn build_options_require_media_cache_global() {
     let cli = Cli::parse_from(["batchalign3", "--require-media-cache", "align", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     assert!(opts.common().require_media_cache);
 }
 
 #[test]
 fn standalone_diarize_defaults_to_local_pyannote_without_paid_inference() {
     let cli = Cli::parse_from(["batchalign3", "diarize", "audio/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     let CommandOptions::Diarize(options) = opts else {
         panic!("expected standalone diarize options");
     };
@@ -1775,7 +1813,9 @@ fn standalone_diarize_accepts_explicit_pyannote_ai() {
         "pyannote-ai",
         "audio/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     let CommandOptions::Diarize(options) = opts else {
         panic!("expected standalone diarize options");
     };
@@ -1983,7 +2023,9 @@ fn build_options_engine_overrides_populates_common() {
         "morphotag",
         "corpus/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     assert_eq!(
         opts.common().engine_overrides.asr,
         Some(AsrEngineName::HkTencent)
@@ -1993,7 +2035,9 @@ fn build_options_engine_overrides_populates_common() {
 #[test]
 fn build_options_engine_overrides_empty_by_default() {
     let cli = Cli::parse_from(["batchalign3", "align", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     assert!(opts.common().engine_overrides.is_empty());
 }
 
@@ -2049,7 +2093,9 @@ fn build_options_engine_overrides_multiple_commands() {
         ),
     ] {
         let cli = Cli::parse_from(args);
-        let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+        let opts = build_typed_options(&cli.command, &cli.global)
+            .expect("enrollments validate")
+            .unwrap();
         assert!(
             !opts.common().engine_overrides.is_empty(),
             "engine_overrides should be non-empty for {variant_name}"
@@ -2070,7 +2116,9 @@ fn engine_overrides_accept_qwen_model_and_device_extras() {
         "transcribe",
         "audio/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     let overrides = &opts.common().engine_overrides;
 
     assert_eq!(overrides.asr, Some(AsrEngineName::HkQwen));
@@ -2113,7 +2161,9 @@ fn user_fa_override_normalizes_to_typed_selection() {
             "align",
             "corpus/",
         ]);
-        let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+        let opts = build_typed_options(&cli.command, &cli.global)
+            .expect("enrollments validate")
+            .unwrap();
         assert_eq!(
             opts.common().engine_overrides.fa,
             Some(expected_engine),
@@ -2133,7 +2183,9 @@ fn engine_overrides_extras_survive_without_asr_field() {
         "transcribe",
         "audio/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     let overrides = &opts.common().engine_overrides;
 
     assert_eq!(overrides.asr, None);
@@ -2149,7 +2201,9 @@ fn engine_overrides_extras_survive_without_asr_field() {
 #[test]
 fn translate_engine_flag_defaults_to_google_when_absent() {
     let cli = Cli::parse_from(["batchalign3", "translate", "corpus/"]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Translate(t) => {
             assert_eq!(t.translate_engine, TranslateEngineName::Google);
@@ -2168,7 +2222,9 @@ fn translate_engine_flag_seamless_is_parsed() {
         "seamless",
         "corpus/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Translate(t) => {
             assert_eq!(t.translate_engine, TranslateEngineName::Seamless);
@@ -2190,7 +2246,9 @@ fn translate_engine_flag_nllb_is_parsed() {
         "nllb",
         "corpus/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Translate(t) => {
             assert_eq!(t.translate_engine, TranslateEngineName::Nllb);
@@ -2209,7 +2267,9 @@ fn translate_engine_flag_tencent_is_parsed() {
         "tencent",
         "corpus/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Translate(t) => {
             assert_eq!(t.translate_engine, TranslateEngineName::Tencent);
@@ -2233,7 +2293,9 @@ fn translate_engine_flag_aliyun_is_parsed() {
         "aliyun",
         "corpus/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Translate(t) => {
             assert_eq!(t.translate_engine, TranslateEngineName::Aliyun);
@@ -2258,7 +2320,9 @@ fn translate_engine_global_override_beats_explicit_flag() {
         "google",
         "corpus/",
     ]);
-    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    let opts = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .unwrap();
     match opts {
         CommandOptions::Translate(t) => {
             assert_eq!(t.translate_engine, TranslateEngineName::Google);
@@ -2418,6 +2482,7 @@ fn explicit_engine_overrides_beat_the_implied_checkpoint() {
         "paraformer",
     ]);
     let options = crate::cli::args::options::build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
         .expect("options must resolve");
     let crate::options::CommandOptions::Transcribe(t) = options else {
         panic!("expected transcribe options");
@@ -2601,7 +2666,9 @@ fn an_engine_overrides_utr_key_selects_the_utr_engine() {
         "input/",
         "--utr",
     ]);
-    let options = build_typed_options(&cli.command, &cli.global).expect("align options");
+    let options = build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .expect("align options");
     let CommandOptions::Align(align) = options else {
         panic!("expected Align");
     };
@@ -2636,5 +2703,147 @@ fn an_unknown_engine_name_is_rejected_at_parse_time(#[case] argv: &[&str], #[cas
     assert!(
         error.to_string().contains(typed),
         "the error must name the value the user typed: {error}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// speaker-identify: the argument surface, and the ordering `build_typed_options`
+// relies on.
+// ---------------------------------------------------------------------------
+
+/// The enrollment form reaches the typed options as validated values, in
+/// recording order, with the threshold the caller stated.
+#[test]
+fn speaker_identify_enrollments_and_threshold_reach_the_typed_options() {
+    let options = typed_options_for(&[
+        "batchalign3",
+        "speaker-identify",
+        "corpus/",
+        "--enroll",
+        "9000-14000:CHI",
+        "--enroll",
+        "1500-9000:INV",
+        "--threshold",
+        "0.62",
+        "--tiers",
+        "PAR0,CHI",
+    ]);
+    let CommandOptions::SpeakerIdentify(options) = options else {
+        panic!("expected speaker-identify options, got {options:?}");
+    };
+    let labels: Vec<&str> = options
+        .enrollments
+        .as_slice()
+        .iter()
+        .map(|enrollment| enrollment.label().as_str())
+        .collect();
+    assert_eq!(labels, ["INV", "CHI"], "the set is held in recording order");
+    assert_eq!(options.threshold.get(), 0.62);
+    assert_eq!(options.tiers, ["PAR0", "CHI"]);
+}
+
+/// A threshold is REQUIRED. There is no defensible default, so omitting it is
+/// an argument error rather than a silent policy nobody chose.
+#[test]
+fn speaker_identify_refuses_to_run_without_a_threshold() {
+    let parsed = Cli::try_parse_from([
+        "batchalign3",
+        "speaker-identify",
+        "corpus/",
+        "--enroll",
+        "1500-9000:INV",
+    ]);
+    assert!(parsed.is_err(), "--threshold must be required");
+}
+
+/// At least one enrollment is REQUIRED: with none, there is nothing to
+/// identify anyone against.
+#[test]
+fn speaker_identify_refuses_to_run_without_an_enrollment() {
+    let parsed = Cli::try_parse_from([
+        "batchalign3",
+        "speaker-identify",
+        "corpus/",
+        "--threshold",
+        "0.5",
+    ]);
+    assert!(parsed.is_err(), "--enroll must be required");
+}
+
+/// A malformed span is refused by argument parsing, with the text quoted, so
+/// nothing downstream ever holds an unvalidated enrollment.
+#[test]
+fn speaker_identify_refuses_a_malformed_enrollment_span() {
+    for bad in ["1500-9000", "9000-1500:INV", "1500-9000:", "x-9000:INV"] {
+        let parsed = Cli::try_parse_from([
+            "batchalign3",
+            "speaker-identify",
+            "corpus/",
+            "--enroll",
+            bad,
+            "--threshold",
+            "0.5",
+        ]);
+        assert!(parsed.is_err(), "{bad:?} must be refused by --enroll");
+    }
+}
+
+/// A threshold no cosine similarity can reach is refused by the value parser.
+#[test]
+fn speaker_identify_refuses_an_unreachable_threshold() {
+    for bad in ["1.5", "-2", "banana"] {
+        let parsed = Cli::try_parse_from([
+            "batchalign3",
+            "speaker-identify",
+            "corpus/",
+            "--enroll",
+            "1500-9000:INV",
+            "--threshold",
+            bad,
+        ]);
+        assert!(parsed.is_err(), "{bad:?} must be refused by --threshold");
+    }
+}
+
+/// A cross-argument problem reaches the caller as a typed error.
+///
+/// Clap accepts each `--enroll` on its own, so two labels the same, or two
+/// spans claiming the same audio, survive parsing. `build_typed_options` runs
+/// the set construction itself and propagates its refusal, so there is no
+/// ordering between two callers for anyone to get wrong: the only route to
+/// the options runs through the validation.
+#[rstest]
+#[case::duplicate_label(&["0-5000:INV", "6000-9000:INV"])]
+#[case::overlapping_spans(&["0-5000:INV", "4000-9000:CHI"])]
+fn speaker_identify_cross_argument_problems_are_refused_before_options_are_built(
+    #[case] enrollments: &[&str],
+) {
+    let mut argv = vec![
+        "batchalign3".to_owned(),
+        "speaker-identify".to_owned(),
+        "corpus/".to_owned(),
+        "--threshold".to_owned(),
+        "0.5".to_owned(),
+    ];
+    for enrollment in enrollments {
+        argv.push("--enroll".to_owned());
+        argv.push((*enrollment).to_owned());
+    }
+    let cli = Cli::parse_from(&argv);
+    let Commands::SpeakerIdentify(args) = &cli.command else {
+        panic!("expected the speaker-identify subcommand");
+    };
+
+    assert!(
+        args.enrollment_set().is_err(),
+        "the set constructor must refuse this invocation"
+    );
+    // The typed error PROPAGATES. This used to assert `is_none()`, which was
+    // the defect: a failed validation and a non-processing command were the
+    // same value, so a caller could not tell them apart and the check could be
+    // skipped by anyone who did not know to run it first.
+    assert!(
+        build_typed_options(&cli.command, &cli.global).is_err(),
+        "build_typed_options must surface the refusal, not return an absent value"
     );
 }

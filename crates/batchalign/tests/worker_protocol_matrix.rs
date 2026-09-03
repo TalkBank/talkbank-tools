@@ -30,8 +30,8 @@ use batchalign::api::{DurationSeconds, NumSpeakers};
 use batchalign::types::worker_v2::{
     ArtifactRefV2, AsrBackendV2, AsrInputV2, AsrRequestV2, ExecuteOutcomeRef, ExecuteRequestV2,
     ExecuteResponseV2, FaBackendV2, FaTextModeV2, ForcedAlignmentRequestV2, InferenceTaskV2,
-    ProtocolErrorCodeV2, ProviderMediaInputV2, SpeakerBackendV2, SpeakerInferenceEvidenceV2,
-    TaskRequestV2, TaskResultV2, WorkerArtifactIdV2,
+    ProtocolErrorCodeV2, ProviderMediaInputV2, SpeakerBackendV2, SpeakerEmbeddingOutcomeV2,
+    SpeakerInferenceEvidenceV2, TaskRequestV2, TaskResultV2, WorkerArtifactIdV2,
 };
 use batchalign::worker::WorkerProfile;
 use batchalign::worker::handle::WorkerConfig;
@@ -114,6 +114,7 @@ fn payload_kind_name(payload: &TaskRequestV2) -> &'static str {
         TaskRequestV2::Translate(_) => "translate",
         TaskRequestV2::Coref(_) => "coref",
         TaskRequestV2::Speaker(_) => "speaker",
+        TaskRequestV2::SpeakerEmbedding(_) => "speaker_embedding",
         TaskRequestV2::Opensmile(_) => "opensmile",
         TaskRequestV2::Avqi(_) => "avqi",
     }
@@ -129,6 +130,7 @@ fn expected_payload_kind(task: InferenceTaskV2) -> &'static str {
         InferenceTaskV2::Translate => "translate",
         InferenceTaskV2::Coref => "coref",
         InferenceTaskV2::Speaker => "speaker",
+        InferenceTaskV2::SpeakerEmbedding => "speaker_embedding",
         InferenceTaskV2::Opensmile => "opensmile",
         InferenceTaskV2::Avqi => "avqi",
     }
@@ -186,6 +188,7 @@ fn result_kind_name(result: &TaskResultV2) -> &'static str {
         TaskResultV2::TranslationResult(_) => "translation_result",
         TaskResultV2::CorefResult(_) => "coref_result",
         TaskResultV2::SpeakerResult(_) => "speaker_result",
+        TaskResultV2::SpeakerEmbeddingResult(_) => "speaker_embedding_result",
         TaskResultV2::OpensmileResult(_) => "opensmile_result",
         TaskResultV2::AvqiResult(_) => "avqi_result",
     }
@@ -254,6 +257,27 @@ fn require_attachment_kind(
         ));
     }
     Ok(())
+}
+
+/// The frame count of one prepared-audio attachment.
+///
+/// The only thing on the wire that relates a frame index to a particular
+/// decode, which is why the span-containment check above has to come through
+/// here rather than comparing two integers the request happens to carry.
+fn prepared_audio_frame_count(
+    request: &ExecuteRequestV2,
+    artifact_id: &WorkerArtifactIdV2,
+) -> Result<u64, String> {
+    let Some(attachment) = attachment_by_id(&request.attachments, artifact_id) else {
+        return Err(format!("missing attachment {artifact_id}"));
+    };
+    match attachment {
+        ArtifactRefV2::PreparedAudio(audio) => Ok(audio.frame_count.0),
+        other => Err(format!(
+            "attachment {artifact_id} had kind {}, expected prepared_audio",
+            attachment_kind_name(other)
+        )),
+    }
 }
 
 /// Require that one request attachment exists and carries JSON data.
@@ -398,6 +422,38 @@ fn validate_execute_request_invariants(request: &ExecuteRequestV2) -> Result<(),
                 | SpeakerBackendV2::Pyannote
                 | SpeakerBackendV2::Nemo => Ok(()),
             }
+        }
+        TaskRequestV2::SpeakerEmbedding(embedding_request) => {
+            require_attachment_kind(request, &embedding_request.audio_ref_id, "prepared_audio")?;
+            // Two invariants the schema cannot state: a request that asks
+            // about nothing is a request nobody meant to send, and a span
+            // whose end does not follow its start names no audio. Both would
+            // otherwise reach the worker and come back as an empty answer that
+            // reads like a measurement.
+            if embedding_request.spans.is_empty() {
+                return Err("speaker embedding request must name at least one span".into());
+            }
+            for span in &embedding_request.spans {
+                if span.end_frame.0 <= span.start_frame.0 {
+                    return Err(format!(
+                        "speaker embedding span {} covers no frames",
+                        span.span_id
+                    ));
+                }
+            }
+            // Every span must lie inside the attachment it indexes. Nothing on
+            // the wire relates a frame index to a particular decode, so this
+            // is the one place the pairing can be checked at all.
+            let frames = prepared_audio_frame_count(request, &embedding_request.audio_ref_id)?;
+            for span in &embedding_request.spans {
+                if span.end_frame.0 > frames {
+                    return Err(format!(
+                        "speaker embedding span {} ends at frame {} but the prepared audio holds {frames}",
+                        span.span_id, span.end_frame.0
+                    ));
+                }
+            }
+            Ok(())
         }
         TaskRequestV2::Opensmile(opensmile_request) => {
             require_attachment_kind(request, &opensmile_request.audio_ref_id, "prepared_audio")
@@ -677,6 +733,50 @@ fn validate_task_result_shape(result: &TaskResultV2) -> Result<(), String> {
             }
             Ok(())
         }
+        TaskResultV2::SpeakerEmbeddingResult(value) => {
+            // Two shape invariants the Rust schema cannot state, and both are
+            // the difference between a measurement and something that reads
+            // like one.
+            for span in &value.spans {
+                match &span.outcome {
+                    SpeakerEmbeddingOutcomeV2::Embedded { vector } => {
+                        // The declared width is the loaded model's own
+                        // dimension. A vector of some other length means two
+                        // models answered one request, and no similarity
+                        // between them would mean anything.
+                        if vector.len() as u32 != value.dimension {
+                            return Err(format!(
+                                "speaker embedding span {} has {} components, and the response                                  declares {}",
+                                span.span_id,
+                                vector.len(),
+                                value.dimension
+                            ));
+                        }
+                        // The pinned model returns an all-NaN vector for input
+                        // below its minimum length. On the wire that is
+                        // indistinguishable from a measurement by shape alone,
+                        // which is precisely why it is checked here.
+                        if let Some(index) =
+                            vector.iter().position(|component| !component.is_finite())
+                        {
+                            return Err(format!(
+                                "speaker embedding span {} has a non-finite component at {index}",
+                                span.span_id
+                            ));
+                        }
+                    }
+                    SpeakerEmbeddingOutcomeV2::TooShort { frame_count } => {
+                        if frame_count.0 >= value.minimum_frames.0 {
+                            return Err(format!(
+                                "speaker embedding span {} was refused as too short at {} frames,                                  which is not below the declared minimum {}",
+                                span.span_id, frame_count.0, value.minimum_frames.0
+                            ));
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
         TaskResultV2::OpensmileResult(value) => {
             if value.success && value.rows.is_empty() {
                 return Err("successful openSMILE result must contain at least one row".into());
@@ -769,6 +869,7 @@ fn worker_protocol_v2_request_manifest_covers_live_backend_matrix() {
             | TaskRequestV2::Utseg(_)
             | TaskRequestV2::Translate(_)
             | TaskRequestV2::Coref(_)
+            | TaskRequestV2::SpeakerEmbedding(_)
             | TaskRequestV2::Opensmile(_)
             | TaskRequestV2::Avqi(_) => {}
         }

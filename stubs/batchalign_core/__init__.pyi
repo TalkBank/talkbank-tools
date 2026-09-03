@@ -57,6 +57,10 @@ def execute_speaker_request_v2(
     pyannote_prepared_audio_runner: Callable[..., object] | None = None,
     nemo_prepared_audio_runner: Callable[..., object] | None = None,
 ) -> str: ...
+def execute_speaker_embedding_request_v2(
+    request: object,
+    pyannote_span_runner: Callable[..., object] | None = None,
+) -> str: ...
 def execute_morphosyntax_request_v2(
     request: object,
     runner: Callable[..., object] | None = None,

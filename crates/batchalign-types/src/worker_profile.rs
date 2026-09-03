@@ -144,6 +144,11 @@ impl WorkerProfile {
             ReleasedCommand::Avqi => InferTask::Avqi,
             // Diarize: standalone speaker diarization (pyannote), GPU-profile.
             ReleasedCommand::Diarize => InferTask::Speaker,
+            // The SAME infer task as diarization: both are served by the
+            // speaker worker, and both models it can host load lazily, so a
+            // worker that only ever embeds never constructs the diarization
+            // pipeline and never reaches that pipeline's gated artifact.
+            ReleasedCommand::SpeakerIdentify => InferTask::Speaker,
             // Compare: primary infer task is Morphosyntax (MORPHOSYNTAX_TASKS[0]).
             ReleasedCommand::Compare => InferTask::Morphosyntax,
             // Benchmark: primary infer task is Asr (BENCHMARK_TASKS[0]).

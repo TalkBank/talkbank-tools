@@ -137,6 +137,9 @@ pub fn parse_asr_response_v2(
         TaskResultV2::SpeakerResult(_) => {
             Err("worker protocol V2 ASR response returned speaker diarization data".into())
         }
+        TaskResultV2::SpeakerEmbeddingResult(_) => {
+            Err("worker protocol V2 ASR response returned speaker embedding data".into())
+        }
         TaskResultV2::OpensmileResult(_) => {
             Err("worker protocol V2 ASR response returned openSMILE feature data".into())
         }

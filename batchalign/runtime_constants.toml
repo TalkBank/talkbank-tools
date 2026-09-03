@@ -20,6 +20,7 @@ opensmile = "opensmile"
 compare = "morphosyntax"
 avqi = "avqi"
 diarize = "speaker"
+speaker_identify = "speaker"
 
 [worker_caps]
 max_gpu_workers = 8
@@ -32,7 +33,7 @@ mb_per_file_mb = 25
 loading_overhead = 1.5
 
 [gpu_heavy_commands]
-commands = ["align", "transcribe", "transcribe_s", "benchmark", "diarize"]
+commands = ["align", "transcribe", "transcribe_s", "benchmark", "diarize", "speaker_identify"]
 
 [process_commands]
 # Non-free-threaded: CPU-bound commands needing process isolation.
@@ -54,6 +55,7 @@ opensmile = 500
 compare = 8000
 avqi = 1500
 diarize = 2500
+speaker_identify = 1000
 
 # Per-command base memory (MB) for thread workers (free-threaded, shared models).
 [command_base_mb.threaded]
@@ -69,6 +71,7 @@ opensmile = 500
 compare = 2000
 avqi = 1500
 diarize = 2500
+speaker_identify = 1000
 
 [known_engine_keys]
 keys = ["asr", "batch_size", "fa", "feature_set", "utr"]

@@ -1301,3 +1301,95 @@ fn diarize_missing_media_error_names_the_path() {
         "diarize must be a real subcommand. stderr: {stderr}"
     );
 }
+
+/// Contract: the `speaker-identify` subcommand exists and describes what it
+/// produces, including that it does not rewrite the transcript.
+#[test]
+fn speaker_identify_help_describes_enrollment_and_evidence() {
+    let harness = CliHarness::new();
+    let result = harness
+        .cmd()
+        .args(["speaker-identify", "--help"])
+        .timeout(std::time::Duration::from_secs(30))
+        .output()
+        .unwrap();
+
+    assert!(
+        result.status.success(),
+        "speaker-identify --help must exist and exit 0. stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&result.stdout).to_lowercase();
+    assert!(
+        stdout.contains("--enroll") && stdout.contains("--threshold"),
+        "help must expose the two arguments the command cannot run without. stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("<start_ms>-<end_ms>:<label>"),
+        "help must state the enrollment form. stdout: {stdout}"
+    );
+}
+
+/// Contract: the threshold is REQUIRED at the real CLI boundary.
+///
+/// The unit test pins clap's `required = true`; this pins that the shipped
+/// binary actually refuses, which is the thing an operator meets. A default
+/// slipping back in would make every run produce confident verdicts under a
+/// number nobody chose.
+#[test]
+fn speaker_identify_refuses_to_run_without_a_threshold() {
+    let harness = CliHarness::new();
+    let result = harness
+        .cmd()
+        .args(["speaker-identify", "corpus/", "--enroll", "1500-9000:INV"])
+        .timeout(std::time::Duration::from_secs(30))
+        .output()
+        .unwrap();
+
+    assert!(!result.status.success(), "a missing threshold must fail");
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        stderr.contains("--threshold"),
+        "the refusal must name the missing argument. stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("unrecognized subcommand"),
+        "speaker-identify must be a real subcommand. stderr: {stderr}"
+    );
+}
+
+/// Contract: two enrollments claiming the same audio for different speakers
+/// are refused by the shipped binary, with the overlap named.
+///
+/// This is the cross-argument check `cli::run_command` performs before typed
+/// options are built. No per-value parser can see it, so only an end-to-end
+/// invocation proves the guard is wired.
+#[test]
+fn speaker_identify_refuses_overlapping_enrollments() {
+    let harness = CliHarness::new();
+    let result = harness
+        .cmd()
+        .args([
+            "speaker-identify",
+            "corpus/",
+            "--enroll",
+            "0-5000:INV",
+            "--enroll",
+            "4000-9000:CHI",
+            "--threshold",
+            "0.5",
+        ])
+        .timeout(std::time::Duration::from_secs(60))
+        .output()
+        .unwrap();
+
+    assert!(
+        !result.status.success(),
+        "overlapping enrollments must fail"
+    );
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        stderr.contains("overlap"),
+        "the refusal must say what is wrong. stderr: {stderr}"
+    );
+}

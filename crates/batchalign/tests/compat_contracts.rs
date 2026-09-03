@@ -38,7 +38,9 @@ fn parse_cli(args: &[&str]) -> Cli {
 /// Resolve typed job options exactly as the production CLI does before dispatch.
 fn typed_options(args: &[&str]) -> CommandOptions {
     let cli = parse_cli(args);
-    build_typed_options(&cli.command, &cli.global).expect("processing command should build options")
+    build_typed_options(&cli.command, &cli.global)
+        .expect("enrollments validate")
+        .expect("processing command should build options")
 }
 
 /// Extract the dispatch command name chosen for a processing invocation.

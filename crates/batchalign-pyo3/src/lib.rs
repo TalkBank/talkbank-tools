@@ -120,6 +120,10 @@ fn batchalign_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
         worker_media_exec::execute_speaker_request_v2,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(
+        worker_media_exec::execute_speaker_embedding_request_v2,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(worker_text_results::align_tokens, m)?)?;
     m.add_function(wrap_pyfunction!(
         worker_text_exec::execute_morphosyntax_request_v2,

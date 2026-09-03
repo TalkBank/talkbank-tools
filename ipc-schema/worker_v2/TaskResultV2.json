@@ -130,6 +130,20 @@
       ]
     },
     {
+      "description": "Speaker embeddings for named spans of one prepared recording.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "speaker_embedding_result"
+        }
+      },
+      "$ref": "#/$defs/SpeakerEmbeddingResultV2",
+      "required": [
+        "kind"
+      ]
+    },
+    {
       "description": "Raw openSMILE result.",
       "type": "object",
       "properties": {
@@ -425,6 +439,12 @@
       "type": "number",
       "format": "double"
     },
+    "FrameCountV2": {
+      "description": "Number of audio frames in a prepared artifact.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
     "IndexedWordTimingResultV2": {
       "description": "Forced-alignment indexed response.",
       "type": "object",
@@ -595,6 +615,101 @@
         "audio_file",
         "rows",
         "success"
+      ]
+    },
+    "SpeakerEmbeddingOutcomeV2": {
+      "description": "What the embedding model had to say about one requested span.\n\nTwo variants, because \"we could not measure this\" and \"we measured this\"\nare different facts and only one of them is a vector. Below its own minimum\ninput length the pinned model does not raise: it returns a correctly shaped\nfloat array whose every component is NaN, which no type can distinguish\nfrom a real embedding and which compares false against every threshold. A\ncaller handed that would report an utterance as UNMATCHED when the honest\nanswer is UNMEASURABLE. The worker refuses instead, and says how short.",
+      "oneOf": [
+        {
+          "description": "The model measured this span.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "embedded"
+            },
+            "vector": {
+              "description": "Fixed-width acoustic vector, whose width the envelope declares.",
+              "type": "array",
+              "items": {
+                "type": "number",
+                "format": "double"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "vector"
+          ]
+        },
+        {
+          "description": "The span is shorter than the model's own minimum input length.",
+          "type": "object",
+          "properties": {
+            "frame_count": {
+              "description": "How many frames the span held. The minimum it fell short of is on\nthe envelope, which owns that fact once for the whole response.",
+              "$ref": "#/$defs/FrameCountV2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "too_short"
+            }
+          },
+          "required": [
+            "kind",
+            "frame_count"
+          ]
+        }
+      ]
+    },
+    "SpeakerEmbeddingResultV2": {
+      "description": "Speaker embeddings for every requested span, plus the model's own bounds.\n\n`dimension` and `minimum_frames` are REPORTED by the worker rather than\nassumed by the reader. They are properties of the loaded model file, so a\nconstant on this side would be a second place the truth lives and would go\non agreeing with a model that had moved.",
+      "type": "object",
+      "properties": {
+        "dimension": {
+          "description": "Width of every `Embedded` vector in this response.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "minimum_frames": {
+          "description": "Shortest span the model will measure, in prepared-audio frames.",
+          "$ref": "#/$defs/FrameCountV2"
+        },
+        "spans": {
+          "description": "One outcome per requested span, in the order requested.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpeakerEmbeddingSpanResultV2"
+          }
+        }
+      },
+      "required": [
+        "dimension",
+        "minimum_frames",
+        "spans"
+      ]
+    },
+    "SpeakerEmbeddingSpanIdV2": {
+      "description": "Caller-chosen name for one span of a speaker-embedding request.\n\nEchoed verbatim in the response so the control plane pairs an outcome\nwith the span it asked about BY NAME. Pairing two sequences by position\nis the shape that silently attributes one speaker's acoustic evidence\nto another utterance, and no arity check catches a reordering.",
+      "type": "string"
+    },
+    "SpeakerEmbeddingSpanResultV2": {
+      "description": "One requested span's outcome, echoing the id it was requested under.",
+      "type": "object",
+      "properties": {
+        "outcome": {
+          "description": "What the model had to say about it.",
+          "$ref": "#/$defs/SpeakerEmbeddingOutcomeV2"
+        },
+        "span_id": {
+          "description": "The requested span's name, echoed verbatim.",
+          "$ref": "#/$defs/SpeakerEmbeddingSpanIdV2"
+        }
+      },
+      "required": [
+        "span_id",
+        "outcome"
       ]
     },
     "SpeakerInferenceEvidenceV2": {

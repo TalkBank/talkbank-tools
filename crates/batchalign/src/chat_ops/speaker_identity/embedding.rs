@@ -1,0 +1,249 @@
+//! Speaker embeddings, and the one operation that compares two of them.
+
+use serde::{Deserialize, Serialize};
+
+use super::policy::SimilarityScore;
+
+/// One fixed-width acoustic vector for one span of audio.
+///
+/// # Why it is a type and not a `Vec<f64>`
+///
+/// The invariant it carries is that every component is finite. That is not
+/// decoration: the pinned embedding model returns a correctly shaped vector of
+/// NaNs for input below its minimum length, and a cosine over NaNs is NaN,
+/// which compares false against every threshold and therefore reads as a
+/// considered "this is not that speaker". The worker refuses such a span
+/// before it becomes a vector at all; this type is the second gate, at the
+/// boundary where the wire's `Vec<f64>` becomes a value this crate reasons
+/// with. Two independent refusals for one silent failure mode is deliberate:
+/// the first is in a different language and a different process.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SpeakerEmbedding {
+    components: Vec<f64>,
+}
+
+/// Why a wire vector is not an embedding.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum NotAnEmbedding {
+    /// The vector had no components.
+    #[error("a speaker embedding cannot be empty")]
+    Empty,
+    /// Some component was NaN or infinite.
+    #[error(
+        "a speaker embedding must be finite in every component, and component {index} is {value}"
+    )]
+    NotFinite {
+        /// Which component.
+        index: usize,
+        /// Its value.
+        value: f64,
+    },
+    /// The vector's width disagreed with the width the worker declared.
+    #[error("the worker declared {declared}-component embeddings and sent one with {actual}")]
+    WrongWidth {
+        /// Width the response envelope declared.
+        declared: usize,
+        /// Width this vector actually had.
+        actual: usize,
+    },
+}
+
+impl SpeakerEmbedding {
+    /// The single route from a wire vector to an embedding.
+    ///
+    /// `declared_width` comes from the response envelope, which reports the
+    /// loaded model's own dimension rather than a constant on this side. A
+    /// width mismatch means two different models produced vectors in one
+    /// response, which no comparison between them would be meaningful across.
+    pub fn from_worker(
+        components: Vec<f64>,
+        declared_width: usize,
+    ) -> Result<Self, NotAnEmbedding> {
+        if components.is_empty() {
+            return Err(NotAnEmbedding::Empty);
+        }
+        if components.len() != declared_width {
+            return Err(NotAnEmbedding::WrongWidth {
+                declared: declared_width,
+                actual: components.len(),
+            });
+        }
+        for (index, value) in components.iter().enumerate() {
+            if !value.is_finite() {
+                return Err(NotAnEmbedding::NotFinite {
+                    index,
+                    value: *value,
+                });
+            }
+        }
+        Ok(Self { components })
+    }
+
+    /// How many components this embedding has.
+    #[must_use]
+    pub fn width(&self) -> usize {
+        self.components.len()
+    }
+
+    /// The cosine similarity between this embedding and `other`.
+    ///
+    /// The ONLY producer of a [`SimilarityScore`] in production, which is what
+    /// makes "a number that came from somewhere else" unable to reach the
+    /// threshold comparison.
+    ///
+    /// Returns [`IncomparableEmbeddings`] rather than a number when the two
+    /// have different widths or either has zero magnitude. A zero-magnitude
+    /// vector has no direction, so it has no angle to any other vector; the
+    /// arithmetic would divide by zero and produce a NaN that reads as a
+    /// verdict.
+    pub fn similarity_to(&self, other: &Self) -> Result<SimilarityScore, IncomparableEmbeddings> {
+        if self.components.len() != other.components.len() {
+            return Err(IncomparableEmbeddings::DifferentWidths {
+                left: self.components.len(),
+                right: other.components.len(),
+            });
+        }
+        let dot: f64 = self
+            .components
+            .iter()
+            .zip(&other.components)
+            .map(|(left, right)| left * right)
+            .sum();
+        let left_norm = self.magnitude();
+        let right_norm = other.magnitude();
+        if left_norm == 0.0 || right_norm == 0.0 {
+            return Err(IncomparableEmbeddings::NoDirection);
+        }
+
+        // Clamped, and the clamp is invisible ON PURPOSE here, unlike
+        // `chat_ops::fa::coordinates::Clamped`. There the clamp signalled that
+        // a transcript claimed more speech than the recording held, which is a
+        // fact about the data. Here the only thing it can signal is that
+        // floating-point summation carried a true 1.0 to 1.0000000000000002,
+        // which is a fact about IEEE 754 and about nothing else. A variant
+        // reporting it would fire on identical audio and mean nothing.
+        let cosine = (dot / (left_norm * right_norm)).clamp(-1.0, 1.0);
+        SimilarityScore::try_from(cosine).map_err(|_| IncomparableEmbeddings::NoDirection)
+    }
+
+    fn magnitude(&self) -> f64 {
+        self.components
+            .iter()
+            .map(|value| value * value)
+            .sum::<f64>()
+            .sqrt()
+    }
+}
+
+/// Why two embeddings have no similarity.
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+pub enum IncomparableEmbeddings {
+    /// The two came from different models.
+    #[error("a {left}-component embedding has no similarity to a {right}-component one")]
+    DifferentWidths {
+        /// Width of the left operand.
+        left: usize,
+        /// Width of the right operand.
+        right: usize,
+    },
+    /// One of them has zero magnitude, so it points nowhere.
+    #[error("an embedding with zero magnitude has no direction to compare")]
+    NoDirection,
+}
+
+#[cfg(test)]
+#[allow(clippy::panic)]
+mod tests {
+    use super::*;
+
+    fn embedding(components: Vec<f64>) -> SpeakerEmbedding {
+        let width = components.len();
+        match SpeakerEmbedding::from_worker(components, width) {
+            Ok(value) => value,
+            Err(error) => panic!("a legal embedding: {error}"),
+        }
+    }
+
+    /// The NaN vector the pinned model returns for too-short input cannot
+    /// become an embedding at all, so it can never reach a comparison.
+    #[test]
+    fn a_non_finite_component_is_refused_with_its_index() {
+        match SpeakerEmbedding::from_worker(vec![0.5, f64::NAN, 0.25], 3) {
+            Err(NotAnEmbedding::NotFinite { index, .. }) => assert_eq!(index, 1),
+            other => panic!("expected a refusal naming the component, got {other:?}"),
+        }
+        assert!(SpeakerEmbedding::from_worker(vec![f64::INFINITY], 1).is_err());
+        assert!(SpeakerEmbedding::from_worker(Vec::new(), 0).is_err());
+    }
+
+    /// A vector whose width disagrees with the width the worker declared means
+    /// two models answered one request, and is refused rather than compared.
+    #[test]
+    fn a_width_disagreeing_with_the_envelope_is_refused() {
+        assert!(matches!(
+            SpeakerEmbedding::from_worker(vec![0.1, 0.2], 3),
+            Err(NotAnEmbedding::WrongWidth {
+                declared: 3,
+                actual: 2
+            })
+        ));
+    }
+
+    /// MEASUREMENT: cosine similarity, at its three fixed points.
+    #[test]
+    fn cosine_similarity_is_the_ordinary_one() {
+        let a = embedding(vec![1.0, 0.0]);
+        let b = embedding(vec![0.0, 1.0]);
+        let minus_a = embedding(vec![-1.0, 0.0]);
+
+        let same = match a.similarity_to(&a) {
+            Ok(score) => score,
+            Err(error) => panic!("comparable: {error}"),
+        };
+        assert!((same.get() - 1.0).abs() < 1e-12);
+        let orthogonal = match a.similarity_to(&b) {
+            Ok(score) => score,
+            Err(error) => panic!("comparable: {error}"),
+        };
+        assert!(orthogonal.get().abs() < 1e-12);
+        let opposite = match a.similarity_to(&minus_a) {
+            Ok(score) => score,
+            Err(error) => panic!("comparable: {error}"),
+        };
+        assert!((opposite.get() + 1.0).abs() < 1e-12);
+    }
+
+    /// Identical vectors stay inside the cosine range despite floating-point
+    /// summation, so the score type's own refusal never fires on real input.
+    #[test]
+    fn an_identical_pair_stays_inside_the_cosine_range() {
+        let a = embedding(vec![0.3; 256]);
+        let score = match a.similarity_to(&a) {
+            Ok(score) => score,
+            Err(error) => panic!("comparable: {error}"),
+        };
+        assert!(score.get() <= 1.0);
+    }
+
+    /// A zero vector points nowhere, so it has no similarity to anything.
+    /// The arithmetic would divide by zero and hand back a NaN that reads as
+    /// a considered verdict.
+    #[test]
+    fn a_zero_magnitude_embedding_has_no_similarity() {
+        let zero = embedding(vec![0.0, 0.0]);
+        let real = embedding(vec![1.0, 0.0]);
+        assert_eq!(
+            zero.similarity_to(&real),
+            Err(IncomparableEmbeddings::NoDirection)
+        );
+    }
+
+    #[test]
+    fn embeddings_of_different_widths_are_incomparable() {
+        assert!(matches!(
+            embedding(vec![1.0, 0.0]).similarity_to(&embedding(vec![1.0, 0.0, 0.0])),
+            Err(IncomparableEmbeddings::DifferentWidths { .. })
+        ));
+    }
+}

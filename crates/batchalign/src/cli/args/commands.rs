@@ -794,6 +794,79 @@ pub struct DiarizeArgs {
     pub lang: String,
 }
 
+/// Read one `<start_ms>-<end_ms>:<label>` enrollment argument.
+///
+/// A clap value parser rather than a `String` field, so a malformed span is
+/// refused by argument parsing with the offending text quoted, and nothing
+/// downstream ever holds an unvalidated enrollment.
+fn parse_enrollment(
+    value: &str,
+) -> Result<crate::chat_ops::speaker_identity::EnrollmentSpec, String> {
+    crate::chat_ops::speaker_identity::EnrollmentSpec::parse(value)
+        .map_err(|error| error.to_string())
+}
+
+/// Read the `--threshold` value into the range a cosine similarity can reach.
+fn parse_threshold(
+    value: &str,
+) -> Result<crate::chat_ops::speaker_identity::MatchThreshold, String> {
+    let parsed: f64 = value
+        .parse()
+        .map_err(|_| format!("{value:?} is not a number"))?;
+    crate::chat_ops::speaker_identity::MatchThreshold::try_from(parsed)
+        .map_err(|error| error.to_string())
+}
+
+/// Arguments for the `speaker-identify` command.
+#[derive(Args, Debug, Clone)]
+pub struct SpeakerIdentifyArgs {
+    /// Shared file-I/O options (input transcripts, output directory).
+    #[command(flatten)]
+    pub common: CommonOpts,
+
+    /// A span known to contain one speaker alone, as
+    /// `<start_ms>-<end_ms>:<label>`. Repeat once per known voice.
+    ///
+    /// Example: `--enroll 1500-9000:INV`. The milliseconds are positions in
+    /// the recording, the same coordinates a CHAT timing bullet uses.
+    #[arg(long = "enroll", required = true, value_parser = parse_enrollment)]
+    pub enroll: Vec<crate::chat_ops::speaker_identity::EnrollmentSpec>,
+
+    /// Speaker tiers to score, comma-separated or repeated. Omit for all.
+    #[arg(long, value_delimiter = ',')]
+    pub tiers: Vec<String>,
+
+    /// Similarity at or above which an enrolled voice counts as a match.
+    ///
+    /// REQUIRED, and deliberately has no default: how much acoustic agreement
+    /// counts as the same person depends on the recording, the microphone and
+    /// how much enrollment audio there is, none of which this tool knows. A
+    /// default would produce confident verdicts under a number nobody chose.
+    #[arg(long, required = true, value_parser = parse_threshold)]
+    pub threshold: crate::chat_ops::speaker_identity::MatchThreshold,
+
+    /// Language (3-letter ISO code). Worker-pool selection only; speaker
+    /// embedding itself is language-independent.
+    #[arg(long, default_value = "eng")]
+    pub lang: String,
+}
+
+impl SpeakerIdentifyArgs {
+    /// Validate the enrollments as a SET: non-empty, uniquely labelled, and
+    /// non-overlapping.
+    ///
+    /// Clap validates each `--enroll` on its own; these three are relations
+    /// BETWEEN them, which no per-value parser can see.
+    pub fn enrollment_set(
+        &self,
+    ) -> Result<
+        crate::chat_ops::speaker_identity::EnrollmentSet,
+        crate::chat_ops::speaker_identity::InvalidEnrollmentSet,
+    > {
+        crate::chat_ops::speaker_identity::EnrollmentSet::new(self.enroll.clone())
+    }
+}
+
 /// Arguments for the `avqi` command.
 #[derive(Args, Debug, Clone)]
 pub struct AvqiArgs {

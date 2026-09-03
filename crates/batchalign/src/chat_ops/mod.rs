@@ -29,6 +29,7 @@ pub mod fa;
 pub mod morphosyntax_ops;
 pub mod nlp;
 pub mod speaker;
+pub mod speaker_identity;
 
 // Re-export newtypes used by all NLP task modules and the server orchestrators.
 pub use cache_key::{CacheKey, CacheTaskName};

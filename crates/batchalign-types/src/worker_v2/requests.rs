@@ -47,6 +47,16 @@ string_id!(
     pub WorkerArtifactPathV2
 );
 
+string_id!(
+    /// Caller-chosen name for one span of a speaker-embedding request.
+    ///
+    /// Echoed verbatim in the response so the control plane pairs an outcome
+    /// with the span it asked about BY NAME. Pairing two sequences by position
+    /// is the shape that silently attributes one speaker's acoustic evidence
+    /// to another utterance, and no arity check catches a reordering.
+    pub SpeakerEmbeddingSpanIdV2
+);
+
 numeric_id!(
     /// Worker protocol major version.
     pub WorkerProtocolVersionV2(u16) [Eq]
@@ -257,6 +267,8 @@ pub enum InferenceTaskV2 {
     ForcedAlignment,
     /// Speaker diarization.
     Speaker,
+    /// Speaker embedding over named spans of one prepared recording.
+    SpeakerEmbedding,
     /// OpenSMILE feature extraction.
     Opensmile,
     /// AVQI feature extraction.
@@ -308,6 +320,19 @@ pub enum SpeakerBackendV2 {
     Pyannote,
     /// NeMo diarization backend.
     Nemo,
+}
+
+/// Speaker-embedding backend selected by the Rust control plane.
+///
+/// One variant today, and deliberately an enum rather than an implied
+/// constant: the wire already has to say which acoustic model produced a
+/// vector, because vectors from two models are not comparable and a cache that
+/// could not tell them apart would replay one against the other.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SpeakerEmbeddingBackendV2 {
+    /// The embedding node of the released local Pyannote model graph.
+    Pyannote,
 }
 
 /// Small artifact-kind vocabulary advertised in task capabilities.
@@ -748,6 +773,41 @@ pub struct SpeakerRequestV2 {
     pub expected_speakers: Option<NumSpeakers>,
 }
 
+/// One span of the prepared recording to embed, in PREPARED-AUDIO FRAMES.
+///
+/// Frames, not milliseconds. The prepared PCM view is the only coordinate
+/// system the worker holds, and the conversion from the recording's file
+/// milliseconds happens once, on the Rust side, at the single place that owns
+/// both the sample rate and the frame count. A request carrying milliseconds
+/// would make the worker re-derive a frame index from a rate it was told about
+/// separately, which is the same number arriving twice by two routes.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+pub struct SpeakerEmbeddingSpanV2 {
+    /// Caller-chosen name echoed in the response.
+    pub span_id: SpeakerEmbeddingSpanIdV2,
+    /// First frame of the span, inclusive.
+    pub start_frame: FrameCountV2,
+    /// Last frame of the span, exclusive.
+    pub end_frame: FrameCountV2,
+}
+
+/// V2 speaker-embedding request payload.
+///
+/// Exactly ONE prepared-audio attachment carries the whole recording, and
+/// every span indexes into it. That is not a transport optimisation: two
+/// embeddings computed from separately decoded files can differ for reasons
+/// that have nothing to do with who was speaking, so enrollment material and
+/// the utterances scored against it have to come from the same decode.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+pub struct SpeakerEmbeddingRequestV2 {
+    /// Backend selected by Rust.
+    pub backend: SpeakerEmbeddingBackendV2,
+    /// Artifact id of the prepared mono PCM view of the whole recording.
+    pub audio_ref_id: WorkerArtifactIdV2,
+    /// Spans to embed, in the order the response must echo them.
+    pub spans: Vec<SpeakerEmbeddingSpanV2>,
+}
+
 /// V2 openSMILE request payload.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 pub struct OpenSmileRequestV2 {
@@ -804,6 +864,8 @@ pub enum TaskRequestV2 {
     Coref(CorefRequestV2),
     /// Speaker diarization request.
     Speaker(SpeakerRequestV2),
+    /// Speaker-embedding request.
+    SpeakerEmbedding(SpeakerEmbeddingRequestV2),
     /// OpenSMILE request.
     Opensmile(OpenSmileRequestV2),
     /// AVQI request.
@@ -858,6 +920,7 @@ impl TaskRequestV2 {
             Self::Translate(_) => InferenceTaskV2::Translate,
             Self::Coref(_) => InferenceTaskV2::Coref,
             Self::Speaker(_) => InferenceTaskV2::Speaker,
+            Self::SpeakerEmbedding(_) => InferenceTaskV2::SpeakerEmbedding,
             Self::Opensmile(_) => InferenceTaskV2::Opensmile,
             Self::Avqi(_) => InferenceTaskV2::Avqi,
         }
@@ -907,6 +970,16 @@ impl TaskRequestV2 {
                 } else {
                     1800
                 }
+            }
+            // Speaker embedding scales with the NUMBER OF SPANS rather than
+            // with the recording, because the model runs once per span over a
+            // few seconds of audio each and never over the whole file. The
+            // shape is the batched-text one, not the whole-recording one, so
+            // it reuses that budget rather than inheriting a flat 1800 that
+            // says nothing about the work actually asked for.
+            Self::SpeakerEmbedding(request) => {
+                let per_span = (request.spans.len() as u64).saturating_mul(5);
+                per_span.max(120).max(audio_timeout_s)
             }
             // Lightweight audio analysis: 120s is sufficient.
             Self::Opensmile(_) | Self::Avqi(_) => {

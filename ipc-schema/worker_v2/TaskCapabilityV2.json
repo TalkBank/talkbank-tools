@@ -65,6 +65,11 @@
           "const": "speaker"
         },
         {
+          "description": "Speaker embedding over named spans of one prepared recording.",
+          "type": "string",
+          "const": "speaker_embedding"
+        },
+        {
           "description": "OpenSMILE feature extraction.",
           "type": "string",
           "const": "opensmile"

@@ -271,6 +271,8 @@ pub(crate) enum RunnerDispatchKind {
     BenchmarkAudioInfer,
     /// Media-analysis V2 path for commands like openSMILE and AVQI.
     MediaAnalysisV2,
+    /// Speaker identification against enrolled spans, CHAT in, evidence out.
+    SpeakerIdentity,
 }
 
 /// How the CLI should ship inputs to the server for this command.

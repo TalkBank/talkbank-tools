@@ -15,8 +15,8 @@ use super::materialize::{FileNamingPolicy, OutputPolicy, SidecarPolicy, StemRewr
 use super::recipe::ExecutionMode;
 use super::recipes::{
     ALIGN_RECIPE, AVQI_RECIPE, BENCHMARK_RECIPE, COMPARE_RECIPE, COREF_RECIPE, DIARIZE_RECIPE,
-    MORPHOTAG_RECIPE, OPENSMILE_RECIPE, TRANSCRIBE_RECIPE, TRANSCRIBE_S_RECIPE, TRANSLATE_RECIPE,
-    UTSEG_RECIPE,
+    MORPHOTAG_RECIPE, OPENSMILE_RECIPE, SPEAKER_IDENTIFY_RECIPE, TRANSCRIBE_RECIPE,
+    TRANSCRIBE_S_RECIPE, TRANSLATE_RECIPE, UTSEG_RECIPE,
 };
 
 const NO_SIDECARS: &[SidecarPolicy] = &[];
@@ -287,6 +287,38 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
             sidecars: NO_SIDECARS,
         },
         recipe: &DIARIZE_RECIPE,
+    },
+    CatalogEntry {
+        command: ReleasedCommand::SpeakerIdentify,
+        // AudioSequential, not MediaAnalysis: the input is a CHAT transcript
+        // whose media is resolved beside it, which is `align`'s shape. The
+        // media-analysis planner takes the media file itself as the work unit
+        // and would never see the transcript.
+        family: CommandFamily::AudioSequential,
+        planner: PlannerKind::AudioInputs,
+        execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::SpeakerIdentity,
+        capabilities: CapabilityPlan {
+            primary_infer_task: InferTask::Speaker,
+            additional_infer_tasks: &[],
+            surface: CapabilitySurface::RecipeOwned,
+        },
+        output_policy: OutputPolicy {
+            // `session.cha` -> `session_speaker_identity.json`. The transcript
+            // is NOT rewritten: mapping a verdict onto a CHAT speaker code is
+            // a corpus's own decision, and it is reversible only while the
+            // evidence still exists.
+            primary: FileNamingPolicy::RewriteStem(StemRewrite {
+                strip_suffix: None,
+                append_suffix: "_speaker_identity",
+                extension: "json",
+            }),
+            primary_content_type: ContentType::Json,
+            sidecars: NO_SIDECARS,
+        },
+        recipe: &SPEAKER_IDENTIFY_RECIPE,
     },
 ];
 

@@ -34,7 +34,12 @@ pub struct MediaWindow {
 }
 
 /// A window whose end does not follow its start.
-#[derive(Debug, thiserror::Error)]
+///
+/// `Copy` and comparable because it is two positions and nothing else, and
+/// because callers wrap it as the `#[source]` of their own errors, which then
+/// cannot derive `Clone`/`PartialEq` unless this one does. An error type that
+/// cannot be compared is one a test can only assert the shape of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("media window end {end} must be greater than start {start}")]
 pub struct EmptyWindow {
     /// Requested start.

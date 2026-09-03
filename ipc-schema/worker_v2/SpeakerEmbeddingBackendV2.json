@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SpeakerEmbeddingBackendV2",
+  "description": "Speaker-embedding backend selected by the Rust control plane.\n\nOne variant today, and deliberately an enum rather than an implied\nconstant: the wire already has to say which acoustic model produced a\nvector, because vectors from two models are not comparable and a cache that\ncould not tell them apart would replay one against the other.",
+  "oneOf": [
+    {
+      "description": "The embedding node of the released local Pyannote model graph.",
+      "type": "string",
+      "const": "pyannote"
+    }
+  ]
+}

@@ -150,7 +150,11 @@ impl EngineSelection {
             | CommandOptions::Opensmile(_)
             | CommandOptions::Compare(_)
             | CommandOptions::Avqi(_)
-            | CommandOptions::Diarize(_) => {}
+            | CommandOptions::Diarize(_)
+            // No engine override: the embedding model is the one node of the
+            // released local model graph, and there is nothing to select
+            // between.
+            | CommandOptions::SpeakerIdentify(_) => {}
         }
         overrides
     }

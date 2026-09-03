@@ -107,6 +107,13 @@ pub enum Commands {
     /// Writes one speaker-turns JSON file per input, in the schema
     /// consumed by `chatter rediarize --turns`.
     Diarize(DiarizeArgs),
+    /// Score each timed utterance against one or more enrolled voices.
+    ///
+    /// Takes a CHAT transcript plus spans known to contain a single speaker
+    /// alone, and writes one `<stem>_speaker_identity.json` evidence file per
+    /// transcript. The transcript itself is NOT modified: a consumer maps the
+    /// verdicts onto speaker codes.
+    SpeakerIdentify(SpeakerIdentifyArgs),
     /// Tier flagged merge placements from engine verdicts: promote
     /// verified lines to provenance notes, queue the rest for review.
     ///
@@ -323,6 +330,14 @@ impl CommonOpts {
                 lang: &a.lang,
                 num_speakers: 1,
                 input_kind: InputKind::Media,
+            },
+            Commands::SpeakerIdentify(a) => CommandProfile {
+                command: ReleasedCommand::SpeakerIdentify,
+                lang: &a.lang,
+                // Display-only in the job record. The real speaker facts are
+                // the enrolled spans, carried through the typed options.
+                num_speakers: 1,
+                input_kind: InputKind::Chat,
             },
             Commands::Diarize(a) => CommandProfile {
                 command: ReleasedCommand::Diarize,

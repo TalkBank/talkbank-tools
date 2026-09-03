@@ -2,7 +2,7 @@
 
 **Status:** Current
 **Last verified:** 2026-08-31 07:13 EDT
-**Last updated:** 2026-09-02 07:45 EDT
+**Last updated:** 2026-09-02 20:58 EDT
 
 This document is the implementation spec for the live typed worker boundary
 currently named `worker_v2`.
@@ -561,6 +561,80 @@ These tasks now share one batched text-V2 pattern:
 
 `InlineJsonRef` still exists for small metadata payloads, but the live text NLP
 tasks no longer use inline JSON as their primary boundary.
+
+### `speaker_embedding`: many spans of ONE prepared decode
+
+Added 2026-09-02. It is the first task whose request names several regions of a
+single attachment rather than one region per attachment, so it is worth reading
+before adding another of that shape.
+
+`SpeakerEmbeddingRequestV2` carries one `audio_ref_id`, naming the whole
+prepared mono PCM view of a recording, plus a list of `SpeakerEmbeddingSpanV2`
+entries. Each span is `{ span_id, start_frame, end_frame }`. The response,
+`SpeakerEmbeddingResultV2`, echoes every `span_id` with one outcome:
+`embedded` carrying a vector, or `too_short` carrying the frame count that
+fell short.
+
+Four decisions in that shape, each with a reason:
+
+- **One attachment, many spans, not one attachment per span.** Vectors are only
+  comparable when they come from the same decode: two embeddings computed from
+  separately decoded files can differ for reasons that have nothing to do with
+  who was speaking. Sharing one decode also turns N ffmpeg invocations into one.
+- **Frames, not milliseconds.** The prepared PCM view is the only coordinate
+  system the worker holds. A request in milliseconds would make the worker
+  re-derive a frame index from a sample rate it was told about separately, which
+  is the same number arriving by two routes. The single conversion lives on the
+  Rust side, in `chat_ops::speaker_identity::frames::PreparedPcm::locate`, which
+  is also the only place a span can be found to fall outside the recording.
+- **`span_id` is echoed, so nothing pairs by position.** Two parallel sequences
+  held together by index order is the shape that attributes one speaker's
+  acoustic evidence to another utterance, and an arity check does not catch a
+  reordering. The PyO3 executor compares the requested and answered id SETS and
+  refuses any disagreement.
+- **`too_short` is a variant, not an empty or zero vector.** Below its own
+  minimum input length the pinned model returns a correctly shaped float array
+  whose every component is NaN. Nothing downstream can tell that from a real
+  embedding by inspecting its type, and a NaN compares false against every
+  threshold, so it would read as a considered "not this speaker" rather than
+  "not measurable". The worker checks the model's reported `min_num_samples`
+  and refuses; the Rust `SpeakerEmbedding` constructor refuses a non-finite
+  component again, in a different process and a different language.
+
+`dimension` and `minimum_frames` are reported by the worker on every response
+rather than assumed by the reader, because both are properties of the loaded
+model file. A constant on the Rust side would be a second place the truth lives
+and would go on agreeing with a model that had moved.
+
+**Worker-pool routing reuses `InferTask::Speaker`.** A pool key names which
+model host a request needs, and both tasks are served by the speaker host.
+Splitting them would spawn a second process to hold a model the first could
+have loaded. What makes that safe is that neither model is loaded at bootstrap:
+a worker that only ever embeds never constructs the diarization pipeline, and
+therefore never reaches the gated calibration artifact that pipeline pulls in.
+
+**Model access.** Standalone embedding loads only the `embedding` node of the
+pinned local model graph, through the same pinned-artifact loader, so it needs
+no Hugging Face credentials at all. The gated-repository reclassification is
+still wired (`classify_runner_error`, `ModelAccessDeniedError`) because a
+future pin or a private mirror could reintroduce one.
+
+**The measured hazard, stated as a measurement.** On the pinned model
+(`hbredin/wespeaker-voxceleb-resnet34-LM`, the manifest's `embedding` commit),
+`min_num_samples` is 1680 frames, which is 105 ms at 16 kHz. Handed 1679
+frames it returns a `(1, 256)` float32 array whose every component is NaN, and
+raises nothing; handed 1680 it returns a finite vector. Measured 2026-09-02 by
+running the loaded model directly at 1679, 1680, 4000 and 16000 frames. That
+is why the outcome is a variant rather than a vector, why the Python host
+checks the length before calling the model, and why `SpeakerEmbedding` refuses
+a non-finite component again on the Rust side.
+
+**The consumer.** `speaker-identify` (`crates/batchalign/src/chat_ops/
+speaker_identity/` for the decision graph,
+`crates/batchalign/src/runner/dispatch/speaker_identity_pipeline.rs` for
+dispatch). It decodes each recording ONCE and locates every enrollment span
+and every utterance in that one decode: vectors from separately decoded files
+can differ for reasons that have nothing to do with who was speaking.
 
 ## Why File-Backed Prepared Artifacts First
 

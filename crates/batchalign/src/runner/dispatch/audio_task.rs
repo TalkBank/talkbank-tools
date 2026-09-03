@@ -1,9 +1,20 @@
-//! Shared outer task shell for audio-backed commands that produce one CHAT file.
+//! Shared outer task shell for audio-backed commands that produce one file.
 //!
-//! This is intentionally narrower than a full shared audio pipeline. `align`
-//! and `transcribe` still own different input preparation and inner execution
-//! semantics, but they can share the runner-side retry/lifecycle/progress and
-//! final writeback shell.
+//! This is intentionally narrower than a full shared audio pipeline. `align`,
+//! `transcribe` and `speaker-identify` still own different input preparation
+//! and inner execution semantics, but they share the runner-side
+//! retry/lifecycle/progress and final writeback shell.
+//!
+//! # Why the shell is not CHAT-specific
+//!
+//! It was, until 2026-09-02: `finalize_success` returned a `String` that the
+//! shell wrote as CHAT, and a `should_merge_abbrev: bool` rode along as the
+//! eighth positional argument. A command producing a JSON evidence file had
+//! nowhere to go, and the honest options were a third copy of this shell or a
+//! flag the CHAT path ignored. Returning [`FileOutput`] instead deletes the
+//! argument, unifies the writeback for all three commands, and makes
+//! "abbreviation merging on a JSON document" unrepresentable rather than
+//! silently ignored.
 
 use std::sync::Arc;
 
@@ -18,11 +29,11 @@ use crate::runner::util::{
 use crate::scheduling::{FailureCategory, RetryPolicy, WorkUnitKind};
 use crate::store::{PendingJobFile, RunnerJobSnapshot, unix_now};
 
-use super::audio_output::write_primary_chat_output_artifact;
+use super::audio_output::{FileOutput, write_primary_output_artifact};
 
 /// Command-owned inner task for one audio-backed file.
 #[async_trait]
-pub(crate) trait AudioChatTask {
+pub(crate) trait AudioFileTask {
     type AttemptOutput: Send;
 
     /// Run one inner attempt with a fresh per-attempt progress channel.
@@ -31,11 +42,14 @@ pub(crate) trait AudioChatTask {
         progress_tx: crate::runner::util::ProgressSender,
     ) -> Result<Self::AttemptOutput, ServerError>;
 
-    /// Convert one successful attempt result into final CHAT text.
+    /// Convert one successful attempt result into the document to persist.
+    ///
+    /// The task states the KIND of document, because it is the only thing that
+    /// knows. The shell then has one writeback path and no flag to get wrong.
     async fn finalize_success(
         &mut self,
         output: Self::AttemptOutput,
-    ) -> Result<String, ServerError>;
+    ) -> Result<FileOutput, ServerError>;
 
     /// Optional command-owned recovery step before the shell records a retry.
     async fn on_retryable_worker_failure(
@@ -46,27 +60,44 @@ pub(crate) trait AudioChatTask {
     }
 }
 
+/// How one command names itself while the shell reports its progress.
+///
+/// The three travel together because they are one fact in three fields: what
+/// this command is called, which work unit it books, and which stage a user
+/// sees while it runs. They were three positional arguments of an eight-argument
+/// function, where `WorkUnitKind::FileInfer` and `FileStage::Transcribing`
+/// could be swapped between two commands without the compiler noticing.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AudioTaskReporting {
+    /// The work unit this file books.
+    pub work_unit_kind: WorkUnitKind,
+    /// The stage a user sees while the attempt runs.
+    pub running_stage: FileStage,
+    /// The command's name in operator-facing messages.
+    pub command_label: &'static str,
+}
+
 /// Shared runner-owned shell for one audio-backed file task.
 ///
-/// `#[allow(clippy::too_many_arguments)]`: per-file dispatch scaffolding.
-/// `work_unit_kind`, `running_stage`, `command_label`, and `should_merge_abbrev`
-/// vary per-call with the command (align / transcribe / etc.); they are
-/// intrinsically variable arguments, not context to bundle.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn run_audio_chat_file_task<Task>(
+/// `should_merge_abbrev` used to be the eighth positional argument and no
+/// longer is: it is a property of the CHAT document the task returns, so it
+/// travels with that document instead.
+pub(crate) async fn run_audio_file_task<Task>(
     job: &RunnerJobSnapshot,
     sink: Arc<dyn RunnerEventSink>,
     file: &PendingJobFile,
     lifecycle: &FileRunTracker<'_>,
-    work_unit_kind: WorkUnitKind,
-    running_stage: FileStage,
-    command_label: &'static str,
-    should_merge_abbrev: bool,
+    reporting: AudioTaskReporting,
     task: &mut Task,
 ) -> FileTaskOutcome
 where
-    Task: AudioChatTask + Send,
+    Task: AudioFileTask + Send,
 {
+    let AudioTaskReporting {
+        work_unit_kind,
+        running_stage,
+        command_label,
+    } = reporting;
     let job_id = &job.identity.job_id;
     let filename = file.filename.as_ref();
     let file_index = file.file_index;
@@ -85,8 +116,8 @@ where
 
         match task.run_attempt(progress_tx).await {
             Ok(output) => {
-                let output_text = match task.finalize_success(output).await {
-                    Ok(output_text) => output_text,
+                let file_output = match task.finalize_success(output).await {
+                    Ok(file_output) => file_output,
                     Err(error) => {
                         warn!(
                             job_id = %job_id,
@@ -107,13 +138,12 @@ where
                 };
                 lifecycle.stage(FileStage::Writing).await;
                 let finished_at = unix_now();
-                let primary_output = match write_primary_chat_output_artifact(
+                let primary_output = match write_primary_output_artifact(
                     &job.filesystem,
                     job.dispatch.command,
                     file_index,
                     filename,
-                    &output_text,
-                    should_merge_abbrev,
+                    &file_output,
                 )
                 .await
                 {
@@ -200,6 +230,7 @@ mod tests {
 
     use tokio_util::sync::CancellationToken;
 
+    use super::super::audio_output::MergeAbbreviations;
     use super::*;
     use crate::api::{
         CorrelationId, DisplayPath, JobId, LanguageCode3, LanguageSpec, NumSpeakers,
@@ -339,7 +370,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl AudioChatTask for FakeAudioTask {
+    impl AudioFileTask for FakeAudioTask {
         type AttemptOutput = String;
 
         async fn run_attempt(
@@ -359,8 +390,11 @@ mod tests {
         async fn finalize_success(
             &mut self,
             output: Self::AttemptOutput,
-        ) -> Result<String, ServerError> {
-            Ok(output)
+        ) -> Result<FileOutput, ServerError> {
+            Ok(FileOutput::Chat {
+                text: output,
+                merge_abbreviations: MergeAbbreviations::Leave,
+            })
         }
 
         async fn on_retryable_worker_failure(
@@ -444,15 +478,16 @@ mod tests {
             attempts: attempts.clone(),
             recoveries: recoveries.clone(),
         };
-        let outcome = run_audio_chat_file_task(
+        let outcome = run_audio_file_task(
             &job,
             sink_impl.clone(),
             &file,
             &lifecycle,
-            WorkUnitKind::FileInfer,
-            FileStage::Transcribing,
-            "Transcription",
-            false,
+            AudioTaskReporting {
+                work_unit_kind: WorkUnitKind::FileInfer,
+                running_stage: FileStage::Transcribing,
+                command_label: "Transcription",
+            },
             &mut task,
         )
         .await;

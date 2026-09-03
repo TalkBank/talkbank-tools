@@ -1076,7 +1076,7 @@ export interface components {
          *     rejected at deserialization boundaries (HTTP 422, DB recovery skip).
          * @enum {string}
          */
-        ReleasedCommand: "align" | "transcribe" | "transcribe_s" | "translate" | "morphotag" | "coref" | "utseg" | "benchmark" | "opensmile" | "compare" | "avqi" | "diarize";
+        ReleasedCommand: "align" | "transcribe" | "transcribe_s" | "translate" | "morphotag" | "coref" | "utseg" | "benchmark" | "opensmile" | "compare" | "avqi" | "diarize" | "speaker_identify";
         /**
          * @description A path relative to a data repo root (e.g. `"French/Newcastle/Photos/13"`).
          *

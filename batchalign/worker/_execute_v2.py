@@ -46,6 +46,11 @@ from batchalign.worker._opensmile_v2 import (
     build_default_opensmile_execution_host_v2,
     execute_opensmile_request_v2,
 )
+from batchalign.worker._speaker_embedding_v2 import (
+    SpeakerEmbeddingExecutionHostV2,
+    build_default_speaker_embedding_execution_host_v2,
+    execute_speaker_embedding_request_v2,
+)
 from batchalign.worker._speaker_v2 import (
     SpeakerExecutionHostV2,
     build_default_speaker_execution_host_v2,
@@ -83,6 +88,9 @@ class WorkerExecutionHostV2:
         default_factory=ForcedAlignmentExecutionHostV2
     )
     speaker: SpeakerExecutionHostV2 = field(default_factory=SpeakerExecutionHostV2)
+    speaker_embedding: SpeakerEmbeddingExecutionHostV2 = field(
+        default_factory=SpeakerEmbeddingExecutionHostV2
+    )
     opensmile: OpenSmileExecutionHostV2 = field(
         default_factory=OpenSmileExecutionHostV2
     )
@@ -106,6 +114,7 @@ def build_default_execution_host_v2() -> WorkerExecutionHostV2:
         speaker=build_default_speaker_execution_host_v2(
             _state.bootstrap.device_policy if _state.bootstrap is not None else None
         ),
+        speaker_embedding=build_default_speaker_embedding_execution_host_v2(),
         opensmile=build_default_opensmile_execution_host_v2(),
         avqi=build_default_avqi_execution_host_v2(),
         text=build_default_text_execution_host_v2(),
@@ -170,6 +179,10 @@ def execute_request_v2(
             )
         case InferenceTaskV2.SPEAKER:
             return execute_speaker_request_v2(request, execution_host.speaker)
+        case InferenceTaskV2.SPEAKER_EMBEDDING:
+            return execute_speaker_embedding_request_v2(
+                request, execution_host.speaker_embedding
+            )
         case InferenceTaskV2.OPENSMILE:
             return execute_opensmile_request_v2(request, execution_host.opensmile)
         case InferenceTaskV2.AVQI:
@@ -197,7 +210,11 @@ def _echo_placeholder_result(payload: TaskRequestV2) -> TaskResultV2:
         OpenSmileRequestV2,
         OpenSmileResultPayloadV2,
         PyannoteAISpeakerEvidenceV2,
+        SpanTooShortForEmbeddingV2,
         SpeakerBackendV2,
+        SpeakerEmbeddingRequestV2,
+        SpeakerEmbeddingResultPayloadV2,
+        SpeakerEmbeddingSpanResultV2,
         SpeakerRequestV2,
         SpeakerResultPayloadV2,
         TranslateRequestV2,
@@ -238,6 +255,27 @@ def _echo_placeholder_result(payload: TaskRequestV2) -> TaskResultV2:
                     )
                 case _:
                     assert_never(backend)
+        case SpeakerEmbeddingRequestV2(spans=spans):
+            # Every requested span is echoed back by NAME, refused as
+            # unmeasurable. That is the only honest placeholder available: an
+            # echo worker holds no model, so it has measured nothing, and
+            # returning a vector would put a fabricated acoustic identity into
+            # a transport test's reach. Echoing the ids keeps the double
+            # exercising the one property the real seam guarantees, which is
+            # that the answer set equals the question set.
+            return SpeakerEmbeddingResultPayloadV2(
+                dimension=1,
+                minimum_frames=1,
+                spans=[
+                    SpeakerEmbeddingSpanResultV2(
+                        span_id=span.span_id,
+                        outcome=SpanTooShortForEmbeddingV2(
+                            frame_count=span.end_frame - span.start_frame
+                        ),
+                    )
+                    for span in spans
+                ],
+            )
         case OpenSmileRequestV2():
             return OpenSmileResultPayloadV2(
                 feature_set="echo",

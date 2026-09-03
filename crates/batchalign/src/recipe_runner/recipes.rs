@@ -542,6 +542,44 @@ pub(super) const DIARIZE_RECIPE: Recipe = Recipe {
     ],
 };
 
+pub(super) const SPEAKER_IDENTIFY_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        // Reuses the media-analysis stage id rather than adding a new one:
+        // the stage answers "run a model over this recording", and the
+        // progress vocabulary a user sees is the same. A new id would have to
+        // be justified by a different SHAPE, and there is not one.
+        RecipeStage::new(
+            RecipeStageId::MediaAnalysis,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Processing,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::MediaAnalysis],
+        ),
+    ],
+};
+
 pub(super) const AVQI_RECIPE: Recipe = Recipe {
     mode: ExecutionMode::SequentialPerUnit,
     stages: &[

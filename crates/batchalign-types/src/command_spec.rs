@@ -256,6 +256,22 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         base_mb_threaded: MemoryMb(2_500),
         loading_overhead: LoadingOverhead::new_unchecked(1.5),
     },
+    CommandSpec {
+        name: ReleasedCommand::SpeakerIdentify,
+        tasks: &[InferTask::Speaker],
+        task_label: "speaker",
+        profile: WorkerProfile::Gpu,
+        gil_process_need: GilProcessNeed::Never,
+        // Lower than diarization deliberately: the embedding graph is one
+        // ~26 MB ONNX model run over a few seconds of audio at a time, where
+        // diarization loads a segmentation network plus a clustering pipeline
+        // and holds the whole recording. Reserving diarization's figure would
+        // idle memory this command never uses and make the admission gate
+        // refuse spawns it should have allowed.
+        base_mb_process: MemoryMb(1_000),
+        base_mb_threaded: MemoryMb(1_000),
+        loading_overhead: LoadingOverhead::new_unchecked(1.5),
+    },
 ];
 
 // ---------------------------------------------------------------------------

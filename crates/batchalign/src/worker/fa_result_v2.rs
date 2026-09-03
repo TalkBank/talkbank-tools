@@ -90,6 +90,12 @@ pub fn parse_forced_alignment_result_v2(
                     .into(),
             );
         }
+        TaskResultV2::SpeakerEmbeddingResult(_) => {
+            return Err(
+                "worker protocol V2 forced-alignment response returned speaker embedding data"
+                    .into(),
+            );
+        }
         TaskResultV2::OpensmileResult(_) => {
             return Err(
                 "worker protocol V2 forced-alignment response returned openSMILE feature data"

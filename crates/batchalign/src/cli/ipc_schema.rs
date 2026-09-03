@@ -73,6 +73,7 @@ pub fn generate_ipc_schema() -> BTreeMap<String, BTreeMap<String, Schema>> {
             ForcedAlignmentRequestV2,
             AsrRequestV2,
             SpeakerRequestV2,
+            SpeakerEmbeddingRequestV2,
             MorphosyntaxRequestV2,
             UtsegRequestV2,
             TranslateRequestV2,
@@ -96,6 +97,9 @@ pub fn generate_ipc_schema() -> BTreeMap<String, BTreeMap<String, Schema>> {
             CorefItemResultV2,
             CorefAnnotationV2,
             CorefChainRefV2,
+            SpeakerEmbeddingResultV2,
+            SpeakerEmbeddingSpanResultV2,
+            SpeakerEmbeddingOutcomeV2,
             OpenSmileResultV2,
             AvqiResultV2,
             // Prepared batches
@@ -104,6 +108,7 @@ pub fn generate_ipc_schema() -> BTreeMap<String, BTreeMap<String, Schema>> {
             PreparedTextRefV2,
             PreparedAudioInputV2,
             SpeakerPreparedAudioInputV2,
+            SpeakerEmbeddingSpanV2,
             // Inputs
             AsrInputV2,
             SpeakerInputV2,
@@ -127,6 +132,7 @@ pub fn generate_ipc_schema() -> BTreeMap<String, BTreeMap<String, Schema>> {
             FaBackendV2,
             FaTextModeV2,
             SpeakerBackendV2,
+            SpeakerEmbeddingBackendV2,
             PreparedAudioEncodingV2,
             PreparedTextEncodingV2,
             ProtocolErrorCodeV2,

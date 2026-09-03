@@ -76,6 +76,14 @@ mod tests {
                     append_suffix: ".turns",
                     extension: "json",
                 }),
+                // Beside the transcript rather than over it: this command does
+                // not rewrite CHAT, so its input is also an input to whatever
+                // reads its verdicts next.
+                ReleasedCommand::SpeakerIdentify => FileNamingPolicy::RewriteStem(StemRewrite {
+                    strip_suffix: None,
+                    append_suffix: "_speaker_identity",
+                    extension: "json",
+                }),
                 // The CHAT transforms all rewrite their input in place.
                 ReleasedCommand::Morphotag
                 | ReleasedCommand::Utseg
@@ -234,6 +242,15 @@ mod tests {
                     capability_kind: CommandCapabilityKind::DirectInfer,
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
+                    primary_infer_task: InferTask::Speaker,
+                    additional_infer_tasks: &[],
+                },
+                ReleasedCommand::SpeakerIdentify => CommandMetadataPin {
+                    command,
+                    family: CommandFamily::AudioSequential,
+                    capability_kind: CommandCapabilityKind::DirectInfer,
+                    io_profile: CommandIoProfile::PathsModeAudio,
+                    runner_dispatch_kind: RunnerDispatchKind::SpeakerIdentity,
                     primary_infer_task: InferTask::Speaker,
                     additional_infer_tasks: &[],
                 },

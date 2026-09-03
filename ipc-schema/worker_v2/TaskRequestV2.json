@@ -102,6 +102,20 @@
       ]
     },
     {
+      "description": "Speaker-embedding request.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "speaker_embedding"
+        }
+      },
+      "$ref": "#/$defs/SpeakerEmbeddingRequestV2",
+      "required": [
+        "kind"
+      ]
+    },
+    {
       "description": "OpenSMILE request.",
       "type": "object",
       "properties": {
@@ -375,6 +389,12 @@
         "text_mode"
       ]
     },
+    "FrameCountV2": {
+      "description": "Number of audio frames in a prepared artifact.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
     "LanguageCode3": {
       "description": "3-letter ISO 639-3 language code (e.g. `\"eng\"`, `\"spa\"`).\n\nConstruction validates that the value is exactly 3 ASCII alphabetic\ncharacters, lowercased. Sentinel values like `\"auto\"` are rejected, use\n[`LanguageSpec`] at boundaries where auto-detection is meaningful.",
       "type": "string"
@@ -487,6 +507,69 @@
           "type": "string",
           "const": "nemo"
         }
+      ]
+    },
+    "SpeakerEmbeddingBackendV2": {
+      "description": "Speaker-embedding backend selected by the Rust control plane.\n\nOne variant today, and deliberately an enum rather than an implied\nconstant: the wire already has to say which acoustic model produced a\nvector, because vectors from two models are not comparable and a cache that\ncould not tell them apart would replay one against the other.",
+      "oneOf": [
+        {
+          "description": "The embedding node of the released local Pyannote model graph.",
+          "type": "string",
+          "const": "pyannote"
+        }
+      ]
+    },
+    "SpeakerEmbeddingRequestV2": {
+      "description": "V2 speaker-embedding request payload.\n\nExactly ONE prepared-audio attachment carries the whole recording, and\nevery span indexes into it. That is not a transport optimisation: two\nembeddings computed from separately decoded files can differ for reasons\nthat have nothing to do with who was speaking, so enrollment material and\nthe utterances scored against it have to come from the same decode.",
+      "type": "object",
+      "properties": {
+        "audio_ref_id": {
+          "description": "Artifact id of the prepared mono PCM view of the whole recording.",
+          "$ref": "#/$defs/WorkerArtifactIdV2"
+        },
+        "backend": {
+          "description": "Backend selected by Rust.",
+          "$ref": "#/$defs/SpeakerEmbeddingBackendV2"
+        },
+        "spans": {
+          "description": "Spans to embed, in the order the response must echo them.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpeakerEmbeddingSpanV2"
+          }
+        }
+      },
+      "required": [
+        "backend",
+        "audio_ref_id",
+        "spans"
+      ]
+    },
+    "SpeakerEmbeddingSpanIdV2": {
+      "description": "Caller-chosen name for one span of a speaker-embedding request.\n\nEchoed verbatim in the response so the control plane pairs an outcome\nwith the span it asked about BY NAME. Pairing two sequences by position\nis the shape that silently attributes one speaker's acoustic evidence\nto another utterance, and no arity check catches a reordering.",
+      "type": "string"
+    },
+    "SpeakerEmbeddingSpanV2": {
+      "description": "One span of the prepared recording to embed, in PREPARED-AUDIO FRAMES.\n\nFrames, not milliseconds. The prepared PCM view is the only coordinate\nsystem the worker holds, and the conversion from the recording's file\nmilliseconds happens once, on the Rust side, at the single place that owns\nboth the sample rate and the frame count. A request carrying milliseconds\nwould make the worker re-derive a frame index from a rate it was told about\nseparately, which is the same number arriving twice by two routes.",
+      "type": "object",
+      "properties": {
+        "end_frame": {
+          "description": "Last frame of the span, exclusive.",
+          "$ref": "#/$defs/FrameCountV2"
+        },
+        "span_id": {
+          "description": "Caller-chosen name echoed in the response.",
+          "$ref": "#/$defs/SpeakerEmbeddingSpanIdV2"
+        },
+        "start_frame": {
+          "description": "First frame of the span, inclusive.",
+          "$ref": "#/$defs/FrameCountV2"
+        }
+      },
+      "required": [
+        "span_id",
+        "start_frame",
+        "end_frame"
       ]
     },
     "SpeakerInputV2": {

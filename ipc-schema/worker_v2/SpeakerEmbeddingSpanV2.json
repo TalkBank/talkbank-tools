@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SpeakerEmbeddingSpanV2",
+  "description": "One span of the prepared recording to embed, in PREPARED-AUDIO FRAMES.\n\nFrames, not milliseconds. The prepared PCM view is the only coordinate\nsystem the worker holds, and the conversion from the recording's file\nmilliseconds happens once, on the Rust side, at the single place that owns\nboth the sample rate and the frame count. A request carrying milliseconds\nwould make the worker re-derive a frame index from a rate it was told about\nseparately, which is the same number arriving twice by two routes.",
+  "type": "object",
+  "properties": {
+    "end_frame": {
+      "description": "Last frame of the span, exclusive.",
+      "$ref": "#/$defs/FrameCountV2"
+    },
+    "span_id": {
+      "description": "Caller-chosen name echoed in the response.",
+      "$ref": "#/$defs/SpeakerEmbeddingSpanIdV2"
+    },
+    "start_frame": {
+      "description": "First frame of the span, inclusive.",
+      "$ref": "#/$defs/FrameCountV2"
+    }
+  },
+  "required": [
+    "span_id",
+    "start_frame",
+    "end_frame"
+  ],
+  "$defs": {
+    "FrameCountV2": {
+      "description": "Number of audio frames in a prepared artifact.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "SpeakerEmbeddingSpanIdV2": {
+      "description": "Caller-chosen name for one span of a speaker-embedding request.\n\nEchoed verbatim in the response so the control plane pairs an outcome\nwith the span it asked about BY NAME. Pairing two sequences by position\nis the shape that silently attributes one speaker's acoustic evidence\nto another utterance, and no arity check catches a reordering.",
+      "type": "string"
+    }
+  }
+}

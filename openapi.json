@@ -1227,7 +1227,8 @@
           "opensmile",
           "compare",
           "avqi",
-          "diarize"
+          "diarize",
+          "speaker_identify"
         ],
         "type": "string"
       },

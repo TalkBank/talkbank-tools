@@ -24,6 +24,18 @@ pub(super) fn infer_task_for_execute_v2(task: InferenceTaskV2) -> Result<InferTa
         InferenceTaskV2::Asr => Ok(InferTask::Asr),
         InferenceTaskV2::ForcedAlignment => Ok(InferTask::Fa),
         InferenceTaskV2::Speaker => Ok(InferTask::Speaker),
+        // Deliberately the SAME pool task as diarization, not a new one.
+        //
+        // A worker-pool key names which model HOST a request needs, and both
+        // tasks are served by the speaker host in the same Python module
+        // family. Splitting them would spawn a second worker process to hold a
+        // model the first one could have loaded, for no isolation anybody
+        // needs. What makes this safe is that neither model is loaded at
+        // bootstrap: the diarization pipeline and the embedding model are both
+        // lazy, so a worker that only ever sees embedding requests never
+        // constructs the diarization pipeline, and therefore never reaches the
+        // gated calibration artifact that pipeline pulls in.
+        InferenceTaskV2::SpeakerEmbedding => Ok(InferTask::Speaker),
         InferenceTaskV2::Opensmile => Ok(InferTask::Opensmile),
         InferenceTaskV2::Avqi => Ok(InferTask::Avqi),
     }

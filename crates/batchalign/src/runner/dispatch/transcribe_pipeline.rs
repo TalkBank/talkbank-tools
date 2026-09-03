@@ -25,7 +25,8 @@ use super::asr_media::{
     PreparedAsrMediaInput, prepare_asr_media_input, preserved_media_name_for_chat,
     resolve_paths_mode_or_staging_input,
 };
-use super::audio_task::{AudioChatTask, run_audio_chat_file_task};
+use super::audio_output::{FileOutput, MergeAbbreviations};
+use super::audio_task::{AudioFileTask, AudioTaskReporting, run_audio_file_task};
 
 /// Shared runtime dependencies for top-level transcribe dispatch.
 ///
@@ -198,10 +199,12 @@ struct TranscribeAudioTask<'a> {
     services: PipelineServices<'a>,
     opts: TranscribeOptions,
     debug_dir: Option<&'a Path>,
+    /// See `AlignAudioTask`: a property of the CHAT this task produces.
+    merge_abbreviations: MergeAbbreviations,
 }
 
 #[async_trait]
-impl AudioChatTask for TranscribeAudioTask<'_> {
+impl AudioFileTask for TranscribeAudioTask<'_> {
     type AttemptOutput = String;
 
     async fn run_attempt(
@@ -221,8 +224,11 @@ impl AudioChatTask for TranscribeAudioTask<'_> {
     async fn finalize_success(
         &mut self,
         output: Self::AttemptOutput,
-    ) -> Result<String, crate::error::ServerError> {
-        Ok(output)
+    ) -> Result<FileOutput, crate::error::ServerError> {
+        Ok(FileOutput::Chat {
+            text: output,
+            merge_abbreviations: self.merge_abbreviations,
+        })
     }
 }
 
@@ -296,17 +302,19 @@ async fn process_one_transcribe_file(
         services,
         opts: opts.clone(),
         debug_dir,
+        merge_abbreviations: MergeAbbreviations::from_option(should_merge_abbrev),
     };
 
-    run_audio_chat_file_task(
+    run_audio_file_task(
         job,
         shell_sink,
         file,
         &lifecycle,
-        WorkUnitKind::FileInfer,
-        FileStage::Transcribing,
-        "Transcription",
-        should_merge_abbrev,
+        AudioTaskReporting {
+            work_unit_kind: WorkUnitKind::FileInfer,
+            running_stage: FileStage::Transcribing,
+            command_label: "Transcription",
+        },
         &mut task,
     )
     .await
