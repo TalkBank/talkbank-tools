@@ -37,16 +37,101 @@ impl TranscriptResult {
     }
 }
 
-const BASE_URL: &str = "https://api.rev.ai/speechtotext/v1";
-const LANGID_BASE_URL: &str = "https://api.rev.ai/languageid/v1";
+const PRODUCTION_BASE_URL: &str = "https://api.rev.ai/speechtotext/v1";
+const PRODUCTION_LANGID_BASE_URL: &str = "https://api.rev.ai/languageid/v1";
 const TRANSCRIPT_ACCEPT: &str = "application/vnd.rev.transcript.v1.0+json";
 const LANGID_ACCEPT: &str = "application/vnd.rev.languageid.v1.0+json";
+
+/// The two Rev.AI service roots a client talks to.
+///
+/// These were bare `const`s until 2026-09-03. A hardcoded host is not a
+/// configuration inconvenience, it is the reason a transport fault against
+/// this provider could not be reproduced anywhere but against the paid
+/// endpoint: the fleet met `request or response body error` on 94 uploads and
+/// there was no seam at which to ask what our own client does when a
+/// connection goes away. Carrying the roots as a value gives the test suite a
+/// real socket to fail against and costs production nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RevAiEndpoints {
+    speech_to_text: String,
+    language_id: String,
+}
+
+impl RevAiEndpoints {
+    /// The live Rev.AI service. The only value production ever constructs.
+    fn production() -> Self {
+        Self {
+            speech_to_text: PRODUCTION_BASE_URL.to_owned(),
+            language_id: PRODUCTION_LANGID_BASE_URL.to_owned(),
+        }
+    }
+}
+
+/// How long to wait before each upload retry.
+///
+/// A schedule is data, not a `sleep` buried in a loop: production backs off
+/// exponentially, and a test that wants to observe the exhausted-retry
+/// outcome should not have to spend six seconds of wall clock doing it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UploadRetryBackoff {
+    /// `2^attempt` seconds before attempts 2 and 3.
+    Exponential,
+    /// No wait at all. Test-only: see [`RevAiClient::for_test`].
+    #[cfg(test)]
+    None,
+}
+
+impl UploadRetryBackoff {
+    fn delay_before(self, attempt: u32) -> Option<Duration> {
+        if attempt == 0 {
+            return None;
+        }
+        match self {
+            Self::Exponential => Some(Duration::from_secs(2u64.pow(attempt))),
+            #[cfg(test)]
+            Self::None => None,
+        }
+    }
+}
+
+/// Whether a Rev.AI failure is worth another attempt.
+///
+/// The verdict is derived from the typed error, never from its message, and
+/// it is what the control plane needs in order to classify the failure.
+/// Before 2026-09-03 every Rev.AI failure was stringified into
+/// `ServerError::Validation`, so a dropped TCP connection reached the operator
+/// as `error_category: validation`, which reads as "your input was bad".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevAiDisposition {
+    /// The same request may succeed later: transport faults, 5xx, exhausted
+    /// upload retries.
+    Transient,
+    /// Repeating the request cannot help: a 4xx, a job Rev.AI itself failed,
+    /// or a response we cannot decode.
+    Terminal,
+}
+
+impl std::fmt::Display for RevAiDisposition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Transient => write!(f, "transient"),
+            Self::Terminal => write!(f, "terminal"),
+        }
+    }
+}
 
 /// Errors produced by Rev.AI client operations.
 #[derive(Debug, thiserror::Error)]
 pub enum RevAiError {
-    /// The HTTP client failed before receiving a response.
-    #[error("HTTP error: {0}")]
+    /// The HTTP client failed before receiving a usable response.
+    ///
+    /// The Display of a `reqwest::Error` names only the STAGE that failed
+    /// ("request or response body error for url (...)"); the cause that says
+    /// WHAT happened to the socket lives in its source chain. Rendering only
+    /// the top line is how 94 upload failures on 2026-09-03 were read as a
+    /// credential problem: nothing printed said "connection reset". The chain
+    /// is walked here so the operator sees the actual fault.
+    #[error("HTTP error: {}", render_source_chain(.0))]
     Http(#[from] reqwest::Error),
 
     /// Rev.AI returned a non-success HTTP status and response body.
@@ -62,9 +147,24 @@ pub enum RevAiError {
     #[error("Rev.AI job failed: {0}")]
     JobFailed(String),
 
-    /// All upload retry attempts were exhausted.
-    #[error("Rev.AI upload retries exhausted: {0}")]
-    Retry(String),
+    /// Every upload attempt failed.
+    ///
+    /// Carries what happened on EACH attempt. Keeping only the last one hides
+    /// the shape of the failure: three identical transport faults and a 502
+    /// followed by two resets are different diagnoses, and the operator can
+    /// only tell them apart if all of them survive.
+    #[error(
+        "Rev.AI upload failed on all {} attempt(s): {}",
+        attempts.len(),
+        attempts.iter().enumerate()
+            .map(|(index, error)| format!("attempt {}: {error}", index + 1))
+            .collect::<Vec<_>>()
+            .join("; ")
+    )]
+    RetriesExhausted {
+        /// One entry per attempt, in the order they were made.
+        attempts: Vec<RevAiError>,
+    },
 
     /// JSON decoding failed for a Rev.AI response body.
     #[error("JSON error: {0}")]
@@ -76,6 +176,66 @@ pub enum RevAiError {
     TranscriptEncoding(#[from] std::string::FromUtf8Error),
 }
 
+/// Render an error together with every cause beneath it.
+///
+/// `reqwest::Error`'s own Display stops at the stage that failed, so the
+/// interesting half (`connection reset by peer`, `broken pipe`) is only
+/// reachable through `source()`. Used by [`RevAiError::Http`]'s message.
+fn render_source_chain(error: &(dyn std::error::Error + 'static)) -> String {
+    let mut rendered = error.to_string();
+    let mut cause = error.source();
+    while let Some(next) = cause {
+        rendered.push_str(": ");
+        rendered.push_str(&next.to_string());
+        cause = next.source();
+    }
+    rendered
+}
+
+impl RevAiError {
+    /// Whether repeating the request could plausibly succeed.
+    ///
+    /// Exhaustive on purpose: a new variant must state its own verdict rather
+    /// than inherit a catch-all, because the verdict decides both whether the
+    /// control plane retries and what the operator is told went wrong.
+    pub fn disposition(&self) -> RevAiDisposition {
+        match self {
+            // The socket, not the request: a reset, a hang-up mid-body, a DNS
+            // blip. Nothing about the submission changes by trying again.
+            Self::Http(_) => RevAiDisposition::Transient,
+            Self::ApiError { status, .. } if *status >= 500 => RevAiDisposition::Transient,
+            Self::ApiError { .. } => RevAiDisposition::Terminal,
+            // Every attempt already failed; the loop only keeps retrying what
+            // it judged retryable, so the exhaustion itself is transient.
+            Self::RetriesExhausted { .. } => RevAiDisposition::Transient,
+            // Rev.AI reached a terminal verdict on the job, or handed back
+            // something we cannot decode. Neither improves on a second run.
+            Self::JobFailed(_) | Self::Json(_) | Self::TranscriptEncoding(_) => {
+                RevAiDisposition::Terminal
+            }
+        }
+    }
+}
+
+impl From<RevAiError> for crate::error::ServerError {
+    /// The ONLY route from a Rev.AI failure into the control plane.
+    ///
+    /// It exists so no call site can reach for `Validation(error.to_string())`
+    /// again: that spelling is what turned a dropped connection into "bad
+    /// input" for 94 files. The typed disposition survives; the message keeps
+    /// the provider's full cause chain.
+    fn from(error: RevAiError) -> Self {
+        let disposition = match error.disposition() {
+            RevAiDisposition::Transient => crate::error::AsrProviderDisposition::Transient,
+            RevAiDisposition::Terminal => crate::error::AsrProviderDisposition::Terminal,
+        };
+        Self::AsrProvider {
+            disposition,
+            message: render_source_chain(&error),
+        }
+    }
+}
+
 /// Standard result type for Rev.AI client operations.
 pub type Result<T> = std::result::Result<T, RevAiError>;
 
@@ -83,14 +243,36 @@ pub type Result<T> = std::result::Result<T, RevAiError>;
 pub struct RevAiClient {
     api_key: String,
     client: Client,
+    endpoints: RevAiEndpoints,
+    upload_retry_backoff: UploadRetryBackoff,
 }
 
 impl RevAiClient {
-    /// Create a new client bound to one API key.
+    /// Create a new client bound to one API key, talking to the live service.
     pub fn new(api_key: &str) -> Self {
         Self {
             api_key: api_key.to_owned(),
             client: Client::new(),
+            endpoints: RevAiEndpoints::production(),
+            upload_retry_backoff: UploadRetryBackoff::Exponential,
+        }
+    }
+
+    /// A client pointed at a local test server, with the backoff removed.
+    ///
+    /// The only other constructor is [`new`][Self::new], which is always the
+    /// production endpoint, so no production path can reach a different host:
+    /// this one is compiled out of the shipped binary entirely.
+    #[cfg(test)]
+    pub(super) fn for_test(speech_to_text_base: &str) -> Self {
+        Self {
+            api_key: "test-key".to_owned(),
+            client: Client::new(),
+            endpoints: RevAiEndpoints {
+                speech_to_text: speech_to_text_base.to_owned(),
+                language_id: format!("{speech_to_text_base}/languageid"),
+            },
+            upload_retry_backoff: UploadRetryBackoff::None,
         }
     }
 
@@ -103,11 +285,13 @@ impl RevAiClient {
     ) -> Result<Job> {
         let options_json = serde_json::to_string(opts)?;
 
-        let mut last_err: Option<RevAiError> = None;
+        // Every attempt's failure is kept. The loop used to overwrite one
+        // `last_err`, so an operator reading a failed upload saw the third
+        // fault and had no way to tell it apart from the first two.
+        let mut attempts_failed: Vec<RevAiError> = Vec::new();
 
         for attempt in 0..3u32 {
-            if attempt > 0 {
-                let delay = Duration::from_secs(2u64.pow(attempt));
+            if let Some(delay) = self.upload_retry_backoff.delay_before(attempt) {
                 eprintln!(
                     "talkbank-revai: retry {}/3 for upload of {} (waiting {}s)",
                     attempt + 1,
@@ -128,7 +312,7 @@ impl RevAiClient {
 
             match self
                 .client
-                .post(format!("{BASE_URL}/jobs"))
+                .post(format!("{}/jobs", self.endpoints.speech_to_text))
                 .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
                 .multipart(form)
                 .send()
@@ -137,30 +321,34 @@ impl RevAiClient {
                     if !resp.status().is_success() {
                         let status = resp.status().as_u16();
                         let body = read_error_body(resp);
-                        if status >= 500 {
-                            last_err = Some(RevAiError::ApiError { status, body });
-                            continue;
+                        let error = RevAiError::ApiError { status, body };
+                        // Retry only what the error itself says is worth
+                        // retrying, rather than re-deciding the 5xx boundary
+                        // here in a second place.
+                        match error.disposition() {
+                            RevAiDisposition::Transient => attempts_failed.push(error),
+                            RevAiDisposition::Terminal => return Err(error),
                         }
-                        return Err(RevAiError::ApiError { status, body });
+                        continue;
                     }
                     return Ok(resp.json()?);
                 }
                 Err(err) => {
-                    last_err = Some(RevAiError::Http(err));
+                    attempts_failed.push(RevAiError::Http(err));
                 }
             }
         }
 
-        Err(last_err.unwrap_or(RevAiError::Retry(
-            "all upload retries exhausted without error".into(),
-        )))
+        Err(RevAiError::RetriesExhausted {
+            attempts: attempts_failed,
+        })
     }
 
     /// Fetch the current status for one previously submitted job.
     fn get_job_details(&self, job_id: &str) -> Result<Job> {
         let resp = self
             .client
-            .get(format!("{BASE_URL}/jobs/{job_id}"))
+            .get(format!("{}/jobs/{job_id}", self.endpoints.speech_to_text))
             .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
             .send()?;
 
@@ -177,7 +365,10 @@ impl RevAiClient {
     fn get_transcript(&self, job_id: &str) -> Result<RevTranscriptEvidence> {
         let resp = self
             .client
-            .get(format!("{BASE_URL}/jobs/{job_id}/transcript"))
+            .get(format!(
+                "{}/jobs/{job_id}/transcript",
+                self.endpoints.speech_to_text
+            ))
             .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
             .header(ACCEPT, TRANSCRIPT_ACCEPT)
             .header(CONTENT_TYPE, "application/json")
@@ -259,7 +450,7 @@ impl RevAiClient {
 
         let resp = self
             .client
-            .post(format!("{LANGID_BASE_URL}/jobs"))
+            .post(format!("{}/jobs", self.endpoints.language_id))
             .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
             .multipart(form)
             .send()?;
@@ -277,7 +468,7 @@ impl RevAiClient {
     fn get_langid_job(&self, job_id: &str) -> Result<LangIdJob> {
         let resp = self
             .client
-            .get(format!("{LANGID_BASE_URL}/jobs/{job_id}"))
+            .get(format!("{}/jobs/{job_id}", self.endpoints.language_id))
             .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
             .send()?;
 
@@ -294,7 +485,10 @@ impl RevAiClient {
     fn get_langid_result(&self, job_id: &str) -> Result<LangIdResult> {
         let resp = self
             .client
-            .get(format!("{LANGID_BASE_URL}/jobs/{job_id}/result"))
+            .get(format!(
+                "{}/jobs/{job_id}/result",
+                self.endpoints.language_id
+            ))
             .header(AUTHORIZATION, format!("Bearer {}", self.api_key))
             .header(ACCEPT, LANGID_ACCEPT)
             .send()?;
@@ -553,5 +747,70 @@ mod tests {
         let result: crate::revai::types::LangIdResult = serde_json::from_str(json).unwrap();
         assert_eq!(result.top_language, "en");
         assert_eq!(result.language_confidences.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod transport_failure_tests {
+    use super::*;
+    use crate::error::ServerError;
+    use crate::runner::util::classify_server_error;
+    use crate::scheduling::FailureCategory;
+    use std::io::Read;
+    use std::net::TcpListener;
+
+    /// A Rev.AI endpoint that accepts the connection and drops it without
+    /// answering, reproducing the transport fault the fleet met on
+    /// 2026-09-03: `request or response body error for url (.../jobs)`.
+    ///
+    /// Reaching the real boundary is the point. The failure being reproduced
+    /// is a property of the socket, not of any code of ours, so no double
+    /// can stand in for it: only a real client writing a real request body
+    /// into a real connection that goes away can produce this error.
+    fn endpoint_that_hangs_up_mid_request() -> (String, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("test: bind loopback");
+        let addr = listener.local_addr().expect("test: local addr");
+        let handle = std::thread::spawn(move || {
+            // Accept every connection the retry loop opens, read a little of
+            // the request so the client has started writing, then drop the
+            // socket. Ends when the listener is dropped with the thread.
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { return };
+                let mut scratch = [0u8; 64];
+                let _ = stream.read(&mut scratch);
+            }
+        });
+        (format!("http://{addr}/speechtotext/v1"), handle)
+    }
+
+    /// An upstream provider that drops the connection is NOT bad input, and
+    /// must never be reported to an operator as a validation failure: that is
+    /// what sent the 2026-09-03 fresh-ASR run looking for a broken daemon.
+    #[test]
+    fn rev_transport_failure_classifies_as_a_transient_provider_failure() {
+        let (base, _server) = endpoint_that_hangs_up_mid_request();
+        let client = RevAiClient::for_test(&base);
+
+        let error = client
+            .transcribe_bytes_blocking(
+                &vec![0u8; 512 * 1024],
+                "provider-media.mp3",
+                "audio/mpeg",
+                &SubmitOptions {
+                    language: "en".to_string(),
+                    speakers_count: Some(2),
+                    skip_postprocessing: Some(true),
+                    metadata: None,
+                },
+                1,
+            )
+            .expect_err("test: a hung-up endpoint cannot produce a transcript");
+
+        let server_error = ServerError::from(error);
+        assert_eq!(
+            classify_server_error(&server_error),
+            FailureCategory::ProviderTransient,
+            "a dropped connection to Rev.AI is a transient provider failure, got: {server_error}"
+        );
     }
 }

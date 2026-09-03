@@ -1,7 +1,7 @@
 # Rev.AI Integration
 
 **Status:** Current
-**Last updated:** 2026-08-30 19:35 EDT
+**Last updated:** 2026-09-03 05:50 EDT
 
 Rev.AI is the default ASR engine for `batchalign3 transcribe`, and the default
 UTR engine for `batchalign3 align`.
@@ -99,6 +99,28 @@ For the OpenAI Whisper API instead of the local model:
 ```bash
 batchalign3 transcribe recordings/ -o transcripts/ --asr-engine whisper-oai --lang eng
 ```
+
+## When an upload fails
+
+A failed Rev.AI upload is reported as a **provider** failure, never as a
+validation failure, and the distinction is the one that decides what you should
+do next:
+
+- `error_category: provider_transient`: the connection dropped, the request
+  body could not be delivered, or Rev.AI answered 5xx. Nothing about your
+  request was wrong; the same files are worth submitting again.
+- `error_category: provider_terminal`: Rev.AI refused the request (4xx) or
+  failed the job. Repeating it will not help; read the message.
+
+The message carries the provider error together with its full cause chain, and
+for an exhausted upload it lists what happened on **each** of the three
+attempts rather than only the last. A transport fault whose top line reads
+`request or response body error for url (...)` will name the underlying socket
+condition after the colon.
+
+Until 2026-09-03 every Rev.AI failure was flattened into
+`error_category: validation`, which reads as "you sent bad input" and hid the
+fact that a batch was worth retrying.
 
 ## Privacy note
 

@@ -1087,7 +1087,7 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
             utterances,
             ctx.opts.num_speakers.max(diarization_speaker_count),
         );
-        let desc = build_chat::transcript_from_asr_utterances(
+        let transcript = build_chat::transcript_from_asr_utterances(
             utterances,
             &participant_ids,
             &langs,
@@ -1100,6 +1100,16 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
                  (ASR token failed CHAT-legality): {e}"
             ))
         })?;
+
+        // The gate hands back every token it refused and we emitted anyway.
+        // Saying so here is the point: an operator reading this run now learns
+        // that the transcript is knowingly invalid CHAT and why, instead of
+        // finding out from `chatter validate` days later with no way to tell
+        // an ASR artifact from a transcription error. The tokens themselves
+        // stay verbatim, which is this pipeline's standing policy: what the
+        // speaker actually said is a human's call, not the pipeline's.
+        report_language_invalid_words(ctx, &transcript.language_invalid);
+        let desc = transcript.description;
 
         let mut chat_file = build_chat::build_chat(&desc)
             .map_err(|e| ServerError::Validation(format!("Failed to build CHAT: {e}")))?;
@@ -1126,6 +1136,78 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
         ctx.chat_text = Some(chat_text);
         Ok(())
     })
+}
+
+/// One refused token, in the shape written to the run's debug artifacts.
+#[derive(serde::Serialize)]
+struct LanguageInvalidWordRecord<'a> {
+    utterance: usize,
+    word: usize,
+    speaker: &'a str,
+    /// The provider's surface, verbatim, exactly as it was emitted.
+    text: &'a str,
+    lang: &'a str,
+    /// chatter error codes, e.g. `E220` (digits) or `E241` (reserved
+    /// untranscribed marker).
+    codes: Vec<&'a str>,
+    messages: Vec<&'a str>,
+}
+
+/// Narrate, and durably record, every word the CHAT-legality gate refused.
+///
+/// Deliberately not fatal: emitting the provider's surface for human review is
+/// the pipeline's standing policy. What was missing until 2026-09-03 was any
+/// record at all, so `Www` (E241) and `b2` (E220) reached a corpus with the
+/// only evidence in a log line nobody was reading.
+fn report_language_invalid_words(
+    ctx: &TranscribePipelineContext<'_>,
+    refused: &[build_chat::LanguageInvalidWord],
+) {
+    if refused.is_empty() {
+        return;
+    }
+
+    let records: Vec<LanguageInvalidWordRecord<'_>> = refused
+        .iter()
+        .map(|word| LanguageInvalidWordRecord {
+            utterance: word.utt_idx,
+            word: word.word_idx,
+            speaker: word.speaker_id.as_str(),
+            text: word.text.as_str(),
+            lang: word.lang.as_str(),
+            codes: word
+                .parse_errors
+                .iter()
+                .map(|error| error.code.as_str())
+                .collect(),
+            messages: word
+                .parse_errors
+                .iter()
+                .map(|error| error.message.as_str())
+                .collect(),
+        })
+        .collect();
+
+    let mut codes: Vec<&str> = records
+        .iter()
+        .flat_map(|r| r.codes.iter().copied())
+        .collect();
+    codes.sort_unstable();
+    codes.dedup();
+
+    let filename = ctx
+        .audio_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("unknown");
+    tracing::warn!(
+        %filename,
+        refused_words = records.len(),
+        codes = %codes.join(","),
+        "transcript emitted with words the CHAT language rules refuse; \
+         surfaces kept verbatim for human review"
+    );
+    ctx.dumper.dump_language_invalid_words(filename, &records);
 }
 
 fn unique_diarization_speaker_count(segments: &[SpeakerSegmentV2]) -> usize {

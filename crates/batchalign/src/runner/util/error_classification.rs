@@ -4,7 +4,7 @@
 //! to end users. This module translates classified failures into messages
 //! that help users understand what happened and what to do about it.
 
-use crate::error::ServerError;
+use crate::error::{AsrProviderDisposition, ServerError};
 use crate::scheduling::FailureCategory;
 use crate::worker::error::WorkerError;
 
@@ -103,6 +103,14 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         // (which reads as "contact your administrator") or `Validation`
         // (which reads as "you sent bad input").
         ServerError::ModelAccessDenied(_) => FailureCategory::ModelAccessDenied,
+        // The provider's own typed verdict decides this; nothing here re-reads
+        // a message to guess. `ProviderTransient` is retryable
+        // (`is_retryable_worker_failure`), which is the whole point: a dropped
+        // upload should be attempted again rather than reported as bad input.
+        ServerError::AsrProvider { disposition, .. } => match disposition {
+            AsrProviderDisposition::Transient => FailureCategory::ProviderTransient,
+            AsrProviderDisposition::Terminal => FailureCategory::ProviderTerminal,
+        },
         // A deliberate stop, never a transient or infrastructure failure:
         // see `ServerError::Cancelled`'s own doc for why this must stay
         // distinct from `System`.

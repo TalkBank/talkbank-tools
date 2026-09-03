@@ -246,7 +246,8 @@ mod integration_tests {
             Some("05b_clip"),
             true,
         )
-        .expect("test: transcript_from_asr_utterances should succeed");
+        .expect("test: transcript_from_asr_utterances should succeed")
+        .description;
         let chat = crate::build_chat::build_chat(&desc).expect("build chat");
         let serialized = crate::serialize::to_chat_string(&chat);
         let (_parsed, errors) = crate::parse::parse_lenient(&parser, &serialized);

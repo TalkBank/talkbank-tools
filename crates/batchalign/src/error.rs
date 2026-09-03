@@ -145,6 +145,30 @@ pub struct ConflictDetail {
     pub status: crate::api::JobStatus,
 }
 
+/// Whether an upstream ASR provider failure is worth retrying.
+///
+/// A public mirror of the provider client's own verdict. The client's error
+/// type is crate-private, so the typed fact travels rather than the type; what
+/// must not travel is a string the control plane then has to re-interpret.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AsrProviderDisposition {
+    /// The same request may succeed later (transport fault, 5xx, exhausted
+    /// upload retries).
+    Transient,
+    /// Repeating the request cannot help (4xx, a job the provider failed, an
+    /// undecodable response).
+    Terminal,
+}
+
+impl std::fmt::Display for AsrProviderDisposition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Transient => write!(f, "transient"),
+            Self::Terminal => write!(f, "terminal"),
+        }
+    }
+}
+
 /// All errors that can occur in the server.
 ///
 /// Each variant maps to an HTTP status code via [`IntoResponse`]. The response
@@ -330,6 +354,27 @@ pub enum ServerError {
     #[error("model access required: {0}")]
     ModelAccessDenied(String),
 
+    /// An upstream ASR provider (Rev.AI) failed.
+    ///
+    /// **HTTP 502.** Distinct from [`Validation`](Self::Validation), and for
+    /// the same reason [`ModelAccessDenied`](Self::ModelAccessDenied) is:
+    /// nothing about the request was wrong. Until 2026-09-03 every Rev.AI
+    /// failure was flattened with `to_string()` into `Validation`, so 94
+    /// uploads killed by a dropped connection reached the dashboard as
+    /// `error_category: validation`, which reads as "you sent bad input" and
+    /// sent a whole shift looking for a broken daemon.
+    ///
+    /// `disposition` is the typed half and is what the control plane acts on;
+    /// `message` is the operator-facing rendering of the provider's own error,
+    /// cause chain included.
+    #[error("ASR provider failure ({disposition}): {message}")]
+    AsrProvider {
+        /// Whether repeating the request could plausibly succeed.
+        disposition: AsrProviderDisposition,
+        /// The provider error rendered with its full cause chain.
+        message: String,
+    },
+
     /// A worker-protocol V2 retry loop
     /// ([`crate::infer_retry::dispatch_execute_v2_with_retry_and_progress`])
     /// observed job cancellation before returning a definite outcome.
@@ -375,6 +420,7 @@ impl ServerError {
             // The server's own machine lacks Hub access/credentials; the
             // caller's request was fine.
             Self::ModelAccessDenied(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::AsrProvider { .. } => StatusCode::BAD_GATEWAY,
             // Internal cancellation signal from a background retry loop;
             // never returned as an HTTP response (see the variant's doc).
             Self::Cancelled => StatusCode::INTERNAL_SERVER_ERROR,

@@ -82,8 +82,11 @@ async fn infer_revai_evidence(
             lang.clone()
         };
 
+        // NOT `Validation(error.to_string())`. A provider failure is neither a
+        // malformed request nor a string: the typed conversion keeps the
+        // retryable/terminal verdict the control plane needs.
         let result = fetch_revai_transcript(&api_key, &media, &effective_lang, num_speakers)
-            .map_err(|error| ServerError::Validation(error.to_string()))?;
+            .map_err(ServerError::from)?;
         let (transcript_evidence, detected_language) = result.into_parts();
 
         // Resolve the language. No silent fallback to English, if Language

@@ -504,6 +504,32 @@ impl DebugDumper {
         info!(%filename, response = %path.display(), "ASR response debug data dumped");
     }
 
+    /// Dump the words the CHAT-legality gate refused but emitted anyway.
+    ///
+    /// Beside the transcript, because that is where a reader asking "why is
+    /// this file invalid" is standing. The warn line in
+    /// `report_language_invalid_words` is the narration; this is the record.
+    pub(crate) fn dump_language_invalid_words(
+        &self,
+        filename: &str,
+        words: &impl serde::Serialize,
+    ) {
+        let Some(dir) = self.ensure_dir() else {
+            return;
+        };
+        let stem = Self::stem(filename);
+        let path = dir.join(format!("{stem}_language_invalid_words.json"));
+        match serde_json::to_string_pretty(words) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(&path, json) {
+                    debug!(%e, "failed to write language-invalid word report");
+                }
+            }
+            Err(e) => debug!(%e, "failed to serialize language-invalid word report"),
+        }
+        info!(%filename, report = %path.display(), "language-invalid words dumped");
+    }
+
     /// Retain the exact same-job diarization turns used by transcribe.
     ///
     /// Unlike older debug dumps, this method does not swallow an enabled

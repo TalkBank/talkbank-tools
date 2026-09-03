@@ -294,7 +294,8 @@ fn test_transcript_from_asr_utterances() {
         Some("test.mp3"),
         false,
     )
-    .expect("test: transcript_from_asr_utterances should succeed");
+    .expect("test: transcript_from_asr_utterances should succeed")
+    .description;
 
     assert_eq!(desc.participants.len(), 2);
     assert_eq!(desc.participants[0].id, "PAR");
@@ -319,7 +320,8 @@ fn test_transcript_from_asr_auto_generates_speaker_ids() {
     }];
 
     let desc = transcript_from_asr_utterances(&utterances, &[], &["eng".to_string()], None, false)
-        .expect("test: transcript_from_asr_utterances should succeed");
+        .expect("test: transcript_from_asr_utterances should succeed")
+        .description;
     assert_eq!(desc.participants[0].id, "SP5");
 }
 
@@ -366,6 +368,7 @@ fn quote_mark_in_asr_token_is_silently_stripped() {
     .expect("Stage 2c should silently strip the leading quote and pass validation");
 
     let first_word = result
+        .description
         .utterances
         .first()
         .and_then(|u| u.words.as_deref()?.first())
@@ -406,6 +409,7 @@ fn alphanumeric_token_under_eng_is_emitted_verbatim_for_review() {
     );
 
     let words: Vec<String> = result
+        .description
         .utterances
         .iter()
         .flat_map(|u| u.words.as_deref().unwrap_or(&[]))
@@ -657,7 +661,8 @@ fn disfluency_and_retrace_end_to_end() {
         None,
         false,
     )
-    .expect("test: transcript_from_asr_utterances should succeed");
+    .expect("test: transcript_from_asr_utterances should succeed")
+    .description;
     let chat = build_chat(&desc).unwrap();
     let serialized = to_chat_string(&chat);
 
@@ -757,7 +762,8 @@ fn asr_pipeline_sets_correct_participant_roles() {
         None,
         false,
     )
-    .expect("test: transcript_from_asr_utterances should succeed");
+    .expect("test: transcript_from_asr_utterances should succeed")
+    .description;
 
     // Both speakers get generic codes and "Participant" role
     let par0 = desc
@@ -881,7 +887,7 @@ fn single_speaker_asr_output(tokens: &[(&str, f64, f64)]) -> asr_postprocess::As
 fn run_transcribe_to_description(
     tokens: &[(&str, f64, f64)],
     lang: &str,
-) -> Result<TranscriptDescription, TranscriptBuildError> {
+) -> Result<AsrTranscript, TranscriptBuildError> {
     let output = single_speaker_asr_output(tokens);
     let utts = asr_postprocess::process_raw_asr(&output, lang);
     transcript_from_asr_utterances(
@@ -897,7 +903,8 @@ fn run_transcribe_to_description(
 /// return the serialized CHAT output.
 fn run_transcribe_pipeline(tokens: &[(&str, f64, f64)], lang: &str) -> String {
     let desc = run_transcribe_to_description(tokens, lang)
-        .expect("test: transcript_from_asr_utterances should succeed");
+        .expect("test: transcript_from_asr_utterances should succeed")
+        .description;
     let chat = build_chat(&desc).unwrap();
     to_chat_string(&chat)
 }
@@ -1082,7 +1089,8 @@ fn asr_to_chat_roundtrip(
         None,
         false,
     )
-    .expect("test: transcript_from_asr_utterances should succeed");
+    .expect("test: transcript_from_asr_utterances should succeed")
+    .description;
     let chat = build_chat(&desc).expect("build_chat should not fail on normalized input");
     let serialized = to_chat_string(&chat);
     let parser = TreeSitterParser::new().expect("grammar loads");
@@ -1217,7 +1225,8 @@ fn red_reporter_c465e6e8_97c_end_to_end_canary() {
         Some("545"),
         false,
     )
-    .expect("test: transcript_from_asr_utterances should succeed");
+    .expect("test: transcript_from_asr_utterances should succeed")
+    .description;
     let chat = build_chat(&desc).expect("build_chat should not fail");
     let serialized = to_chat_string(&chat);
     let parser = TreeSitterParser::new().expect("grammar loads");
@@ -1447,7 +1456,8 @@ fn built_chat_file_carries_typed_participant_map() {
         Some("test.mp3"),
         false,
     )
-    .expect("test: transcript_from_asr_utterances should succeed");
+    .expect("test: transcript_from_asr_utterances should succeed")
+    .description;
 
     let chat_file = build_chat(&desc).unwrap();
 
@@ -1515,4 +1525,94 @@ fn an_unrepresentable_media_name_is_an_error_not_a_missing_header() {
     desc.media_name = Some("interview_part2".to_string());
     let chat = build_chat(&desc).expect("a representable media name still builds");
     assert!(to_chat_string(&chat).contains("@Media:\tinterview_part2, audio"));
+}
+
+// ---------------------------------------------------------------------------
+// A word the language gate refuses is REPORTED, never only logged
+// ---------------------------------------------------------------------------
+//
+// The verbatim-for-review policy above is unchanged and deliberately so: an
+// ASR surface is the provider's observation, and the pipeline does not invent
+// what a human is meant to adjudicate. What was missing is the other half.
+// The gate knew the token was language-invalid, said so to `tracing::warn!`,
+// and returned a value indistinguishable from a token that had PASSED. A log
+// line is not a return value: nothing downstream, no operator report, no test
+// double could tell the two apart, so 2026-09-03 shipped `Www` (E241) and
+// `b2` (E220) into a corpus with no record anywhere that the pipeline had
+// already spotted them.
+
+/// Collect the codes reported for one token's admission failure.
+fn language_invalid_codes(result: &AsrTranscript, text: &str) -> Vec<String> {
+    result
+        .language_invalid
+        .iter()
+        .filter(|word| word.text == text)
+        .flat_map(|word| word.parse_errors.iter())
+        .map(|error| error.code.as_str().to_owned())
+        .collect()
+}
+
+/// E241. Rev.AI returned the surface `Www`, whose case-folded form is a
+/// reserved untranscribed marker, so CHAT reads it as `www` spelled wrongly.
+#[test]
+fn a_reserved_marker_collision_is_reported_by_the_gate() {
+    let result = run_transcribe_to_description(&[("Www", 0.0, 0.5), (".", 0.5, 0.5)], "eng")
+        .expect("test: the token is structurally legal, so the file still builds");
+
+    assert_eq!(
+        language_invalid_codes(&result, "Www"),
+        vec!["E241"],
+        "the gate must hand back what it refused: {:?}",
+        result.language_invalid,
+    );
+
+    let words: Vec<&str> = result
+        .description
+        .utterances
+        .iter()
+        .flat_map(|u| u.words.as_deref().unwrap_or(&[]))
+        .map(|w| w.text.as_str())
+        .collect();
+    assert!(
+        words.contains(&"Www"),
+        "the provider's surface still ships verbatim for review: {words:?}",
+    );
+}
+
+/// E220. Rev.AI returned `b2`; English words may not contain digits.
+#[test]
+fn a_digit_bearing_token_is_reported_by_the_gate() {
+    let result = run_transcribe_to_description(
+        &[
+            ("we", 0.0, 0.2),
+            ("took", 0.2, 0.4),
+            ("b2", 0.4, 0.7),
+            (".", 0.7, 0.7),
+        ],
+        "eng",
+    )
+    .expect("test: the token is structurally legal, so the file still builds");
+
+    assert_eq!(
+        language_invalid_codes(&result, "b2"),
+        vec!["E220"],
+        "the gate must hand back what it refused: {:?}",
+        result.language_invalid,
+    );
+}
+
+/// A clean transcript reports nothing, so a non-empty report always means
+/// something really did fail the language gate.
+#[test]
+fn a_clean_transcript_reports_no_language_invalid_words() {
+    let result = run_transcribe_to_description(
+        &[("the", 0.0, 0.2), ("dog", 0.2, 0.4), (".", 0.4, 0.4)],
+        "eng",
+    )
+    .expect("test: a clean transcript builds");
+    assert!(
+        result.language_invalid.is_empty(),
+        "unexpected report: {:?}",
+        result.language_invalid,
+    );
 }

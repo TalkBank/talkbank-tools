@@ -1,7 +1,7 @@
 # CHAT Validation Failures
 
 **Status:** Current
-**Last updated:** 2026-05-21 15:10 EDT
+**Last updated:** 2026-09-03 05:50 EDT
 
 This document catalogs how CHAT validation failures arise, how they are handled
 in BA3 vs BA2, and what the correct behavior should be. It is the reference for
@@ -170,16 +170,41 @@ unparseable CHAT" class in three layers:
    appear in the response for those languages. See
    `crates/batchalign/src/revai/preflight.rs::skip_postprocessing_hint`.
 
-2. **Fallible `ChatWordText` construction.**
+2. **Fallible `ChatWordText` construction, with two distinct outcomes.**
    `transcript_from_asr_utterances` calls
-   `ChatWordText::try_from_lang` per word and returns
+   `ChatWordText::try_from_lang` per word, under the utterance's own
+   language, and admits the word as one of two things:
+
+   - **Language-proved**: legal as a word AND legal in that language.
+   - **Structurally-only legal**: it parses as a word but breaks a
+     language-level rule (E220, a digit inside a word; E241, a
+     reserved untranscribed marker written in the wrong case). The
+     provider's surface is emitted **verbatim**, deliberately: what
+     the speaker actually said is a human's call, not the pipeline's,
+     and substituting `xxx` would corrupt that marker's meaning
+     ("a transcriber listened and could not make it out") across the
+     corpus.
+
+   A word that does not parse as a word at all is still a hard
    `Err(TranscriptBuildError)` naming the offending utterance /
-   speaker / language / token if any word fails CHAT-legality.
+   speaker / language / token.
+
+   The second outcome is **returned**, not merely logged:
+   `AsrTranscript::language_invalid` carries every such word with its
+   position, surface, language and chatter error codes. The
+   transcribe pipeline warns with the count and the distinct codes,
+   and writes `<stem>_language_invalid_words.json` into the run's
+   debug artifacts. Before 2026-09-03 this fact went only to a
+   `tracing::warn!`, so a knowingly-invalid transcript was
+   indistinguishable at the type level from a clean one, and two
+   tokens (`Www`, E241; `b2`, E220) reached a corpus with no record
+   that the gate had already caught them.
+
    Language- and engine-agnostic: for languages where Rev.AI ignores
    `skip_postprocessing` (everything other than en/es), or for a
    different ASR provider with different behavior, the pipeline
-   either produces valid CHAT or fails loudly at the offending token
-   with a specific message.
+   either produces valid CHAT, or says exactly which tokens it could
+   not prove legal, or fails loudly at an unparseable token.
 
 3. **Rich L0 validation-gate error message.**
    `validate_to_level(&ChatFile, parse_errors: &[ParseError], level)`

@@ -713,7 +713,8 @@ mod tests {
             media_name,
             false,
         )
-        .expect("test: transcript_from_asr_utterances should succeed");
+        .expect("test: transcript_from_asr_utterances should succeed")
+        .description;
         let chat_file = build_chat::build_chat(&desc).expect("build_chat must succeed");
         to_chat_string(&chat_file)
     }
