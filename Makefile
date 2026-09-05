@@ -1,4 +1,4 @@
-.PHONY: help hooks-check lint fmt-check lint-shell lint-actionlint test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-test-ml-golden batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-schema-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
+.PHONY: help hooks-check lint fmt-check lint-shell lint-actionlint test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-test-ml-golden batchalign-build-pyo3 batchalign-build-wheel batchalign-build-ci-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-schema-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
 
 help:
 	@echo "talkbank-tools task index (batchalign3 workspace)"
@@ -17,6 +17,7 @@ help:
 	@echo "  make batchalign-test-integration   Imported Batchalign focused integration gates"
 	@echo "  make batchalign-build-pyo3         Imported standalone PyO3 crate"
 	@echo "  make batchalign-build-wheel        Imported Batchalign wheel"
+	@echo "  make batchalign-build-ci-wheel     Development-profile ABI3 wheel for push CI"
 	@echo "  make batchalign-test-python        Imported Batchalign Python pytest gate"
 	@echo "  make batchalign-lint-python        Imported Batchalign Python ruff gate"
 	@echo "  make batchalign-ipc-schema-check   IPC schema vs Rust types drift gate"
@@ -143,7 +144,7 @@ batchalign-build-wheel:
 	@#      OUTPUT of build-cli, compiled FROM THIS COMMIT'S SOURCES) and
 	@#      sets BATCHALIGN_PRESTAGED_BIN=1 to declare provenance. In
 	@#      that one path the prestaged binary is guaranteed fresh and
-	@#      rebuilding duplicates ~9 min of fat-LTO compile.
+	@#      rebuilding duplicates the optimized native compile.
 	@#
 	@# Local invocations (no env var, no .exe) fall through to the safe
 	@# always-rebuild path.
@@ -166,6 +167,21 @@ batchalign-build-wheel:
 	@# `--only-dev` provisions Maturin from the frozen lock even in a fresh CI
 	@# checkout; `--no-sync` is invalid there because no tool exists to spawn.
 	uv run --frozen --only-dev maturin build --release --out dist/
+
+# Push CI proves packaging and behavior with a development-profile extension.
+# The tag release workflow separately builds and smoke-tests the optimized
+# artifacts on all five platforms. Repeating release-mode native compilation
+# on every push added about 15 minutes to feedback without checking a distinct
+# source or Python compatibility property.
+batchalign-build-ci-wheel:
+	@echo "==> Building development-profile Batchalign ABI3 wheel for push CI..."
+	@if [ "$$BATCHALIGN_PRESTAGED_BIN" != "1" ] || [ ! -x batchalign/_bin/batchalign3 ]; then \
+		echo "ERROR: CI wheel requires this commit's pre-staged native binary" >&2; \
+		exit 1; \
+	fi
+	rm -rf dist
+	mkdir -p dist
+	uv run --frozen --only-dev maturin build --out dist/
 
 batchalign-python-prepare: batchalign-build-wheel
 	@echo "==> Syncing imported Batchalign dev dependencies..."

@@ -8,37 +8,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Parallel-with-build-cli `cargo check` of the imported Rust crates.
-  # Previously lived inside `rust-integration` (post-build-wheel); moved
-  # here so the ~5 min of check work doesn't sit on the critical path
-  # behind Build CLI + Build Wheel. Shares the rust-workspace cache key
-  # with build-cli so workspace dep compile is reused.
-  batchalign-check:
-    name: Rust Imported Crate Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: rust-workspace
-      # The batchalign crate embeds the dashboard via
-      # `include_dir!("$CARGO_MANIFEST_DIR/../../frontend/dist")`
-      # in `crates/batchalign/src/routes/dashboard.rs`. The macro
-      # expands at compile time and panics if the directory does
-      # not exist, so we build the dashboard before cargo check.
-      - name: Build dashboard
-        run: make batchalign-dashboard-build
-      - name: Rust imported crate check
-        run: make batchalign-check
-
   build-cli:
     name: Build CLI Binary
     runs-on: ubuntu-latest
@@ -57,12 +26,15 @@ jobs:
           shared-key: rust-workspace
       - name: Build dashboard
         run: make batchalign-dashboard-build
-      - name: Build CLI binary
-        run: cargo build --release -p batchalign
+      # Push CI needs a fresh binary from this commit for packaging and smoke
+      # tests. The release rehearsal and tag workflow own optimized artifacts;
+      # compiling release mode here added about nine minutes to every push.
+      - name: Build development CLI binary
+        run: cargo build -p batchalign
       - uses: actions/upload-artifact@v7
         with:
           name: cli-binary
-          path: target/release/batchalign3
+          path: target/debug/batchalign3
           retention-days: 1
       - uses: actions/upload-artifact@v7
         with:
@@ -72,31 +44,22 @@ jobs:
           if-no-files-found: error
 
   build-wheel:
-    name: Build Wheel (${{ matrix.python-version }})
+    name: Build Development ABI3 Wheel
     needs: build-cli
     runs-on: ubuntu-latest
-    strategy:
-      # Build a wheel for every officially supported Python on every push and
-      # dispatch: 3.13 (deployment target) plus 3.14. All supported
-      # versions are continuously gated; talkbank-tools is public, so the extra
-      # matrix legs cost no Actions minutes. fail-fast off so one version's
-      # failure still reports the others.
-      fail-fast: false
-      matrix:
-        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
       - uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "pyo3 -> target"
-          shared-key: build-wheel-${{ matrix.python-version }}
+          shared-key: build-wheel-development
       - uses: actions/download-artifact@v8
         with:
           name: cli-binary
@@ -107,19 +70,15 @@ jobs:
           path: frontend/dist/
       - name: Make CLI binary executable
         run: chmod +x batchalign/_bin/batchalign3
-      - name: Build wheel
-        # BATCHALIGN_PRESTAGED_BIN=1 tells the Makefile to reuse the
-        # binary downloaded above (from build-cli, compiled from THIS
-        # commit's sources). Skips ~9 min of duplicate fat-LTO compile
-        # per matrix entry. The 2026-04-29 deploy postmortem's stale-
-        # binary risk does not apply here because the artifact came
-        # from build-cli's compile of the same commit.
+      - name: Build development-profile ABI3 wheel
+        # One cp313-abi3 wheel is valid on every supported Python. The test
+        # matrix below installs this exact artifact under 3.13 and 3.14.
         env:
           BATCHALIGN_PRESTAGED_BIN: "1"
-        run: make batchalign-build-wheel
+        run: make batchalign-build-ci-wheel
       - uses: actions/upload-artifact@v7
         with:
-          name: wheel-${{ matrix.python-version }}
+          name: wheel
           path: dist/*.whl
           retention-days: 1
 
@@ -142,7 +101,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-${{ matrix.python-version }}
+          name: wheel
           path: dist/
       - name: Install from pre-built wheel
         run: |
@@ -158,11 +117,10 @@ jobs:
     steps:
       - uses: astral-sh/setup-uv@v8.2.0
         with:
-          enable-cache: true
           python-version: "3.13"
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.13
+          name: wheel
           path: dist/
       - name: Install wheel in clean environment
         run: uv tool install --from dist/*.whl batchalign3
@@ -172,7 +130,7 @@ jobs:
         run: batchalign3 version
 
   typecheck:
-    name: Type Check & CI Hygiene
+    name: Type Check & Python Hygiene
     needs: build-wheel
     runs-on: ubuntu-latest
     steps:
@@ -186,15 +144,9 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.13"
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: rust-workspace
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.13
+          name: wheel
           path: dist/
       - uses: actions/download-artifact@v8
         with:
@@ -209,14 +161,6 @@ jobs:
           test ! -e batchalign/cli/cli.py
           test ! -e batchalign/serve/app.py
           test ! -e batchalign/serve/job_store.py
-      - name: CI hygiene (Rust)
-        # Call the xtask subcommand directly. The previous form was
-        # `cargo test -p batchalign --test ci_checks -q`, which compiled
-        # the entire batchalign crate in dev/test mode (~8 minutes) just
-        # to invoke a 21-line wrapper test that called this exact xtask.
-        # The wrapper added no value; the xtask is the canonical
-        # implementation.
-        run: cargo run -q -p xtask -- lint-ci-hygiene
       - name: Verify runtime constants
         run: uv run --no-sync python scripts/check_runtime_drift.py
       - name: Verify IPC schema matches the Rust types
@@ -225,7 +169,7 @@ jobs:
         # in the tree indefinitely; the conformance test reads the SCHEMA, so a
         # stale one silently checks Python against yesterday's contract.
         #
-        # Through `uv run`, so the check uses the release binary bundled in the
+        # Through `uv run`, so the check uses the binary bundled in the
         # wheel this job already installed. A bare `cargo run` would compile
         # the crate again in the debug profile, which is the cost the CI
         # hygiene step above was rewritten to avoid.
@@ -246,12 +190,10 @@ jobs:
 
   generated-artifacts:
     name: Generated Artifacts
+    needs: build-cli
     runs-on: ubuntu-latest
-    # API-drift verification runs `make batchalign-dashboard-api-check`,
-    # which transitively invokes cargo to regenerate openapi.json from
-    # the Rust server, then diffs the result. Needs the pinned
-    # toolchain + protoc; rust-cache is intentionally omitted to keep
-    # the gate's startup cheap.
+    # Generate the schema with this commit's binary from build-cli. Compiling a
+    # second server binary here made this source-drift check take five minutes.
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -259,13 +201,18 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: cli-binary
+          path: target/debug/
+      - name: Make CLI binary executable
+        run: chmod +x target/debug/batchalign3
       - name: Verify dashboard API artifacts
+        env:
+          BATCHALIGN_BIN: ${{ github.workspace }}/target/debug/batchalign3
         run: make batchalign-dashboard-api-check
 
   # Note: the previous standalone `dashboard-web-build` job was retired
@@ -304,34 +251,28 @@ jobs:
           path: frontend/dist/
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.13
+          name: wheel
           path: dist/
       - uses: actions/download-artifact@v8
         with:
           name: cli-binary
-          path: target/release/
+          path: target/debug/
       - name: Make CLI binary executable
-        run: chmod +x target/release/batchalign3
+        run: chmod +x target/debug/batchalign3
       - name: Install batchalign
         run: |
           uv sync --group dev --no-install-project
           uv pip install --no-deps dist/*.whl
-      # The "Rust imported crate check" step (make batchalign-check)
-      # moved to its own parallel job `batchalign-check`. It doesn't
-      # need build-cli's binary or build-wheel's wheel, so running it
-      # post-build-wheel was pure critical-path overhead.
       - name: Server startup smoke test
-        # Uses build-cli's release binary instead of doing a debug
-        # rebuild in-job. The smoke test exercises the server's
-        # startup path with --test-echo; release vs debug binary makes
-        # no behavioral difference to that path.
+        # Uses build-cli's development binary instead of rebuilding in-job.
+        # The release workflow separately proves the optimized binary.
         #
         # `--warmup off` was dropped when startup warmup was retired: the
         # flag no longer exists and the server refuses to start with it.
         env:
           BATCHALIGN_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
-          ./target/release/batchalign3 serve start \
+          ./target/debug/batchalign3 serve start \
             --foreground --test-echo --port 18123 &
           SERVER_PID=$!
           for i in $(seq 1 30); do
@@ -373,7 +314,7 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.13
+          name: wheel
           path: dist/
       - name: Install from pre-built wheel
         run: |
@@ -419,10 +360,9 @@ jobs:
   dashboard-e2e:
     name: Dashboard E2E
     # Depends on both build-cli (for the pre-built batchalign3 binary)
-    # and build-wheel (for the Python wheel). Reusing build-cli's
-    # binary instead of rebuilding here saves ~25 minutes of fat-LTO
-    # Rust release compilation on every push, the bulk of the
-    # historical Dashboard E2E wall-time.
+    # and build-wheel (for the Python wheel). Both are development-profile
+    # artifacts compiled from this commit; optimized artifacts are the release
+    # workflow's responsibility.
     needs: [build-cli, build-wheel]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
@@ -444,14 +384,14 @@ jobs:
           shared-key: dashboard-release
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.13
+          name: wheel
           path: dist/
       - uses: actions/download-artifact@v8
         with:
           name: cli-binary
-          path: target/release/
+          path: target/debug/
       - name: Make CLI binary executable
-        run: chmod +x target/release/batchalign3
+        run: chmod +x target/debug/batchalign3
       - name: Install from pre-built wheel
         run: |
           uv sync --group dev --no-install-project
@@ -468,10 +408,10 @@ jobs:
           BATCHALIGN_PLAYWRIGHT_WITH_DEPS: "1"
           BATCHALIGN_REAL_SERVER_E2E: "1"
           # scripts/run_react_dashboard_smoke.sh checks BATCHALIGN_BIN
-          # and skips the cargo release build if the binary is already
+          # and skips its own cargo build if the binary is already
           # in place. Pointing at the artifact downloaded above is what
           # makes this job sub-15-minute.
-          BATCHALIGN_BIN: ${{ github.workspace }}/target/release/batchalign3
+          BATCHALIGN_BIN: ${{ github.workspace }}/target/debug/batchalign3
           RUSTFLAGS: -C debuginfo=0
         run: |
           BATCHALIGN_PYTHON="$(uv run --no-sync python -c 'import sys; print(sys.executable)')"

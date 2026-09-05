@@ -46,10 +46,10 @@ echo "==> pre-push: ruff lint + format over the Python sources"
 make batchalign-lint-python-source
 
 echo "==> pre-push: IPC schema drift"
-# Free HERE, though not in isolation. `batchalign-ipc-schema-check` needs the
-# built binary, which is why it was EXEMPT; but `batchalign-ci-rust` above has
-# already built it, so by this point the check is 0 s on a warm tree. The
-# exemption was correct about the cost and wrong about who pays it.
+# `batchalign-ipc-schema-check` asks Cargo to prove a development binary is
+# current, then runs that exact binary. On a warm tree this is a few seconds;
+# on a cold tree it links development mode rather than compiling an unrelated
+# optimized release artifact.
 #
 # It earned its place on 2026-08-16. `numeric_id!` derives
 # `schemars::JsonSchema`, which copies a Rust doc comment into the schema's
@@ -62,11 +62,14 @@ make batchalign-ipc-schema-check
 # `openapi.json` is GENERATED from the Rust types, so a doc-comment or a
 # `required` change makes the committed copy stale. The FULL dashboard check
 # also runs `npx openapi-typescript` and stays exempt for needing the
-# npm-installed frontend; this half is one `cargo run` against a binary
-# `batchalign-ci-rust` has already built. A stale openapi.json reached main on
+# npm-installed frontend; this half reuses the binary the IPC check just proved
+# current. A stale openapi.json reached main on
 # 2026-08-27 through exactly that exemption.
 echo "==> pre-push: generated openapi.json drift"
-make batchalign-dashboard-schema-check
+# The preceding IPC check asked Cargo to prove this exact development binary is
+# current. Reuse it instead of asking Cargo to walk the same dependency graph a
+# second time.
+BATCHALIGN_BIN="$PWD/target/debug/batchalign3" make batchalign-dashboard-schema-check
 
 echo "==> pre-push: mdBook build + linkcheck"
 # Not part of batchalign-ci-rust: it is a separate workflow. linkcheck2 verifies

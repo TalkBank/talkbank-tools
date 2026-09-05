@@ -94,6 +94,9 @@ EXEMPT: dict[str, Exemption] = {
         "maturin release build",
         required_recipe_prefix="uv run --frozen --only-dev maturin build --release",
     ),
+    "batchalign-build-ci-wheel": HookExemption(
+        "CI-only wheel requires the same-commit binary artifact"
+    ),
     # NOT here any more: `batchalign-ipc-schema-check`. It was exempt for
     # "needs the built binary", which is true in isolation and irrelevant in
     # the hook, where `batchalign-ci-rust` has already built it and the check
@@ -103,7 +106,8 @@ EXEMPT: dict[str, Exemption] = {
     # Drift checks against generated artifacts that need the built binary or the
     # npm-installed frontend, and run in their own jobs with that setup.
     # NARROWED 2026-08-27. Only the `npx openapi-typescript` half needs npm.
-    # The `openapi.json` half is one `cargo run` and is now in the hook as
+    # The `openapi.json` half reuses the current development binary and is in
+    # the hook as
     # `batchalign-dashboard-schema-check`; a stale openapi.json reached main
     # through this exemption, the same way `batchalign-ipc-schema-check` did
     # before it was un-exempted above.
