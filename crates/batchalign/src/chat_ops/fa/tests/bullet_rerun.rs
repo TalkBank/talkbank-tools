@@ -584,11 +584,12 @@ fn test_fast_path_strips_backward_wor_timestamps_and_removes_stale_wor_tier() {
         crate::chat_ops::fa::FaDecisions::without_injection(Vec::new(), Vec::new(), finalized),
     );
     let timeline = crate::types::results::FaResult::without_groups(
-        chat.to_chat_string(),
+        chat.clone(),
         WordGapHealing::Heal,
         "wav2vec_fa",
         "test-build",
     )
+    .expect("timed CHAT has a usable media declaration")
     .with_written_decisions(written)
     .into_timeline_trace();
     assert_eq!(timeline.decisions.len(), 1);

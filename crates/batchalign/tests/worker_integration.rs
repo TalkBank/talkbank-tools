@@ -17,7 +17,7 @@
 //! Requirements: Python 3 with batchalign installed.
 //! Skip gracefully if unavailable.
 
-mod common;
+use crate::common;
 
 use batchalign::api::{LanguageCode3, NumSpeakers, ReleasedCommand, WorkerLanguage};
 use batchalign::host_facts::PerProfile;

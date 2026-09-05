@@ -45,7 +45,6 @@ use crate::chat_ops::{CacheKey, CacheTaskName};
 use crate::params::{AudioContext, FaParams};
 use crate::pipeline::PipelineServices;
 use batchalign_transform::parse::{is_ca, is_dummy, is_no_align, parse_lenient};
-use batchalign_transform::serialize::to_chat_string;
 use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
 
@@ -53,7 +52,7 @@ use crate::api::DurationMs;
 use crate::chat_ops::fa::Grouping;
 use crate::error::ServerError;
 use crate::runner::util::{FileStage, ProgressSender, ProgressUpdate};
-use crate::types::results::{FaGroupEvidence, FaResult};
+use crate::types::results::{FaGroupEvidence, FaOutput, FaResult};
 use crate::types::traces::{FaEvidenceSourceTrace, FaGroupTrace, TimingTrace, ViolationTrace};
 use transport::{FaInferencePlan, FaWorkerTransport, UncheckedFaWorkerBatch, plan_fa_inference};
 
@@ -399,9 +398,9 @@ fn assemble_group_evidence(
 
 /// Process a single CHAT file through the forced alignment pipeline.
 ///
-/// Returns a structured [`FaResult`] containing the serialized CHAT text,
-/// group info, timing data, and validation results.  The caller decides
-/// which parts to persist (file output, trace cache, etc.).
+/// Returns a structured [`FaResult`] containing a reconciled CHAT output state,
+/// group info, timing data, and validation results. The runner owns the sole
+/// serialization boundary and decides which evidence to persist.
 ///
 /// Algorithm outline:
 /// 1. Parse leniently and run pre-validation (`MainTierValid`).
@@ -410,7 +409,7 @@ fn assemble_group_evidence(
 /// 4. Send miss groups through the FA worker transport adapter.
 /// 5. Parse responses and align to transcript words in Rust.
 /// 6. Apply timings + postprocessing (`apply_fa_results`).
-/// 7. Run full post-validation and serialize.
+/// 7. Reconcile media/timing typestate and run full post-validation.
 pub(crate) async fn process_fa(
     chat_text: &str,
     audio: &AudioContext<'_>,
@@ -479,8 +478,8 @@ pub(crate) async fn run_fa_from_ast(
 
     // 1b. Skip dummy files
     if is_dummy(&chat_file) {
-        return Ok(FaResult::without_groups(
-            to_chat_string(&chat_file),
+        return Ok(FaResult::pass_through(
+            chat_file,
             fa_params.gap_healing,
             fa_params.engine.as_wire_name(),
             services.engine_version.as_ref(),
@@ -498,8 +497,8 @@ pub(crate) async fn run_fa_from_ast(
     //
     // See book/src/batchalign/developer/commands/align.md: "NoAlign: strict pass-through".
     if is_no_align(&chat_file) {
-        return Ok(FaResult::without_groups(
-            to_chat_string(&chat_file),
+        return Ok(FaResult::pass_through(
+            chat_file,
             fa_params.gap_healing,
             fa_params.engine.as_wire_name(),
             services.engine_version.as_ref(),
@@ -557,11 +556,11 @@ pub(crate) async fn run_fa_from_ast(
         );
 
         return Ok(FaResult::without_groups(
-            to_chat_string(&chat_file),
+            chat_file,
             fa_params.gap_healing,
             fa_params.engine.as_wire_name(),
             services.engine_version.as_ref(),
-        )
+        )?
         .with_written_decisions(written));
     }
 
@@ -664,11 +663,11 @@ pub(crate) async fn run_fa_from_ast(
             ),
         );
         return Ok(FaResult::without_groups(
-            to_chat_string(&chat_file),
+            chat_file,
             fa_params.gap_healing,
             fa_params.engine.as_wire_name(),
             services.engine_version.as_ref(),
-        )
+        )?
         .with_written_decisions(written));
     }
 
@@ -1008,7 +1007,8 @@ pub(crate) async fn run_fa_from_ast(
 
     // 10. Post-validation check (warn only, cross-speaker overlap is normal in
     //    conversation data).
-    let violations = if let Err(errors) = validate_output(&chat_file, "align") {
+    let output = FaOutput::processed(chat_file)?;
+    let violations = if let Err(errors) = validate_output(output.as_chat_file(), "align") {
         let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
         warn!(errors = ?msgs, "align post-validation warnings (non-fatal)");
         errors
@@ -1047,7 +1047,7 @@ pub(crate) async fn run_fa_from_ast(
     )?;
 
     Ok(FaResult {
-        chat_text: to_chat_string(&chat_file),
+        output,
         group_evidence,
         engine: fa_params.engine.as_wire_name().to_owned(),
         engine_version: services.engine_version.as_ref().to_owned(),

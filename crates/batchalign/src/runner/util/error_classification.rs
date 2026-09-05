@@ -74,9 +74,10 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         ServerError::MemoryPressure(_) => FailureCategory::MemoryPressure,
         ServerError::RequiredEvidenceUnavailable(_) => FailureCategory::EvidenceUnavailable,
         ServerError::Io(_) => FailureCategory::System,
-        ServerError::Database(_) | ServerError::Migration(_) | ServerError::Persistence(_) => {
-            FailureCategory::System
-        }
+        ServerError::Database(_)
+        | ServerError::Migration(_)
+        | ServerError::Persistence(_)
+        | ServerError::MediaTiming(_) => FailureCategory::System,
         ServerError::JobNotFound(_)
         | ServerError::JobConflict { .. }
         | ServerError::JobNotTerminal(_)

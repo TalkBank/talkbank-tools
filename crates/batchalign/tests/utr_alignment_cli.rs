@@ -12,7 +12,7 @@
     clippy::unimplemented
 )]
 
-mod cli_common;
+use crate::cli_common;
 
 use cli_common::CliHarness;
 use predicates::prelude::*;

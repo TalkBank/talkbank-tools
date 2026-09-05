@@ -23,7 +23,7 @@
     clippy::unimplemented
 )]
 
-mod cli_common;
+use crate::cli_common;
 
 use std::fs;
 use std::path::Path;

@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-09-02 20:07 EDT
+**Last updated:** 2026-09-05 02:30 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -520,7 +520,11 @@ flowchart TD
 **`@Media: unlinked` is not an error.** `unlinked` means the transcript
 exists but utterances have not yet been aligned to timestamps, it is the
 normal pre-alignment state. `align` is precisely the command that creates
-those links. The audio file is still resolved and used normally.
+those links. The audio file is still resolved and used normally. When an
+alignment run produces timing evidence, its output consumes the `unlinked`
+status before writing the file. A pass-through file, or a run that produces no
+timing evidence, preserves the status. Timed output is refused if `@Media` is
+missing, ambiguous, unusable, or carries a contradictory status.
 
 **Re-aligning an already-aligned file does not shrink utterance bullets under
 the default `preserve` policy.**

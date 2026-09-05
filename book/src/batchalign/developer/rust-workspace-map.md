@@ -1,7 +1,7 @@
 # Rust Workspace Map
 
 **Status:** Current
-**Last updated:** 2026-05-20 00:54 EDT
+**Last updated:** 2026-09-05 03:20 EDT
 
 The Batchalign code lives inside the `talkbank-tools` Cargo workspace
 as sibling crates under `crates/`. There are no cross-repo path
@@ -61,8 +61,8 @@ Top-level modules under `crates/batchalign/src/`:
 cargo build -p batchalign
 cargo check --workspace
 cargo test --workspace
-cargo test -p batchalign --test cli
-cargo test -p batchalign --test integration
+cargo test -p batchalign --test cli_integration_suite cli::
+cargo test -p batchalign --test cli_integration_suite integration::
 cargo xtask affected-rust packages
 
 # Python extension build

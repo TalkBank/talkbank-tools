@@ -15,7 +15,7 @@
     clippy::unimplemented
 )]
 
-mod cli_common;
+use crate::cli_common;
 
 use batchalign::cli::args::{Cli, CommonOpts, build_typed_options};
 use batchalign::options::{

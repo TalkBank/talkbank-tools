@@ -18,7 +18,7 @@
 // Test code: fixtures and polling use unwrap/expect by convention.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-mod common;
+use crate::common;
 
 use batchalign::api::{
     FilePayload, JobInfo, JobStatus, JobSubmission, LanguageCode3, LanguageSpec, NumSpeakers,

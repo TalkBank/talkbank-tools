@@ -18,7 +18,7 @@
 //! All tests use `--test-echo` workers (no ML models). Failures are injected
 //! by killing worker processes (SIGKILL) or using very short timeouts.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 use std::time::Duration;

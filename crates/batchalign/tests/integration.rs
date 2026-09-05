@@ -16,7 +16,7 @@
 //! Requirements: Python 3 with batchalign installed.
 //! Tests skip gracefully if unavailable.
 
-mod common;
+use crate::common;
 
 use batchalign::api::{
     FilePayload, FileResult, HealthResponse, HealthStatus, JobControlPlaneBackendKind, JobInfo,

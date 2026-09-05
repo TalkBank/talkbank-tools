@@ -267,8 +267,8 @@ impl AudioFileTask for AlignAudioTask<'_> {
     ) -> Result<FileOutput, crate::error::ServerError> {
         let retention = FaEvidenceRetention::requested(self.dumper.is_enabled(), self.debug_traces);
         let output_text = if retention.requires_timeline() {
-            let output_text = fa_result.chat_text.clone();
-            let timeline = fa_result.into_timeline_trace();
+            let (output, timeline) = fa_result.into_output_and_timeline();
+            let output_text = output.to_chat_string();
             self.dumper
                 .dump_fa_evidence(&self.filename, &timeline)
                 .map_err(|error| {
@@ -292,7 +292,7 @@ impl AudioFileTask for AlignAudioTask<'_> {
             }
             output_text
         } else {
-            fa_result.chat_text
+            fa_result.output.to_chat_string()
         };
 
         self.dumper.dump_fa_output(&self.filename, &output_text);

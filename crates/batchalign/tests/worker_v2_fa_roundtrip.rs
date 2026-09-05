@@ -19,7 +19,7 @@
 //!
 //! That proves the seam is already coherent before any live dispatch wiring.
 
-mod common;
+use crate::common;
 
 use std::fs;
 use std::path::{Path, PathBuf};

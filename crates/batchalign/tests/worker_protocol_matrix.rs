@@ -19,7 +19,7 @@
 //! - a real Rust->Python stdio worker roundtrip returns typed protocol errors
 //!   for mismatched execute requests
 
-mod common;
+use crate::common;
 
 use batchalign::api::{LanguageCode3, WorkerLanguage};
 use std::collections::BTreeSet;
@@ -207,6 +207,7 @@ fn expected_result_kind(file: &str) -> Option<&'static str> {
         "execute_response_coref_success.json" => Some("coref_result"),
         "execute_response_protocol_error.json" => None,
         "execute_response_speaker_segments.json" => Some("speaker_result"),
+        "execute_response_speaker_embedding_spans.json" => Some("speaker_embedding_result"),
         "execute_response_opensmile_success.json" => Some("opensmile_result"),
         "execute_response_avqi_success.json" => Some("avqi_result"),
         other => panic!("missing expected result-kind mapping for {other}"),

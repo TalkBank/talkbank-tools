@@ -1,7 +1,7 @@
 # Rust CLI and Server
 
 **Status:** Current
-**Last updated:** 2026-07-30 18:21 EDT
+**Last updated:** 2026-09-05 03:20 EDT
 
 This page covers the Rust control plane that powers `batchalign3`: the CLI
 client, the HTTP server, and how to extend them.
@@ -222,7 +222,7 @@ Validated so far:
 ```bash
 cargo check -p batchalign -p batchalign
 cargo test -p batchalign --lib -q
-cargo test -p batchalign --test json_compat -q
+cargo test -p batchalign --test contract_suite json_compat:: -q
 cargo test -p batchalign --lib -q
 batchalign3 serve start --foreground --test-echo
 batchalign3 jobs --server http://127.0.0.1:8111 <JOB_ID>

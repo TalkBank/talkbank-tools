@@ -11,7 +11,7 @@
     clippy::unimplemented
 )]
 
-mod cli_common;
+use crate::cli_common;
 
 use std::path::{Path, PathBuf};
 

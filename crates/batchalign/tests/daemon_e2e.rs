@@ -3,7 +3,7 @@
 //! Verifies that `batchalign3 serve start` / `serve status` / `serve stop`
 //! work as subprocesses with process isolation.
 //!
-//! Run: `cargo test -p batchalign --test daemon_e2e`
+//! Run: `cargo test -p batchalign --test cli_integration_suite daemon_e2e::`
 // Integration tests are exempt from the crate's deny-level panic lints,
 // matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
 // (see docs/panic-audit/).
@@ -16,7 +16,7 @@
     clippy::unimplemented
 )]
 
-mod cli_common;
+use crate::cli_common;
 
 use predicates::prelude::*;
 

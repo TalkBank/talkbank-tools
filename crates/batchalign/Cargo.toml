@@ -1,11 +1,12 @@
 [package]
 name = "batchalign"
-version = "0.5.0"
+version = "0.5.1"
 description = "batchalign3: command-line interface, application, server, worker pool, cache"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+autotests = false
 
 [features]
 # whisper-rs-backend is DEFAULT (maintainer ruling, 2026-07-28): the engine must
@@ -206,9 +207,40 @@ unreachable   = "deny"
 todo          = "deny"
 unimplemented = "deny"
 
-# Auto-discovered from tests/ml_golden.rs; declared explicitly only to attach
-# the required-features gate above. Without this block cargo would build and
-# run it on every `cargo test`.
+# Keep ordinary integration tests in three shared binaries. On macOS, starting
+# the previous 31 auto-discovered binaries took about 16 seconds even for
+# `--list`, and each binary repeated a 100+ MB link. Tests that require process
+# isolation remain explicit targets below.
+[[test]]
+name = "contract_suite"
+path = "tests/contract_suite.rs"
+
+[[test]]
+name = "cli_integration_suite"
+path = "tests/cli_integration_suite.rs"
+
+[[test]]
+name = "worker_integration_suite"
+path = "tests/worker_integration_suite.rs"
+
+[[test]]
+name = "relative_output_dir"
+path = "tests/relative_output_dir.rs"
+
+[[test]]
+name = "stress"
+path = "tests/stress.rs"
+
+[[test]]
+name = "turmoil_net"
+path = "tests/turmoil_net.rs"
+
+[[test]]
+name = "gpu_concurrent_dispatch"
+path = "tests/gpu_concurrent_dispatch.rs"
+
+# The ML suite is already consolidated and remains explicitly opt-in.
 [[test]]
 name = "ml_golden"
+path = "tests/ml_golden.rs"
 required-features = ["ml-golden"]

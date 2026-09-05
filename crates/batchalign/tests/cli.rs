@@ -16,8 +16,7 @@
     clippy::unimplemented
 )]
 
-mod cli_common;
-mod common;
+use crate::{cli_common, common};
 
 use predicates::prelude::*;
 
@@ -1367,11 +1366,13 @@ fn speaker_identify_refuses_to_run_without_a_threshold() {
 #[test]
 fn speaker_identify_refuses_overlapping_enrollments() {
     let harness = CliHarness::new();
+    let corpus = harness.home_dir().join("corpus");
+    std::fs::create_dir(&corpus).expect("create input corpus");
     let result = harness
         .cmd()
+        .arg("speaker-identify")
+        .arg(corpus)
         .args([
-            "speaker-identify",
-            "corpus/",
             "--enroll",
             "0-5000:INV",
             "--enroll",

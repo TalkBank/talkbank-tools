@@ -17,7 +17,7 @@
 //! T089: Graceful shutdown sends SIGTERM (Unix); Drop reaps processes; checked-out
 //!       workers are warned during shutdown.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 use std::time::Duration;

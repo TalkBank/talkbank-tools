@@ -20,7 +20,7 @@
 //! - Each session's `/health` endpoint responds 200, proving the axum
 //!   server is actually listening on the reported port.
 
-mod common;
+use crate::common;
 
 use common::test_server_fixture::{acquire_test_server_session, times_prepared};
 

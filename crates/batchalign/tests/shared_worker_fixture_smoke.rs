@@ -21,7 +21,7 @@
 //!   (e.g. `ready_timeout_s`) do not partition the pool, checkouts that
 //!   differ only in such a field still share a worker.
 
-mod common;
+use crate::common;
 
 use batchalign::api::{LanguageCode3, NumSpeakers, WorkerLanguage};
 use batchalign::worker::WorkerProfile;

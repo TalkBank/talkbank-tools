@@ -29,7 +29,7 @@
 //! workers complete dispatches faster than callers can queue and the
 //! herd never forms.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 use std::time::Duration;

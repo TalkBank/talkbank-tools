@@ -21,12 +21,11 @@ use crate::error::ServerError;
 use crate::params::{AudioContext, FaParams};
 use crate::pipeline::PipelineServices;
 use crate::runner::util::{FileStage, ProgressSender, ProgressUpdate};
-use crate::types::results::FaResult;
+use crate::types::results::{FaOutput, FaResult};
 use crate::types::traces::{FaEvidenceSourceTrace, FaGroupTrace, TimingTrace, ViolationTrace};
 use batchalign_transform::diff::UtteranceDelta;
 use batchalign_transform::diff::preserve::{TierKind, copy_dependent_tiers};
 use batchalign_transform::parse::{is_dummy, is_no_align, parse_lenient};
-use batchalign_transform::serialize::to_chat_string;
 use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
 
@@ -91,8 +90,8 @@ pub(crate) async fn process_fa_incremental(
     let (mut chat_file, parse_errors) = parse_lenient(&parser, after_text);
 
     if is_dummy(&chat_file) || is_no_align(&chat_file) {
-        return Ok(FaResult::without_groups(
-            to_chat_string(&chat_file),
+        return Ok(FaResult::pass_through(
+            chat_file,
             fa_params.gap_healing,
             fa_params.engine.as_wire_name(),
             services.engine_version.as_ref(),
@@ -154,11 +153,11 @@ pub(crate) async fn process_fa_incremental(
             ),
         );
         return Ok(FaResult::without_groups(
-            to_chat_string(&chat_file),
+            chat_file,
             fa_params.gap_healing,
             fa_params.engine.as_wire_name(),
             services.engine_version.as_ref(),
-        )
+        )?
         .with_written_decisions(written));
     }
 
@@ -486,7 +485,8 @@ pub(crate) async fn process_fa_incremental(
     let decision_traces = decision_records.into_iter().map(Into::into).collect();
     let timing_decisions = timing_effects.into_iter().map(Into::into).collect();
 
-    let violations = if let Err(errors) = validate_output(&chat_file, "align") {
+    let output = FaOutput::processed(chat_file)?;
+    let violations = if let Err(errors) = validate_output(output.as_chat_file(), "align") {
         let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
         warn!(errors = ?msgs, "align post-validation warnings (non-fatal)");
         errors
@@ -523,7 +523,7 @@ pub(crate) async fn process_fa_incremental(
     )?;
 
     Ok(FaResult {
-        chat_text: to_chat_string(&chat_file),
+        output,
         group_evidence,
         engine: fa_params.engine.as_wire_name().to_owned(),
         engine_version: services.engine_version.as_ref().to_owned(),

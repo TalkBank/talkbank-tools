@@ -1,7 +1,7 @@
 # Memory Safety: Preventing Kernel OOM Crashes
 
 **Status:** Current
-**Last updated:** 2026-08-31 03:04 EDT
+**Last updated:** 2026-09-05 03:20 EDT
 
 ## The Problem
 
@@ -263,17 +263,17 @@ macro_rules! require_python {
 }
 ```
 
-### Layer 9: Test isolation (default `make test` skips integration tests)
+### Layer 9: Test isolation and explicit ML opt-in
 
-The Makefile's `test` target runs Rust lib tests (pure Rust, no
-Python). Integration tests that spawn workers are opt-in via
-`cargo test` filters against specific test binaries; ML
-model tests are gated behind their own per-host opt-in flags and
-must only be run on a Fleet/Large-tier host with ≥ 256 GB RAM:
+The default Rust suite includes test-echo integration tests, which may spawn
+lightweight Python workers but do not load ML models. Related tests share a
+small number of executables and warmed fixtures. ML model tests are gated
+behind their own per-host opt-in feature and must only be run on a
+Fleet/Large-tier host with ≥ 256 GB RAM:
 
 ```bash
-make test                                            # Pure Rust, no Python
-cargo test -p batchalign --test worker_integration -- --test-threads=1
+make test                                            # Default suite, no ML models
+cargo test -p batchalign --test worker_integration_suite worker_integration:: -- --test-threads=1
 # ML golden tests: Fleet/Large-tier hosts only
 ```
 
@@ -284,7 +284,7 @@ cargo test -p batchalign --test worker_integration -- --test-threads=1
 | `BATCHALIGN_SPAWN_MIN_MEMORY_MB` | `4096` | Minimum free RAM (MB) to allow a worker spawn |
 | `BATCHALIGN_MAX_CONCURRENT_SPAWNS` | `1` | Max concurrent worker spawns (semaphore size) |
 | `BATCHALIGN_HOST_MEMORY_LEDGER` | temp-dir path | Override the shared host-memory ledger path |
-| `RUST_TEST_THREADS` | `1` | Max parallel test threads (set in `.cargo/config.toml`) |
+| `RUST_TEST_THREADS` | Rust harness default | Optional cap on parallel test functions; pass `--test-threads=1` for isolated worker probes |
 
 ## Key config knobs
 
@@ -299,13 +299,13 @@ cargo test -p batchalign --test worker_integration -- --test-threads=1
 ### On a developer machine (≤ 64 GB)
 
 ```bash
-# Always safe: pure Rust, no Python, no ML
+# Default suite: Rust plus test-echo workers, no ML models
 make test
 
 # Worker integration tests (test-echo mode, no ML models): safe with
 # the memory guard; spawn real Python workers in test-echo mode
 # without model loading
-cargo test -p batchalign --test worker_integration -- --test-threads=1
+cargo test -p batchalign --test worker_integration_suite worker_integration:: -- --test-threads=1
 
 # NEVER run ML golden tests on a 64 GB machine; they will OOM.
 ```
@@ -313,34 +313,34 @@ cargo test -p batchalign --test worker_integration -- --test-threads=1
 ### On a Fleet/Large-tier host (≥ 256 GB RAM, e.g. an M3 Ultra Mac Studio)
 
 ```bash
-# Pure Rust + worker integration + ML golden tests
+# Default suite + focused worker integration + ML golden tests
 make test
-cargo test -p batchalign --test worker_integration -- --test-threads=1
+cargo test -p batchalign --test worker_integration_suite worker_integration:: -- --test-threads=1
 cargo test -p batchalign --test ml_golden -- --test-threads=1
 ```
 
 ### Running a specific integration test
 
 ```bash
-# Single test binary, single thread, memory guard active
-cargo test -p batchalign --test worker_integration -- --test-threads=1
+# One module within the shared worker suite, single thread, memory guard active
+cargo test -p batchalign --test worker_integration_suite worker_integration:: -- --test-threads=1
 
 # Run only ignored tests (if any)
-cargo test -p batchalign --test worker_integration -- --ignored --test-threads=1
+cargo test -p batchalign --test worker_integration_suite worker_integration:: -- --ignored --test-threads=1
 ```
 
-## What NOT to Do
+## What requires explicit opt-in
 
 ```bash
-# NEVER: runs ALL test binaries in parallel, each spawning workers
-cargo test -p batchalign --tests
-
-# NEVER: same problem, workspace-wide
-cargo test --workspace
-
-# NEVER: the test harness runs binaries in parallel by default
-cargo test -p batchalign
+# Loads real ML models and may use hosted services; large hosts only
+cargo test -p batchalign --features ml-golden --test ml_golden -- --test-threads=1
 ```
+
+Plain Cargo runs integration executables sequentially; each executable's Rust
+test harness may run its test functions concurrently. The shared fixtures and
+memory gates make the default suite safe without depending on a third-party
+runner. Use a focused module filter and `--test-threads=1` when diagnosing
+ordering or resource-admission behavior.
 
 ## Implementation Files
 

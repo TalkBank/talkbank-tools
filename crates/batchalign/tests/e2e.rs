@@ -17,8 +17,7 @@
     clippy::unimplemented
 )]
 
-mod cli_common;
-mod common;
+use crate::{cli_common, common};
 
 use batchalign::api::{FilePayload, JobStatus, NumSpeakers, ReleasedCommand};
 use batchalign::api::{LanguageCode3, LanguageSpec};

@@ -18,7 +18,7 @@
 //!
 //! These are Tier 1 (fast) tests, no real inference, safe to run on any machine.
 
-mod common;
+use crate::common;
 
 use batchalign::api::{
     FilePayload, JobInfo, JobResultResponse, JobStatus, LanguageCode3, LanguageSpec, NumSpeakers,

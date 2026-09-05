@@ -1,7 +1,7 @@
 # Testing
 
 **Status:** Current
-**Last updated:** 2026-05-20 00:58 EDT
+**Last updated:** 2026-09-05 03:20 EDT
 
 ## Philosophy
 
@@ -37,6 +37,45 @@ edit-compile-test.
 This mirrors the Python side, where `uv run pytest` excludes `golden`,
 `slow`, and `integration` markers by default.
 
+## Rust test executable topology
+
+The ordinary Rust integration tests are compiled into three shared targets:
+
+- `contract_suite` for wire formats, manifests, workflow helpers, and other
+  fast contracts;
+- `cli_integration_suite` for CLI and server behavior using the shared test
+  server fixture;
+- `worker_integration_suite` for worker protocol, routing, lifecycle, and pool
+  behavior.
+
+Four targets keep their own processes because isolation is part of their
+contract: `relative_output_dir` mutates the process working directory,
+`stress` controls concurrent server pressure, `turmoil_net` owns a simulated
+network, and `gpu_concurrent_dispatch` performs parent-process worker cleanup.
+The feature-gated `ml_golden` target remains a separate, opt-in executable.
+
+This layout was measured on macOS on 2026-09-05. Before consolidation, a warm
+`cargo test -p batchalign --tests -- --list` spent 15.87 seconds merely
+starting 34 executables, while a no-run build was already warm in 0.42 seconds.
+The consolidated layout starts nine ordinary executables, including the two
+unit-test targets, and the same listing probe takes 6.61 seconds. The assertions
+were retained; the removed cost was repeated linking and process startup.
+
+The workspace continues to use plain `cargo test`. `cargo-nextest` is not
+installed because it must still enumerate every executable and its earlier
+eager process burst repeatedly wedged macOS `syspolicyd`. Reconsider it only
+through an isolated benchmark of this consolidated topology, with constrained
+process concurrency and clean plus warm measurements. Runner adoption requires
+an improvement beyond the cost already removed at the source.
+
+That benchmark was run with a temporary cargo-nextest 0.9.143 binary and four
+test workers. The 52-test `contract_suite` took 3.40 seconds under nextest,
+which launches one process per test, versus 2.56 seconds as one plain-Cargo
+test executable. The full default suite has 2,433 runnable tests, so nextest
+would exchange nine ordinary process starts for thousands. It remains rejected
+for the default developer loop on both performance and macOS process-assessment
+grounds.
+
 ## Fast Contributor Loop
 
 For command-workflow edits, the shortest useful loop is usually:
@@ -45,8 +84,8 @@ For command-workflow edits, the shortest useful loop is usually:
 cargo xtask affected-rust packages
 make batchalign-python-prepare
 cargo build -p batchalign
-cargo test -p batchalign --test workflow_helpers
-cargo test -p batchalign --test cli
+cargo test -p batchalign --test contract_suite workflow_helpers::
+cargo test -p batchalign --test cli_integration_suite cli::
 uv run batchalign3 --help
 ```
 
@@ -223,11 +262,11 @@ All ML tests live in one binary (`ml_golden`) with submodules:
 | Rust unit tests | cargo | `cargo test --workspace` | None | ~5s | Yes |
 | PyO3 unit tests | cargo | `cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml` | None | ~3s | Yes |
 | Python unit tests | pytest | `uv run pytest` | None | ~2s | Yes |
-| Worker protocol | cargo | `cargo test --test worker_protocol_matrix` | None (test-echo) | ~5s | Yes |
-| Server integration | cargo | `cargo test --test integration` | None (test-echo) | ~5s | Yes |
+| Worker protocol | cargo | `cargo test -p batchalign --test worker_integration_suite worker_protocol_matrix::` | None (test-echo) | ~5s | Yes |
+| Server integration | cargo | `cargo test -p batchalign --test cli_integration_suite integration::` | None (test-echo) | ~5s | Yes |
 | Network fault (turmoil) | cargo | `cargo test --test turmoil_net` | None | <1s | Yes |
-| Workflow helpers | cargo | `cargo test -p batchalign --test workflow_helpers` | None | ~2s | Yes |
-| JSON compat | cargo | `cargo test --test json_compat` | None | ~1s | Yes |
+| Workflow helpers | cargo | `cargo test -p batchalign --test contract_suite workflow_helpers::` | None | ~2s | Yes |
+| JSON compat | cargo | `cargo test -p batchalign --test contract_suite json_compat::` | None | ~1s | Yes |
 | ML tests (all) | cargo | `make batchalign-test-ml-golden` | Mixed | ~5min | **No** |
 | Python golden | pytest | `uv run pytest -m golden` | batchalign_core | ~10s | **No** |
 | Python integration | pytest | `uv run pytest -m integration` | Worker | ~5s | **No** |
@@ -282,9 +321,9 @@ whether the production boundary wants a typed injected dependency instead.
 uv run pytest batchalign/tests/test_worker_protocol_v2_types.py -q
 uv run pytest batchalign/tests/test_worker_protocol_v2_artifacts.py -q
 uv run pytest batchalign/tests/test_worker_fa_v2.py -q
-cargo test -p batchalign --test worker_protocol_v2_compat
+cargo test -p batchalign --test contract_suite worker_protocol_v2_compat::
 cargo test -p batchalign -E 'test(fa_result_v2)'
-cargo test -p batchalign --test worker_v2_fa_roundtrip
+cargo test -p batchalign --test worker_integration_suite worker_v2_fa_roundtrip::
 ```
 
 These tests read fixture files under `tests/fixtures/worker_protocol_v2/`
@@ -315,13 +354,13 @@ cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 cargo test --workspace
 
 # Workflow layer
-cargo test -p batchalign --test workflow_helpers
+cargo test -p batchalign --test contract_suite workflow_helpers::
 
-# Focused suites
-cargo test -p batchalign --test cli
-cargo test -p batchalign --test e2e
-cargo test -p batchalign --test integration
-cargo test -p batchalign --test json_compat
+# Focused modules within the consolidated suites
+cargo test -p batchalign --test cli_integration_suite cli::
+cargo test -p batchalign --test cli_integration_suite e2e::
+cargo test -p batchalign --test cli_integration_suite integration::
+cargo test -p batchalign --test contract_suite json_compat::
 ```
 
 ### Profile verification tests

@@ -1,7 +1,7 @@
 # align: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-09-02 20:07 EDT
+**Last updated:** 2026-09-05 02:30 EDT
 
 Implementation guide for the `align` command. For user-facing documentation,
 see [User Guide: align](../../user-guide/commands/align.md).
@@ -450,13 +450,24 @@ re-reading bullets and falsely labeling them observations.
 
 ## Post-FA validation
 
-After FA finishes, the CHAT file is validated at Level 2 (output gate equivalent to
+After FA finishes, `FaOutput::processed` consumes the mutable `ChatFile` and
+calls Chatter's `reconcile_media_timing`. The result retains either an untimed
+document or a timed document with exactly one usable, linked `@Media`
+declaration. Only that state can reach the serialization boundary in
+`runner/dispatch/fa_pipeline.rs`. Dummy and `NoAlign` paths use the separate
+`FaOutput::PassThrough` variant, preserving their input without claiming that
+timing work occurred. A typed `MediaTimingError` fails contradictory timed
+output before any successful result can be written.
+
+The reconciled CHAT file is then validated at Level 2 (output gate equivalent to
 [Command Contracts: align post-validation](../../architecture/command-contracts.md#align-post-validation)).
 Validation errors are **warnings only**: cross-speaker overlap is normal in
 conversation data and non-fatal. If critical errors appear (e.g., invalid tier
 codes), they are logged but do not fail the job.
 
-Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:539-554`.
+Implementation: `crates/batchalign/src/types/results.rs`,
+`crates/batchalign/src/fa/mod.rs`, and
+`crates/batchalign/src/runner/dispatch/fa_pipeline.rs`.
 
 ---
 
@@ -470,7 +481,7 @@ make test
 cargo test -p batchalign --features ml-golden --test ml_golden fa::
 
 # Incremental processing tests
-cargo test -p batchalign --test incremental
+cargo test -p batchalign --lib fa::incremental::tests::
 ```
 
 Key test locations:

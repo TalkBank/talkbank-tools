@@ -47,11 +47,12 @@ fn timeline_trace_for(input: &str) -> FaTimelineTrace {
         },
     );
     FaResult::without_groups(
-        String::new(),
+        crate::chat_ops::ChatFile::new(Vec::new()),
         WordGapHealing::PreserveMeasured,
         "test_engine",
         "test-build",
     )
+    .expect("an empty untimed CHAT model can be retained as evidence")
     .with_written_decisions(written)
     .into_timeline_trace()
 }

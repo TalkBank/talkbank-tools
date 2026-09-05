@@ -39,7 +39,7 @@
 //!
 //! ```text
 //! STANZA_PER_KEY=7 cargo test -p batchalign \
-//!     --test pool_per_key_worker_throughput -- --ignored
+//!     --test worker_integration_suite pool_per_key_worker_throughput:: -- --ignored
 //! ```
 //!
 //! Each invocation prints exactly one machine-parseable line on
@@ -53,7 +53,7 @@
 //! Aggregate those lines across runs to plot the throughput-vs-K
 //! curve and locate the knee for a particular host shape.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};

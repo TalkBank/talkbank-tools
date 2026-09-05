@@ -197,6 +197,14 @@ pub enum ServerError {
     #[error("persistence error: {0}")]
     Persistence(String),
 
+    /// A timing-producing CHAT transform could not reconcile its output with
+    /// the document's typed media declaration.
+    ///
+    /// **HTTP 500.** Alignment reached an internally contradictory output
+    /// state and must not serialize it as a successful result.
+    #[error("media/timing transition failed: {0}")]
+    MediaTiming(#[from] batchalign_transform::media_timing::MediaTimingError),
+
     /// A cache-only request reached a non-empty set of FA cache misses.
     ///
     /// This is an intentional, actionable precondition refusal, not corrupt
@@ -395,6 +403,7 @@ impl ServerError {
         match self {
             Self::Database(_) | Self::Migration(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Persistence(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::MediaTiming(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::RequiredEvidenceUnavailable(_) => StatusCode::PRECONDITION_FAILED,
             Self::JobNotFound(_) => StatusCode::NOT_FOUND,
             Self::JobConflict { .. } => StatusCode::CONFLICT,

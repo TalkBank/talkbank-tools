@@ -8,6 +8,10 @@
 use crate::chat_ops::fa::WordGapHealing;
 use crate::chat_ops::morphosyntax_ops::RetokenizationInfo;
 use batchalign_transform::asr_postprocess::AsrPipelineSnapshot;
+use batchalign_transform::media_timing::{
+    MediaTimingError, MediaTimingState, reconcile_media_timing,
+};
+use talkbank_model::ChatFile;
 
 use super::traces::{
     AsrPipelineTrace, AsrTokenTrace, FaDecisionTrace, FaEvidenceSourceTrace, FaFallbackEventTrace,
@@ -21,25 +25,57 @@ use crate::api::DurationSeconds;
 // ---------------------------------------------------------------------------
 
 /// Structured result from the internal `crate::fa::process_fa` pipeline.
-pub struct FaResult {
-    /// Serialized CHAT text with timings injected.
-    pub chat_text: String,
+pub(crate) struct FaResult {
+    /// CHAT document after timing/media reconciliation.
+    pub(crate) output: FaOutput,
     /// Per-group evidence whose fields cannot become cardinality-misaligned.
     pub(crate) group_evidence: Vec<FaGroupEvidence>,
     /// Selected forced-alignment engine.
-    pub engine: String,
+    pub(crate) engine: String,
     /// Build/model revision used for cache identity.
-    pub engine_version: String,
+    pub(crate) engine_version: String,
     /// Decisions made while injecting and enforcing final timing invariants.
-    pub decisions: Vec<FaDecisionTrace>,
+    pub(crate) decisions: Vec<FaDecisionTrace>,
     /// Numeric monotonicity effects corresponding to the generic decisions.
-    pub timing_decisions: Vec<FaTimingDecisionTrace>,
+    pub(crate) timing_decisions: Vec<FaTimingDecisionTrace>,
     /// Gap-healing policy used for this run.
-    pub gap_healing: WordGapHealing,
+    pub(crate) gap_healing: WordGapHealing,
     /// Post-validation violations.
-    pub violations: Vec<ViolationTrace>,
+    pub(crate) violations: Vec<ViolationTrace>,
     /// Engine fallback events captured during worker inference.
-    pub fallback_events: Vec<FaFallbackEventTrace>,
+    pub(crate) fallback_events: Vec<FaFallbackEventTrace>,
+}
+
+/// CHAT output whose provenance determines whether media timing was allowed to
+/// transition.
+pub(crate) enum FaOutput {
+    /// A declared dummy/NoAlign path that must preserve the input document.
+    PassThrough(ChatFile),
+    /// A path that performed timing work and reconciled the document state.
+    Processed(MediaTimingState),
+}
+
+impl FaOutput {
+    /// Reconcile a document produced by timing work before it can be output.
+    pub(crate) fn processed(chat_file: ChatFile) -> Result<Self, MediaTimingError> {
+        reconcile_media_timing(chat_file).map(Self::Processed)
+    }
+
+    /// Borrow the AST without erasing whether it was processed or passed through.
+    pub(crate) fn as_chat_file(&self) -> &ChatFile {
+        match self {
+            Self::PassThrough(file) => file,
+            Self::Processed(state) => state.as_chat_file(),
+        }
+    }
+
+    /// Serialize only after the output state has been chosen.
+    pub(crate) fn to_chat_string(&self) -> String {
+        match self {
+            Self::PassThrough(file) => batchalign_transform::serialize::to_chat_string(file),
+            Self::Processed(state) => state.to_chat_string(),
+        }
+    }
 }
 
 /// One FA group inseparably paired with the evidence that produced its timing.
@@ -52,16 +88,36 @@ pub(crate) struct FaGroupEvidence {
 }
 
 impl FaResult {
-    /// Construct a result for a legitimate no-group path (dummy, NoAlign,
-    /// complete `%wor` reuse, or no alignable words).
-    pub fn without_groups(
-        chat_text: String,
+    /// Construct a processed result for a legitimate no-group path such as
+    /// complete `%wor` reuse or a file with no alignable words.
+    pub(crate) fn without_groups(
+        chat_file: ChatFile,
+        gap_healing: WordGapHealing,
+        engine: &str,
+        engine_version: &str,
+    ) -> Result<Self, MediaTimingError> {
+        Ok(Self {
+            output: FaOutput::processed(chat_file)?,
+            group_evidence: Vec::new(),
+            engine: engine.to_owned(),
+            engine_version: engine_version.to_owned(),
+            decisions: Vec::new(),
+            timing_decisions: Vec::new(),
+            gap_healing,
+            violations: Vec::new(),
+            fallback_events: Vec::new(),
+        })
+    }
+
+    /// Construct a result for an explicit dummy or NoAlign pass-through.
+    pub(crate) fn pass_through(
+        chat_file: ChatFile,
         gap_healing: WordGapHealing,
         engine: &str,
         engine_version: &str,
     ) -> Self {
         Self {
-            chat_text,
+            output: FaOutput::PassThrough(chat_file),
             group_evidence: Vec::new(),
             engine: engine.to_owned(),
             engine_version: engine_version.to_owned(),
@@ -75,7 +131,7 @@ impl FaResult {
 
     /// Attach the exact decision set after it has passed through CHAT
     /// projection, for a legitimate path with no fresh FA groups.
-    pub fn with_written_decisions(
+    pub(crate) fn with_written_decisions(
         mut self,
         written: crate::chat_ops::fa::WrittenFaDecisions,
     ) -> Self {
@@ -86,7 +142,14 @@ impl FaResult {
     }
 
     /// Convert into a [`FaTimelineTrace`] for dashboard visualization.
-    pub fn into_timeline_trace(self) -> FaTimelineTrace {
+    #[cfg(test)]
+    pub(crate) fn into_timeline_trace(self) -> FaTimelineTrace {
+        self.into_output_and_timeline().1
+    }
+
+    /// Split the reconciled CHAT output from its evidence timeline.
+    pub(crate) fn into_output_and_timeline(self) -> (FaOutput, FaTimelineTrace) {
+        let output = self.output;
         let mut groups = Vec::with_capacity(self.group_evidence.len());
         let mut evidence_sources = Vec::with_capacity(self.group_evidence.len());
         let mut cache_keys = Vec::with_capacity(self.group_evidence.len());
@@ -97,7 +160,7 @@ impl FaResult {
             cache_keys.push(evidence.cache_key);
             pre_injection_timings.push(evidence.pre_injection_timings);
         }
-        FaTimelineTrace {
+        let timeline = FaTimelineTrace {
             evidence_schema_version: crate::types::traces::CURRENT_FA_EVIDENCE_SCHEMA_VERSION,
             engine: self.engine,
             engine_version: self.engine_version,
@@ -120,7 +183,8 @@ impl FaResult {
             gap_healing: format!("{:?}", self.gap_healing),
             violations: self.violations,
             fallback_events: self.fallback_events,
-        }
+        };
+        (output, timeline)
     }
 }
 
@@ -222,5 +286,42 @@ impl MorphosyntaxResult {
                 used_fallback: info.used_fallback,
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod fa_result_tests {
+    use super::*;
+
+    #[test]
+    fn processed_output_consumes_unlinked_before_the_text_boundary() {
+        let input = "@UTF8\n@Begin\n@Languages:\teng\n\
+@Participants:\tCHI Target_Child\n\
+@ID:\teng|test|CHI|||||Target_Child|||\n\
+@Media:\tsample, audio, unlinked\n\
+*CHI:\thello . \u{15}0_500\u{15}\n\
+@End\n";
+        let parser = talkbank_parser::TreeSitterParser::new().expect("tree-sitter parser");
+        let chat_file = parser.parse_chat_file(input).expect_built();
+
+        let result = FaResult::without_groups(
+            chat_file,
+            WordGapHealing::PreserveMeasured,
+            "test_engine",
+            "test-build",
+        )
+        .expect("timed output has one usable @Media declaration");
+        let output = result.output.to_chat_string();
+
+        assert!(output.contains("@Media:\tsample, audio\n"));
+        assert!(!output.contains("unlinked"));
+        let validation = batchalign_transform::parse_and_validate(
+            &output,
+            talkbank_model::ParseValidateOptions::default().with_validation(),
+        );
+        assert!(
+            validation.is_ok(),
+            "serialized forced-alignment output must be valid CHAT: {validation:?}"
+        );
     }
 }

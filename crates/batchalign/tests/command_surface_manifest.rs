@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-mod cli_common;
+use crate::cli_common;
 
 use cli_common::cli_cmd as cmd;
 

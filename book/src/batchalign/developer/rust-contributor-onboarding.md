@@ -1,7 +1,7 @@
 # Rust Contributor Onboarding
 
 **Status:** Current
-**Last updated:** 2026-05-21 15:25 EDT
+**Last updated:** 2026-09-05 03:20 EDT
 
 This page is the shortest path to productive work on the Rust side of Batchalign3.
 
@@ -72,9 +72,9 @@ Rebuild rule of thumb while iterating:
 ```bash
 cargo build -p batchalign
 make build-python
-cargo test -p batchalign --test cli
-cargo test -p batchalign --test e2e
-cargo test -p batchalign --test integration
+cargo test -p batchalign --test cli_integration_suite cli::
+cargo test -p batchalign --test cli_integration_suite e2e::
+cargo test -p batchalign --test cli_integration_suite integration::
 cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 cargo run -q -p batchalign -- openapi --check --output openapi.json
 ```
