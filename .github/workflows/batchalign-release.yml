@@ -141,6 +141,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      # The dry run and tag release build the same commit and target matrix.
+      # Preserve Cargo's target artifacts so the tag run reuses the binaries
+      # already exercised by the dry run instead of repeating a 12-20 minute
+      # cold native build on every platform.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: batchalign-release-${{ matrix.target }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
