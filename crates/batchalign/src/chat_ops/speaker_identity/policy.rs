@@ -133,6 +133,18 @@ impl fmt::Display for MatchThreshold {
     }
 }
 
+/// One enrolled voice's similarity to one utterance.
+///
+/// The named pair is shared by the decision policy and the evidence writer, so
+/// neither layer can fall back to positional tuples with an unchecked order.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LabelledScore {
+    /// The enrolled voice.
+    pub label: super::enrollment::EnrolledLabel,
+    /// Its similarity to this utterance.
+    pub score: SimilarityScore,
+}
+
 /// Every enrolled label that achieved the highest score, and that score.
 ///
 /// A list rather than one label, because the honest answer to a tie is "these
@@ -198,6 +210,9 @@ pub enum UnscoredReason {
     },
     /// The utterance has no timing bullet, so there is no audio to embed.
     NoBullet,
+    /// Every available enrollment vector was mathematically incomparable with
+    /// this utterance, for example because one of the vectors had zero length.
+    NoComparableEmbedding,
     /// The utterance's bullet names audio the recording does not contain.
     AudioMissing {
         /// Start of the bullet, in file milliseconds.
@@ -227,6 +242,7 @@ impl UnscoredReason {
         match self {
             Self::TooShortForEmbedding { .. } => "too_short_for_embedding",
             Self::NoBullet => "no_bullet",
+            Self::NoComparableEmbedding => "no_comparable_embedding",
             Self::AudioMissing { .. } => "audio_missing",
             Self::OverlapsEnrollment { .. } => "overlaps_enrollment",
         }
@@ -296,24 +312,21 @@ impl ThresholdPolicy {
     /// panicking, and it reports the condition it actually is: nothing was
     /// scored.
     #[must_use]
-    pub fn verdict(
-        &self,
-        scores: &[(super::enrollment::EnrolledLabel, SimilarityScore)],
-    ) -> SpeakerVerdict {
+    pub fn verdict(&self, scores: &[LabelledScore]) -> SpeakerVerdict {
         let Some(best_score) = scores
             .iter()
-            .map(|(_, score)| *score)
-            .max_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|labelled| labelled.score)
+            .max_by(|left, right| left.get().total_cmp(&right.get()))
         else {
             return SpeakerVerdict::Unscored {
-                reason: UnscoredReason::NoBullet,
+                reason: UnscoredReason::NoComparableEmbedding,
             };
         };
 
         let tied: Vec<super::enrollment::EnrolledLabel> = scores
             .iter()
-            .filter(|(_, score)| *score == best_score)
-            .map(|(label, _)| label.clone())
+            .filter(|labelled| labelled.score == best_score)
+            .map(|labelled| labelled.label.clone())
             .collect();
 
         match (tied.len(), best_score.get() >= self.threshold.get()) {
@@ -326,7 +339,7 @@ impl ThresholdPolicy {
                 // Unreachable by the arm's own guard, and written out rather
                 // than unwrapped so no panic exists in this path at all.
                 None => SpeakerVerdict::Unscored {
-                    reason: UnscoredReason::NoBullet,
+                    reason: UnscoredReason::NoComparableEmbedding,
                 },
             },
             // Below the bar, or tied. Both report the best candidates; a tie
@@ -334,7 +347,7 @@ impl ThresholdPolicy {
             _ => match BestScoringLabels::new(tied, best_score) {
                 Ok(best) => SpeakerVerdict::NoMatch { best },
                 Err(_) => SpeakerVerdict::Unscored {
-                    reason: UnscoredReason::NoBullet,
+                    reason: UnscoredReason::NoComparableEmbedding,
                 },
             },
         }
@@ -368,13 +381,20 @@ mod tests {
         }
     }
 
+    fn labelled(name: &str, value: f64) -> LabelledScore {
+        LabelledScore {
+            label: label(name),
+            score: score(value),
+        }
+    }
+
     /// POLICY: a score EXACTLY at the threshold matches.
     ///
     /// A policy test, not an invariant: `>=` and `>` are both defensible, and
     /// the choice has to be written somewhere a reader can find it.
     #[test]
     fn a_score_exactly_at_the_threshold_matches() {
-        match policy(0.5).verdict(&[(label("INV"), score(0.5))]) {
+        match policy(0.5).verdict(&[labelled("INV", 0.5)]) {
             SpeakerVerdict::Matches { label, score } => {
                 assert_eq!(label.as_str(), "INV");
                 assert_eq!(score.get(), 0.5);
@@ -387,7 +407,7 @@ mod tests {
     /// reports what the best candidate was and how close it came.
     #[test]
     fn just_below_the_threshold_reports_the_best_candidate() {
-        match policy(0.5).verdict(&[(label("INV"), score(0.49)), (label("CHI"), score(0.10))]) {
+        match policy(0.5).verdict(&[labelled("INV", 0.49), labelled("CHI", 0.10)]) {
             SpeakerVerdict::NoMatch { best } => {
                 assert_eq!(best.labels(), ["INV"]);
                 assert_eq!(best.score().get(), 0.49);
@@ -400,7 +420,7 @@ mod tests {
     /// the tied score clears the threshold.
     #[test]
     fn a_tie_at_or_above_the_threshold_is_not_a_match() {
-        match policy(0.5).verdict(&[(label("INV"), score(0.90)), (label("CHI"), score(0.90))]) {
+        match policy(0.5).verdict(&[labelled("INV", 0.90), labelled("CHI", 0.90)]) {
             SpeakerVerdict::NoMatch { best } => {
                 assert_eq!(best.labels(), ["CHI", "INV"]);
                 assert_eq!(best.score().get(), 0.90);
@@ -415,7 +435,7 @@ mod tests {
     #[test]
     fn a_match_carries_exactly_one_label_by_construction() {
         assert!(matches!(
-            policy(0.0).verdict(&[(label("INV"), score(1.0))]),
+            policy(0.0).verdict(&[labelled("INV", 1.0)]),
             SpeakerVerdict::Matches { .. }
         ));
     }
@@ -431,6 +451,12 @@ mod tests {
         };
         assert_eq!(reason.code(), "too_short_for_embedding");
         assert_eq!(UnscoredReason::NoBullet.code(), "no_bullet");
+        assert_eq!(
+            policy(0.0).verdict(&[]),
+            SpeakerVerdict::Unscored {
+                reason: UnscoredReason::NoComparableEmbedding,
+            }
+        );
         assert!(matches!(
             SpeakerVerdict::Unscored { reason },
             SpeakerVerdict::Unscored { .. }

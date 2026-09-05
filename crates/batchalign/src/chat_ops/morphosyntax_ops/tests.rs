@@ -2226,9 +2226,7 @@ fn family_a_at_o_with_nonzero_head_does_not_become_root() {
 /// every utterance in `chat_file`. Two utterances are "the same" iff
 /// they round-trip to the same CHAT line, good-enough for a
 /// regression assertion.
-fn collect_utterance_identities<S: talkbank_model::validation::ValidationState>(
-    chat_file: &talkbank_model::ChatFile<S>,
-) -> Vec<String> {
+fn collect_utterance_identities(chat_file: &talkbank_model::ChatFile) -> Vec<String> {
     use talkbank_model::model::Line;
     chat_file
         .lines

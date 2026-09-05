@@ -69,23 +69,27 @@ pub mod policy;
 pub mod run;
 pub mod transcript;
 
-pub use embedding::{IncomparableEmbeddings, NotAnEmbedding, SpeakerEmbedding};
+pub use embedding::{
+    EmbeddingDimension, IncomparableEmbeddings, MinimumEmbeddingFrames, NotAnEmbedding,
+    SpeakerEmbedding, ZeroEmbeddingDimension, ZeroMinimumEmbeddingFrames,
+};
 pub use enrollment::{
     EnrolledLabel, EnrollmentSet, EnrollmentSpec, InvalidEnrollment, InvalidEnrollmentSet,
     InvalidLabel,
 };
 pub use evidence::{
-    RunFacts, SPEAKER_IDENTITY_SCHEMA_VERSION, SpeakerIdentityEvidence, SpeakerIdentityProvenance,
-    UtteranceIdentity,
+    EmbeddingRunFacts, RunFacts, SPEAKER_IDENTITY_SCHEMA_VERSION, SpeakerIdentityEvidence,
+    SpeakerIdentityProvenance, UtteranceIdentity,
 };
 pub use frames::{FrameSpan, NotAPreparedDecode, OutsidePreparedAudio, PreparedPcm};
-pub use model::{InvalidModelManifest, pinned_embedding_revision};
+pub use model::{EmbeddingModelRevision, InvalidModelManifest, pinned_embedding_revision};
 pub use policy::{
-    BestScoringLabels, MatchThreshold, NotASimilarity, NotAThreshold, SimilarityScore,
-    SpeakerVerdict, ThresholdPolicy, UnscoredReason,
+    BestScoringLabels, LabelledScore, MatchThreshold, NotASimilarity, NotAThreshold,
+    SimilarityScore, SpeakerVerdict, ThresholdPolicy, UnscoredReason,
 };
 pub use run::{
-    EmbeddingRequest, EmbeddingResponse, RequestedSpan, SpanOutcome, SpeakerEmbeddingInference,
-    SpeakerIdentityFailure, TranscriptUtterance, identify_speakers,
+    EmbeddingInferenceFailure, EmbeddingRequest, EmbeddingResponse, RequestedSpan, SpanOutcome,
+    SpeakerEmbeddingInference, SpeakerIdentityFailure, TranscriptUtterance, UtteranceTiming,
+    identify_speakers,
 };
 pub use transcript::{TierSelection, read_utterances};

@@ -7,6 +7,8 @@
 
 use std::sync::LazyLock;
 
+use serde::{Deserialize, Serialize};
+
 /// The packaged model graph, the same bytes the Python worker validates and the
 /// evidence cache hashes for its revision namespace.
 const LOCAL_PYANNOTE_MODEL_MANIFEST: &str =
@@ -17,19 +19,66 @@ const LOCAL_PYANNOTE_MODEL_MANIFEST: &str =
 /// The manifest is a compile-time constant, so the parse can only ever produce
 /// one result; doing it per file would re-parse the same bytes for every
 /// transcript in a corpus run.
-static PINNED_EMBEDDING_REVISION: LazyLock<Result<String, InvalidModelManifest>> =
+static PINNED_EMBEDDING_REVISION: LazyLock<Result<EmbeddingModelRevision, InvalidModelManifest>> =
     LazyLock::new(read_pinned_embedding_revision);
+
+/// Exact identity of the embedding-model node in the packaged graph.
+///
+/// The inner text is private so evidence cannot claim an arbitrary model. The
+/// only producer reads and validates the same manifest the worker consumes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct EmbeddingModelRevision(String);
+
+impl EmbeddingModelRevision {
+    /// The revision in its evidence spelling.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    fn parse(value: String) -> Result<Self, InvalidModelManifest> {
+        let revision =
+            value
+                .strip_prefix("pyannote-embedding:")
+                .ok_or_else(|| InvalidModelManifest {
+                    detail: "the embedding revision has no pyannote-embedding prefix".to_owned(),
+                })?;
+        if revision.len() != 40
+            || !revision
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+        {
+            return Err(InvalidModelManifest {
+                detail: "the packaged embedding revision is not a 40-hex Hub commit".to_owned(),
+            });
+        }
+        Ok(Self(value))
+    }
+}
+
+impl std::fmt::Display for EmbeddingModelRevision {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for EmbeddingModelRevision {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::parse(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
 
 /// The exact Hub commit of the embedding model this binary pins.
 ///
 /// Returned as a `String` for the evidence's provenance. A caller cannot
 /// substitute its own: this is the only producer, and it reads the same file
 /// the worker downloads from.
-pub fn pinned_embedding_revision() -> Result<String, InvalidModelManifest> {
+pub fn pinned_embedding_revision() -> Result<EmbeddingModelRevision, InvalidModelManifest> {
     PINNED_EMBEDDING_REVISION.clone()
 }
 
-fn read_pinned_embedding_revision() -> Result<String, InvalidModelManifest> {
+fn read_pinned_embedding_revision() -> Result<EmbeddingModelRevision, InvalidModelManifest> {
     let manifest: serde_json::Value =
         serde_json::from_str(LOCAL_PYANNOTE_MODEL_MANIFEST).map_err(|error| {
             InvalidModelManifest {
@@ -43,7 +92,7 @@ fn read_pinned_embedding_revision() -> Result<String, InvalidModelManifest> {
         .ok_or_else(|| InvalidModelManifest {
             detail: "the packaged model manifest names no embedding revision".to_owned(),
         })?;
-    Ok(format!("pyannote-embedding:{revision}"))
+    EmbeddingModelRevision::parse(format!("pyannote-embedding:{revision}"))
 }
 
 /// The packaged manifest could not be read.
@@ -71,6 +120,7 @@ mod tests {
             Err(error) => panic!("the packaged manifest is readable: {error}"),
         };
         let commit = revision
+            .as_str()
             .strip_prefix("pyannote-embedding:")
             .unwrap_or_default();
         assert_eq!(commit.len(), 40, "got {revision}");

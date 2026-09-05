@@ -1,7 +1,7 @@
 # speaker-identify
 
 **Status:** Current
-**Last updated:** 2026-09-02 21:22 EDT
+**Last updated:** 2026-09-04 23:35 EDT
 
 Score each timed utterance of a CHAT transcript against one or more voices you
 enroll from the recording itself, and write the scores and verdicts beside the
@@ -168,6 +168,7 @@ because it does not know. `best` then lists both.
 | --- | --- |
 | `too_short_for_embedding` | Shorter than the model can measure. Carries `frames` and `minimum_frames`. |
 | `no_bullet` | The utterance has no timing, so there is no audio to embed. |
+| `no_comparable_embedding` | It had timing, but no enrolled embedding could be compared with its embedding. |
 | `audio_missing` | Its bullet names audio the recording does not contain. Carries the bullet and the recording's length. |
 | `overlaps_enrollment` | It falls inside an enrolled span. Scoring it would compare that audio with a vector computed from it. |
 

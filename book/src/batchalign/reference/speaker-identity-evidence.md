@@ -1,7 +1,7 @@
 # Speaker Identity Evidence
 
 **Status:** Current
-**Last updated:** 2026-09-02 21:22 EDT
+**Last updated:** 2026-09-04 23:35 EDT
 
 Field-by-field reference for the `<stem>_speaker_identity.json` artifact
 written by [`speaker-identify`](../user-guide/commands/speaker-identify.md).
@@ -76,6 +76,7 @@ Internally tagged on `verdict`.
 { "verdict": "no_match", "best": { "labels": ["INV"], "score": 0.44 } }
 { "verdict": "no_match", "best": { "labels": ["CHI", "INV"], "score": 0.90 } }
 { "verdict": "unscored", "reason": "no_bullet" }
+{ "verdict": "unscored", "reason": "no_comparable_embedding" }
 { "verdict": "unscored", "reason": "too_short_for_embedding", "frames": 400, "minimum_frames": 1680 }
 ```
 
@@ -84,9 +85,11 @@ Internally tagged on `verdict`.
 - **`no_match`**'s `best.labels` normally holds one label. It holds more when
   the evidence ties, including when the tied score clears the threshold.
 - **`unscored`**'s `reason` is flattened alongside `verdict`, with its own
-  fields. The four reasons are `too_short_for_embedding` (with `frames`,
-  `minimum_frames`), `no_bullet`, `audio_missing` (with `start_ms`, `end_ms`,
-  `recording_ms`) and `overlaps_enrollment` (with `label`).
+  fields. The five reasons are `too_short_for_embedding` (with `frames`,
+  `minimum_frames`), `no_bullet`, `no_comparable_embedding`, `audio_missing`
+  (with `start_ms`, `end_ms`, `recording_ms`) and `overlaps_enrollment` (with
+  `label`). `no_comparable_embedding` means every attempted comparison was
+  refused, so the system does not mislabel that state as missing timing.
 
 An unscored utterance carries **no** `score` field at all, rather than a zero.
 A zero similarity is a real measurement, and a file that used one to mean

@@ -15,8 +15,9 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::chat_ops::speaker_identity::{
-    EmbeddingRequest, EmbeddingResponse, RunFacts, SpeakerEmbeddingInference, ThresholdPolicy,
-    TierSelection, identify_speakers, pinned_embedding_revision, read_utterances,
+    EmbeddingInferenceFailure, EmbeddingRequest, EmbeddingResponse, RunFacts,
+    SpeakerEmbeddingInference, ThresholdPolicy, TierSelection, identify_speakers,
+    pinned_embedding_revision, read_utterances,
 };
 use crate::error::ServerError;
 use crate::options::CommandOptions;
@@ -46,7 +47,6 @@ struct WorkerEmbedding {
     pool: Arc<WorkerPool>,
     pool_key: crate::api::LanguageCode3,
     recording: PreparedRecording,
-    model_revision: String,
     // Held so the prepared PCM file outlives every request that references it.
     // Dropping the runtime deletes the artifact, and a request naming a file
     // the worker can no longer open fails in a way that reads like a worker
@@ -56,20 +56,23 @@ struct WorkerEmbedding {
 
 #[async_trait]
 impl SpeakerEmbeddingInference for WorkerEmbedding {
-    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, String> {
+    async fn embed(
+        &self,
+        request: EmbeddingRequest,
+    ) -> Result<EmbeddingResponse, EmbeddingInferenceFailure> {
         let response = self
             .pool
             .dispatch_execute_v2(&self.pool_key, &self.recording.request_for(&request))
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| EmbeddingInferenceFailure::Dispatch {
+                detail: error.to_string(),
+            })?;
 
-        let mut parsed =
-            parse_speaker_embedding_response_v2(&response).map_err(|error| error.to_string())?;
-        // Stamped from the manifest this binary ships, not asked of the
-        // worker: it is a fact we already hold, and a second party's answer
-        // could only agree or be wrong.
-        parsed.model_revision = self.model_revision.clone();
-        Ok(parsed)
+        parse_speaker_embedding_response_v2(&response, &request).map_err(|error| {
+            EmbeddingInferenceFailure::InvalidResponse {
+                detail: error.to_string(),
+            }
+        })
     }
 }
 
@@ -94,8 +97,12 @@ impl AudioFileTask for SpeakerIdentityTask {
         _progress_tx: crate::runner::util::ProgressSender,
     ) -> Result<Self::AttemptOutput, ServerError> {
         let parser = crate::chat_parser();
-        let (chat_file, _parse_errors) =
-            batchalign_transform::parse::parse_lenient(&parser, &self.chat_text);
+        let chat_file = batchalign_transform::parse::parse_strict(&parser, &self.chat_text)
+            .map_err(|errors| {
+                ServerError::Validation(format!(
+                    "speaker-identify requires a parseable CHAT transcript: {errors}"
+                ))
+            })?;
 
         let tiers = TierSelection::from_option(&self.options.tiers);
         let utterances = read_utterances(&chat_file, &tiers);
@@ -119,7 +126,6 @@ impl AudioFileTask for SpeakerIdentityTask {
             pool: self.pool.clone(),
             pool_key: self.pool_key.clone(),
             recording,
-            model_revision: model_revision.clone(),
             _artifacts: artifacts,
         };
 
@@ -127,12 +133,8 @@ impl AudioFileTask for SpeakerIdentityTask {
             transcript: self.filename.clone(),
             media: self.media_display.clone(),
             prepared_sample_rate_hz: prepared.sample_rate_hz(),
-            embedding_backend: "pyannote".to_owned(),
+            embedding_backend: crate::types::worker_v2::SpeakerEmbeddingBackendV2::Pyannote,
             embedding_model_revision: model_revision,
-            // Replaced from the worker's own report by `identify_speakers`;
-            // these placeholders never reach the file.
-            embedding_dimension: 0,
-            embedding_minimum_frames: 0,
             tiers: tiers.recorded(),
             produced_by: format!("batchalign3 {}", crate::cli::build_hash()),
         };

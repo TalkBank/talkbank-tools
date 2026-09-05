@@ -801,20 +801,43 @@ pub struct DiarizeArgs {
 /// downstream ever holds an unvalidated enrollment.
 fn parse_enrollment(
     value: &str,
-) -> Result<crate::chat_ops::speaker_identity::EnrollmentSpec, String> {
+) -> Result<
+    crate::chat_ops::speaker_identity::EnrollmentSpec,
+    crate::chat_ops::speaker_identity::InvalidEnrollment,
+> {
     crate::chat_ops::speaker_identity::EnrollmentSpec::parse(value)
-        .map_err(|error| error.to_string())
+}
+
+/// Why a CLI threshold argument could not become a domain threshold.
+#[derive(Debug, thiserror::Error)]
+enum ThresholdArgumentError {
+    /// The argument was not a floating-point number.
+    #[error("{value:?} is not a number")]
+    Parse {
+        /// The original CLI spelling.
+        value: String,
+        /// The standard parser's diagnostic.
+        #[source]
+        source: std::num::ParseFloatError,
+    },
+    /// The number was outside the cosine-similarity domain.
+    #[error(transparent)]
+    Range(#[from] crate::chat_ops::speaker_identity::NotAThreshold),
 }
 
 /// Read the `--threshold` value into the range a cosine similarity can reach.
 fn parse_threshold(
     value: &str,
-) -> Result<crate::chat_ops::speaker_identity::MatchThreshold, String> {
+) -> Result<crate::chat_ops::speaker_identity::MatchThreshold, ThresholdArgumentError> {
     let parsed: f64 = value
         .parse()
-        .map_err(|_| format!("{value:?} is not a number"))?;
-    crate::chat_ops::speaker_identity::MatchThreshold::try_from(parsed)
-        .map_err(|error| error.to_string())
+        .map_err(|source| ThresholdArgumentError::Parse {
+            value: value.to_owned(),
+            source,
+        })?;
+    Ok(crate::chat_ops::speaker_identity::MatchThreshold::try_from(
+        parsed,
+    )?)
 }
 
 /// Arguments for the `speaker-identify` command.

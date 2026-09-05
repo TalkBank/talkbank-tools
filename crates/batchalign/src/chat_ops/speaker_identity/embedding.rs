@@ -1,8 +1,66 @@
 //! Speaker embeddings, and the one operation that compares two of them.
 
+use std::num::{NonZeroU32, NonZeroU64};
+
 use serde::{Deserialize, Serialize};
 
 use super::policy::SimilarityScore;
+
+/// Width shared by every embedding in one worker response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct EmbeddingDimension(NonZeroU32);
+
+/// A worker response that claimed zero-width embeddings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("a speaker embedding dimension must be greater than zero")]
+pub struct ZeroEmbeddingDimension;
+
+impl EmbeddingDimension {
+    /// The dimension for wire evidence and vector-width checks.
+    #[must_use]
+    pub const fn get(self) -> u32 {
+        self.0.get()
+    }
+}
+
+impl TryFrom<u32> for EmbeddingDimension {
+    type Error = ZeroEmbeddingDimension;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        NonZeroU32::new(value)
+            .map(Self)
+            .ok_or(ZeroEmbeddingDimension)
+    }
+}
+
+/// Smallest span the loaded embedding model can measure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MinimumEmbeddingFrames(NonZeroU64);
+
+/// A worker response that claimed a zero-frame model minimum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("a speaker embedding minimum frame count must be greater than zero")]
+pub struct ZeroMinimumEmbeddingFrames;
+
+impl MinimumEmbeddingFrames {
+    /// The minimum in prepared-audio frames.
+    #[must_use]
+    pub const fn get(self) -> u64 {
+        self.0.get()
+    }
+}
+
+impl TryFrom<u64> for MinimumEmbeddingFrames {
+    type Error = ZeroMinimumEmbeddingFrames;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        NonZeroU64::new(value)
+            .map(Self)
+            .ok_or(ZeroMinimumEmbeddingFrames)
+    }
+}
 
 /// One fixed-width acoustic vector for one span of audio.
 ///

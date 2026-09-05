@@ -29,24 +29,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 batchalign-types = { workspace = true }
 batchalign-transform = { workspace = true }
 
-[profile.dev]
-split-debuginfo = "unpacked"
-debug = "line-tables-only"          # Less debug info -> faster linking
-
-[profile.dev.package."*"]
-opt-level = 1                       # Optimize third-party deps (one-time cost)
-
-[profile.test]
-split-debuginfo = "unpacked"
-debug = "line-tables-only"
-
 # Panic-site audit completed 2026-04-29 (see
 # `<workspace>/talkbank-tools/docs/panic-audit/pyo3.md`). The single
 # non-test panic shape is annotated with a rationale comment;
 # `deny`-level prevents new sites from landing without a deliberate
-# `#[allow]` opt-in. pyo3/ is outside the root workspace by design
-# (separate maturin packaging surface), so this table is independent
-# of `[workspace.lints.clippy]` in the root Cargo.toml.
+# `#[allow]` opt-in. This crate is a workspace member, but its PyO3 boundary
+# keeps a stricter package-level policy than the workspace baseline.
 [lints.clippy]
 unwrap_used   = "deny"
 expect_used   = "deny"

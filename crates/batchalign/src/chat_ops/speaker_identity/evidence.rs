@@ -21,8 +21,11 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::embedding::{EmbeddingDimension, MinimumEmbeddingFrames};
 use super::enrollment::{EnrolledLabel, EnrollmentSet};
-use super::policy::{MatchThreshold, SpeakerVerdict, ThresholdPolicy};
+use super::model::EmbeddingModelRevision;
+use super::policy::{LabelledScore, MatchThreshold, SpeakerVerdict, ThresholdPolicy};
+use crate::types::worker_v2::SpeakerEmbeddingBackendV2;
 
 /// Schema version of the `<stem>_speaker_identity.json` artifact.
 ///
@@ -68,13 +71,13 @@ pub struct SpeakerIdentityProvenance {
     /// Sample rate of the single prepared decode every span indexes into.
     pub prepared_sample_rate_hz: u32,
     /// Embedding backend, as selected on the wire.
-    pub embedding_backend: String,
+    pub embedding_backend: SpeakerEmbeddingBackendV2,
     /// Exact model revision the worker loaded, echoed from the worker.
-    pub embedding_model_revision: String,
+    pub embedding_model_revision: EmbeddingModelRevision,
     /// Width of every vector this run compared, echoed from the worker.
-    pub embedding_dimension: u32,
+    pub embedding_dimension: EmbeddingDimension,
     /// The model's own minimum span length, echoed from the worker.
-    pub embedding_minimum_frames: u64,
+    pub embedding_minimum_frames: MinimumEmbeddingFrames,
     /// The threshold the caller stated. There is no default; see
     /// [`super::policy`].
     pub match_threshold: MatchThreshold,
@@ -112,19 +115,6 @@ pub struct UtteranceIdentity {
     pub verdict: SpeakerVerdict,
 }
 
-/// One enrolled voice's similarity to one utterance.
-///
-/// A named pair rather than a tuple: a two-slot tuple in a serialized artifact
-/// is a positional contract no reader can check, and this one is read by
-/// consumers outside this repository.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LabelledScore {
-    /// The enrolled voice.
-    pub label: EnrolledLabel,
-    /// Its similarity to this utterance.
-    pub score: super::policy::SimilarityScore,
-}
-
 /// The whole artifact.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpeakerIdentityEvidence {
@@ -150,17 +140,25 @@ pub struct RunFacts {
     /// Sample rate of the single prepared decode.
     pub prepared_sample_rate_hz: u32,
     /// Embedding backend, as selected on the wire.
-    pub embedding_backend: String,
+    pub embedding_backend: SpeakerEmbeddingBackendV2,
     /// Exact model revision the worker loaded.
-    pub embedding_model_revision: String,
-    /// Width of every vector compared.
-    pub embedding_dimension: u32,
-    /// The model's own minimum span length.
-    pub embedding_minimum_frames: u64,
+    pub embedding_model_revision: EmbeddingModelRevision,
     /// The tiers whose utterances were scored.
     pub tiers: Vec<String>,
     /// Build identity of the batchalign3 that wrote this.
     pub produced_by: String,
+}
+
+/// Measurements learned only after a successful embedding response.
+///
+/// Kept separate from [`RunFacts`] so callers cannot fabricate placeholder
+/// zeros before inference and rely on a later overwrite to make them true.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EmbeddingRunFacts {
+    /// Width shared by every returned vector.
+    pub dimension: EmbeddingDimension,
+    /// The model's smallest measurable span.
+    pub minimum_frames: MinimumEmbeddingFrames,
 }
 
 impl SpeakerIdentityEvidence {
@@ -174,6 +172,7 @@ impl SpeakerIdentityEvidence {
     #[must_use]
     pub fn new(
         facts: RunFacts,
+        embedding: EmbeddingRunFacts,
         enrollments: &EnrollmentSet,
         policy: &ThresholdPolicy,
         utterances: Vec<UtteranceIdentity>,
@@ -187,8 +186,8 @@ impl SpeakerIdentityEvidence {
                 prepared_sample_rate_hz: facts.prepared_sample_rate_hz,
                 embedding_backend: facts.embedding_backend,
                 embedding_model_revision: facts.embedding_model_revision,
-                embedding_dimension: facts.embedding_dimension,
-                embedding_minimum_frames: facts.embedding_minimum_frames,
+                embedding_dimension: embedding.dimension,
+                embedding_minimum_frames: embedding.minimum_frames,
                 match_threshold: policy.threshold(),
                 tiers: facts.tiers,
                 enrollments: enrollments
@@ -219,10 +218,9 @@ mod tests {
             transcript: "session.cha".to_owned(),
             media: "session.mp3".to_owned(),
             prepared_sample_rate_hz: 16_000,
-            embedding_backend: "pyannote".to_owned(),
-            embedding_model_revision: "0ae88dcaf48cacdf741275d6d1a8101f45eee220".to_owned(),
-            embedding_dimension: 256,
-            embedding_minimum_frames: 1680,
+            embedding_backend: SpeakerEmbeddingBackendV2::Pyannote,
+            embedding_model_revision: super::super::pinned_embedding_revision()
+                .expect("test: the packaged embedding manifest is valid"),
             tiers: vec!["*PAR0".to_owned()],
             produced_by: "batchalign3 test".to_owned(),
         }
@@ -247,6 +245,12 @@ mod tests {
         };
         SpeakerIdentityEvidence::new(
             run_facts(),
+            EmbeddingRunFacts {
+                dimension: EmbeddingDimension::try_from(256)
+                    .expect("test: a non-zero embedding dimension"),
+                minimum_frames: MinimumEmbeddingFrames::try_from(1680)
+                    .expect("test: a non-zero model minimum"),
+            },
             &enrollments,
             &policy,
             vec![

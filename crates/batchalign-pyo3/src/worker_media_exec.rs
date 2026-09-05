@@ -271,25 +271,16 @@ fn run_speaker_embedding(
         )?,
     };
 
-    // Spans travel as `(span_id, start_frame, end_frame)` triples rather than
-    // as bare index pairs, so the host echoes the name back and the pairing
-    // above is by identity rather than by position.
-    let spans: Vec<(String, u64, u64)> = embedding_request
-        .spans
-        .iter()
-        .map(|span| {
-            (
-                span.span_id.as_ref().to_owned(),
-                span.start_frame.0,
-                span.end_frame.0,
-            )
-        })
-        .collect();
+    // Preserve the V2 request schema across the Rust/Python boundary. Passing
+    // JSON lets Python validate named fields instead of rebuilding typed
+    // requests from positional tuples.
+    let spans_json = serde_json::to_string(&embedding_request.spans)
+        .map_err(|error| ExecuteFailure::Runtime(error.to_string()))?;
 
     let audio_array = audio.samples()?.into_pyarray(py);
     let response = runner
         .bind(py)
-        .call1((audio_array, audio.descriptor().sample_rate_hz.0, spans))
+        .call1((audio_array, audio.descriptor().sample_rate_hz.0, spans_json))
         // The same reclassification the diarization executor uses: a gated
         // repository or a missing credential must reach the operator as
         // `model_access_denied`, not as an anonymous runtime failure.

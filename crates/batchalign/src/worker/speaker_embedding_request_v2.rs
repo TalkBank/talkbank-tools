@@ -6,8 +6,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use thiserror::Error;
 
 use crate::chat_ops::speaker_identity::{
-    EmbeddingRequest, EmbeddingResponse, NotAPreparedDecode, NotAnEmbedding, PreparedPcm,
-    SpanOutcome, SpeakerEmbedding,
+    EmbeddingDimension, EmbeddingRequest, EmbeddingResponse, MinimumEmbeddingFrames,
+    NotAPreparedDecode, NotAnEmbedding, PreparedPcm, SpanOutcome, SpeakerEmbedding,
+    ZeroEmbeddingDimension, ZeroMinimumEmbeddingFrames,
 };
 use crate::types::worker_v2::{
     ArtifactRefV2, ExecuteRequestV2, ExecuteResponseV2, InferenceTaskV2, SpeakerEmbeddingBackendV2,
@@ -123,6 +124,29 @@ pub enum SpeakerEmbeddingResultParseError {
     /// A returned vector is not an embedding.
     #[error("worker protocol V2 speaker embedding response carried an unusable vector: {0}")]
     Vector(#[from] NotAnEmbedding),
+    /// The response claimed vectors with no components.
+    #[error(transparent)]
+    Dimension(#[from] ZeroEmbeddingDimension),
+    /// The response claimed the model could measure a zero-frame span.
+    #[error(transparent)]
+    MinimumFrames(#[from] ZeroMinimumEmbeddingFrames),
+    /// The response repeated one requested span id.
+    #[error("worker protocol V2 speaker embedding response repeated span {span_id}")]
+    DuplicateSpan {
+        /// The repeated id.
+        span_id: String,
+    },
+    /// The response did not answer exactly the set of requested spans.
+    #[error(
+        "worker protocol V2 speaker embedding response span mismatch \
+         (missing: {missing:?}; unexpected: {unexpected:?})"
+    )]
+    SpanSetMismatch {
+        /// Requested ids with no answer.
+        missing: Vec<String>,
+        /// Answered ids that were never requested.
+        unexpected: Vec<String>,
+    },
 }
 
 /// Read one V2 embedding response into the typed outcomes the control plane
@@ -133,6 +157,7 @@ pub enum SpeakerEmbeddingResultParseError {
 /// a constant on this side would go on agreeing with a model that had moved.
 pub fn parse_speaker_embedding_response_v2(
     response: &ExecuteResponseV2,
+    request: &EmbeddingRequest,
 ) -> Result<EmbeddingResponse, SpeakerEmbeddingResultParseError> {
     let result = require_success_result(response, "speaker embedding")
         .map_err(|failure| SpeakerEmbeddingResultParseError::UnexpectedPayload(failure.into()))?;
@@ -145,7 +170,9 @@ pub fn parse_speaker_embedding_response_v2(
         ));
     };
 
-    let declared_width = result.dimension as usize;
+    let dimension = EmbeddingDimension::try_from(result.dimension)?;
+    let minimum_frames = MinimumEmbeddingFrames::try_from(result.minimum_frames.0)?;
+    let declared_width = dimension.get() as usize;
     let mut outcomes = std::collections::BTreeMap::new();
     for span in &result.spans {
         let outcome = match &span.outcome {
@@ -156,18 +183,35 @@ pub fn parse_speaker_embedding_response_v2(
                 frames: frame_count.0,
             },
         };
-        outcomes.insert(span.span_id.as_ref().to_owned(), outcome);
+        let span_id = span.span_id.as_ref().to_owned();
+        if outcomes.insert(span_id.clone(), outcome).is_some() {
+            return Err(SpeakerEmbeddingResultParseError::DuplicateSpan { span_id });
+        }
+    }
+
+    let expected: std::collections::BTreeSet<&str> = request
+        .spans()
+        .iter()
+        .map(|span| span.span_id.as_str())
+        .collect();
+    let answered: std::collections::BTreeSet<&str> = outcomes.keys().map(String::as_str).collect();
+    if expected != answered {
+        return Err(SpeakerEmbeddingResultParseError::SpanSetMismatch {
+            missing: expected
+                .difference(&answered)
+                .map(|span_id| (*span_id).to_owned())
+                .collect(),
+            unexpected: answered
+                .difference(&expected)
+                .map(|span_id| (*span_id).to_owned())
+                .collect(),
+        });
     }
 
     Ok(EmbeddingResponse {
         outcomes,
-        minimum_frames: result.minimum_frames.0,
-        dimension: result.dimension,
-        // Filled in by the caller, which owns the pinned graph identity. The
-        // wire deliberately does not carry it: the revision is a property of
-        // the manifest this binary ships, so asking the worker would be asking
-        // a second party about a fact we already hold.
-        model_revision: String::new(),
+        minimum_frames,
+        dimension,
     })
 }
 
@@ -186,5 +230,104 @@ fn result_kind(result: &TaskResultV2) -> &'static str {
         TaskResultV2::SpeakerEmbeddingResult(_) => "speaker embedding",
         TaskResultV2::OpensmileResult(_) => "openSMILE feature",
         TaskResultV2::AvqiResult(_) => "AVQI feature",
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::api::DurationSeconds;
+    use crate::chat_ops::speaker_identity::RequestedSpan;
+    use crate::media::window::MediaWindow;
+    use crate::time::FileMs;
+    use crate::types::worker_v2::{
+        FrameCountV2, SpeakerEmbeddingResultV2, SpeakerEmbeddingSpanResultV2,
+    };
+
+    fn request() -> EmbeddingRequest {
+        let prepared = match PreparedPcm::new(16_000, 160_000) {
+            Ok(prepared) => prepared,
+            Err(error) => panic!("test prepared audio is valid: {error}"),
+        };
+        let spans = [("first", 0, 100), ("second", 100, 200)]
+            .into_iter()
+            .map(|(span_id, start, end)| {
+                let window = match MediaWindow::new(FileMs::new(start), FileMs::new(end)) {
+                    Ok(window) => window,
+                    Err(error) => panic!("test window is valid: {error}"),
+                };
+                let frames = match prepared.locate(window) {
+                    Ok(frames) => frames,
+                    Err(error) => panic!("test window lies in the prepared audio: {error}"),
+                };
+                RequestedSpan {
+                    span_id: span_id.to_owned(),
+                    frames,
+                }
+            })
+            .collect();
+        EmbeddingRequest::for_test(spans)
+    }
+
+    fn response(dimension: u32, minimum_frames: u64, span_ids: &[&str]) -> ExecuteResponseV2 {
+        ExecuteResponseV2::success(
+            WorkerRequestIdV2::from("speaker-response-test"),
+            TaskResultV2::SpeakerEmbeddingResult(SpeakerEmbeddingResultV2 {
+                dimension,
+                minimum_frames: FrameCountV2(minimum_frames),
+                spans: span_ids
+                    .iter()
+                    .map(|span_id| SpeakerEmbeddingSpanResultV2 {
+                        span_id: SpeakerEmbeddingSpanIdV2::from(*span_id),
+                        outcome: SpeakerEmbeddingOutcomeV2::TooShort {
+                            frame_count: FrameCountV2(10),
+                        },
+                    })
+                    .collect(),
+            }),
+            DurationSeconds(0.01),
+        )
+    }
+
+    #[test]
+    fn refuses_zero_model_measurements() {
+        assert!(matches!(
+            parse_speaker_embedding_response_v2(&response(0, 10, &["first", "second"]), &request()),
+            Err(SpeakerEmbeddingResultParseError::Dimension(_))
+        ));
+        assert!(matches!(
+            parse_speaker_embedding_response_v2(&response(2, 0, &["first", "second"]), &request()),
+            Err(SpeakerEmbeddingResultParseError::MinimumFrames(_))
+        ));
+    }
+
+    #[test]
+    fn refuses_missing_and_unexpected_span_answers() {
+        match parse_speaker_embedding_response_v2(
+            &response(2, 10, &["first", "unexpected"]),
+            &request(),
+        ) {
+            Err(SpeakerEmbeddingResultParseError::SpanSetMismatch {
+                missing,
+                unexpected,
+            }) => {
+                assert_eq!(missing, ["second"]);
+                assert_eq!(unexpected, ["unexpected"]);
+            }
+            other => panic!("expected a span-set mismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn refuses_duplicate_span_answers() {
+        assert!(matches!(
+            parse_speaker_embedding_response_v2(
+                &response(2, 10, &["first", "first", "second"]),
+                &request(),
+            ),
+            Err(SpeakerEmbeddingResultParseError::DuplicateSpan { span_id })
+                if span_id == "first"
+        ));
     }
 }

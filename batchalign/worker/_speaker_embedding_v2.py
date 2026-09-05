@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from pydantic import TypeAdapter
+
 from batchalign.inference.speaker_embedding import (
     SpeakerEmbeddingResponse,
     SpeakerEmbeddingSpanRequest,
@@ -21,7 +23,7 @@ from batchalign.worker._types_v2 import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable
 
     import numpy as np
 
@@ -30,12 +32,9 @@ if TYPE_CHECKING:
 class SpeakerEmbeddingExecutionHostV2:
     """Injected speaker-embedding hooks for the live V2 path."""
 
-    # The third argument is the span list as `(span_id, start_frame,
-    # end_frame)` triples. The id travels so the control plane pairs an
-    # outcome with the span it asked about BY NAME rather than by position.
     pyannote_span_runner: (
         Callable[
-            [np.ndarray, int, Sequence[tuple[str, int, int]]],
+            [np.ndarray, int, str],
             SpeakerEmbeddingResponse,
         ]
         | None
@@ -50,19 +49,14 @@ def build_default_speaker_embedding_execution_host_v2() -> (
     def _run_spans(
         audio: np.ndarray,
         sample_rate_hz: int,
-        spans: Sequence[tuple[str, int, int]],
+        spans_json: str,
     ) -> SpeakerEmbeddingResponse:
-        """Parse the wire triples into typed span requests at this boundary."""
+        """Validate the Rust span request JSON at the model-host boundary."""
 
         return embed_prepared_audio_spans(
             audio,
             sample_rate_hz,
-            [
-                SpeakerEmbeddingSpanRequest(
-                    span_id=span_id, start_frame=start_frame, end_frame=end_frame
-                )
-                for span_id, start_frame, end_frame in spans
-            ],
+            TypeAdapter(list[SpeakerEmbeddingSpanRequest]).validate_json(spans_json),
         )
 
     return SpeakerEmbeddingExecutionHostV2(pyannote_span_runner=_run_spans)

@@ -22,11 +22,11 @@ use async_trait::async_trait;
 use crate::media::window::MediaWindow;
 use crate::time::FileMs;
 
-use super::embedding::SpeakerEmbedding;
+use super::embedding::{EmbeddingDimension, MinimumEmbeddingFrames, SpeakerEmbedding};
 use super::enrollment::{EnrolledLabel, EnrollmentSet};
-use super::evidence::{LabelledScore, RunFacts, SpeakerIdentityEvidence, UtteranceIdentity};
-use super::frames::{FrameSpan, PreparedPcm};
-use super::policy::{SpeakerVerdict, ThresholdPolicy, UnscoredReason};
+use super::evidence::{EmbeddingRunFacts, RunFacts, SpeakerIdentityEvidence, UtteranceIdentity};
+use super::frames::{FrameSpan, OutsidePreparedAudio, PreparedPcm};
+use super::policy::{LabelledScore, SpeakerVerdict, ThresholdPolicy, UnscoredReason};
 
 /// One timed, or untimed, utterance of a named tier, as read from the model.
 ///
@@ -40,9 +40,46 @@ pub struct TranscriptUtterance {
     pub line: usize,
     /// The speaker code the transcript carries.
     pub speaker: String,
-    /// Its bullet, when it has one. `None` is a real state, not a missing
-    /// value: an untimed utterance is reported UNSCORED with that reason.
-    pub bullet: Option<(FileMs, FileMs)>,
+    /// The timing state read from its bullet.
+    pub timing: UtteranceTiming,
+}
+
+/// Timing evidence carried by one transcript utterance.
+///
+/// Parsing a bullet and proving it is a non-empty media window happen where
+/// the utterance is read. Downstream code therefore cannot accidentally treat
+/// a reversed or zero-length pair as a window that may be embedded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UtteranceTiming {
+    /// The main tier carries no timing bullet.
+    Untimed,
+    /// The bullet exists but cannot describe a non-empty audio window.
+    Invalid {
+        /// Start written in the bullet.
+        start: FileMs,
+        /// End written in the bullet.
+        end: FileMs,
+    },
+    /// A non-empty window ready for containment checking against the decode.
+    Window(MediaWindow),
+}
+
+impl UtteranceTiming {
+    fn start(self) -> Option<FileMs> {
+        match self {
+            Self::Untimed => None,
+            Self::Invalid { start, .. } => Some(start),
+            Self::Window(window) => Some(window.start()),
+        }
+    }
+
+    fn end(self) -> Option<FileMs> {
+        match self {
+            Self::Untimed => None,
+            Self::Invalid { end, .. } => Some(end),
+            Self::Window(window) => Some(window.end()),
+        }
+    }
 }
 
 /// One span the worker is being asked about, named.
@@ -69,6 +106,13 @@ impl EmbeddingRequest {
     pub fn spans(&self) -> &[RequestedSpan] {
         &self.spans
     }
+
+    /// Build a request fixture after tests have created located spans through
+    /// the same [`PreparedPcm`] transition production uses.
+    #[cfg(test)]
+    pub(crate) fn for_test(spans: Vec<RequestedSpan>) -> Self {
+        Self { spans }
+    }
 }
 
 /// What the model said about one span.
@@ -89,18 +133,37 @@ pub struct EmbeddingResponse {
     /// One outcome per requested span, by span id.
     pub outcomes: BTreeMap<String, SpanOutcome>,
     /// The model's own minimum span length, for reporting a refusal.
-    pub minimum_frames: u64,
+    pub minimum_frames: MinimumEmbeddingFrames,
     /// Width of every vector, for the evidence's provenance.
-    pub dimension: u32,
-    /// Exact model revision the worker loaded.
-    pub model_revision: String,
+    pub dimension: EmbeddingDimension,
+}
+
+/// Failure of the injected embedding capability.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum EmbeddingInferenceFailure {
+    /// The worker request could not be completed.
+    #[error("worker dispatch failed: {detail}")]
+    Dispatch {
+        /// The transport or worker detail.
+        detail: String,
+    },
+    /// The worker answered, but its payload did not satisfy the embedding
+    /// response contract.
+    #[error("worker returned an invalid embedding response: {detail}")]
+    InvalidResponse {
+        /// The response-contract detail.
+        detail: String,
+    },
 }
 
 /// The capability that turns spans into vectors.
 #[async_trait]
 pub trait SpeakerEmbeddingInference: Send + Sync {
     /// Embed every span of one prepared decode.
-    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, String>;
+    async fn embed(
+        &self,
+        request: EmbeddingRequest,
+    ) -> Result<EmbeddingResponse, EmbeddingInferenceFailure>;
 }
 
 /// Why a run could not produce evidence at all.
@@ -114,12 +177,12 @@ pub enum SpeakerIdentityFailure {
     /// Fatal rather than per-utterance: an enrollment is the caller's claim
     /// about which voice is which, and continuing without one would silently
     /// answer a different question from the one that was asked.
-    #[error("the enrolled span {label} is not inside the recording: {detail}")]
+    #[error("the enrolled span {label} is not inside the recording: {source}")]
     EnrollmentOutsideRecording {
         /// The enrollment that could not be located.
         label: EnrolledLabel,
-        /// The containment failure's own message.
-        detail: String,
+        /// The typed containment failure.
+        source: OutsidePreparedAudio,
     },
     /// An enrolled span is shorter than the model can measure.
     #[error(
@@ -141,8 +204,14 @@ pub enum SpeakerIdentityFailure {
         span_id: String,
     },
     /// The inference capability itself failed.
-    #[error("speaker embedding failed: {0}")]
-    Inference(String),
+    #[error(transparent)]
+    Inference(#[from] EmbeddingInferenceFailure),
+}
+
+/// One enrolled label paired with the vector measured from its window.
+struct EnrolledVoice {
+    label: EnrolledLabel,
+    vector: SpeakerEmbedding,
 }
 
 /// Span id for one enrollment. Prefixed so it can never collide with an
@@ -176,7 +245,7 @@ pub async fn identify_speakers(
         let frames = prepared.locate(enrollment.window()).map_err(|error| {
             SpeakerIdentityFailure::EnrollmentOutsideRecording {
                 label: enrollment.label().clone(),
-                detail: error.to_string(),
+                source: error,
             }
         })?;
         spans.push(RequestedSpan {
@@ -192,16 +261,12 @@ pub async fn identify_speakers(
     // that has forgotten which utterance it was looking at.
     let mut refusals: BTreeMap<usize, UnscoredReason> = BTreeMap::new();
     for utterance in utterances {
-        let Some((start, end)) = utterance.bullet else {
-            refusals.insert(utterance.utterance_index, UnscoredReason::NoBullet);
-            continue;
-        };
-        let window = match MediaWindow::new(start, end) {
-            Ok(window) => window,
-            // A bullet whose end does not follow its start describes no audio.
-            // Reported as AudioMissing with the bullet's own numbers, which is
-            // what a reader needs in order to go and look at the transcript.
-            Err(_) => {
+        let window = match utterance.timing {
+            UtteranceTiming::Untimed => {
+                refusals.insert(utterance.utterance_index, UnscoredReason::NoBullet);
+                continue;
+            }
+            UtteranceTiming::Invalid { start, end } => {
                 refusals.insert(
                     utterance.utterance_index,
                     UnscoredReason::AudioMissing {
@@ -212,6 +277,7 @@ pub async fn identify_speakers(
                 );
                 continue;
             }
+            UtteranceTiming::Window(window) => window,
         };
         if let Some(label) = enrollments.overlapping(window) {
             refusals.insert(
@@ -240,23 +306,23 @@ pub async fn identify_speakers(
         }
     }
 
-    let response = inference
-        .embed(EmbeddingRequest { spans })
-        .await
-        .map_err(SpeakerIdentityFailure::Inference)?;
+    let response = inference.embed(EmbeddingRequest { spans }).await?;
 
-    let mut enrolled: Vec<(EnrolledLabel, SpeakerEmbedding)> = Vec::new();
+    let mut enrolled: Vec<EnrolledVoice> = Vec::new();
     for enrollment in enrollments.as_slice() {
         let span_id = enrollment_span_id(enrollment.label());
         match response.outcomes.get(&span_id) {
             Some(SpanOutcome::Embedded(vector)) => {
-                enrolled.push((enrollment.label().clone(), vector.clone()));
+                enrolled.push(EnrolledVoice {
+                    label: enrollment.label().clone(),
+                    vector: vector.clone(),
+                });
             }
             Some(SpanOutcome::TooShort { frames }) => {
                 return Err(SpeakerIdentityFailure::EnrollmentTooShort {
                     label: enrollment.label().clone(),
                     frames: *frames,
-                    minimum_frames: response.minimum_frames,
+                    minimum_frames: response.minimum_frames.get(),
                 });
             }
             None => {
@@ -267,10 +333,8 @@ pub async fn identify_speakers(
 
     let mut identified = Vec::with_capacity(utterances.len());
     for utterance in utterances {
-        let (start_ms, end_ms) = match utterance.bullet {
-            Some((start, end)) => (Some(start.get()), Some(end.get())),
-            None => (None, None),
-        };
+        let start_ms = utterance.timing.start().map(FileMs::get);
+        let end_ms = utterance.timing.end().map(FileMs::get);
 
         let verdict_and_scores = match refusals.get(&utterance.utterance_index) {
             Some(reason) => (
@@ -286,16 +350,19 @@ pub async fn identify_speakers(
                         SpeakerVerdict::Unscored {
                             reason: UnscoredReason::TooShortForEmbedding {
                                 frames: *frames,
-                                minimum_frames: response.minimum_frames,
+                                minimum_frames: response.minimum_frames.get(),
                             },
                         },
                         Vec::new(),
                     ),
                     Some(SpanOutcome::Embedded(vector)) => {
                         let mut scored = Vec::with_capacity(enrolled.len());
-                        for (label, enrolled_vector) in &enrolled {
-                            match enrolled_vector.similarity_to(vector) {
-                                Ok(score) => scored.push((label.clone(), score)),
+                        for voice in &enrolled {
+                            match voice.vector.similarity_to(vector) {
+                                Ok(score) => scored.push(LabelledScore {
+                                    label: voice.label.clone(),
+                                    score,
+                                }),
                                 // An incomparable pair means one of the two
                                 // vectors has no direction or came from
                                 // another model. Dropping it from the score
@@ -306,11 +373,7 @@ pub async fn identify_speakers(
                             }
                         }
                         let verdict = policy.verdict(&scored);
-                        let labelled = scored
-                            .into_iter()
-                            .map(|(label, score)| LabelledScore { label, score })
-                            .collect();
-                        (verdict, labelled)
+                        (verdict, scored)
                     }
                     None => {
                         return Err(SpeakerIdentityFailure::MissingOutcome { span_id });
@@ -331,14 +394,12 @@ pub async fn identify_speakers(
         });
     }
 
-    let facts = RunFacts {
-        embedding_model_revision: response.model_revision,
-        embedding_dimension: response.dimension,
-        embedding_minimum_frames: response.minimum_frames,
-        ..facts
-    };
     Ok(SpeakerIdentityEvidence::new(
         facts,
+        EmbeddingRunFacts {
+            dimension: response.dimension,
+            minimum_frames: response.minimum_frames,
+        },
         enrollments,
         policy,
         identified,
@@ -349,6 +410,7 @@ pub async fn identify_speakers(
 #[allow(clippy::panic)]
 mod tests {
     use super::super::enrollment::EnrollmentSpec;
+    use super::super::model::pinned_embedding_revision;
     use super::super::policy::MatchThreshold;
     use super::*;
 
@@ -361,7 +423,10 @@ mod tests {
 
     #[async_trait]
     impl SpeakerEmbeddingInference for ChosenVectors {
-        async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, String> {
+        async fn embed(
+            &self,
+            request: EmbeddingRequest,
+        ) -> Result<EmbeddingResponse, EmbeddingInferenceFailure> {
             let mut outcomes = BTreeMap::new();
             for span in request.spans() {
                 if let Some(outcome) = self.by_span.get(&span.span_id) {
@@ -370,9 +435,10 @@ mod tests {
             }
             Ok(EmbeddingResponse {
                 outcomes,
-                minimum_frames: self.minimum_frames,
-                dimension: 2,
-                model_revision: "test-revision".to_owned(),
+                minimum_frames: MinimumEmbeddingFrames::try_from(self.minimum_frames)
+                    .expect("test: a non-zero model minimum"),
+                dimension: EmbeddingDimension::try_from(2)
+                    .expect("test: a non-zero embedding dimension"),
             })
         }
     }
@@ -418,12 +484,9 @@ mod tests {
             transcript: "session.cha".to_owned(),
             media: "session.mp3".to_owned(),
             prepared_sample_rate_hz: 16_000,
-            embedding_backend: "pyannote".to_owned(),
-            // Replaced from the worker's own answer; a placeholder here would
-            // be a fabricated provenance if the replacement ever stopped.
-            embedding_model_revision: String::new(),
-            embedding_dimension: 0,
-            embedding_minimum_frames: 0,
+            embedding_backend: crate::types::worker_v2::SpeakerEmbeddingBackendV2::Pyannote,
+            embedding_model_revision: pinned_embedding_revision()
+                .expect("test: the packaged embedding manifest is valid"),
             tiers: vec!["*PAR0".to_owned()],
             produced_by: "test".to_owned(),
         }
@@ -434,7 +497,10 @@ mod tests {
             utterance_index: index,
             line: index + 10,
             speaker: "PAR0".to_owned(),
-            bullet: Some((FileMs::new(start_ms), FileMs::new(end_ms))),
+            timing: UtteranceTiming::Window(
+                MediaWindow::new(FileMs::new(start_ms), FileMs::new(end_ms))
+                    .expect("test: a non-empty utterance window"),
+            ),
         }
     }
 
@@ -477,10 +543,10 @@ mod tests {
         assert_eq!(evidence.utterances[1].scores.len(), 1);
     }
 
-    /// The provenance the file carries is the worker's own report, not the
-    /// placeholder the caller started with.
+    /// Evidence combines the pinned model revision with measurements reported
+    /// by the worker that actually loaded it.
     #[tokio::test]
-    async fn the_model_facts_in_the_evidence_come_from_the_worker() {
+    async fn evidence_uses_the_manifest_revision_and_worker_measurements() {
         let model = ChosenVectors {
             by_span: BTreeMap::from([
                 ("enroll:INV".to_owned(), vector(vec![1.0, 0.0])),
@@ -502,11 +568,13 @@ mod tests {
             Err(error) => panic!("the run succeeds: {error}"),
         };
         assert_eq!(
-            evidence.provenance.embedding_model_revision,
-            "test-revision"
+            evidence.provenance.embedding_model_revision.as_str(),
+            pinned_embedding_revision()
+                .expect("test: the packaged embedding manifest is valid")
+                .as_str()
         );
-        assert_eq!(evidence.provenance.embedding_dimension, 2);
-        assert_eq!(evidence.provenance.embedding_minimum_frames, 1680);
+        assert_eq!(evidence.provenance.embedding_dimension.get(), 2);
+        assert_eq!(evidence.provenance.embedding_minimum_frames.get(), 1680);
     }
 
     /// An utterance inside an enrolled span is never scored: its similarity
@@ -556,7 +624,7 @@ mod tests {
                 utterance_index: 0,
                 line: 10,
                 speaker: "PAR0".to_owned(),
-                bullet: None,
+                timing: UtteranceTiming::Untimed,
             }],
             prepared(),
             &policy(0.5),

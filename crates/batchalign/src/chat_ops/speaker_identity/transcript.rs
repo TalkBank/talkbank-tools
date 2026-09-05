@@ -7,9 +7,10 @@
 
 use talkbank_model::model::{ChatFile, Line};
 
+use crate::media::window::MediaWindow;
 use crate::time::FileMs;
 
-use super::run::TranscriptUtterance;
+use super::run::{TranscriptUtterance, UtteranceTiming};
 
 /// Which speaker tiers a run scores.
 ///
@@ -79,17 +80,22 @@ pub fn read_utterances(chat_file: &ChatFile, tiers: &TierSelection) -> Vec<Trans
         if !tiers.includes(speaker) {
             continue;
         }
-        let bullet = utterance.main.content.bullet.as_ref().map(|bullet| {
-            (
-                FileMs::new(bullet.timing.start_ms),
-                FileMs::new(bullet.timing.end_ms),
-            )
-        });
+        let timing = match utterance.main.content.bullet.as_ref() {
+            None => UtteranceTiming::Untimed,
+            Some(bullet) => {
+                let start = FileMs::new(bullet.timing.start_ms);
+                let end = FileMs::new(bullet.timing.end_ms);
+                match MediaWindow::new(start, end) {
+                    Ok(window) => UtteranceTiming::Window(window),
+                    Err(_) => UtteranceTiming::Invalid { start, end },
+                }
+            }
+        };
         collected.push(TranscriptUtterance {
             utterance_index: collected.len(),
             line: line_idx + 1,
             speaker: speaker.to_owned(),
-            bullet,
+            timing,
         });
     }
     collected
@@ -137,8 +143,11 @@ mod tests {
         assert_eq!(read.len(), 3);
         assert_eq!(read[0].speaker, "INV");
         assert_eq!(
-            read[0].bullet.map(|(start, end)| (start.get(), end.get())),
-            Some((1000, 2000))
+            read[0].timing,
+            UtteranceTiming::Window(
+                MediaWindow::new(FileMs::new(1000), FileMs::new(2000))
+                    .expect("test: a non-empty media window")
+            )
         );
     }
 
@@ -148,7 +157,7 @@ mod tests {
     #[test]
     fn an_untimed_utterance_is_collected_with_no_bullet() {
         let read = read_utterances(&parsed(), &TierSelection::AllTiers);
-        assert_eq!(read[2].bullet, None);
+        assert_eq!(read[2].timing, UtteranceTiming::Untimed);
         assert_eq!(read[2].speaker, "CHI");
     }
 
