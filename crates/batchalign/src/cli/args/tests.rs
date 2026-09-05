@@ -195,6 +195,34 @@ fn morphotag_defaults_l2_on() {
 }
 
 #[test]
+fn morphotag_defaults_to_honoring_ca_header() {
+    let options = typed_options_for(&["batchalign3", "morphotag", "corpus/"]);
+    match options {
+        CommandOptions::Morphotag(opts) => {
+            assert_eq!(opts.ca_policy, crate::options::CaMorphotagPolicy::Honor)
+        }
+        other => panic!("expected Morphotag options, got {other:?}"),
+    }
+}
+
+#[test]
+fn morphotag_accepts_explicit_ca_analyze_policy() {
+    let options = typed_options_for(&[
+        "batchalign3",
+        "morphotag",
+        "corpus/",
+        "--ca-policy",
+        "analyze",
+    ]);
+    match options {
+        CommandOptions::Morphotag(opts) => {
+            assert_eq!(opts.ca_policy, crate::options::CaMorphotagPolicy::Analyze)
+        }
+        other => panic!("expected Morphotag options, got {other:?}"),
+    }
+}
+
+#[test]
 fn morphotag_no_l2_flag_opts_out() {
     let options = typed_options_for(&["batchalign3", "morphotag", "corpus/", "--no-l2-morphotag"]);
     match options {

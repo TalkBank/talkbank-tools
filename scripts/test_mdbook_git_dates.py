@@ -40,10 +40,31 @@ FIRST_DATE = "2026-01-10"
 SECOND_DATE = "2026-02-20"
 
 
+def isolated_subprocess_env(**updates: str) -> dict[str, str]:
+    """Environment for commands that must discover their own temporary repo.
+
+    Git exports repository-local variables while running hooks. Without
+    clearing them, a test launched by ``git push`` can initialize a temporary
+    repository and still have every nested Git command read the outer one.
+    Ask Git for the authoritative variable-name list instead of maintaining a
+    hand-written copy.
+    """
+    env = os.environ.copy()
+    local_vars = subprocess.run(
+        ["git", "rev-parse", "--local-env-vars"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.splitlines()
+    for name in local_vars:
+        env.pop(name, None)
+    env.update(updates)
+    return env
+
+
 def git(args: list[str], cwd: Path, date: str | None = None) -> str:
     """Run git with a fixed identity, and a fixed commit date when given."""
-    env = dict(
-        os.environ,
+    env = isolated_subprocess_env(
         GIT_AUTHOR_NAME="Test",
         GIT_AUTHOR_EMAIL="test@example.invalid",
         GIT_COMMITTER_NAME="Test",
@@ -116,10 +137,13 @@ def wire(
     return json.dumps([ctx, book])
 
 
-def run(book_root: Path, payload: str) -> subprocess.CompletedProcess[str]:
+def run(
+    book_root: Path, payload: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT)],
         cwd=book_root,
+        env=env or isolated_subprocess_env(),
         input=payload,
         capture_output=True,
         text=True,
@@ -202,6 +226,21 @@ class Preprocess(unittest.TestCase):
         self.assertIn("This page last changed: not yet committed.", content)
         self.assertIn(f"The whole book last changed: {SECOND_DATE} (commit", content)
 
+    def test_git_hook_repository_environment_does_not_override_book_repo(self) -> None:
+        outer = self.root / "outer"
+        outer.mkdir()
+        git(["init", "-q", "-b", "main"], outer)
+        env = isolated_subprocess_env(
+            GIT_DIR=str(outer / ".git"),
+            GIT_WORK_TREE=str(outer),
+        )
+
+        result = run(self.book_root, self.payload("0.5"), env=env)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        intro = chapters_of(result.stdout)[0]
+        self.assertIn(f"**Page:** {FIRST_DATE} (commit", str(intro["content"]))
+
     def test_an_unknown_placeholder_fails_the_build_and_names_it(self) -> None:
         items = [chapter("Bad", "ch.md", "# Ch\n\n{{git-dates:bogus}}\n")]
         result = run(self.book_root, wire("0.5", self.book_root, items))
@@ -226,6 +265,7 @@ class Preprocess(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, str(SCRIPT), "supports", renderer],
                 cwd=self.book_root,
+                env=isolated_subprocess_env(),
                 capture_output=True,
                 text=True,
                 check=False,
@@ -258,6 +298,7 @@ class Verify(unittest.TestCase):
                 "introduction.md",
                 str(rendered),
             ],
+            env=isolated_subprocess_env(),
             capture_output=True,
             text=True,
             check=False,
@@ -325,6 +366,7 @@ class BookTomlWiring(unittest.TestCase):
         result = subprocess.run(
             self.command_words(),
             cwd=BOOK_ROOT,
+            env=isolated_subprocess_env(),
             input=self.payload(),
             capture_output=True,
             text=True,
@@ -346,6 +388,7 @@ class BookTomlWiring(unittest.TestCase):
         result = subprocess.run(
             self.command_words(),
             cwd=REPO_ROOT,
+            env=isolated_subprocess_env(),
             input=self.payload(),
             capture_output=True,
             text=True,

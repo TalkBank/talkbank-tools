@@ -11,7 +11,7 @@
 //!
 //! Three atomic operations, no locking:
 //!
-//! 1. **On spawn:** Write `~/.batchalign3/worker-pids/{worker_pid}` containing
+//! 1. **On spawn:** Write `<state-dir>/worker-pids/{worker_pid}` containing
 //!    the server PID and a timestamp.
 //! 2. **On worker shutdown/drop:** Remove the PID file.
 //! 3. **On pool startup:** Scan the directory. For each file where the worker
@@ -24,17 +24,21 @@ use std::time::Duration;
 
 use tracing::{debug, info, warn};
 
-/// Directory name under `~/.batchalign3/` for PID files.
+/// Directory name under the configured batchalign3 state directory.
 const PID_DIR_NAME: &str = "worker-pids";
 
-/// Return the PID file directory: `~/.batchalign3/worker-pids/`.
-fn pid_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| home.join(".batchalign3").join(PID_DIR_NAME))
+fn pid_dir_from_layout(layout: &crate::config::RuntimeLayout) -> PathBuf {
+    layout.state_dir().join(PID_DIR_NAME)
+}
+
+/// Return the PID file directory under the resolved runtime state directory.
+fn pid_dir() -> PathBuf {
+    pid_dir_from_layout(&crate::config::RuntimeLayout::from_env())
 }
 
 /// Ensure the PID file directory exists.
 fn ensure_pid_dir() -> Option<PathBuf> {
-    let dir = pid_dir()?;
+    let dir = pid_dir();
     if !dir.exists()
         && let Err(e) = fs::create_dir_all(&dir)
     {
@@ -66,9 +70,7 @@ pub(crate) fn record_worker_pid(worker_pid: u32) {
 
 /// Remove a worker's PID file (called on clean shutdown / Drop).
 pub(crate) fn remove_worker_pid(worker_pid: u32) {
-    let Some(dir) = pid_dir() else {
-        return;
-    };
+    let dir = pid_dir();
     let path = dir.join(worker_pid.to_string());
     match fs::remove_file(&path) {
         Ok(()) => {
@@ -90,9 +92,7 @@ pub(crate) fn remove_worker_pid(worker_pid: u32) {
 ///
 /// Returns the number of orphans reaped.
 pub(crate) fn reap_orphaned_workers() -> usize {
-    let Some(dir) = pid_dir() else {
-        return 0;
-    };
+    let dir = pid_dir();
     if !dir.exists() {
         return 0;
     }
@@ -304,11 +304,12 @@ mod tests {
     }
 
     #[test]
-    fn pid_dir_is_under_home() {
-        if let Some(dir) = pid_dir() {
-            assert!(dir.to_string_lossy().contains(".batchalign3"));
-            assert!(dir.to_string_lossy().contains("worker-pids"));
-        }
+    fn pid_dir_is_under_configured_state_root() {
+        let layout = crate::config::RuntimeLayout::from_state_dir(PathBuf::from("/tmp/ba3-state"));
+        assert_eq!(
+            pid_dir_from_layout(&layout),
+            PathBuf::from("/tmp/ba3-state/worker-pids")
+        );
     }
 
     #[cfg(unix)]

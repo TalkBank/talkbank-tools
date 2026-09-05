@@ -1,7 +1,7 @@
 # morphotag: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:58 EDT
+**Last updated:** 2026-09-05 05:21 EDT
 
 Implementation guide for the `morphotag` command. For user-facing
 documentation, see [User Guide: morphotag](../../user-guide/commands/morphotag.md).
@@ -12,10 +12,12 @@ documentation, see [User Guide: morphotag](../../user-guide/commands/morphotag.m
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `MorphotagArgs` | lang, retokenize, skipmultilang, lexicon, no-l2-morphotag, pos-hints |
-| Options builder | `crates/batchalign/src/cli/args/options.rs:248-255` (inline dispatch) | Maps `MorphotagArgs` → `CommandOptions::Morphotag(MorphotagOptions)` |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `MorphotagArgs`, `MorphotagPolicyArgs` | I/O, tokenization, multilingual handling, lexicon, and analysis policy (`--no-l2-morphotag`, `--no-pos-hints`, `--ca-policy`) |
+| Options builder | `crates/batchalign/src/cli/args/options.rs` (inline dispatch) | Maps CLI values to wire-compatible `MorphotagOptions` |
 | Command definition | `crates/batchalign/src/commands/morphotag.rs` | `CommandDefinition` impl, pre-validation gate |
-| Morphosyntax orchestration | `crates/batchalign/src/morphosyntax/` | Cross-file batching, cache lookup, worker dispatch, result injection |
+| Runtime policy | `crates/batchalign/src/types/params.rs`: `MorphotagExecutionPolicy` | Lowers wire booleans into typed L2, `$POS`, and CA policies |
+| CA disposition | `crates/batchalign/src/morphosyntax/mod.rs`: `MorphotagDisposition` | Produces `Analyze` or `PassThroughCa` once from the parsed header and submitted policy |
+| Morphosyntax orchestration | `crates/batchalign/src/morphosyntax/` | Cross-file batching, worker dispatch, result injection |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Pools all files into a single ML call |
 | Injection | `crates/batchalign-transform/src/morphosyntax/injection.rs` | `inject_results()`: writes `%mor`/`%gra` from typed UD annotations |
 | Retokenization | `crates/batchalign/src/retokenize/` | Character-level DP for Stanza word splits/merges |
@@ -34,29 +36,21 @@ the CLI posts source/output path lists instead of CHAT bytes. See
 from all input files are pooled into a single Stanza inference call. This
 eliminates per-file model warm-up overhead.
 
-Cache hits are injected immediately. Only cache-miss utterances are sent to the
-worker. After the worker responds, results are repartitioned by file and
-injected per-file.
+After the worker responds, results are repartitioned by file and injected
+per-file.
 
 `infer_batched.rs` is the shared dispatch helper for all cross-file batch
 commands (morphotag, utseg, translate).
 
 ---
 
-## Cache key structure
+## Repeated and incremental runs
 
-Morphotag cache keys (BLAKE3 hash of):
-- Normalized word sequence
-- Language code (3-letter ISO)
-- Terminator character (determines Stanza sentence boundary)
-- Special form flags (retrace, abbreviation, etc.)
-- Engine version string
-
-Keys are stable across restarts. The cold SQLite cache persists across
-batchalign3 upgrades; wipe it when Stanza model versions change.
-
-Bypass: global `--text-cache` disables the text NLP cache entirely for
-the current invocation.
+Morphotag does not use the persistent audio-task cache. A repeated full run
+sends every applicable utterance through Stanza again. To preserve existing
+`%mor` and `%gra` on unchanged utterances, pass the prior CHAT tree with
+`--before`; the incremental path diffs typed utterances and dispatches only
+inserted or word-changed material.
 
 ---
 
@@ -161,11 +155,11 @@ fidelity. The important stages in order:
 flowchart TD
     parse["Parse CHAT\n(batchalign, tree-sitter)"]
     clear["clear_morphosyntax()\n(morphosyntax/payload.rs)\nreplace Mor/Gra in place with EMPTY\nMorTier::new_mor(Vec::new()) / GraTier::new_gra(Vec::new())"]
-    collect["collect_payloads()\n(morphosyntax/payload.rs)\nhas_mor requires Mor tier to be NON-EMPTY"]
+    collect["collect_payloads() + collect_pos_hints()\nCapture typed $POS evidence before retokenization\nhas_mor requires Mor tier to be NON-EMPTY"]
     infer["Batch infer\n(runner/dispatch/infer_batched.rs)"]
     inject["inject_results()\n(morphosyntax/injection.rs)\nwrites %mor and %gra into the SAME slots"]
     l2["L2 dispatch (if enabled)\n(morphosyntax/l2/*)"]
-    poshints["POS hints post-pass (if enabled)\n(chat_ops/morphosyntax_ops)"]
+    poshints["Apply captured POS evidence (if enabled)\n(morphosyntax/pos_hints.rs)"]
     sweep["remove_empty_morphosyntax_placeholders()\n(morphosyntax/payload.rs)\nserialize-time sweep"]
     serialize["Serialize CHAT\n(talkbank-transform)"]
 
@@ -173,11 +167,13 @@ flowchart TD
 
     clear -. "preserves tier position in dependent_tiers" .-> inject
     collect -. "skips only utterances whose Mor tier is non-empty" .-> infer
+    collect -. "typed hint evidence survives main-tier retokenization" .-> poshints
 ```
 
 Diagram verified against: `crates/batchalign/src/morphosyntax/batch.rs` (orchestration),
 `crates/batchalign-transform/src/morphosyntax/injection.rs` (inject_results),
 `crates/batchalign-transform/src/morphosyntax/payload.rs` (clear/collect/sweep),
+`crates/batchalign-transform/src/morphosyntax/pos_hints.rs` (capture/apply),
 `crates/batchalign/src/chat_ops/morphosyntax_ops/tests.rs` (tier-order regression tests).
 
 ### Tier-order preservation

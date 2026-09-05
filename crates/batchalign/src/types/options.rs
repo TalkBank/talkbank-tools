@@ -85,6 +85,10 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+fn is_ca_policy_honor(value: &CaMorphotagPolicy) -> bool {
+    *value == CaMorphotagPolicy::Honor
+}
+
 /// Shared behavior for all engine backend selectors.
 ///
 /// Implement this on each engine enum (`AsrEngineName`, `FaEngineName`,
@@ -357,6 +361,22 @@ impl TranscribeOptions {
     }
 }
 
+/// How `morphotag` treats a transcript carrying `@Options: CA`.
+///
+/// The transcript header remains authoritative by default. `Analyze` is an
+/// explicit operator choice for corpus-reconstruction work where automatic
+/// morphology is intentionally added without deleting or rewriting the CA
+/// declaration.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum CaMorphotagPolicy {
+    /// Honor `@Options: CA` and pass the transcript through unchanged.
+    #[default]
+    Honor,
+    /// Run morphotag while preserving the transcript's `@Options: CA` header.
+    Analyze,
+}
+
 /// Options for the `morphotag` command.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MorphotagOptions {
@@ -392,6 +412,10 @@ pub struct MorphotagOptions {
     /// hints are respected; set via `--no-pos-hints` to opt out.
     #[serde(default)]
     pub no_pos_hints: bool,
+
+    /// Policy for transcripts carrying `@Options: CA`.
+    #[serde(default, skip_serializing_if = "is_ca_policy_honor")]
+    pub ca_policy: CaMorphotagPolicy,
 
     /// Legacy review-tier request retained for wire compatibility. No value
     /// emits `%xalign` or `%xrev`; structured evidence retains the decisions.
@@ -754,6 +778,22 @@ mod tests {
             ..Default::default()
         });
         let json = serde_json::to_string(&opts).unwrap();
+        assert!(
+            !json.contains("ca_policy"),
+            "the default policy stays wire-compatible with older jobs: {json}"
+        );
+        let back: CommandOptions = serde_json::from_str(&json).unwrap();
+        assert_eq!(opts, back);
+    }
+
+    #[test]
+    fn morphotag_ca_analyze_policy_roundtrips_explicitly() {
+        let opts = CommandOptions::Morphotag(MorphotagOptions {
+            ca_policy: CaMorphotagPolicy::Analyze,
+            ..Default::default()
+        });
+        let json = serde_json::to_string(&opts).unwrap();
+        assert!(json.contains("\"ca_policy\":\"analyze\""), "json: {json}");
         let back: CommandOptions = serde_json::from_str(&json).unwrap();
         assert_eq!(opts, back);
     }

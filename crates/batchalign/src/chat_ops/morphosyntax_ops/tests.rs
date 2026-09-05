@@ -3053,7 +3053,7 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
 
 // ---------------------------------------------------------------------
 // Row 7: `--no-l2-morphotag` opt-out, when
-// `MorphosyntaxParams.l2_morphotag = false`, the per-file pipeline at
+// `MorphosyntaxParams.policy.l2 = L2MorphotagPolicy::Placeholder`, the per-file pipeline at
 // `crates/batchalign/src/pipeline/morphosyntax.rs::stage_apply_results`
 // short-circuits the secondary dispatch. No `dispatch_secondary_l2`
 // call happens regardless of language support; every `@s` word in the
@@ -3065,8 +3065,8 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
 // skipped": i.e. row 1's setup with a supported lang. This test
 // exercises that exact shape: an `@s:fra` word (Stanza-supported)
 // where dispatch is deliberately not invoked. If `--no-l2-morphotag`
-// were ON in production, the supported `@s:fra` would dispatch and
-// produce real French morphology; with the flag OFF, dispatch is
+// were OFF in production, the supported `@s:fra` would dispatch and
+// produce real French morphology; with the flag ON, dispatch is
 // skipped and the position remains L2|xxx.
 //
 // LIMITATION: this test pins only the OFF-state shape. Pinning the
@@ -3088,8 +3088,8 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
 
     let parser = TreeSitterParser::new().unwrap();
     // `bonjour@s:fra`: explicit French marker on a Stanza-SUPPORTED
-    // language. Production with `l2_morphotag = true` would dispatch
-    // and produce real French morphology; with the flag false, the
+    // language. Production with `policy.l2 = Analyze` would dispatch
+    // and produce real French morphology; with `Placeholder`, the
     // short-circuit prevents dispatch and the position stays L2|xxx.
     let chat = "\
 @UTF8

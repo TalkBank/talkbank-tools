@@ -221,15 +221,8 @@ pub struct MorphosyntaxParams<'a> {
     pub multilingual_policy: MultilingualPolicy,
     /// Multi-word token lexicon for retokenization overrides.
     pub mwt: &'a MwtDict,
-    /// \[Experimental\] Route @s words to secondary language Stanza models
-    /// instead of blanking to L2|xxx.
-    pub l2_morphotag: bool,
-    /// \[Experimental\] After morphotag, apply transcriber `$POS` hints:
-    /// for each main-tier word carrying a `$POS` suffix, override the
-    /// Stanza-assigned `%mor` POS with the CLAN→UD-mapped POS when
-    /// they disagree. Lemma and features from Stanza are preserved.
-    /// Default `true`; opt out via `--no-pos-hints`.
-    pub respect_pos_hints: bool,
+    /// Analysis policy resolved at the command boundary.
+    pub policy: MorphotagExecutionPolicy,
     /// Legacy review-tier request retained for wire compatibility. No value
     /// emits `%xalign` or `%xrev`; structured evidence retains the decisions.
     ///
@@ -252,6 +245,68 @@ pub struct MorphosyntaxParams<'a> {
     /// as every other per-file morphotag input, all the way down to
     /// `infer_batch`'s retry loop.
     pub cancellation: Cancellation<'a>,
+}
+
+/// Runtime policy choices that travel together through morphotag processing.
+///
+/// Keeping these choices in one value prevents each new policy from widening
+/// every pipeline parameter bundle independently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MorphotagExecutionPolicy {
+    /// Treatment of `@s` words.
+    pub l2: L2MorphotagPolicy,
+    /// Treatment of transcriber-supplied `$POS` hints.
+    pub pos_hints: PosHintPolicy,
+    /// Policy for a parsed transcript carrying `@Options: CA`.
+    pub ca_policy: crate::options::CaMorphotagPolicy,
+}
+
+/// Runtime treatment of `@s` code-switched words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum L2MorphotagPolicy {
+    /// Route words to the secondary-language Stanza model.
+    Analyze,
+    /// Preserve the legacy `L2|xxx` placeholder behavior.
+    Placeholder,
+}
+
+impl L2MorphotagPolicy {
+    /// Whether secondary-language Stanza inference should run.
+    pub fn should_analyze(self) -> bool {
+        matches!(self, Self::Analyze)
+    }
+}
+
+/// Runtime treatment of transcriber-supplied `$POS` hints.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PosHintPolicy {
+    /// Apply hints after Stanza and any secondary-language splicing.
+    Honor,
+    /// Leave Stanza's POS categories unchanged.
+    Ignore,
+}
+
+impl PosHintPolicy {
+    /// Whether the post-Stanza hint pass should run.
+    pub fn should_apply(self) -> bool {
+        matches!(self, Self::Honor)
+    }
+}
+
+impl From<bool> for PosHintPolicy {
+    fn from(honor: bool) -> Self {
+        if honor { Self::Honor } else { Self::Ignore }
+    }
+}
+
+impl From<bool> for L2MorphotagPolicy {
+    fn from(analyze: bool) -> Self {
+        if analyze {
+            Self::Analyze
+        } else {
+            Self::Placeholder
+        }
+    }
 }
 
 /// Audio file context for forced alignment and transcription.

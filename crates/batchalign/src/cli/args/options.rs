@@ -276,8 +276,9 @@ pub fn build_typed_options(
             // Keep the domain / JSON field name so the wire format remains
             // stable while the public CLI stays default-on with an explicit
             // opt-out flag.
-            no_l2_morphotag: a.no_l2_morphotag,
-            no_pos_hints: a.no_pos_hints,
+            no_l2_morphotag: a.policy.no_l2_morphotag,
+            no_pos_hints: a.policy.no_pos_hints,
+            ca_policy: a.policy.ca_policy,
             // Off by default; `morphotag --review-level low-confidence|all`
             // opts in, symmetric with `align`.
             review_level: resolve_review_level(a.review_level),

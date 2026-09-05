@@ -1,10 +1,10 @@
 //! Transcriber-supplied `$POS` hint application and the Stanza
 //! language-support gate.
 //!
-//! [`apply_pos_hints`] walks every utterance in a `ChatFile`, reads the
-//! transcriber's `$POS` annotation off each Mor-domain word, and
-//! overrides Stanza's UPOS in the corresponding `%mor` item when the
-//! two disagree. The bookkeeping is summarized in [`HintOutcome`].
+//! [`collect_pos_hints`] captures typed `$POS` evidence before retokenization,
+//! and [`apply_pos_hint_evidence`] uses it to override Stanza's UPOS in the
+//! corresponding `%mor` item when the two disagree. The bookkeeping is
+//! summarized in [`HintOutcome`].
 //! [`is_stanza_supported`] / [`supported_iso3_codes`] front the static
 //! list of ISO-639-3 codes that Stanza actually has a pipeline for.
 
@@ -31,16 +31,28 @@ pub struct HintOutcome {
     pub hints_skipped_no_mor: usize,
 }
 
-/// Walk every utterance in `chat_file` and override `%mor` POS categories where
-/// the transcriber's `$POS` hint disagrees with Stanza's output.
-pub fn apply_pos_hints(chat_file: &mut talkbank_model::model::ChatFile) -> HintOutcome {
-    use talkbank_model::model::content::word::Word;
-    use talkbank_model::model::dependent_tier::mor::{MorTier, clan_to_ud_upos};
-    use talkbank_model::model::{DependentTier, Utterance};
+/// Typed `$POS` observations captured before a main-tier rewrite.
+#[derive(Debug, Default)]
+pub struct PosHintEvidence {
+    by_line: Vec<PosHintLineEvidence>,
+}
 
-    fn collect_hints(line: &Line) -> Vec<(usize, String)> {
+#[derive(Debug)]
+struct PosHintLineEvidence {
+    line_idx: usize,
+    utterance_ordinal: usize,
+    hints: Vec<(usize, String)>,
+}
+
+/// Capture `$POS` hints before any retokenization can rewrite main-tier words.
+pub fn collect_pos_hints(chat_file: &talkbank_model::model::ChatFile) -> PosHintEvidence {
+    use talkbank_model::model::content::word::Word;
+
+    let mut by_line = Vec::new();
+    let mut utterance_ordinal = 0usize;
+    for (line_idx, line) in chat_file.lines.iter().enumerate() {
         let Line::Utterance(utt) = line else {
-            return Vec::new();
+            continue;
         };
         let mut hints = Vec::new();
         let mut idx: usize = 0;
@@ -61,8 +73,26 @@ pub fn apply_pos_hints(chat_file: &mut talkbank_model::model::ChatFile) -> HintO
                 idx += 1;
             },
         );
-        hints
+        if !hints.is_empty() {
+            by_line.push(PosHintLineEvidence {
+                line_idx,
+                utterance_ordinal,
+                hints,
+            });
+        }
+        utterance_ordinal += 1;
     }
+    PosHintEvidence { by_line }
+}
+
+/// Apply previously captured hint evidence to injected `%mor` tiers.
+pub fn apply_pos_hint_evidence(
+    chat_file: &mut talkbank_model::model::ChatFile,
+    evidence: PosHintEvidence,
+    retokenizations: &[super::RetokenizationInfo],
+) -> HintOutcome {
+    use talkbank_model::model::dependent_tier::mor::{MorTier, clan_to_ud_upos};
+    use talkbank_model::model::{DependentTier, Utterance};
 
     fn mor_tier_mut(utt: &mut Utterance) -> Option<&mut MorTier> {
         utt.dependent_tiers
@@ -101,25 +131,42 @@ pub fn apply_pos_hints(chat_file: &mut talkbank_model::model::ChatFile) -> HintO
 
     let mut outcome = HintOutcome::default();
 
-    for line_idx in 0..chat_file.lines.len() {
-        let hints = collect_hints(&chat_file.lines[line_idx]);
-        if hints.is_empty() {
+    for line_evidence in evidence.by_line {
+        let retokenization = retokenizations
+            .iter()
+            .find(|trace| trace.utterance_ordinal == line_evidence.utterance_ordinal);
+        let Some(line) = chat_file
+            .lines
+            .as_mut_slice()
+            .get_mut(line_evidence.line_idx)
+        else {
             continue;
-        }
-
-        let utt = match &mut chat_file.lines.as_mut_slice()[line_idx] {
+        };
+        let utt = match line {
             Line::Utterance(u) => u,
             _ => continue,
         };
         let Some(mor) = mor_tier_mut(utt) else {
-            outcome.hints_considered += hints.len();
-            outcome.hints_skipped_no_mor += hints.len();
+            outcome.hints_considered += line_evidence.hints.len();
+            outcome.hints_skipped_no_mor += line_evidence.hints.len();
             continue;
         };
 
-        for (word_idx, clan_tag) in hints {
+        for (word_idx, clan_tag) in line_evidence.hints {
             outcome.hints_considered += 1;
-            match resolve_hint(&clan_tag, mor, word_idx) {
+            let target_idx = match retokenization {
+                Some(trace) => trace
+                    .mapping
+                    .get(word_idx)
+                    .and_then(|token_indices| token_indices.first())
+                    .copied(),
+                None => Some(word_idx),
+            };
+            let Some(target_idx) = target_idx else {
+                outcome.hints_skipped_no_mor += 1;
+                continue;
+            };
+            match resolve_hint(&clan_tag, mor, target_idx) {
                 HintResolution::Agreed => outcome.hints_agreed += 1,
                 HintResolution::Overridden => outcome.hints_overridden += 1,
                 HintResolution::Unmapped => outcome.hints_unmapped += 1,
@@ -129,6 +176,13 @@ pub fn apply_pos_hints(chat_file: &mut talkbank_model::model::ChatFile) -> HintO
     }
 
     outcome
+}
+
+/// Capture and immediately apply hints when the main tier will not be mutated
+/// between the two operations.
+pub fn apply_pos_hints(chat_file: &mut talkbank_model::model::ChatFile) -> HintOutcome {
+    let evidence = collect_pos_hints(chat_file);
+    apply_pos_hint_evidence(chat_file, evidence, &[])
 }
 
 /// ISO 639-3 codes that have a known Stanza pipeline.

@@ -60,6 +60,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -99,8 +100,22 @@ LastChange = Commit | NeverCommitted
 
 def git(args: list[str], cwd: Path) -> str:
     """Run git in `cwd`; a failure aborts the build with git's own message."""
+    env = os.environ.copy()
+    local_vars = subprocess.run(
+        ["git", "rev-parse", "--local-env-vars"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.splitlines()
+    for name in local_vars:
+        env.pop(name, None)
     result = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, check=False
+        ["git", *args],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         sys.exit(

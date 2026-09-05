@@ -22,8 +22,9 @@ pub(crate) struct MorphotagRuntimeOptions {
     pub(crate) tokenization_mode: TokenizationMode,
     pub(crate) multilingual_policy: MultilingualPolicy,
     pub(crate) mwt: Arc<MwtDict>,
-    pub(crate) l2_morphotag: bool,
-    pub(crate) respect_pos_hints: bool,
+    pub(crate) l2_policy: crate::params::L2MorphotagPolicy,
+    pub(crate) pos_hint_policy: crate::params::PosHintPolicy,
+    pub(crate) ca_policy: crate::options::CaMorphotagPolicy,
     pub(crate) should_merge_abbrev: bool,
     /// Review-tier verbosity for the incremental morphotag path
     /// Legacy review-level request retained for stored-job compatibility.
@@ -132,8 +133,11 @@ impl WorkerGateway for PooledWorkerGateway {
             tokenization_mode: TokenizationMode::Preserve,
             multilingual_policy: MultilingualPolicy::ProcessAll,
             mwt,
-            l2_morphotag: false,
-            respect_pos_hints: false,
+            policy: crate::params::MorphotagExecutionPolicy {
+                l2: crate::params::L2MorphotagPolicy::Placeholder,
+                pos_hints: crate::params::PosHintPolicy::Ignore,
+                ca_policy: crate::options::CaMorphotagPolicy::Honor,
+            },
             // Compare's internal morphotag never surfaces review tiers.
             review_level: crate::chat_ops::fa::ReviewLevel::None,
             // Compare runs morphotag on its own inputs, not on the job's files,
@@ -163,8 +167,11 @@ impl WorkerGateway for PooledWorkerGateway {
             tokenization_mode: options.tokenization_mode,
             multilingual_policy: options.multilingual_policy,
             mwt: &options.mwt,
-            l2_morphotag: options.l2_morphotag,
-            respect_pos_hints: options.respect_pos_hints,
+            policy: crate::params::MorphotagExecutionPolicy {
+                l2: options.l2_policy,
+                pos_hints: options.pos_hint_policy,
+                ca_policy: options.ca_policy,
+            },
             review_level: options.review_level,
             progress,
             cancellation,

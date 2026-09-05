@@ -529,6 +529,33 @@ pub struct TranslateArgs {
     pub no_merge_abbrev: bool,
 }
 
+/// Morphotag analysis-policy switches lowered into typed runtime policy at the
+/// CLI boundary.
+#[derive(Args, Debug, Clone)]
+pub struct MorphotagPolicyArgs {
+    /// Opt out of L2 dispatch for `@s` (code-switched) words.
+    ///
+    /// By default morphotag routes `@s` words to the secondary-language
+    /// Stanza path and splices the resulting morphology back into `%mor`.
+    /// Pass `--no-l2-morphotag` to keep the legacy `L2|xxx` placeholders
+    /// instead.
+    #[arg(long, default_value_t = false)]
+    pub no_l2_morphotag: bool,
+
+    /// Opt out of transcriber-supplied `$POS` hint respect.
+    #[arg(long, default_value_t = false)]
+    pub no_pos_hints: bool,
+
+    /// Choose whether `@Options: CA` files remain pass-through or are
+    /// intentionally analyzed while retaining the CA header.
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = crate::options::CaMorphotagPolicy::Honor
+    )]
+    pub ca_policy: crate::options::CaMorphotagPolicy,
+}
+
 /// Arguments for the `morphotag` command.
 ///
 /// **No `--lang` flag.** BA2 parity (`~/batchalign2-master/batchalign/cli/cli.py`
@@ -568,24 +595,9 @@ pub struct MorphotagArgs {
     #[arg(long, conflicts_with = "skipmultilang")]
     pub multilang: bool,
 
-    /// Opt out of L2 dispatch for `@s` (code-switched) words.
-    ///
-    /// By default morphotag routes `@s` words to the secondary-language
-    /// Stanza path and splices the resulting morphology back into `%mor`.
-    /// Pass `--no-l2-morphotag` to keep the legacy `L2|xxx` placeholders
-    /// instead.
-    #[arg(long, default_value_t = false)]
-    pub no_l2_morphotag: bool,
-
-    /// Opt out of transcriber-supplied `$POS` hint respect. By
-    /// default batchalign3 walks every main-tier word carrying a
-    /// `$POS` suffix after Stanza finishes morphotag, maps the CLAN
-    /// tag to a UD UPOS, and overrides the `%mor` POS category when
-    /// Stanza disagrees. Lemma and morphological features from
-    /// Stanza are preserved. Pass `--no-pos-hints` to suppress the
-    /// override pass and keep Stanza's POS as-is.
-    #[arg(long, default_value_t = false)]
-    pub no_pos_hints: bool,
+    /// Morphotag analysis-policy switches.
+    #[command(flatten)]
+    pub policy: MorphotagPolicyArgs,
 
     /// Comma-separated manual lexicon override file.
     #[arg(long)]

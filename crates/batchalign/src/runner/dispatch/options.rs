@@ -177,8 +177,9 @@ pub(crate) struct MorphotagDispatchParams {
     pub multilingual_policy: MultilingualPolicy,
     pub override_media_cache: bool,
     pub merge_abbrev: MergeAbbrevPolicy,
-    pub l2_morphotag: bool,
-    pub respect_pos_hints: bool,
+    pub l2_policy: crate::params::L2MorphotagPolicy,
+    pub pos_hint_policy: crate::params::PosHintPolicy,
+    pub ca_policy: crate::options::CaMorphotagPolicy,
     pub review_level: crate::chat_ops::fa::ReviewLevel,
 }
 
@@ -192,8 +193,9 @@ pub(crate) fn extract_morphotag_dispatch_params(
             multilingual_policy: MultilingualPolicy::from_skip_flag(m.skipmultilang),
             override_media_cache: m.common.override_media_cache,
             merge_abbrev: m.merge_abbrev,
-            l2_morphotag: !m.no_l2_morphotag,
-            respect_pos_hints: !m.no_pos_hints,
+            l2_policy: (!m.no_l2_morphotag).into(),
+            pos_hint_policy: (!m.no_pos_hints).into(),
+            ca_policy: m.ca_policy,
             review_level: m.review_level,
         }),
         _ => None,

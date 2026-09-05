@@ -451,13 +451,18 @@ ci-local:
 
 # Full local CI: mirrors the stricter CI-style gate.
 ci-full:
-	@# No direct fmt call: `batchalign-ci-rust` -> `lint` -> `fmt-check` reaches
-	@# it. The duplicate is the defect `lint`'s own header records for the purity
-	@# gate, recreated for rustfmt and removed again.
-	@echo "==> clippy"
-	cargo clippy --all-targets -- -D warnings
-	@echo "==> compile check (main workspace)"
-	cargo check --workspace --all-targets
+	@# Build the assets that the default `embed-dashboard` feature compiles into
+	@# the Rust binary. The GitHub Rust job does this before batchalign-ci-rust;
+	@# omitting it locally made two embedded-dashboard tests fail only after a
+	@# clean worktree removed frontend/dist.
+	@$(MAKE) batchalign-dashboard-build
+	@# `batchalign-ci-rust` below owns clippy and check for the imported BA3
+	@# crates. Run clippy only for the two remaining workspace members here;
+	@# the former workspace-wide clippy + check compiled the BA3 graph twice
+	@# before running the same gate again.
+	@echo "==> clippy (remaining workspace members)"
+	cargo clippy -p batchalign-dashboard-desktop -p batchalign-whisper-pilot \
+		--all-targets -- -D warnings
 	@echo "==> runtime_constants.toml drift check"
 	@cargo run -p xtask --quiet -- gen-runtime-toml --check
 	@echo "==> imported Batchalign Rust/PyO3 gate"

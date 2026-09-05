@@ -49,10 +49,12 @@ pub(crate) struct BatchedInferDispatchPlan {
     /// Optional multi-word-token lexicon loaded by the CLI.
     pub mwt: MwtDict,
     /// [Experimental] Route @s words to secondary language Stanza models.
-    pub l2_morphotag: bool,
+    pub l2_policy: crate::params::L2MorphotagPolicy,
     /// Apply transcriber `$POS` hints as a post-pass on %mor (default on;
     /// CLI exposes `--no-pos-hints` to opt out).
-    pub respect_pos_hints: bool,
+    pub pos_hint_policy: crate::params::PosHintPolicy,
+    /// How morphotag treats a transcript carrying `@Options: CA`.
+    pub ca_policy: crate::options::CaMorphotagPolicy,
     /// Legacy review-level request retained for stored-job compatibility.
     /// No value emits CHAT decision tiers.
     pub review_level: crate::chat_ops::fa::ReviewLevel,
@@ -73,16 +75,18 @@ impl BatchedInferDispatchPlan {
             multilingual_policy,
             override_media_cache: _,
             merge_abbrev,
-            l2_morphotag,
-            respect_pos_hints,
+            l2_policy,
+            pos_hint_policy,
+            ca_policy,
             review_level,
         } = morphotag_params.unwrap_or(MorphotagDispatchParams {
             tokenization_mode: TokenizationMode::Preserve,
             multilingual_policy: MultilingualPolicy::ProcessAll,
             override_media_cache: job.dispatch.options.common().override_media_cache,
             merge_abbrev: job.dispatch.options.merge_abbrev_policy(),
-            l2_morphotag: false,
-            respect_pos_hints: false,
+            l2_policy: crate::params::L2MorphotagPolicy::Placeholder,
+            pos_hint_policy: crate::params::PosHintPolicy::Ignore,
+            ca_policy: crate::options::CaMorphotagPolicy::Honor,
             review_level: crate::chat_ops::fa::ReviewLevel::None,
         });
 
@@ -91,8 +95,9 @@ impl BatchedInferDispatchPlan {
             multilingual_policy,
             should_merge_abbrev: merge_abbrev.should_merge(),
             mwt: job.dispatch.options.common().mwt.clone(),
-            l2_morphotag,
-            respect_pos_hints,
+            l2_policy,
+            pos_hint_policy,
+            ca_policy,
             review_level,
         }
     }

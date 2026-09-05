@@ -104,8 +104,11 @@ async fn build_comparison_artifacts(
         tokenization_mode: TokenizationMode::Preserve,
         multilingual_policy: MultilingualPolicy::ProcessAll,
         mwt,
-        l2_morphotag: false,
-        respect_pos_hints: false,
+        policy: crate::params::MorphotagExecutionPolicy {
+            l2: crate::params::L2MorphotagPolicy::Placeholder,
+            pos_hints: crate::params::PosHintPolicy::Ignore,
+            ca_policy: crate::options::CaMorphotagPolicy::Honor,
+        },
         // Compare's internal morphotag never surfaces review tiers.
         review_level: crate::chat_ops::fa::ReviewLevel::None,
         // No job-level reporter on this path: see the field doc.

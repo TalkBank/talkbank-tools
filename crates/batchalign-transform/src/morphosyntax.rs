@@ -100,7 +100,10 @@ pub use payload::{
     clear_morphosyntax, clear_morphosyntax_selective, collect_payloads, declared_languages,
     prepare_text, remove_empty_morphosyntax_placeholders, validate_mor_alignment,
 };
-pub use pos_hints::{HintOutcome, apply_pos_hints, is_stanza_supported, supported_iso3_codes};
+pub use pos_hints::{
+    HintOutcome, PosHintEvidence, apply_pos_hint_evidence, apply_pos_hints, collect_pos_hints,
+    is_stanza_supported, supported_iso3_codes,
+};
 pub use sentence_mapping::{
     TerminatorPolicy, build_gra_and_validate, is_terminator_punct, map_ud_sentence,
     map_ud_sentence_expanded, map_ud_sentence_with_overrides,

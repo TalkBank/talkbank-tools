@@ -1,16 +1,18 @@
 # Transcriber `$POS` Hints
 
 **Status:** Reference, default on; opt out via `--no-pos-hints`
-**Last updated:** 2026-05-21 08:40 EDT
+**Last updated:** 2026-09-05 05:21 EDT
 
 CHAT main-tier words may carry a `$POS` suffix that encodes the
 transcriber's part-of-speech annotation in CLAN-MOR conventions
 (e.g. `school@s:eng$n`, `जब@s:hin$adv:temp`, `कि@s:hin$comp`). By
 default the morphotag pipeline treats those hints as authoritative
-POS evidence: after Stanza produces `%mor`, each hinted word's POS
-category is compared against the transcriber's CLAN tag, and the
-`%mor` POS is overridden on disagreement. Lemma and morphological
-features from Stanza are preserved, only the POS category changes.
+POS evidence. It captures them into `PosHintEvidence` before Stanza can
+retokenize the main tier, then applies that typed evidence after Stanza
+and L2 processing produce the final `%mor`. Each hinted word's POS category
+is compared against the transcriber's CLAN tag, and the `%mor` POS is
+overridden on disagreement. Lemma and morphological features from Stanza
+are preserved, only the POS category changes.
 
 Pass `--no-pos-hints` on any `morphotag` invocation to suppress the
 post-pass and keep Stanza's POS decisions as-is.
@@ -43,7 +45,7 @@ to `L2|xxx`.
 
 ```mermaid
 flowchart TD
-    A["Parse CHAT\n(parse_lenient)"] --> B["Extract primary payloads\n(collect_payloads)"]
+    A["Parse CHAT\n(parse_lenient)"] --> B["Extract payloads and typed $POS evidence\n(collect_payloads + collect_pos_hints)"]
     B --> C["Stanza primary inference\n(infer_batch, per-language)"]
     C --> D["Inject %mor + %gra\n(inject_morphosyntax)"]
     D --> E{"L2 @s words present?"}
@@ -53,7 +55,7 @@ flowchart TD
     H --> I["Splice merged Mor into ChatFile\n(splice_l2_into_chat)"]
     G --> J{"--no-pos-hints set?"}
     I --> J
-    J -->|no (default)| K["apply_pos_hints(&mut ChatFile)\n(pos_hints::apply_pos_hints)"]
+    J -->|no (default)| K["apply_pos_hint_evidence(&mut ChatFile, evidence, mappings)\nConsumes typed evidence after retokenization"]
     J -->|yes| L["Skip hint post-pass"]
     K --> M["Validate alignment\n(validate_mor_alignment)"]
     L --> M
@@ -65,7 +67,8 @@ Source verified:
 (orchestration entry) and
 `crates/batchalign/src/morphosyntax/batch.rs:31::dispatch_secondary_l2`
 (L2 dispatch);
-`crates/batchalign-transform/src/morphosyntax/pos_hints.rs:36::apply_pos_hints`;
+`crates/batchalign-transform/src/morphosyntax/pos_hints.rs`
+(`collect_pos_hints`, `apply_pos_hint_evidence`);
 `crates/batchalign-transform/src/morphosyntax/l2/splice.rs:405::splice_l2_into_chat`.
 
 ## Per-hint decision flow
@@ -92,7 +95,8 @@ flowchart TD
 ```
 
 Source verified: `crates/batchalign-transform/src/morphosyntax/pos_hints.rs`
-(`apply_pos_hints`, `resolve_hint` internal helper uses `UniversalPos::from_pos_name` and `UniversalPos::to_chat_pos_name`).
+(`collect_pos_hints`, `apply_pos_hint_evidence`; the `resolve_hint` internal
+helper uses `UniversalPos::from_pos_name` and `UniversalPos::to_chat_pos_name`).
 
 ## The CLAN → UD UPOS table
 
@@ -165,7 +169,6 @@ batchalign3 morphotag --no-pos-hints input.cha --output out/
 batchalign3 morphotag \
     --no-pos-hints \
     --no-l2-morphotag \
-    --lang eng \
     input/
 ```
 
@@ -178,7 +181,7 @@ every hint as an Agreement.
 
 | Field | Preserved? |
 |---|---|
-| Main tier (word order, `@s` tags, `$POS` suffixes, markup) | ✓ unchanged |
+| Main tier (word order, `@s` tags, `$POS` suffixes, markup) | Unchanged by the hint pass; `--retokenize` may independently rewrite it |
 | `%mor` lemma (`MorStem`) | ✓ Stanza value kept |
 | `%mor` features (tense, case, number, gender, …) | ✓ Stanza value kept |
 | `%mor` POS category | **overwritten on disagreement** |
@@ -186,9 +189,14 @@ every hint as an Agreement.
 | Post-clitics (`~aux|be` after `pron|it`) | ✓ unchanged (outer item only gets POS override) |
 | `%xmor`, `%xgra`, `%com`, `%eng` and other user tiers | ✓ unchanged |
 
-The pass never adds, removes, or reorders words or tiers. It only
-mutates the single `PosCategory` string on `%mor` items whose paired
-main-tier word has a disagreeing `$POS`.
+The hint application never adds, removes, or reorders words or tiers. It only
+mutates the single `PosCategory` string on `%mor` items whose captured evidence
+contains a disagreeing `$POS`. Capturing evidence before retokenization prevents
+the main-tier rewrite from silently disabling the default-on policy. When an
+earlier word expands into multiple Stanza tokens, the injection trace maps later
+hints to their new `%mor` positions. If the hinted word itself expands, its hint
+applies to the first mapped token. Applying the evidence consumes it, preventing
+an orchestration path from accidentally applying the same hint set twice.
 
 ## Known limitations
 

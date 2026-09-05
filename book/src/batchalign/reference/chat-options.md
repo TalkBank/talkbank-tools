@@ -1,7 +1,7 @@
 # `@Options` and Per-File Command Scoping
 
 **Status:** Current
-**Last updated:** 2026-05-07 18:25 EDT
+**Last updated:** 2026-09-05 04:22 EDT
 
 CHAT files can carry an `@Options:` header that scopes which
 batchalign3 commands are allowed to run on them. The two values
@@ -11,8 +11,8 @@ generic "skip everything" flag.
 
 ## `@Options: CA`: skip morphotag
 
-A Conversation Analysis transcript. **`@Options: CA` literally means
-"the morphotag command is not to be run on this file."** CA
+A Conversation Analysis transcript. By default, `@Options: CA` means
+"the morphotag command is not to be run on this file." CA
 transcripts use a separate convention for prosodic and discourse
 annotation that does not benefit from automatic POS / dependency
 analysis, and any %mor / %gra written by morphotag would be at best
@@ -24,6 +24,14 @@ batchalign3's behavior on a `@Options: CA` file:
   any) is preserved unchanged. No Stanza inference. No provenance
   comment is added.
 - All other commands, run normally.
+
+Corpus reconstruction can make a different, explicit choice with
+`--ca-policy analyze`. That policy runs morphotag while preserving the
+`@Options: CA` header. It exists for a documented source-to-publication
+rebuild where automatic morphology is part of the intended edition, such as
+reconstructing MICASE material whose published derivative already carries
+`%mor`. The default remains `honor`; a routine invocation never overrides the
+transcript declaration silently.
 
 ## `@Options: NoAlign`: skip the `align` command
 
@@ -49,9 +57,10 @@ batchalign3's behavior on a `@Options: NoAlign` file:
 
 ## Combining `CA` and `NoAlign`
 
-A file may carry both: `@Options: CA, NoAlign`. The directives
-remain orthogonal, `CA` skips `morphotag`, `NoAlign` skips `align`,
-and any other command runs.
+A file may carry both: `@Options: CA, NoAlign`. Under the default CA policy,
+the directives remain orthogonal: `CA` skips `morphotag`, `NoAlign` skips
+`align`, and any other command runs. `--ca-policy analyze` changes only the
+morphotag decision; `NoAlign` continues to govern alignment independently.
 
 ## What the directives are NOT
 
@@ -66,7 +75,8 @@ specification update.
 
 - CHAT manual: <https://talkbank.org/0info/manuals/CHAT.html>
   (search for "Options" in the headers reference).
-- `crates/batchalign/src/pipeline/morphosyntax.rs::should_skip_inference`
- , the morphotag-side gate (`is_ca` only).
+- `crates/batchalign/src/pipeline/morphosyntax.rs`, where the submitted
+  `CaMorphotagPolicy` and parsed header produce one typed per-file
+  disposition consumed by all downstream stages.
 - `crates/batchalign/src/fa/mod.rs`: the `align`-side gate
   (`is_no_align`).

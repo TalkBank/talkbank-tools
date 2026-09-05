@@ -1,7 +1,7 @@
 # morphotag
 
 **Status:** Current
-**Last updated:** 2026-05-23 09:20 EDT
+**Last updated:** 2026-09-05 04:22 EDT
 
 Add morphosyntactic analysis (`%mor` POS/lemma tiers and `%gra` dependency
 tiers) to existing CHAT transcripts. Text-only, no audio involved.
@@ -41,6 +41,9 @@ batchalign3 morphotag corpus/ -o out/ --retokenize
 
 # Use remote server
 batchalign3 --server http://your-server:8001 morphotag corpus/ -o out/
+
+# Deliberately analyze CA transcripts while preserving @Options: CA
+batchalign3 morphotag corpus/ -o out/ --ca-policy analyze
 ```
 
 To "override" the language, edit the file's `@Languages:` line. There is
@@ -137,9 +140,10 @@ clap parse error, the CLI surface deliberately rejects it. See the
 | `--merge-abbrev` | off | Merge abbreviations in the output |
 | `--no-l2-morphotag` | off | Opt out of L2 dispatch. With this flag, `@s` code-switched words emit `L2\|xxx` placeholders instead of real POS/lemma/deprel annotations (legacy behavior, kept for reproducibility of older analyses) |
 | `--no-pos-hints` | off | Opt out of transcriber `$POS` hint respect. By default, after morphotag the pipeline overrides any `%mor` POS that disagrees with the CLAN→UD-mapped hint on main-tier words carrying `$POS` suffixes. Lemma and features from Stanza are preserved. Pass `--no-pos-hints` to skip the override pass and keep Stanza's POS as-is. See [Transcriber `$POS` Hints](../../reference/pos-hints.md) for the mechanism and coverage table |
+| `--ca-policy honor\|analyze` | `honor` | Honor `@Options: CA` pass-through, or explicitly run morphotag while preserving that header. Use `analyze` only when the corpus reconstruction record calls for an analyzed CA edition |
 | `--before PATH` |: | Previous version of the file for incremental processing (skip unchanged utterances) |
 
-## `@Options: CA` files are passed through
+## `@Options: CA` files pass through by default
 
 Files whose header declares `@Options: CA` (Conversation Analysis mode)
 are passed through morphotag unchanged. The pipeline parses the file,
@@ -148,10 +152,13 @@ tiers are added, and any pre-existing `%mor` / `%gra` tiers are
 preserved verbatim. Provenance comments are not injected for these
 files.
 
-This mirrors how `align` skips files with `@Options: NoAlign`. The
-mechanism is the option header alone; per-utterance content (CA
-prosody markers, pauses, `&=` events, etc.) does not influence the
-decision.
+This mirrors how `align` skips files with `@Options: NoAlign`. The mechanism
+is the option header plus the submitted typed CA policy; per-utterance content
+(CA prosody markers, pauses, `&=` events, etc.) does not influence the
+decision. `--ca-policy analyze` explicitly selects the normal morphotag
+pipeline for these files and retains the `@Options: CA` line in the result.
+This makes a historical corpus reconstruction reproducible without silently
+deleting or editing the source declaration.
 
 ---
 

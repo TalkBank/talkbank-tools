@@ -380,6 +380,7 @@ fn ca_arrow_terminator_must_normalize_to_period_in_morphotag_payload() {
                 @Languages:\teng\n\
                 @Participants:\tPAR Participant\n\
                 @ID:\teng|test|PAR|||||Participant|||\n\
+                @Options:\tCA\n\
                 *PAR:\tyes →\n\
                 @End\n";
     let (chat_file, _) = parse_lenient(&parser, chat);

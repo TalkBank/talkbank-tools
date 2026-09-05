@@ -168,14 +168,6 @@ pub fn collect_payloads(
     declared_languages: &[talkbank_model::model::LanguageCode],
     multilingual_policy: MultilingualPolicy,
 ) -> PayloadCollection {
-    if crate::parse::is_ca(chat_file) {
-        return PayloadCollection {
-            batch_items: Vec::new(),
-            not_applicable: Vec::new(),
-            total_utterances: 0,
-        };
-    }
-
     let total_utts = chat_file
         .lines
         .iter()
@@ -340,18 +332,6 @@ pub fn declared_languages(
 /// Reset every existing `%mor` and `%gra` tier to an empty body in place,
 /// preserving original dependent-tier order.
 pub fn clear_morphosyntax(chat_file: &mut talkbank_model::model::ChatFile) {
-    // CA files (`@Options: CA`) are pass-through for morphosyntax, same
-    // discipline as `@Options: NoAlign` for the align pipeline. The morphotag
-    // pipeline short-circuits before reaching this function for CA files
-    // (see `pipeline/morphosyntax.rs::should_skip_inference` and
-    // `morphosyntax/batch.rs` `dummy_flags`). This guard is a defence in
-    // depth: if a future caller invokes `clear_morphosyntax` on a CA file
-    // directly, leave the file untouched rather than silently strip
-    // existing `%mor` / `%gra` content the researcher placed there.
-    if crate::parse::is_ca(chat_file) {
-        return;
-    }
-
     for line in chat_file.lines.as_mut_slice().iter_mut() {
         if let Line::Utterance(utt) = line {
             reset_mor_gra_in_place(utt);

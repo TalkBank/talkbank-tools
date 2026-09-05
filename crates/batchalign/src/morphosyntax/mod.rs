@@ -39,20 +39,44 @@ mod worker;
 
 use crate::chat_ops::LanguageCode;
 use crate::chat_ops::morphosyntax_ops::{
-    BatchItemWithPosition, TokenizationMode, clear_morphosyntax_selective, collect_payloads,
-    declared_languages, inject_results, validate_mor_alignment,
+    BatchItemWithPosition, TokenizationMode, apply_pos_hint_evidence, clear_morphosyntax_selective,
+    collect_payloads, collect_pos_hints, declared_languages, inject_results,
+    validate_mor_alignment,
 };
 use crate::error::ServerError;
 use crate::params::MorphosyntaxParams;
 use crate::pipeline::PipelineServices;
 use crate::pipeline::morphosyntax::run_morphosyntax_pipeline;
-use batchalign_transform::parse::{is_dummy, parse_lenient};
+use batchalign_transform::parse::{is_ca, is_dummy, parse_lenient};
 use batchalign_transform::serialize::to_chat_string;
 use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
 
 pub(crate) use batch::dispatch_secondary_l2;
 pub(crate) use worker::infer_batch;
+
+/// Per-file decision produced from the submitted policy and parsed CHAT
+/// header. Morphology mechanisms consume this decision rather than
+/// reinterpreting `@Options` themselves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MorphotagDisposition {
+    Analyze,
+    PassThroughCa,
+}
+
+impl crate::options::CaMorphotagPolicy {
+    pub(crate) fn disposition_for(
+        self,
+        chat_file: &crate::chat_ops::ChatFile,
+    ) -> MorphotagDisposition {
+        match (self, is_ca(chat_file)) {
+            (Self::Honor, true) => MorphotagDisposition::PassThroughCa,
+            (Self::Honor | Self::Analyze, false) | (Self::Analyze, true) => {
+                MorphotagDisposition::Analyze
+            }
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Per-file morphosyntax processing
@@ -142,6 +166,13 @@ pub(crate) async fn process_morphosyntax_incremental(
     }
 
     if is_dummy(&after_file) {
+        return Ok(to_chat_string(&after_file));
+    }
+
+    if matches!(
+        params.policy.ca_policy.disposition_for(&after_file),
+        MorphotagDisposition::PassThroughCa
+    ) {
         return Ok(to_chat_string(&after_file));
     }
 
@@ -284,6 +315,11 @@ pub(crate) async fn process_morphosyntax_incremental(
     // Step 4: Infer for the filtered payloads.
     //
     if !filtered_payloads.is_empty() {
+        let pos_hint_evidence = params
+            .policy
+            .pos_hints
+            .should_apply()
+            .then(|| collect_pos_hints(&after_file));
         let misses = filtered_payloads;
         match infer_batch(
             services.pool,
@@ -299,7 +335,7 @@ pub(crate) async fn process_morphosyntax_incremental(
             Ok(responses) => {
                 // Extract L2 deferred positions before inject_results
                 // takes ownership of misses/responses.
-                let l2_deferred = if params.l2_morphotag {
+                let l2_deferred = if params.policy.l2.should_analyze() {
                     crate::chat_ops::morphosyntax_ops::l2::extract_l2_deferred_positions(
                         &misses, &responses,
                     )
@@ -316,7 +352,7 @@ pub(crate) async fn process_morphosyntax_incremental(
                     params.tokenization_mode,
                     params.mwt,
                 ) {
-                    Ok(_injection_result) => {
+                    Ok(injection_result) => {
                         // Secondary L2 dispatch for @s words.
                         if !l2_deferred.is_empty() {
                             dispatch_secondary_l2(
@@ -326,6 +362,14 @@ pub(crate) async fn process_morphosyntax_incremental(
                                 "incremental",
                             )
                             .await;
+                        }
+                        if let Some(evidence) = pos_hint_evidence {
+                            let outcome = apply_pos_hint_evidence(
+                                &mut after_file,
+                                evidence,
+                                &injection_result.retokenization_traces,
+                            );
+                            tracing::debug!(?outcome, "Applied transcriber POS hints");
                         }
                     }
                     Err(e) => {
