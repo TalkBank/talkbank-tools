@@ -210,6 +210,8 @@ pub struct FileResultEntry {
 /// enough information for the handler to locate result files on disk and decide
 /// whether to stream content or return paths.
 pub struct JobDetail {
+    /// Command whose output policy maps input names to result artifacts.
+    pub command: crate::ReleasedCommand,
     /// Current lifecycle state -- the handler uses this to reject downloads for
     /// jobs that are still running.
     pub status: JobStatus,

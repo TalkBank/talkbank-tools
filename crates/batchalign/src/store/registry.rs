@@ -624,6 +624,7 @@ impl JobRegistry {
     /// Project the download-facing detail view for one job.
     pub(crate) async fn job_detail(&self, job_id: &JobId) -> Option<JobDetail> {
         self.project_job(job_id.clone(), |job| JobDetail {
+            command: job.dispatch.command,
             status: job.execution.status,
             paths_mode: job.filesystem.paths_mode,
             staging_dir: job.filesystem.staging_dir.clone(),

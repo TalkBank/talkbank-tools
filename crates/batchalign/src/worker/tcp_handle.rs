@@ -425,7 +425,7 @@ impl TcpWorkerHandle {
 
         // Same protocol contract as the stdio handle: tolerate
         // progress_v2 preamble during cold-cache catalog/model loads.
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        let deadline = tokio::time::Instant::now() + crate::worker::CAPABILITY_TIMEOUT;
         let response = self
             .read_response_skipping_progress(deadline, None)
             .await

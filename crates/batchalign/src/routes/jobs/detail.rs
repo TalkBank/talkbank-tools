@@ -118,8 +118,8 @@ pub(crate) async fn get_results(
 ///
 /// Waits for the individual file to reach a terminal status, not the whole job,
 /// so clients can fetch results incrementally as files finish. Supports
-/// stem-based matching (e.g., requesting `sample.wav` will find `sample.cha`)
-/// to handle the common case where the output extension differs from the input.
+/// command-policy matching (e.g., requesting `sample.wav` finds `sample.cha`,
+/// and speaker identification maps `sample.cha` to its evidence JSON).
 #[utoipa::path(
     get,
     path = "/jobs/{job_id}/results/{*filename}",
@@ -171,25 +171,7 @@ pub(crate) async fn get_single_result(
         }));
     }
 
-    // Find result entry (handles filename renaming e.g. .wav -> .cha)
-    let result_entry = detail
-        .results
-        .iter()
-        .find(|r| *r.filename == *filename)
-        .or_else(|| {
-            let stem = std::path::Path::new(&filename)
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy();
-            detail.results.iter().find(|r| {
-                r.error.is_none()
-                    && std::path::Path::new(r.filename.as_ref())
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        == stem
-            })
-        })
+    let result_entry = primary_result_entry(&detail, &filename)
         .ok_or_else(|| {
             ServerError::FileNotFound(format!("Result for {filename} not found in job {job_id}"))
         })?;
@@ -211,6 +193,18 @@ pub(crate) async fn get_single_result(
         error: None,
         provenance,
     }))
+}
+
+/// Use the producer's output policy, including suffixes and directory identity.
+/// Stem-only matching both missed evidence JSON and confused nested inputs.
+fn primary_result_entry<'a>(
+    detail: &'a crate::store::JobDetail,
+    input: &str,
+) -> Option<&'a crate::store::FileResultEntry> {
+    let expected = crate::recipe_runner::runtime::result_display_path_for_command(
+        detail.command, input,
+    );
+    detail.results.iter().find(|r| r.error.is_none() && r.filename == expected)
 }
 
 async fn read_result_content(path: &std::path::Path) -> Result<String, ServerError> {
@@ -245,6 +239,7 @@ mod tests {
 
     fn job_detail(paths_mode: bool) -> JobDetail {
         JobDetail {
+            command: crate::ReleasedCommand::Align,
             status: JobStatus::Completed,
             paths_mode,
             staging_dir: batchalign_types::paths::ServerPath::new("/tmp/jobs/job-1"),
@@ -279,5 +274,27 @@ mod tests {
             result_content_path(&detail, &DisplayPath::from("nested/sample.cha")),
             PathBuf::from("/tmp/jobs/job-1/output/nested/sample.cha")
         );
+    }
+
+    #[test]
+    fn runtime_regression_speaker_result_preserves_directory_identity() {
+        let mut detail = job_detail(true);
+        detail.command = crate::ReleasedCommand::SpeakerIdentify;
+        detail.results[0].filename = "nested/sample_speaker_identity.json".into();
+        detail.results[0].content_type = ContentType::Json;
+        let result = super::primary_result_entry(&detail, "nested/sample.cha").unwrap();
+        assert_eq!(result.filename.as_ref(), "nested/sample_speaker_identity.json");
+        assert!(super::primary_result_entry(&detail, "other/sample.cha").is_none());
+        detail.results[0].error = Some("failed".into());
+        assert!(super::primary_result_entry(&detail, "nested/sample.cha").is_none());
+    }
+
+    #[test]
+    fn runtime_regression_result_preserves_chat_and_media_input_mapping() {
+        let mut detail = job_detail(false);
+        assert!(super::primary_result_entry(&detail, "nested/sample.cha").is_some());
+        detail.command = crate::ReleasedCommand::Transcribe;
+        assert!(super::primary_result_entry(&detail, "nested/sample.wav").is_some());
+        assert!(super::primary_result_entry(&detail, "other/sample.wav").is_none());
     }
 }

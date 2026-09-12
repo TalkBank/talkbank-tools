@@ -191,6 +191,28 @@ mod progress_preamble_tests {
         r#"{"op": "capabilities", "response": {"commands": ["morphotag"], "free_threaded": false, "infer_tasks": ["morphosyntax"], "engine_versions": {"morphosyntax": "stanza-1.9.2"}}}"#,
         "\n",
     );
+
+    #[tokio::test(start_paused = true)]
+    async fn runtime_regression_capabilities_accept_cold_imports_and_remain_bounded() {
+        use tokio::io::AsyncWriteExt;
+        for delay in [120, 301] {
+            let (reader, mut writer) = tokio::io::duplex(4096);
+            let sender = tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                let _ = writer.write_all(CAPABILITIES_RESPONSE.as_bytes()).await;
+            });
+            let mut reader = BufReader::new(reader);
+            let deadline = tokio::time::Instant::now() + crate::worker::CAPABILITY_TIMEOUT;
+            let result = WorkerHandle::read_response_skipping_progress(&mut reader, deadline, None).await;
+            if delay == 120 {
+                assert!(matches!(result, Ok(WorkerResponse::Capabilities { .. })));
+            } else {
+                assert!(result.is_err());
+            }
+            sender.abort();
+            let _ = sender.await;
+        }
+    }
     const ENSURE_TASK_RESPONSE: &str = concat!(
         r#"{"op": "ensure_task", "response": {"status": "loaded", "task": "morphotag", "elapsed_s": 0.0}}"#,
         "\n",

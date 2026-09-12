@@ -45,6 +45,10 @@ pub mod text_result_v2;
 pub use crate::types::worker::*;
 pub use target::{WorkerBootstrapMode, WorkerProfile, WorkerTarget};
 
+/// Capability probes perform cold ML imports after the ready handshake.
+/// Give all transports the same bounded startup budget, not a health-check budget.
+pub(crate) const CAPABILITY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
 // ---------------------------------------------------------------------------
 // ensure_task IPC types (shared between sequential and concurrent paths)
 // ---------------------------------------------------------------------------

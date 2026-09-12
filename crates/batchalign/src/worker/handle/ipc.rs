@@ -412,9 +412,9 @@ impl WorkerHandle {
         // Import probes in _capabilities() may load heavy ML libraries
         // (torch, whisper, pyannote) on first invocation, AND on first
         // run a Stanza catalog download can fire `progress_v2` events
-        // before the final `capabilities` response. The 60s budget
-        // allows for cold imports + initial download.
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        // before the final `capabilities` response. Use the shared cold-start
+        // budget; a health-check-sized wait can expire while imports progress.
+        let deadline = tokio::time::Instant::now() + crate::worker::CAPABILITY_TIMEOUT;
         let response = self
             .read_response_skipping_progress_via_self(deadline, None)
             .await?;

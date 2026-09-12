@@ -271,7 +271,7 @@ impl SharedGpuTcpWorker {
             writer.write_all(b"{\"op\":\"capabilities\"}\n").await?;
             writer.flush().await?;
         }
-        match tokio::time::timeout(Duration::from_secs(60), rx).await {
+        match tokio::time::timeout(crate::worker::CAPABILITY_TIMEOUT, rx).await {
             Ok(Ok(WorkerControlResponse::Capabilities(response))) => Ok(response),
             Ok(Ok(WorkerControlResponse::Error(error))) => Err(WorkerError::Protocol(error)),
             Ok(Ok(other)) => Err(WorkerError::Protocol(format!(
